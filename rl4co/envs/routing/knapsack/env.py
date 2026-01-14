@@ -51,7 +51,19 @@ class KnapsackEnv(RL4COEnvBase):
         self._make_spec(self.generator)
 
     def _step(self, td: TensorDict) -> TensorDict:
-        current_item = td["action"][:, None]
+        action = td["action"]
+        if action.dim() == 1:
+            current_item = action.unsqueeze(-1)
+        elif action.dim() == 2 and action.size(-1) == 1:
+            current_item = action
+        else:
+            raise ValueError(f"Invalid action shape: {tuple(action.shape)}")
+
+        prev_done = td.get("done", torch.zeros_like(td["i"], dtype=torch.bool))
+        if prev_done.dim() == 1:
+            prev_done = prev_done.unsqueeze(-1)
+        # No-op once done to prevent trajectories from "un-finishing" in batched decoding
+        current_item = torch.where(prev_done, torch.zeros_like(current_item), current_item)
         n_items = td["demand"].size(-1)
 
         selected_weight = gather_by_index(
@@ -67,7 +79,7 @@ class KnapsackEnv(RL4COEnvBase):
         assert current_item.min() >= 0, f"current_item.min()={current_item.min()} < 0"
         assert current_item.max() < td["visited"].size(-1), f"current_item.max()={current_item.max()} >= visited.size(-1)"
         visited = td["visited"].scatter(-1, current_item, 1)
-        done = (current_item.squeeze(-1) == 0) & (td["i"] > 0)
+        done = prev_done | ((current_item == 0) & (td["i"] > 0))
 
         reward = torch.zeros_like(done)
 
@@ -112,10 +124,19 @@ class KnapsackEnv(RL4COEnvBase):
 
     @staticmethod
     def get_action_mask(td: TensorDict) -> torch.Tensor:
-        exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"]
-        mask = td["visited"][..., 1:].to(exceeds_cap.dtype) | exceeds_cap
+        exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"] + 1e-6
+        mask = td["visited"][..., 1:] | exceeds_cap
         action_mask = ~mask
         action_mask = torch.cat((torch.ones_like(action_mask[..., :1]), action_mask), -1)
+
+        done = td.get("done", None)
+        if done is not None:
+            if done.dim() == 1:
+                done = done.unsqueeze(-1)
+            if done.any():
+                only_finish = torch.zeros_like(action_mask, dtype=torch.bool)
+                only_finish[..., 0] = True
+                action_mask = torch.where(done.expand_as(action_mask), only_finish, action_mask)
         return action_mask
 
     def _get_reward(self, td: TensorDict, actions: torch.Tensor) -> torch.Tensor:
@@ -123,10 +144,21 @@ class KnapsackEnv(RL4COEnvBase):
             (torch.zeros_like(td["values"][..., :1]), td["values"]), dim=-1
         )
         collected = values.gather(1, actions)
+        if actions.dim() == 2:
+            # Only count items before the first "finish" (0) action
+            ended = (actions == 0).cumsum(dim=1) > 0
+            collected = collected.masked_fill(ended, 0)
         return collected.sum(-1)
 
     @staticmethod
     def check_solution_validity(td: TensorDict, actions: torch.Tensor) -> None:
+        # Only consider actions up to (and excluding) the first finish action (0)
+        if actions.dim() != 2:
+            raise ValueError(f"Expected actions with shape [batch, seq_len], got {tuple(actions.shape)}")
+        actions = actions.clone()
+        ended = (actions == 0).cumsum(dim=1) > 0
+        actions[ended] = 0
+
         sorted_actions = actions.data.sort(1)[0]
         assert (
             (sorted_actions[:, 1:] == 0)

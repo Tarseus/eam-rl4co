@@ -80,7 +80,8 @@ def evolution_worker(actions, _td, ea, env):
         elif ea.env_name == "ffsp":
             keys = ['job_duration', 'schedule', 'job_location', 'run_time']
         elif ea.env_name == "knapsack":
-            keys = ['weights', 'values', 'vehicle_capacity']
+            # NOTE: KnapsackEnv uses `demand` for capacity checks; keep `weights` as well for EA operators.
+            keys = ['weights', 'demand', 'values', 'vehicle_capacity']
             
         def process_batch(b):
             batch_actions = actions[b]
