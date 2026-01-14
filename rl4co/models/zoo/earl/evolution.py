@@ -36,16 +36,20 @@ def evolution_worker(actions, _td, ea, env):
         decode_type: decoding type
         env: environment
     """
-    batch_size = _td["locs"].shape[0]
-    if ea.method != "am":
-        multi_start = True
-    else:
-        multi_start = False
+    batch_size = _td.batch_size[0]
     with torch.no_grad():
         init_td = _td.clone()
         td = _td.clone()
         
-        n_start = env.get_num_starts(td)
+        # Infer whether the incoming actions are multi-start (POMO-style) or single-start
+        n_start_env = env.get_num_starts(td)
+        n_start = 1
+        if isinstance(actions, torch.Tensor) and actions.dim() >= 2:
+            if actions.shape[0] % batch_size == 0:
+                inferred = actions.shape[0] // batch_size
+                if inferred > 1:
+                    n_start = inferred
+        multi_start = n_start > 1
         
         actions = actions.cpu()
         td = td.cpu()
@@ -59,6 +63,8 @@ def evolution_worker(actions, _td, ea, env):
                 env_code = 2
             elif ea.env_name == "op":
                 env_code = 3
+            elif ea.env_name == "knapsack":
+                env_code = 4
                 
             if np.any(np.all(actions == 0, axis=2)):
                 print("Warning: actions contains rows with all zeros.")
@@ -90,7 +96,7 @@ def evolution_worker(actions, _td, ea, env):
             for key in keys:
                 if key in td:
                     env_td[key] = td[key][b:b+1].cpu()
-            env_td = TensorDict(env_td, batch_size=[1])
+            env_td = TensorDict(env_td, batch_size=[1], device=td.device)
             
             verbose = (b == 0)
                         
@@ -170,20 +176,21 @@ class EA():
         cost = reward * -1
         """
         device = td.device
-        
+
         pop_copy = copy.deepcopy(pop)
-        tensor_pop = torch.tensor(pop_copy, device=device, dtype=torch.int64) if not isinstance(pop, torch.Tensor) else pop.to(device=device, dtype=torch.int64)
+        tensor_pop = (
+            torch.tensor(pop_copy, device=device, dtype=torch.int64)
+            if not isinstance(pop, torch.Tensor)
+            else pop.to(device=device, dtype=torch.int64)
+        )
 
         pop_size = tensor_pop.shape[0]
         if td.batch_size[0] == 1 and pop_size > 1:
-            expanded_td = TensorDict({}, batch_size=[pop_size])
+            expanded_td = TensorDict({}, batch_size=[pop_size], device=device)
             for key, value in td.items():
-                expanded_td[key] = value.expand(pop_size, *value.shape[1:])
-                
-            assert expanded_td.device == tensor_pop.device, "Devices do not match"
-            
+                if isinstance(value, torch.Tensor):
+                    expanded_td[key] = value.expand(pop_size, *value.shape[1:])
             result = -self.reward_fn(expanded_td, tensor_pop).cpu().numpy().astype(np.float32)
-            
             return result
         else:
             if td.device != tensor_pop.device:
@@ -282,6 +289,7 @@ class EA():
         fitness = self.fitness_fn(pop, td, verbose)
         
         initial_first_nodes = copy.deepcopy(init_pop[:, 0])
+        unique_first_nodes = len(np.unique(initial_first_nodes)) == len(initial_first_nodes)
         node_to_position = {node: idx for idx, node in enumerate(initial_first_nodes)}
         
         select_time, crossover_time, mutate_time, fitness_time = 0, 0, 0, 0
@@ -322,7 +330,7 @@ class EA():
                     combined_pop = np.vstack([pop, offspring])
                 combined_fitness = np.concatenate([fitness, mutated_fitness])
                 
-                if self.method == "am" and (self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "op"):
+                if (self.method == "am" and (self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "op" or self.env_name == "knapsack")) or (not unique_first_nodes):
                     sorted_indices = np.argsort(combined_fitness)[::-1]
                     sorted_pop = combined_pop[sorted_indices]
                     sorted_fitness = combined_fitness[sorted_indices]
