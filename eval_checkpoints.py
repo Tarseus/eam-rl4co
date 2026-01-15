@@ -7,6 +7,7 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
+import inspect
 
 import numpy as np
 import torch
@@ -153,6 +154,13 @@ def load_model_checkpoint(model_cls, path: Path, env):
         "ea_epoch": 700,
     }
     try:
+        def filter_init_kwargs(cls, kwargs):
+            sig = inspect.signature(cls.__init__)
+            if any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()):
+                return kwargs
+            allowed = {name for name in sig.parameters if name != "self"}
+            return {k: v for k, v in kwargs.items() if k in allowed}
+
         ckpt = torch.load(str(path), map_location="cpu", weights_only=False)
         hparams = ckpt.get("hyper_parameters", {}) or {}
         policy = hparams.get("policy")
@@ -173,7 +181,7 @@ def load_model_checkpoint(model_cls, path: Path, env):
         init_kwargs["env"] = env
         if policy is not None:
             init_kwargs["policy"] = policy
-        model = model_cls(**init_kwargs)
+        model = model_cls(**filter_init_kwargs(model_cls, init_kwargs))
         state_dict = {
             k: v
             for k, v in ckpt.get("state_dict", {}).items()
