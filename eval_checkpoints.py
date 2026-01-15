@@ -133,8 +133,6 @@ def build_policy_for_model(model_cls, env, policy_kwargs: dict):
     from rl4co.models import AttentionModelPolicy, SymNCOPolicy
 
     policy_kwargs = policy_kwargs or {}
-    if model_cls in (SymNCOPolicy,):
-        return SymNCOPolicy(env_name=env.name, **policy_kwargs)
     if model_cls.__name__ in ("SymNCO", "SymEAM"):
         return SymNCOPolicy(env_name=env.name, **policy_kwargs)
     return AttentionModelPolicy(env_name=env.name, **policy_kwargs)
@@ -142,12 +140,18 @@ def build_policy_for_model(model_cls, env, policy_kwargs: dict):
 
 def load_model_checkpoint(model_cls, path: Path, env):
     errors = []
-    for kwargs in ({"env": env, "load_baseline": False}, {"load_baseline": False}):
-        try:
-            return model_cls.load_from_checkpoint(str(path), **kwargs), None
-        except Exception as exc:
-            errors.append(str(exc))
-
+    default_ea_kwargs = {
+        "num_generations": 3,
+        "mutation_rate": 0.1,
+        "crossover_rate": 0.6,
+        "selection_rate": 0.2,
+        "batch_size": 64,
+        "ea_batch_size": 64,
+        "alpha": 0.5,
+        "beta": 3,
+        "ea_prob": 0.01,
+        "ea_epoch": 700,
+    }
     try:
         ckpt = torch.load(str(path), map_location="cpu", weights_only=False)
         hparams = ckpt.get("hyper_parameters", {}) or {}
@@ -160,15 +164,36 @@ def load_model_checkpoint(model_cls, path: Path, env):
             for k, v in hparams.items()
             if k not in {"env", "policy", "dataset"}
         }
+        if model_cls.__name__ in ("SymNCO", "SymEAM"):
+            init_kwargs["baseline"] = "symnco"
+        if model_cls.__name__ in ("EAM", "SymEAM"):
+            ea_kwargs = init_kwargs.get("ea_kwargs", {}) or {}
+            merged = {**default_ea_kwargs, **ea_kwargs}
+            init_kwargs["ea_kwargs"] = merged
         init_kwargs["env"] = env
         if policy is not None:
             init_kwargs["policy"] = policy
         model = model_cls(**init_kwargs)
-        model.load_state_dict(ckpt["state_dict"], strict=False)
+        state_dict = {
+            k: v
+            for k, v in ckpt.get("state_dict", {}).items()
+            if not k.startswith("baseline.")
+        }
+        model.load_state_dict(state_dict, strict=False)
         return model, None
     except Exception as exc:
         errors.append(str(exc))
-        return None, "; ".join(errors)
+
+    for kwargs in (
+        {"env": env, "load_baseline": False, "map_location": "cpu"},
+        {"load_baseline": False, "map_location": "cpu"},
+    ):
+        try:
+            return model_cls.load_from_checkpoint(str(path), **kwargs), None
+        except Exception as exc:
+            errors.append(str(exc))
+
+    return None, "; ".join(errors)
 
 
 def infer_num_starts(env, dataset) -> int | None:
@@ -315,6 +340,7 @@ def main() -> int:
     output_root.mkdir(parents=True, exist_ok=True)
 
     for info in ckpt_infos:
+        print(f"[eval] Loading {info.path.name} ({info.method}, {info.problem}{info.size})")
         model_cls = resolve_model_class(info.method)
         if model_cls is None:
             print(f"[skip] Unknown method '{info.method}' in {info.path.name}")
@@ -364,20 +390,26 @@ def main() -> int:
             )
 
             try:
-                result = evaluate_policy(
-                    env=env,
-                    policy=model.policy,
-                    dataset=dataset,
-                    method=method,
-                    batch_size=args.batch_size,
-                    max_batch_size=args.max_batch_size,
-                    auto_batch_size=args.batch_size is None,
-                    samples=args.samples,
-                    temperature=args.temperature,
-                    top_p=args.top_p,
-                    top_k=args.top_k,
+                eval_call_kwargs = {
+                    "env": env,
+                    "policy": model.policy,
+                    "dataset": dataset,
+                    "method": method,
+                    "batch_size": args.batch_size,
+                    "max_batch_size": args.max_batch_size,
+                    "auto_batch_size": args.batch_size is None,
+                    "samples": args.samples,
                     **eval_kwargs,
-                )
+                }
+                if method == "sampling":
+                    eval_call_kwargs.update(
+                        {
+                            "temperature": args.temperature,
+                            "top_p": args.top_p,
+                            "top_k": args.top_k,
+                        }
+                    )
+                result = evaluate_policy(**eval_call_kwargs)
             except Exception as exc:
                 skipped_details.append(
                     {
