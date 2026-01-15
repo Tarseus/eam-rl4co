@@ -96,7 +96,7 @@ def evolution_worker(actions, _td, ea, env):
             for key in keys:
                 if key in td:
                     env_td[key] = td[key][b:b+1].cpu()
-            env_td = TensorDict(env_td, batch_size=[1], device=td.device)
+            env_td = TensorDict(env_td, batch_size=[1])
             
             verbose = (b == 0)
                         
@@ -181,8 +181,8 @@ class EA():
         """
         cost = reward * -1
         """
-        device = td.device
-
+        device = td.device if td.device is not None else torch.device("cpu")
+        
         pop_copy = copy.deepcopy(pop)
         tensor_pop = (
             torch.tensor(pop_copy, device=device, dtype=torch.int64)
@@ -192,7 +192,7 @@ class EA():
 
         pop_size = tensor_pop.shape[0]
         if td.batch_size[0] == 1 and pop_size > 1:
-            expanded_td = TensorDict({}, batch_size=[pop_size], device=device)
+            expanded_td = TensorDict({}, batch_size=[pop_size])
             for key, value in td.items():
                 if isinstance(value, torch.Tensor):
                     expanded_td[key] = value.expand(pop_size, *value.shape[1:])
