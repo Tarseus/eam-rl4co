@@ -414,12 +414,27 @@ def main() -> int:
         writer.writerow(
             ["problem", "size", "model_a", "model_b", "wins", "ties", "losses", "total"]
         )
-        grouped = {}
+        def split_eam(method_name: str) -> tuple[bool, str]:
+            if method_name.startswith("eam_"):
+                return True, method_name[len("eam_") :]
+            return False, method_name
+
+        non_eam = {}
+        eam = {}
         for label, data in results.items():
-            grouped.setdefault(data["info"].group_key, []).append(label)
-        for group_key, labels in grouped.items():
-            for i, a_label in enumerate(labels):
-                for b_label in labels[i + 1 :]:
+            info = data["info"]
+            is_eam, base = split_eam(info.method)
+            key = (info.problem, info.size, base)
+            if is_eam:
+                eam.setdefault(key, []).append(label)
+            else:
+                non_eam.setdefault(key, []).append(label)
+
+        for key in sorted(set(non_eam.keys()) & set(eam.keys())):
+            a_labels = non_eam[key]
+            b_labels = eam[key]
+            for a_label in a_labels:
+                for b_label in b_labels:
                     wins = ties = losses = 0
                     a_rewards = results[a_label]["seed_rewards"]
                     b_rewards = results[b_label]["seed_rewards"]
