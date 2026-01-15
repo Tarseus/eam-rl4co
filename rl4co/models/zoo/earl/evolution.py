@@ -116,6 +116,12 @@ def evolution_worker(actions, _td, ea, env):
             new_actions = new_actions.reshape(-1, new_actions.shape[-1])[:, 1:]
         else:
             new_actions = new_actions[:, 0].squeeze(1)
+
+        # Ensure trajectories terminate for environments that require an explicit finish action.
+        # For KnapsackEnv, action 0 is "finish" and is always valid; missing it can make evaluation loop run past
+        # the provided action sequence length.
+        if ea.env_name == "knapsack" and new_actions.numel() > 0:
+            new_actions[..., -1] = 0
             
         return new_actions, init_td
             
