@@ -1692,10 +1692,25 @@ def flip_mutate_knapsack(pop, mutation_rate, weights, capacity):
                     items.remove(j)
                 else:
                     items.append(j)
+        # Deduplicate while preserving order to avoid overflow
+        if items:
+            seen = set()
+            deduped = []
+            for a in items:
+                if a not in seen:
+                    deduped.append(a)
+                    seen.add(a)
+            items = deduped
+
         total_w = sum(weights[j - 1] for j in items)
         while total_w > capacity and items:
             idx = np.random.randint(len(items))
             total_w -= weights[items[idx] - 1]
+            items.pop(idx)
+        # Ensure we leave room for a finish action (0) and never overflow the chromosome
+        max_items = max(chrom_length - 1, 0)
+        while len(items) > max_items and items:
+            idx = np.random.randint(len(items))
             items.pop(idx)
         seq = np.zeros(chrom_length, dtype=pop.dtype)
         if len(items) > 0:
