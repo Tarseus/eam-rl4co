@@ -242,6 +242,7 @@ class EAM(REINFORCE):
         
         self.ea_prob = ea_kwargs.get("ea_prob")
         self.ea_epoch = ea_kwargs.get("ea_epoch")
+        self._ga_diag_counter = 0
 
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
@@ -327,18 +328,25 @@ class EAM(REINFORCE):
             original_out = run_original_policy()
             improved_out = run_improved_policy(original_out["actions"], init_td)
 
+            ga_used = improved_out is not None
+            compute_diag = False
+            if ga_used:
+                self._ga_diag_counter += 1
+                compute_diag = self._ga_diag_counter % 10 == 0
+
             delta_nll = None
             ga_cost_gain = None
             edge_div = None
             order_div = None
-            if improved_out is not None:
+            if ga_used:
+                ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
+            if ga_used and compute_diag:
                 t0 = time.perf_counter()
                 with torch.no_grad():
                     delta_nll = (
                         (-improved_out["log_likelihood"]).mean()
                         - (-original_out["log_likelihood"]).mean()
                     )
-                    ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
                     actions = improved_out.get("actions", None)
                     actions_b = _reshape_actions(actions, td.batch_size[0], None)
                     edge_div = 0.0
@@ -404,13 +412,18 @@ class EAM(REINFORCE):
                     "t_diag": torch.tensor(t_diag, device=td.device),
                 }
             )
-            if improved_out is not None and delta_nll is not None:
+            if ga_used and ga_cost_gain is not None:
+                out.update(
+                    {
+                        "ga_cost_gain": ga_cost_gain.detach(),
+                    }
+                )
+            if ga_used and compute_diag and delta_nll is not None:
                 out.update(
                     {
                         "delta_nll": delta_nll.detach(),
                         "diversity_edge": torch.tensor(edge_div, device=td.device),
                         "diversity_node": torch.tensor(order_div, device=td.device),
-                        "ga_cost_gain": ga_cost_gain.detach(),
                     }
                 )
             
@@ -627,6 +640,7 @@ class SymEAM(REINFORCE):
         self.ea_prob = ea_kwargs.get("ea_prob")
         self.ea_epoch = ea_kwargs.get("ea_epoch")
         self.ea = EA(env, ea_kwargs)
+        self._ga_diag_counter = 0
         
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
@@ -699,19 +713,24 @@ class SymEAM(REINFORCE):
             original_out = run_original_policy()
             improved_out = run_improved_policy(original_out["actions"])
             ga_used = improved_out is not None
+            compute_diag = False
+            if ga_used:
+                self._ga_diag_counter += 1
+                compute_diag = self._ga_diag_counter % 10 == 0
 
             delta_nll = None
             ga_cost_gain = None
             edge_div = None
             order_div = None
             if ga_used:
+                ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
+            if ga_used and compute_diag:
                 t0 = time.perf_counter()
                 with torch.no_grad():
                     delta_nll = (
                         (-improved_out["log_likelihood"]).mean()
                         - (-original_out["log_likelihood"]).mean()
                     )
-                    ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
                     actions = improved_out.get("actions", None)
                     actions_b = _reshape_actions(actions, td.batch_size[0], None)
                     edge_div = 0.0
@@ -788,13 +807,18 @@ class SymEAM(REINFORCE):
                     "t_diag": torch.tensor(t_diag, device=td.device),
                 }
             )
-            if ga_used and delta_nll is not None:
+            if ga_used and ga_cost_gain is not None:
+                out.update(
+                    {
+                        "ga_cost_gain": ga_cost_gain.detach(),
+                    }
+                )
+            if ga_used and compute_diag and delta_nll is not None:
                 out.update(
                     {
                         "delta_nll": delta_nll.detach(),
                         "diversity_edge": torch.tensor(edge_div, device=td.device),
                         "diversity_node": torch.tensor(order_div, device=td.device),
-                        "ga_cost_gain": ga_cost_gain.detach(),
                     }
                 )
         else:
