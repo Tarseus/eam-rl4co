@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn as nn
 from tensordict import TensorDict
 
 from rl4co.envs import get_env
@@ -126,6 +127,48 @@ def resolve_model_class(method: str):
     if method == "symnco":
         return model_root.SymNCO
     return None
+
+
+def build_policy_for_model(model_cls, env, policy_kwargs: dict):
+    from rl4co.models import AttentionModelPolicy, SymNCOPolicy
+
+    policy_kwargs = policy_kwargs or {}
+    if model_cls in (SymNCOPolicy,):
+        return SymNCOPolicy(env_name=env.name, **policy_kwargs)
+    if model_cls.__name__ in ("SymNCO", "SymEAM"):
+        return SymNCOPolicy(env_name=env.name, **policy_kwargs)
+    return AttentionModelPolicy(env_name=env.name, **policy_kwargs)
+
+
+def load_model_checkpoint(model_cls, path: Path, env):
+    errors = []
+    for kwargs in ({"env": env, "load_baseline": False}, {"load_baseline": False}):
+        try:
+            return model_cls.load_from_checkpoint(str(path), **kwargs), None
+        except Exception as exc:
+            errors.append(str(exc))
+
+    try:
+        ckpt = torch.load(str(path), map_location="cpu", weights_only=False)
+        hparams = ckpt.get("hyper_parameters", {}) or {}
+        policy = hparams.get("policy")
+        if not isinstance(policy, nn.Module):
+            policy_kwargs = hparams.get("policy_kwargs", {}) or {}
+            policy = build_policy_for_model(model_cls, env, policy_kwargs)
+        init_kwargs = {
+            k: v
+            for k, v in hparams.items()
+            if k not in {"env", "policy", "dataset"}
+        }
+        init_kwargs["env"] = env
+        if policy is not None:
+            init_kwargs["policy"] = policy
+        model = model_cls(**init_kwargs)
+        model.load_state_dict(ckpt["state_dict"], strict=False)
+        return model, None
+    except Exception as exc:
+        errors.append(str(exc))
+        return None, "; ".join(errors)
 
 
 def infer_num_starts(env, dataset) -> int | None:
@@ -266,6 +309,7 @@ def main() -> int:
     env_cache = {}
     dataset_cache = {}
     results = {}
+    skipped_details = []
 
     output_root = Path(args.output_dir) / time.strftime("%Y%m%d_%H%M%S")
     output_root.mkdir(parents=True, exist_ok=True)
@@ -280,17 +324,13 @@ def main() -> int:
             env_cache[info.group_key] = build_env(info.problem, info.size)
         env = env_cache[info.group_key]
 
-        model = None
-        try:
-            model = model_cls.load_from_checkpoint(str(info.path), load_baseline=False)
-        except Exception:
-            try:
-                model = model_cls.load_from_checkpoint(
-                    str(info.path), env=env, load_baseline=False
-                )
-            except Exception as exc:
-                print(f"[skip] Failed to load {info.path.name}: {exc}")
-                continue
+        model, load_error = load_model_checkpoint(model_cls, info.path, env)
+        if model is None:
+            skipped_details.append(
+                {"file": info.path.name, "reason": f"load_failed: {load_error}"}
+            )
+            print(f"[skip] Failed to load {info.path.name}: {load_error}")
+            continue
 
         model.eval()
         model.to(device)
@@ -323,20 +363,33 @@ def main() -> int:
                 args.force_dihedral_8,
             )
 
-            result = evaluate_policy(
-                env=env,
-                policy=model.policy,
-                dataset=dataset,
-                method=method,
-                batch_size=args.batch_size,
-                max_batch_size=args.max_batch_size,
-                auto_batch_size=args.batch_size is None,
-                samples=args.samples,
-                temperature=args.temperature,
-                top_p=args.top_p,
-                top_k=args.top_k,
-                **eval_kwargs,
-            )
+            try:
+                result = evaluate_policy(
+                    env=env,
+                    policy=model.policy,
+                    dataset=dataset,
+                    method=method,
+                    batch_size=args.batch_size,
+                    max_batch_size=args.max_batch_size,
+                    auto_batch_size=args.batch_size is None,
+                    samples=args.samples,
+                    temperature=args.temperature,
+                    top_p=args.top_p,
+                    top_k=args.top_k,
+                    **eval_kwargs,
+                )
+            except Exception as exc:
+                skipped_details.append(
+                    {
+                        "file": info.path.name,
+                        "reason": f"eval_failed: {exc}",
+                        "seed": seed,
+                    }
+                )
+                print(
+                    f"[skip] Evaluation failed for {info.path.name} (seed={seed}): {exc}"
+                )
+                continue
             rewards = result["rewards"].numpy()
             seed_rewards[seed] = rewards
             seed_means.append(float(rewards.mean()))
@@ -355,6 +408,7 @@ def main() -> int:
     summary_path = output_root / "summary.csv"
     wtl_path = output_root / "pairwise_win_tie_loss.csv"
     meta_path = output_root / "run_meta.json"
+    skipped_path = output_root / "skipped.csv"
 
     with per_seed_path.open("w", newline="") as f:
         writer = csv.writer(f)
@@ -470,6 +524,13 @@ def main() -> int:
 
     if skipped:
         print(f"[warn] Skipped {len(skipped)} files with unknown naming: {skipped}")
+    if skipped_details:
+        with skipped_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["file", "seed", "reason"])
+            for item in skipped_details:
+                writer.writerow([item.get("file"), item.get("seed"), item.get("reason")])
+        print(f"[warn] Skipped details saved to: {skipped_path}")
 
     print(f"Saved per-seed results to: {per_seed_path}")
     print(f"Saved summary results to: {summary_path}")
