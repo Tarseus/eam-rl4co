@@ -39,6 +39,142 @@ def sigmoid_schedule(epoch, max_epoch, initial_prob, final_prob):
 def step_schedule(epoch, ea_prob, ea_epoch):
     return ea_prob if (epoch <= ea_epoch or ea_epoch < 0)else 0.0
 
+DEPOT_ENVS = {
+    "cvrp",
+    "cvrptw",
+    "cvrpmvc",
+    "sdvrp",
+    "mtsp",
+    "op",
+    "pctsp",
+    "spctsp",
+    "knapsack",
+}
+
+
+def _infer_num_nodes(env: RL4COEnvBase) -> Optional[int]:
+    gen = getattr(env, "generator", None)
+    if gen is None:
+        return None
+    for attr in ("num_loc", "num_items"):
+        val = getattr(gen, attr, None)
+        if val is not None:
+            return int(val)
+    return None
+
+
+def _reshape_actions(actions: torch.Tensor, batch_size: int, n_traj: Optional[int]):
+    if actions is None or actions.dim() != 2 or batch_size <= 0:
+        return None
+    total = actions.shape[0]
+    if total % batch_size != 0:
+        return None
+    inferred = total // batch_size
+    n_traj = inferred if n_traj is None else inferred
+    return actions.view(batch_size, inferred, actions.shape[1])
+
+
+def _edge_set(seq: np.ndarray) -> set[tuple[int, int]]:
+    edges = set()
+    for i in range(len(seq) - 1):
+        a = int(seq[i])
+        b = int(seq[i + 1])
+        if a == b:
+            continue
+        if a < b:
+            edges.add((a, b))
+        else:
+            edges.add((b, a))
+    return edges
+
+
+def _average_pairwise(values: list[float]) -> float:
+    if not values:
+        return 0.0
+    return float(sum(values) / len(values))
+
+
+def _edge_diversity(actions_np: np.ndarray) -> float:
+    batch_size, n_traj, _ = actions_np.shape
+    per_batch = []
+    for b in range(batch_size):
+        if n_traj < 2:
+            continue
+        edge_sets = [_edge_set(actions_np[b, i]) for i in range(n_traj)]
+        total = 0.0
+        count = 0
+        for i in range(n_traj - 1):
+            for j in range(i + 1, n_traj):
+                union = edge_sets[i] | edge_sets[j]
+                if not union:
+                    dist = 0.0
+                else:
+                    inter = edge_sets[i] & edge_sets[j]
+                    dist = 1.0 - (len(inter) / len(union))
+                total += dist
+                count += 1
+        per_batch.append(total / count if count > 0 else 0.0)
+    return _average_pairwise(per_batch)
+
+
+def _rank_sequence(seq: np.ndarray, n_nodes: int, ignore_zero: bool) -> list[int]:
+    default_rank = n_nodes + 1
+    ranks = [default_rank] * n_nodes
+    for pos, node in enumerate(seq):
+        node = int(node)
+        if ignore_zero and node == 0:
+            continue
+        if ignore_zero:
+            if not (1 <= node <= n_nodes):
+                continue
+            idx = node - 1
+        else:
+            if not (0 <= node < n_nodes):
+                continue
+            idx = node
+        if ranks[idx] == default_rank:
+            ranks[idx] = pos
+    return ranks
+
+
+def _discordant_pairs(rank_a: list[int], rank_b: list[int]) -> tuple[int, int]:
+    n = len(rank_a)
+    discordant = 0
+    total_pairs = n * (n - 1) // 2
+    for i in range(n - 1):
+        ai = rank_a[i]
+        bi = rank_b[i]
+        for j in range(i + 1, n):
+            da = ai - rank_a[j]
+            db = bi - rank_b[j]
+            if da == 0 or db == 0:
+                continue
+            if da * db < 0:
+                discordant += 1
+    return discordant, total_pairs
+
+
+def _order_diversity(actions_np: np.ndarray, n_nodes: int, ignore_zero: bool) -> float:
+    batch_size, n_traj, _ = actions_np.shape
+    per_batch = []
+    for b in range(batch_size):
+        if n_traj < 2:
+            continue
+        ranks = [_rank_sequence(actions_np[b, i], n_nodes, ignore_zero) for i in range(n_traj)]
+        total = 0.0
+        count = 0
+        for i in range(n_traj - 1):
+            for j in range(i + 1, n_traj):
+                discordant, total_pairs = _discordant_pairs(ranks[i], ranks[j])
+                if total_pairs == 0:
+                    dist = 0.0
+                else:
+                    dist = discordant / total_pairs
+                total += dist
+                count += 1
+        per_batch.append(total / count if count > 0 else 0.0)
+    return _average_pairwise(per_batch)
+
 class EAM(REINFORCE):
     """
         Evolutionary Algorithm Model (EAM)
@@ -130,15 +266,22 @@ class EAM(REINFORCE):
             init_td = td.clone()
             original_out = None
             improved_out = None
+            t_decode = 0.0
+            t_ga = 0.0
+            t_diag = 0.0
             
             def run_original_policy():
+                nonlocal t_decode
+                t0 = time.perf_counter()
                 if self.baseline_str == "rollout":
                     result = self.policy(td, self.env, phase=phase, num_starts=1, return_entropy=True)
                 else:
                     result = self.policy(td, self.env, phase=phase, num_starts=n_start, return_entropy=True)
+                t_decode += time.perf_counter() - t0
                 return result
             
             def run_improved_policy(original_actions, td):
+                nonlocal t_decode, t_ga
                 
                 if np.random.random() > self.improve_prob:
                     return None
@@ -147,10 +290,13 @@ class EAM(REINFORCE):
                 improved_actions = None
                 
                 if hasattr(self, 'ea'):
+                    t0 = time.perf_counter()
                     improved_actions, _ = evolution_worker(original_actions, td,
                                                        self.ea, self.env,)
+                    t_ga += time.perf_counter() - t0
                 
                 if improved_actions is not None:
+                    t0 = time.perf_counter()
                     if self.baseline_str == "rollout":
                         result = self.policy(
                             td, 
@@ -172,6 +318,7 @@ class EAM(REINFORCE):
                         if result["actions"].shape[1] < original_actions.shape[1]:
                             padding_size = original_actions.shape[1] - result["actions"].shape[1]
                             result.update({"actions": torch.nn.functional.pad(result["actions"], (0, 0, 0, padding_size))})
+                    t_decode += time.perf_counter() - t0
 
                     return result
                     
@@ -179,6 +326,34 @@ class EAM(REINFORCE):
             
             original_out = run_original_policy()
             improved_out = run_improved_policy(original_out["actions"], init_td)
+
+            delta_nll = None
+            ga_cost_gain = None
+            edge_div = None
+            order_div = None
+            if improved_out is not None:
+                t0 = time.perf_counter()
+                with torch.no_grad():
+                    delta_nll = (
+                        (-improved_out["log_likelihood"]).mean()
+                        - (-original_out["log_likelihood"]).mean()
+                    )
+                    ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
+                    actions = improved_out.get("actions", None)
+                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
+                    edge_div = 0.0
+                    order_div = 0.0
+                    if actions_b is not None:
+                        actions_np = actions_b.detach().cpu().numpy()
+                        edge_div = _edge_diversity(actions_np)
+                        n_nodes = _infer_num_nodes(self.env)
+                        if n_nodes is not None and n_nodes > 1:
+                            order_div = _order_diversity(
+                                actions_np,
+                                n_nodes,
+                                self.env.name in DEPOT_ENVS,
+                            )
+                t_diag += time.perf_counter() - t0
 
             if self.baseline_str == "rollout":
                 # using am as baseline
@@ -221,6 +396,23 @@ class EAM(REINFORCE):
                 })
             else:
                 out = original_out
+
+            out.update(
+                {
+                    "t_decode": torch.tensor(t_decode, device=td.device),
+                    "t_ga": torch.tensor(t_ga, device=td.device),
+                    "t_diag": torch.tensor(t_diag, device=td.device),
+                }
+            )
+            if improved_out is not None and delta_nll is not None:
+                out.update(
+                    {
+                        "delta_nll": delta_nll.detach(),
+                        "diversity_edge": torch.tensor(edge_div, device=td.device),
+                        "diversity_node": torch.tensor(order_div, device=td.device),
+                        "ga_cost_gain": ga_cost_gain.detach(),
+                    }
+                )
             
         else:
             if self.baseline_str == "rollout":
@@ -269,6 +461,25 @@ class EAM(REINFORCE):
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+
+    def on_train_batch_start(self, batch, batch_idx):
+        self._t_total_start = time.perf_counter()
+        self._t_update_start = None
+
+    def on_before_backward(self, loss):
+        if self._t_update_start is None:
+            self._t_update_start = time.perf_counter()
+
+    def on_after_optimizer_step(self, optimizer):
+        if self._t_update_start is not None:
+            t_update = time.perf_counter() - self._t_update_start
+            self.log("train/t_update", t_update, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
+            self._t_update_start = None
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        if getattr(self, "_t_total_start", None) is not None:
+            t_total = time.perf_counter() - self._t_total_start
+            self.log("train/t_total_raw", t_total, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
     
     def instantiate_metrics(self, metrics: dict):
         """Dictionary of metrics to be logged at each phase"""
@@ -280,7 +491,14 @@ class EAM(REINFORCE):
                                                    "alpha",
                                                    "rate_mean",
                                                    "rate_std",
-                                                   "entropy"])
+                                                   "entropy",
+                                                   "delta_nll",
+                                                   "diversity_edge",
+                                                   "diversity_node",
+                                                   "ga_cost_gain",
+                                                   "t_decode",
+                                                   "t_ga",
+                                                   "t_diag"])
         self.val_metrics = metrics.get("val", ["reward", "max_reward", "max_aug_reward"])
         self.test_metrics = metrics.get("test", ["reward", "max_reward", "max_aug_reward"])
         self.log_on_step = metrics.get("log_on_step", True)
@@ -430,16 +648,23 @@ class SymEAM(REINFORCE):
             
             original_out = None
             improved_out = None
+            t_decode = 0.0
+            t_ga = 0.0
+            t_diag = 0.0
             
             def run_original_policy():
+                nonlocal t_decode
+                t0 = time.perf_counter()
                 result = self.policy(td,
                                      self.env,
                                      phase=phase,
                                      num_starts=n_start,
                                      return_entropy=True)
+                t_decode += time.perf_counter() - t0
                 return result
             
             def run_improved_policy(original_actions):
+                nonlocal t_decode, t_ga
                 td = init_td
                 
                 if np.random.random() > self.improve_prob:
@@ -448,10 +673,13 @@ class SymEAM(REINFORCE):
                 device = next(self.policy.parameters()).device
                 improved_actions = None
                 
+                t0 = time.perf_counter()
                 improved_actions, _ = evolution_worker(original_actions, td,
                                                          self.ea, self.env,)
+                t_ga += time.perf_counter() - t0
                 
                 if improved_actions is not None:
+                    t0 = time.perf_counter()
                     result = self.policy(td, 
                                          self.env, 
                                          phase=phase, 
@@ -462,6 +690,7 @@ class SymEAM(REINFORCE):
                     if result["actions"].shape[1] < original_actions.shape[1]:
                         padding_size = original_actions.shape[1] - result["actions"].shape[1]
                         result.update({"actions": torch.nn.functional.pad(result["actions"], (0, 0, 0, padding_size))})
+                    t_decode += time.perf_counter() - t0
                 
                     return result
                 
@@ -469,6 +698,35 @@ class SymEAM(REINFORCE):
             
             original_out = run_original_policy()
             improved_out = run_improved_policy(original_out["actions"])
+            ga_used = improved_out is not None
+
+            delta_nll = None
+            ga_cost_gain = None
+            edge_div = None
+            order_div = None
+            if ga_used:
+                t0 = time.perf_counter()
+                with torch.no_grad():
+                    delta_nll = (
+                        (-improved_out["log_likelihood"]).mean()
+                        - (-original_out["log_likelihood"]).mean()
+                    )
+                    ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
+                    actions = improved_out.get("actions", None)
+                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
+                    edge_div = 0.0
+                    order_div = 0.0
+                    if actions_b is not None:
+                        actions_np = actions_b.detach().cpu().numpy()
+                        edge_div = _edge_diversity(actions_np)
+                        n_nodes = _infer_num_nodes(self.env)
+                        if n_nodes is not None and n_nodes > 1:
+                            order_div = _order_diversity(
+                                actions_np,
+                                n_nodes,
+                                self.env.name in DEPOT_ENVS,
+                            )
+                t_diag += time.perf_counter() - t0
             
             out = original_out
             
@@ -504,8 +762,6 @@ class SymEAM(REINFORCE):
                     "loss_ps": loss_ps,
                     "loss_inv": loss_inv,
                 })
-
-                del improved_out
             else:
                 original_reward = unbatchify(original_out["reward"], (n_aug, n_start))
                 original_log_likelihood = unbatchify(original_out["log_likelihood"], (n_aug, n_start))
@@ -522,6 +778,23 @@ class SymEAM(REINFORCE):
                         "loss_ss": loss_ss,
                         "loss_ps": loss_ps,
                         "loss_inv": loss_inv,
+                    }
+                )
+
+            out.update(
+                {
+                    "t_decode": torch.tensor(t_decode, device=td.device),
+                    "t_ga": torch.tensor(t_ga, device=td.device),
+                    "t_diag": torch.tensor(t_diag, device=td.device),
+                }
+            )
+            if ga_used and delta_nll is not None:
+                out.update(
+                    {
+                        "delta_nll": delta_nll.detach(),
+                        "diversity_edge": torch.tensor(edge_div, device=td.device),
+                        "diversity_node": torch.tensor(order_div, device=td.device),
+                        "ga_cost_gain": ga_cost_gain.detach(),
                     }
                 )
         else:
@@ -559,6 +832,52 @@ class SymEAM(REINFORCE):
             
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+
+    def on_train_batch_start(self, batch, batch_idx):
+        self._t_total_start = time.perf_counter()
+        self._t_update_start = None
+
+    def on_before_backward(self, loss):
+        if self._t_update_start is None:
+            self._t_update_start = time.perf_counter()
+
+    def on_after_optimizer_step(self, optimizer):
+        if self._t_update_start is not None:
+            t_update = time.perf_counter() - self._t_update_start
+            self.log("train/t_update", t_update, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
+            self._t_update_start = None
+
+    def on_train_batch_end(self, outputs, batch, batch_idx):
+        if getattr(self, "_t_total_start", None) is not None:
+            t_total = time.perf_counter() - self._t_total_start
+            self.log("train/t_total_raw", t_total, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
+
+    def instantiate_metrics(self, metrics: dict):
+        """Dictionary of metrics to be logged at each phase"""
+        if not metrics:
+            log.info("No metrics specified, using default")
+        self.train_metrics = metrics.get(
+            "train",
+            [
+                "loss",
+                "reward",
+                "max_reward",
+                "alpha",
+                "rate_mean",
+                "rate_std",
+                "entropy",
+                "delta_nll",
+                "diversity_edge",
+                "diversity_node",
+                "ga_cost_gain",
+                "t_decode",
+                "t_ga",
+                "t_diag",
+            ],
+        )
+        self.val_metrics = metrics.get("val", ["reward", "max_reward", "max_aug_reward"])
+        self.test_metrics = metrics.get("test", ["reward", "max_reward", "max_aug_reward"])
+        self.log_on_step = metrics.get("log_on_step", True)
 
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.zoo.matnet.policy import MatNetPolicy, MultiStageFFSPPolicy

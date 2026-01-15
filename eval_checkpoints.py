@@ -174,6 +174,10 @@ def load_model_checkpoint(model_cls, path: Path, env):
         }
         if model_cls.__name__ in ("SymNCO", "SymEAM"):
             init_kwargs["baseline"] = "symnco"
+            init_kwargs.pop("first_aug_identity", None)
+            init_kwargs.pop("shared_buffer", None)
+            if init_kwargs.get("num_starts") is None:
+                init_kwargs["num_starts"] = 0
         if model_cls.__name__ in ("EAM", "SymEAM"):
             ea_kwargs = init_kwargs.get("ea_kwargs", {}) or {}
             merged = {**default_ea_kwargs, **ea_kwargs}
@@ -372,9 +376,9 @@ def main() -> int:
         model.policy.to(device)
 
         seed_rewards = {}
-        seed_means = []
-        seed_stds = []
-        seed_times = []
+        seed_means = {}
+        seed_stds = {}
+        seed_times = {}
 
         for seed in seeds:
             dataset_key = (info.group_key, seed)
@@ -432,9 +436,9 @@ def main() -> int:
                 continue
             rewards = result["rewards"].numpy()
             seed_rewards[seed] = rewards
-            seed_means.append(float(rewards.mean()))
-            seed_stds.append(float(rewards.std(ddof=1)) if rewards.size > 1 else 0.0)
-            seed_times.append(float(result["inference_time"]))
+            seed_means[seed] = float(rewards.mean())
+            seed_stds[seed] = float(rewards.std(ddof=1)) if rewards.size > 1 else 0.0
+            seed_times[seed] = float(result["inference_time"])
 
         results[info.label] = {
             "info": info,
@@ -457,7 +461,7 @@ def main() -> int:
         )
         for label, data in results.items():
             info = data["info"]
-            for idx, seed in enumerate(seeds):
+            for seed in seeds:
                 if seed not in data["seed_rewards"]:
                     continue
                 writer.writerow(
@@ -466,9 +470,9 @@ def main() -> int:
                         info.problem,
                         info.size,
                         seed,
-                        data["seed_means"][idx],
-                        data["seed_stds"][idx],
-                        data["seed_times"][idx],
+                        data["seed_means"][seed],
+                        data["seed_stds"][seed],
+                        data["seed_times"][seed],
                     ]
                 )
 
@@ -487,10 +491,10 @@ def main() -> int:
         )
         for label, data in results.items():
             info = data["info"]
-            seed_means = data["seed_means"]
-            mean_of_means = float(np.mean(seed_means))
+            seed_means = list(data["seed_means"].values())
+            mean_of_means = float(np.mean(seed_means)) if seed_means else 0.0
             std_across = float(np.std(seed_means, ddof=1)) if len(seed_means) > 1 else 0.0
-            ci_half = ci_half_width(seed_means)
+            ci_half = ci_half_width(seed_means) if seed_means else 0.0
             writer.writerow(
                 [
                     label,
