@@ -9,7 +9,7 @@ from lightning.pytorch.loggers import CSVLogger
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Train EAM on TSP100.")
+    parser = argparse.ArgumentParser(description="Train EAM (resample) on TSP100.")
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--cuda", type=int, default=0, help="Physical GPU id")
     parser.add_argument("--baseline", choices=["shared", "rollout"], default="shared")
@@ -19,7 +19,7 @@ def main() -> int:
     parser.add_argument("--val-data-size", type=int, default=10_000)
     parser.add_argument("--test-data-size", type=int, default=10_000)
     parser.add_argument("--log-dir", type=str, default="logs")
-    parser.add_argument("--run-name", type=str, default="eam_tsp100")
+    parser.add_argument("--run-name", type=str, default="eam_tsp100_resample")
     parser.add_argument("--version", type=str, default=None)
     args = parser.parse_args()
 
@@ -47,6 +47,7 @@ def main() -> int:
         "beta": 3,
         "ea_prob": 0.01,
         "ea_epoch": 700,
+        "improve_mode": "resample",
     }
 
     metrics = {

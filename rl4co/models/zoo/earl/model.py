@@ -175,6 +175,46 @@ def _order_diversity(actions_np: np.ndarray, n_nodes: int, ignore_zero: bool) ->
         per_batch.append(total / count if count > 0 else 0.0)
     return _average_pairwise(per_batch)
 
+
+def _infer_num_traj(actions: Optional[torch.Tensor], batch_size: int) -> int:
+    actions_b = _reshape_actions(actions, batch_size, None)
+    if actions_b is None:
+        return 1
+    return int(actions_b.shape[1])
+
+
+def _random_2opt(actions: torch.Tensor, num_iters: int, keep_first: bool = True) -> torch.Tensor:
+    if actions is None or actions.dim() != 2 or num_iters <= 0:
+        return actions
+    batch_size, seq_len = actions.shape
+    if seq_len < 4 or batch_size == 0:
+        return actions
+    start_low = 1 if keep_first else 0
+    if start_low >= seq_len - 1:
+        return actions
+    actions_np = actions.detach().cpu().numpy()
+    rng = np.random.default_rng()
+    for _ in range(num_iters):
+        i = rng.integers(start_low, seq_len - 1, size=batch_size)
+        j = rng.integers(i + 1, seq_len, size=batch_size)
+        for b in range(batch_size):
+            a = int(i[b])
+            b_idx = int(j[b])
+            actions_np[b, a : b_idx + 1] = actions_np[b, a : b_idx + 1][::-1]
+    return torch.from_numpy(actions_np).to(device=actions.device)
+
+
+DEFAULT_GA_POP_SIZE = 50
+
+
+def _infer_ga_pop_size(
+    actions: Optional[torch.Tensor], batch_size: int, default_size: int = DEFAULT_GA_POP_SIZE
+) -> int:
+    actions_b = _reshape_actions(actions, batch_size, None)
+    if actions_b is not None and actions_b.shape[1] > 1:
+        return int(actions_b.shape[1])
+    return int(default_size)
+
 class EAM(REINFORCE):
     """
         Evolutionary Algorithm Model (EAM)
@@ -242,10 +282,45 @@ class EAM(REINFORCE):
         
         self.ea_prob = ea_kwargs.get("ea_prob")
         self.ea_epoch = ea_kwargs.get("ea_epoch")
+        self.improve_mode = ea_kwargs.get("improve_mode", "ga")
+        self.random_2opt_iters = ea_kwargs.get("random_2opt_iters")
+        self.local_search_max_iterations = ea_kwargs.get("local_search_max_iterations")
+        self.local_search_num_threads = ea_kwargs.get("local_search_num_threads")
+        self._ga_num_generations = ea_kwargs.get("num_generations", 1)
         self._ga_diag_counter = 0
 
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
+
+    def _get_improve_iters(self, override: Optional[int]) -> int:
+        if override is not None:
+            return max(1, int(override))
+        return max(1, int(self._ga_num_generations or 1))
+
+    def _apply_random_2opt(self, actions: torch.Tensor, num_iters: int) -> Optional[torch.Tensor]:
+        if actions is None:
+            return None
+        return _random_2opt(actions, num_iters, keep_first=True)
+
+    def _apply_local_search(
+        self, actions: torch.Tensor, td: TensorDict, max_iterations: int
+    ) -> Optional[torch.Tensor]:
+        if actions is None:
+            return None
+        td_cpu = td.cpu()
+        actions_cpu = actions.detach().cpu()
+        n_traj = _infer_num_traj(actions_cpu, td.batch_size[0])
+        if n_traj > 1:
+            td_cpu = batchify(td_cpu, n_traj)
+        kwargs = {"max_iterations": max_iterations}
+        if self.local_search_num_threads is not None:
+            kwargs["num_threads"] = self.local_search_num_threads
+        try:
+            improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
+        except TypeError:
+            kwargs.pop("num_threads", None)
+            improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
+        return improved.to(device=actions.device)
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -290,11 +365,44 @@ class EAM(REINFORCE):
                 device = next(self.policy.parameters()).device
                 improved_actions = None
                 
-                if hasattr(self, 'ea'):
+                if self.improve_mode == "ga":
+                    if hasattr(self, "ea"):
+                        t0 = time.perf_counter()
+                        improved_actions, _ = evolution_worker(
+                            original_actions,
+                            td,
+                            self.ea,
+                            self.env,
+                        )
+                        t_ga += time.perf_counter() - t0
+                elif self.improve_mode == "resample":
                     t0 = time.perf_counter()
-                    improved_actions, _ = evolution_worker(original_actions, td,
-                                                       self.ea, self.env,)
+                    if self.baseline_str == "rollout":
+                        result = self.policy(
+                            td, self.env, phase=phase, num_starts=1, return_entropy=True
+                        )
+                    else:
+                        result = self.policy(
+                            td,
+                            self.env,
+                            phase=phase,
+                            num_starts=n_start,
+                            return_entropy=True,
+                        )
+                    t_decode += time.perf_counter() - t0
+                    return result
+                elif self.improve_mode == "random_2opt":
+                    t0 = time.perf_counter()
+                    num_iters = self._get_improve_iters(self.random_2opt_iters)
+                    improved_actions = self._apply_random_2opt(original_actions, num_iters)
                     t_ga += time.perf_counter() - t0
+                elif self.improve_mode == "local_search":
+                    t0 = time.perf_counter()
+                    max_iters = self._get_improve_iters(self.local_search_max_iterations)
+                    improved_actions = self._apply_local_search(original_actions, td, max_iters)
+                    t_ga += time.perf_counter() - t0
+                else:
+                    raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
                 
                 if improved_actions is not None:
                     t0 = time.perf_counter()
@@ -336,10 +444,18 @@ class EAM(REINFORCE):
 
             delta_nll = None
             ga_cost_gain = None
+            ga_cost_gain_rel = None
             edge_div = None
             order_div = None
+            actions = None
             if ga_used:
-                ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
+                actions = improved_out.get("actions", None)
+                pop_size = _infer_ga_pop_size(actions, td.batch_size[0])
+                mean_base = original_out["reward"].mean()
+                mean_improved = improved_out["reward"].mean()
+                ga_cost_gain = (mean_improved - mean_base) * pop_size
+                denom = mean_base.abs() * pop_size + 1e-8
+                ga_cost_gain_rel = ga_cost_gain / denom
             if ga_used and compute_diag:
                 t0 = time.perf_counter()
                 with torch.no_grad():
@@ -347,7 +463,6 @@ class EAM(REINFORCE):
                         (-improved_out["log_likelihood"]).mean()
                         - (-original_out["log_likelihood"]).mean()
                     )
-                    actions = improved_out.get("actions", None)
                     actions_b = _reshape_actions(actions, td.batch_size[0], None)
                     edge_div = 0.0
                     order_div = 0.0
@@ -416,6 +531,7 @@ class EAM(REINFORCE):
                 out.update(
                     {
                         "ga_cost_gain": ga_cost_gain.detach(),
+                        "ga_cost_gain_rel": ga_cost_gain_rel.detach(),
                     }
                 )
             if ga_used and compute_diag and delta_nll is not None:
@@ -509,6 +625,7 @@ class EAM(REINFORCE):
                                                    "diversity_edge",
                                                    "diversity_node",
                                                    "ga_cost_gain",
+                                                   "ga_cost_gain_rel",
                                                    "t_decode",
                                                    "t_ga",
                                                    "t_diag"])
@@ -720,10 +837,17 @@ class SymEAM(REINFORCE):
 
             delta_nll = None
             ga_cost_gain = None
+            ga_cost_gain_rel = None
             edge_div = None
             order_div = None
             if ga_used:
-                ga_cost_gain = improved_out["reward"].mean() - original_out["reward"].mean()
+                actions = improved_out.get("actions", None)
+                pop_size = _infer_ga_pop_size(actions, td.batch_size[0])
+                mean_base = original_out["reward"].mean()
+                mean_improved = improved_out["reward"].mean()
+                ga_cost_gain = (mean_improved - mean_base) * pop_size
+                denom = mean_base.abs() * pop_size + 1e-8
+                ga_cost_gain_rel = ga_cost_gain / denom
             if ga_used and compute_diag:
                 t0 = time.perf_counter()
                 with torch.no_grad():
@@ -811,6 +935,7 @@ class SymEAM(REINFORCE):
                 out.update(
                     {
                         "ga_cost_gain": ga_cost_gain.detach(),
+                        "ga_cost_gain_rel": ga_cost_gain_rel.detach(),
                     }
                 )
             if ga_used and compute_diag and delta_nll is not None:
@@ -894,6 +1019,7 @@ class SymEAM(REINFORCE):
                 "diversity_edge",
                 "diversity_node",
                 "ga_cost_gain",
+                "ga_cost_gain_rel",
                 "t_decode",
                 "t_ga",
                 "t_diag",
