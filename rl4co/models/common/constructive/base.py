@@ -219,7 +219,14 @@ class ConstructivePolicy(nn.Module):
         )
 
         # Pre-decoding hook: used for the initial step(s) of the decoding strategy
-        td, env, num_starts = decode_strategy.pre_decoder_hook(td, env)
+        start_action = None
+        if actions is not None and decode_strategy.multistart:
+            # Use the provided first action to align multistart evaluation.
+            start_action = actions[..., 0]
+            actions = actions[..., 1:]
+        td, env, num_starts = decode_strategy.pre_decoder_hook(
+            td, env, action=start_action
+        )
 
         # Additionally call a decoder hook if needed before main decoding
         td, env, hidden = self.decoder.pre_decoder_hook(td, env, hidden, num_starts)
