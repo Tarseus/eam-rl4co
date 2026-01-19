@@ -25,16 +25,17 @@ nb.set_num_threads(NUMBA_NUM_THREADS)
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
-def evolution_worker(actions, _td, ea, env):
+def evolution_worker(actions, _td, ea, env, return_population: bool = False):
     """
     Normal evolution worker without any multi-process or multi-thread
-    
+
     Args:
         actions: initial actions / population
         _td: tensor dict used to represent environments
         ea: evolution algorithm runner
         decode_type: decoding type
         env: environment
+        return_population: whether to return the full evolved population
     """
     batch_size = _td.batch_size[0]
     with torch.no_grad():
@@ -111,6 +112,7 @@ def evolution_worker(actions, _td, ea, env):
                 new_actions[b] = torch.from_numpy(evolved_np)
             
         new_actions = torch.as_tensor(new_actions, dtype=torch.int64)
+        pop_actions = new_actions if return_population else None
         if multi_start:
             new_actions = new_actions.permute(1, 0, 2)
             new_actions = new_actions.reshape(-1, new_actions.shape[-1])[:, 1:]
@@ -123,6 +125,8 @@ def evolution_worker(actions, _td, ea, env):
         if ea.env_name == "knapsack" and new_actions.numel() > 0:
             new_actions[..., -1] = 0
             
+        if return_population:
+            return new_actions, init_td, pop_actions
         return new_actions, init_td
             
 class EA():
