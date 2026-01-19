@@ -209,6 +209,18 @@ def compute_edit_diversity(original, improved, batch_size: int, env_name: str):
     )
 
 
+def select_seed_reference(seed_actions: torch.Tensor | None, batch_size: int):
+    if seed_actions is None:
+        return None
+    n_traj = _infer_num_traj(seed_actions, batch_size)
+    if n_traj <= 1:
+        return seed_actions
+    seq_len = seed_actions.shape[-1]
+    return seed_actions.reshape(batch_size, n_traj, seq_len)[:, 0, :].reshape(
+        batch_size, seq_len
+    )
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Check LS < EAM < random diversity ordering for checkpoints."
@@ -249,8 +261,8 @@ def parse_args():
     parser.add_argument(
         "--metric",
         type=str,
-        default="edge_entropy",
-        choices=("edge_div", "edge_entropy", "edge_simpson", "route_div"),
+        default="edit_edge",
+        choices=("edge_div", "edge_entropy", "edge_simpson", "route_div", "edit_edge"),
     )
     parser.add_argument("--tol", type=float, default=1e-4)
     return parser.parse_args()
@@ -324,11 +336,28 @@ def main() -> int:
             ea = build_ea(env, args)
 
         totals = {
-            "random": {"edge_div": 0.0, "edge_entropy": 0.0, "edge_simpson": 0.0, "route_div": 0.0},
-            "ls": {"edge_div": 0.0, "edge_entropy": 0.0, "edge_simpson": 0.0, "route_div": 0.0},
-            "eam": {"edge_div": 0.0, "edge_entropy": 0.0, "edge_simpson": 0.0, "route_div": 0.0},
+            "random": {
+                "edge_div": 0.0,
+                "edge_entropy": 0.0,
+                "edge_simpson": 0.0,
+                "route_div": 0.0,
+                "edit_edge": 0.0,
+            },
+            "ls": {
+                "edge_div": 0.0,
+                "edge_entropy": 0.0,
+                "edge_simpson": 0.0,
+                "route_div": 0.0,
+                "edit_edge": 0.0,
+            },
+            "eam": {
+                "edge_div": 0.0,
+                "edge_entropy": 0.0,
+                "edge_simpson": 0.0,
+                "route_div": 0.0,
+                "edit_edge": 0.0,
+            },
         }
-        edit_totals = {"ls": 0.0, "eam": 0.0}
         total_instances = 0
 
         remaining = args.num_instances
@@ -375,21 +404,24 @@ def main() -> int:
             random_metrics = compute_diversity(random_actions, batch_size, env.name)
             ls_metrics = compute_diversity(ls_actions, batch_size, env.name)
             eam_metrics = compute_diversity(eam_div_actions, batch_size, env.name)
-            ls_edit = compute_edit_diversity(
-                seed_actions, ls_actions, batch_size, env.name
-            )
-            eam_edit = compute_edit_diversity(
-                seed_actions, eam_actions, batch_size, env.name
+
+            seed_ref = select_seed_reference(seed_actions, batch_size)
+            ls_edit = compute_edit_diversity(seed_ref, ls_actions, batch_size, env.name)
+            eam_edit = compute_edit_diversity(seed_ref, eam_actions, batch_size, env.name)
+            random_edit = compute_edit_diversity(
+                seed_ref, random_actions, batch_size, env.name
             )
 
             for metric in totals["random"]:
-                totals["random"][metric] += random_metrics[metric] * batch_size
-                totals["ls"][metric] += ls_metrics[metric] * batch_size
-                totals["eam"][metric] += eam_metrics[metric] * batch_size
-            if ls_edit is not None:
-                edit_totals["ls"] += ls_edit * batch_size
-            if eam_edit is not None:
-                edit_totals["eam"] += eam_edit * batch_size
+                if metric != "edit_edge":
+                    totals["random"][metric] += random_metrics[metric] * batch_size
+                    totals["ls"][metric] += ls_metrics[metric] * batch_size
+                    totals["eam"][metric] += eam_metrics[metric] * batch_size
+            totals["random"]["edit_edge"] += (
+                0.0 if random_edit is None else random_edit * batch_size
+            )
+            totals["ls"]["edit_edge"] += 0.0 if ls_edit is None else ls_edit * batch_size
+            totals["eam"]["edit_edge"] += 0.0 if eam_edit is None else eam_edit * batch_size
 
             total_instances += batch_size
             remaining -= batch_size
@@ -397,8 +429,6 @@ def main() -> int:
         for method_name in totals:
             for metric in totals[method_name]:
                 totals[method_name][metric] /= max(total_instances, 1)
-        for method_name in edit_totals:
-            edit_totals[method_name] /= max(total_instances, 1)
 
         metric = args.metric
         ls_val = totals["ls"][metric]
@@ -417,7 +447,6 @@ def main() -> int:
             "random": totals["random"],
             "ls": totals["ls"],
             "eam": totals["eam"],
-            "edit_edge": edit_totals,
         }
         results.append(summary)
 
