@@ -443,7 +443,7 @@ class EAM(REINFORCE):
                         )
                         if result["actions"].shape[1] < original_actions.shape[1]:
                             padding_size = original_actions.shape[1] - result["actions"].shape[1]
-                            result.update({"actions": torch.nn.functional.pad(result["actions"], (0, 0, 0, padding_size))})
+                            result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
                     t_decode += time.perf_counter() - t0
 
                     return result
@@ -632,7 +632,7 @@ class EAM(REINFORCE):
                             improved_out.update(
                                 {
                                     "actions": torch.nn.functional.pad(
-                                        improved_out["actions"], (0, 0, 0, padding_size)
+                                        improved_out["actions"], (0, padding_size)
                                     )
                                 }
                             )
@@ -930,7 +930,7 @@ class SymEAM(REINFORCE):
                     
                     if result["actions"].shape[1] < original_actions.shape[1]:
                         padding_size = original_actions.shape[1] - result["actions"].shape[1]
-                        result.update({"actions": torch.nn.functional.pad(result["actions"], (0, 0, 0, padding_size))})
+                        result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
                     t_decode += time.perf_counter() - t0
                 
                     return result
