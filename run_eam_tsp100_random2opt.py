@@ -36,10 +36,10 @@ def main() -> int:
         use_graph_context=False,
     )
 
-    num_generations = 3
+    num_generations = 5
     ea_kwargs = {
         "num_generations": num_generations,
-        "mutation_rate": 0.1,
+        "mutation_rate": 0.05,
         "crossover_rate": 0.6,
         "selection_rate": 0.2,
         "batch_size": args.batch_size,
@@ -49,7 +49,7 @@ def main() -> int:
         "ea_prob": 0.01,
         "ea_epoch": 700,
         "improve_mode": "random_2opt",
-        "random_2opt_iters": num_generations,
+        "random_2opt_iters": 100*num_generations,
     }
 
     metrics = {
