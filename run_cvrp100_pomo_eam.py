@@ -74,7 +74,14 @@ def main() -> int:
             "t_ga",
             "t_diag",
         ],
-        "val": ["reward", "max_reward", "max_aug_reward"],
+        "val": [
+            "reward",
+            "reward_no_ls",
+            "max_reward",
+            "max_reward_no_ls",
+            "max_aug_reward",
+            "max_aug_reward_no_ls",
+        ],
         "test": ["reward", "max_reward", "max_aug_reward"],
     }
 
@@ -105,6 +112,10 @@ def main() -> int:
             "beta": 3,
             "ea_prob": 0.01,
             "ea_epoch": 700,
+            "improve_mode": "ga",
+            "val_improve_mode": "local_search",
+            "local_search_max_iterations": 100,
+            "val_local_search_max_iterations": 20,
         }
         model = EAM(
             env,
