@@ -414,9 +414,15 @@ class EAM(REINFORCE):
         self.ea_prob = ea_kwargs.get("ea_prob")
         self.ea_epoch = ea_kwargs.get("ea_epoch")
         self.improve_mode = ea_kwargs.get("improve_mode", "ga")
+        self.val_improve_mode = ea_kwargs.get("val_improve_mode")
         self.random_2opt_iters = ea_kwargs.get("random_2opt_iters")
         self.local_search_max_iterations = ea_kwargs.get("local_search_max_iterations")
         self.local_search_num_threads = ea_kwargs.get("local_search_num_threads")
+        self.val_improve = ea_kwargs.get("val_improve", True)
+        self.val_improve_prob = ea_kwargs.get("val_improve_prob", 1.0)
+        self.val_num_generations = ea_kwargs.get("val_num_generations")
+        self.val_random_2opt_iters = ea_kwargs.get("val_random_2opt_iters")
+        self.val_local_search_max_iterations = ea_kwargs.get("val_local_search_max_iterations")
         self._ga_num_generations = ea_kwargs.get("num_generations", 1)
         self._ga_diag_counter = 0
 
@@ -474,6 +480,7 @@ class EAM(REINFORCE):
         
         n_aug, n_start = self.num_augment, self.num_starts
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
+        raw_val_reward = None
             
         # During training, we do not augment the data
         if phase == "train":
@@ -733,75 +740,104 @@ class EAM(REINFORCE):
             else:
                 out = self.policy(td, self.env, phase=phase, num_starts=n_start)
             if phase == "val":
+                raw_val_reward = out.get("reward", None)
                 improved_out = None
-                improved_actions = None
-                original_actions = out.get("actions", None)
-                device = next(self.policy.parameters()).device
-                if self.improve_mode == "ga":
-                    if hasattr(self, "ea") and original_actions is not None:
-                        improved_actions, _ = evolution_worker(
-                            original_actions,
-                            td,
-                            self.ea,
-                            self.env,
-                        )
-                elif self.improve_mode == "resample":
-                    if self.baseline_str == "rollout":
-                        improved_out = self.policy(
-                            td, self.env, phase=phase, num_starts=1
-                        )
-                    else:
-                        improved_out = self.policy(
-                            td, self.env, phase=phase, num_starts=n_start
-                        )
-                elif self.improve_mode == "random_2opt":
-                    num_iters = self._get_improve_iters(self.random_2opt_iters)
-                    improved_actions = self._apply_random_2opt(original_actions, num_iters)
-                elif self.improve_mode == "local_search":
-                    max_iters = self._get_improve_iters(self.local_search_max_iterations)
-                    improved_actions = self._apply_local_search(original_actions, td, max_iters)
-                else:
-                    raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
-
-                if improved_out is None and improved_actions is not None:
-                    improved_actions = improved_actions.to(device=device)
-                    improved_actions = self._align_improved_actions(
-                        improved_actions, original_actions
+                if self.val_improve and (
+                    self.val_improve_prob is None
+                    or np.random.random() <= self.val_improve_prob
+                ):
+                    val_improve_mode = (
+                        self.val_improve_mode
+                        if self.val_improve_mode is not None
+                        else self.improve_mode
                     )
-                    if self.baseline_str == "rollout":
-                        improved_out = self.policy(
-                            td,
-                            self.env,
-                            phase=phase,
-                            num_starts=1,
-                            actions=improved_actions,
+                    improved_actions = None
+                    original_actions = out.get("actions", None)
+                    device = next(self.policy.parameters()).device
+                    if val_improve_mode == "ga":
+                        if hasattr(self, "ea") and original_actions is not None:
+                            prev_num_generations = None
+                            if self.val_num_generations is not None:
+                                prev_num_generations = self.ea.num_generations
+                                self.ea.num_generations = self.val_num_generations
+                            try:
+                                improved_actions, _ = evolution_worker(
+                                    original_actions,
+                                    td,
+                                    self.ea,
+                                    self.env,
+                                )
+                            finally:
+                                if prev_num_generations is not None:
+                                    self.ea.num_generations = prev_num_generations
+                    elif val_improve_mode == "resample":
+                        if self.baseline_str == "rollout":
+                            improved_out = self.policy(
+                                td, self.env, phase=phase, num_starts=1
+                            )
+                        else:
+                            improved_out = self.policy(
+                                td, self.env, phase=phase, num_starts=n_start
+                            )
+                    elif val_improve_mode == "random_2opt":
+                        num_iters = self._get_improve_iters(
+                            self.val_random_2opt_iters
+                            if self.val_random_2opt_iters is not None
+                            else self.random_2opt_iters
                         )
-                        improved_out.update(
-                            {"actions": improved_actions}
+                        improved_actions = self._apply_random_2opt(
+                            original_actions, num_iters
+                        )
+                    elif val_improve_mode == "local_search":
+                        max_iters = self._get_improve_iters(
+                            self.val_local_search_max_iterations
+                            if self.val_local_search_max_iterations is not None
+                            else self.local_search_max_iterations
+                        )
+                        improved_actions = self._apply_local_search(
+                            original_actions, td, max_iters
                         )
                     else:
-                        improved_out = self.policy(
-                            td,
-                            self.env,
-                            phase=phase,
-                            num_starts=n_start,
-                            actions=improved_actions,
+                        raise ValueError(f"Unknown improve_mode: {val_improve_mode}")
+
+                    if improved_out is None and improved_actions is not None:
+                        improved_actions = improved_actions.to(device=device)
+                        improved_actions = self._align_improved_actions(
+                            improved_actions, original_actions
                         )
-                        if (
-                            original_actions is not None
-                            and improved_out["actions"].shape[1]
-                            < original_actions.shape[1]
-                        ):
-                            padding_size = (
-                                original_actions.shape[1] - improved_out["actions"].shape[1]
+                        if self.baseline_str == "rollout":
+                            improved_out = self.policy(
+                                td,
+                                self.env,
+                                phase=phase,
+                                num_starts=1,
+                                actions=improved_actions,
                             )
-                            improved_out.update(
-                                {
-                                    "actions": torch.nn.functional.pad(
-                                        improved_out["actions"], (0, padding_size)
-                                    )
-                                }
+                            improved_out.update({"actions": improved_actions})
+                        else:
+                            improved_out = self.policy(
+                                td,
+                                self.env,
+                                phase=phase,
+                                num_starts=n_start,
+                                actions=improved_actions,
                             )
+                            if (
+                                original_actions is not None
+                                and improved_out["actions"].shape[1]
+                                < original_actions.shape[1]
+                            ):
+                                padding_size = (
+                                    original_actions.shape[1]
+                                    - improved_out["actions"].shape[1]
+                                )
+                                improved_out.update(
+                                    {
+                                        "actions": torch.nn.functional.pad(
+                                            improved_out["actions"], (0, padding_size)
+                                        )
+                                    }
+                                )
 
                 if improved_out is not None:
                     better = improved_out["reward"] > out["reward"]
@@ -863,6 +899,21 @@ class EAM(REINFORCE):
                         out["best_multistart_actions"] if n_start > 1 else out["actions"]
                     )
                     out.update({"best_aug_actions": gather_by_index(actions_, max_idxs)})
+
+        if phase == "val" and raw_val_reward is not None:
+            if self.baseline_str == "shared":
+                raw_reward = unbatchify(raw_val_reward, (n_aug, n_start))
+                out.update({"reward_no_ls": raw_reward})
+                raw_reward_ = raw_reward
+                if n_start > 1:
+                    raw_max_reward, _ = raw_reward.max(dim=-1)
+                    out.update({"max_reward_no_ls": raw_max_reward})
+                    raw_reward_ = raw_max_reward
+                if n_aug > 1:
+                    raw_max_aug_reward, _ = raw_reward_.max(dim=1)
+                    out.update({"max_aug_reward_no_ls": raw_max_aug_reward})
+            else:
+                out.update({"reward_no_ls": raw_val_reward})
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
