@@ -549,6 +549,95 @@ class EAM(REINFORCE):
                 out = self.policy(td, self.env, phase=phase, num_starts=1)
             else:
                 out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+            if phase == "val":
+                improved_out = None
+                improved_actions = None
+                original_actions = out.get("actions", None)
+                device = next(self.policy.parameters()).device
+                if self.improve_mode == "ga":
+                    if hasattr(self, "ea") and original_actions is not None:
+                        improved_actions, _ = evolution_worker(
+                            original_actions,
+                            td,
+                            self.ea,
+                            self.env,
+                        )
+                elif self.improve_mode == "resample":
+                    if self.baseline_str == "rollout":
+                        improved_out = self.policy(
+                            td, self.env, phase=phase, num_starts=1
+                        )
+                    else:
+                        improved_out = self.policy(
+                            td, self.env, phase=phase, num_starts=n_start
+                        )
+                elif self.improve_mode == "random_2opt":
+                    num_iters = self._get_improve_iters(self.random_2opt_iters)
+                    improved_actions = self._apply_random_2opt(original_actions, num_iters)
+                elif self.improve_mode == "local_search":
+                    max_iters = self._get_improve_iters(self.local_search_max_iterations)
+                    improved_actions = self._apply_local_search(original_actions, td, max_iters)
+                else:
+                    raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
+
+                if improved_out is None and improved_actions is not None:
+                    if self.baseline_str == "rollout":
+                        improved_out = self.policy(
+                            td,
+                            self.env,
+                            phase=phase,
+                            num_starts=1,
+                            actions=improved_actions.to(device=device),
+                        )
+                        improved_out.update(
+                            {"actions": improved_actions.to(device=device)}
+                        )
+                    else:
+                        improved_out = self.policy(
+                            td,
+                            self.env,
+                            phase=phase,
+                            num_starts=n_start,
+                            actions=improved_actions.to(device=device),
+                        )
+                        if (
+                            original_actions is not None
+                            and improved_out["actions"].shape[1]
+                            < original_actions.shape[1]
+                        ):
+                            padding_size = (
+                                original_actions.shape[1] - improved_out["actions"].shape[1]
+                            )
+                            improved_out.update(
+                                {
+                                    "actions": torch.nn.functional.pad(
+                                        improved_out["actions"], (0, 0, 0, padding_size)
+                                    )
+                                }
+                            )
+
+                if improved_out is not None:
+                    better = improved_out["reward"] > out["reward"]
+                    if torch.any(better):
+                        out["reward"] = torch.where(
+                            better, improved_out["reward"], out["reward"]
+                        )
+                        if "log_likelihood" in out and "log_likelihood" in improved_out:
+                            out["log_likelihood"] = torch.where(
+                                better,
+                                improved_out["log_likelihood"],
+                                out["log_likelihood"],
+                            )
+                        if (
+                            out.get("actions", None) is not None
+                            and improved_out.get("actions", None) is not None
+                        ):
+                            mask = better.view(
+                                -1, *([1] * (out["actions"].dim() - 1))
+                            )
+                            out["actions"] = torch.where(
+                                mask, improved_out["actions"], out["actions"]
+                            )
             
         out.update({"reward": out["reward"]})
         if self.baseline_str == "shared":
