@@ -64,7 +64,11 @@ def _infer_num_nodes(env: RL4COEnvBase) -> Optional[int]:
 
 
 def _reshape_actions(actions: torch.Tensor, batch_size: int, n_traj: Optional[int]):
-    if actions is None or actions.dim() != 2 or batch_size <= 0:
+    if actions is None or batch_size <= 0:
+        return None
+    if actions.dim() == 3:
+        return actions if actions.shape[0] == batch_size else None
+    if actions.dim() != 2:
         return None
     total = actions.shape[0]
     if total % batch_size != 0:
@@ -74,17 +78,37 @@ def _reshape_actions(actions: torch.Tensor, batch_size: int, n_traj: Optional[in
     return actions.view(batch_size, inferred, actions.shape[1])
 
 
-def _edge_set(seq: np.ndarray) -> set[tuple[int, int]]:
+def _actions_to_numpy(actions: Optional[torch.Tensor], batch_size: int) -> Optional[np.ndarray]:
+    actions_b = _reshape_actions(actions, batch_size, None)
+    if actions_b is None:
+        return None
+    return actions_b.detach().cpu().numpy()
+
+
+def _edge_set(
+    seq: np.ndarray, close_tour: bool = False, ignore_zero: bool = False
+) -> set[tuple[int, int]]:
     edges = set()
-    for i in range(len(seq) - 1):
-        a = int(seq[i])
-        b = int(seq[i + 1])
-        if a == b:
+    first = None
+    prev = None
+    for node in seq:
+        node = int(node)
+        if ignore_zero and node == 0:
+            prev = None
             continue
-        if a < b:
-            edges.add((a, b))
+        if first is None:
+            first = node
+        if prev is not None and prev != node:
+            if prev < node:
+                edges.add((prev, node))
+            else:
+                edges.add((node, prev))
+        prev = node
+    if close_tour and first is not None and prev is not None and first != prev:
+        if first < prev:
+            edges.add((first, prev))
         else:
-            edges.add((b, a))
+            edges.add((prev, first))
     return edges
 
 
@@ -94,25 +118,132 @@ def _average_pairwise(values: list[float]) -> float:
     return float(sum(values) / len(values))
 
 
-def _edge_diversity(actions_np: np.ndarray) -> float:
+def _jaccard_distance(set_a: set, set_b: set) -> float:
+    union = set_a | set_b
+    if not union:
+        return 0.0
+    return 1.0 - (len(set_a & set_b) / len(union))
+
+
+def _edge_diversity(
+    actions_np: np.ndarray, close_tour: bool = False, ignore_zero: bool = False
+) -> float:
     batch_size, n_traj, _ = actions_np.shape
     per_batch = []
     for b in range(batch_size):
         if n_traj < 2:
             continue
-        edge_sets = [_edge_set(actions_np[b, i]) for i in range(n_traj)]
+        edge_sets = [
+            _edge_set(actions_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
+            for i in range(n_traj)
+        ]
         total = 0.0
         count = 0
         for i in range(n_traj - 1):
             for j in range(i + 1, n_traj):
-                union = edge_sets[i] | edge_sets[j]
-                if not union:
-                    dist = 0.0
-                else:
-                    inter = edge_sets[i] & edge_sets[j]
-                    dist = 1.0 - (len(inter) / len(union))
-                total += dist
+                total += _jaccard_distance(edge_sets[i], edge_sets[j])
                 count += 1
+        per_batch.append(total / count if count > 0 else 0.0)
+    return _average_pairwise(per_batch)
+
+
+def _edge_usage_diversity(
+    actions_np: np.ndarray, close_tour: bool = False, ignore_zero: bool = False
+) -> tuple[float, float]:
+    batch_size, n_traj, _ = actions_np.shape
+    per_batch_entropy = []
+    per_batch_simpson = []
+    for b in range(batch_size):
+        if n_traj < 2:
+            continue
+        edge_sets = [
+            _edge_set(actions_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
+            for i in range(n_traj)
+        ]
+        counts = {}
+        for edges in edge_sets:
+            for edge in edges:
+                counts[edge] = counts.get(edge, 0) + 1
+        total = sum(counts.values())
+        if total == 0 or len(counts) < 2:
+            per_batch_entropy.append(0.0)
+            per_batch_simpson.append(0.0)
+            continue
+        probs = np.fromiter((c / total for c in counts.values()), dtype=np.float64)
+        entropy = -float(np.sum(probs * np.log(probs)))
+        entropy /= float(np.log(probs.size))
+        simpson = 1.0 - float(np.sum(probs * probs))
+        simpson /= float(1.0 - 1.0 / probs.size)
+        per_batch_entropy.append(entropy)
+        per_batch_simpson.append(simpson)
+    return _average_pairwise(per_batch_entropy), _average_pairwise(per_batch_simpson)
+
+
+def _route_signature(seq: np.ndarray) -> set[frozenset[int]]:
+    routes = set()
+    current = []
+    for node in seq:
+        node = int(node)
+        if node == 0:
+            if current:
+                routes.add(frozenset(current))
+                current = []
+            continue
+        if node > 0:
+            current.append(node)
+    if current:
+        routes.add(frozenset(current))
+    return routes
+
+
+def _route_assignment_diversity(actions_np: np.ndarray) -> float:
+    batch_size, n_traj, _ = actions_np.shape
+    per_batch = []
+    for b in range(batch_size):
+        if n_traj < 2:
+            continue
+        route_sets = [_route_signature(actions_np[b, i]) for i in range(n_traj)]
+        total = 0.0
+        count = 0
+        for i in range(n_traj - 1):
+            for j in range(i + 1, n_traj):
+                total += _jaccard_distance(route_sets[i], route_sets[j])
+                count += 1
+        per_batch.append(total / count if count > 0 else 0.0)
+    return _average_pairwise(per_batch)
+
+
+def _edge_edit_diversity(
+    original_np: np.ndarray,
+    improved_np: np.ndarray,
+    close_tour: bool = False,
+    ignore_zero: bool = False,
+) -> float:
+    batch_size, n_orig, _ = original_np.shape
+    _, n_impr, _ = improved_np.shape
+    per_batch = []
+    for b in range(batch_size):
+        if n_orig < 1 or n_impr < 1:
+            continue
+        orig_sets = [
+            _edge_set(original_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
+            for i in range(n_orig)
+        ]
+        impr_sets = [
+            _edge_set(improved_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
+            for i in range(n_impr)
+        ]
+        total = 0.0
+        count = 0
+        if n_orig == n_impr:
+            for i in range(n_orig):
+                total += _jaccard_distance(orig_sets[i], impr_sets[i])
+                count += 1
+        else:
+            for i in range(n_orig):
+                for j in range(n_impr):
+                    total += _jaccard_distance(orig_sets[i], impr_sets[j])
+                    count += 1
         per_batch.append(total / count if count > 0 else 0.0)
     return _average_pairwise(per_batch)
 
@@ -377,15 +508,17 @@ class EAM(REINFORCE):
                 
                 device = next(self.policy.parameters()).device
                 improved_actions = None
+                population_actions = None
                 
                 if self.improve_mode == "ga":
                     if hasattr(self, "ea"):
                         t0 = time.perf_counter()
-                        improved_actions, _ = evolution_worker(
+                        improved_actions, _, population_actions = evolution_worker(
                             original_actions,
                             td,
                             self.ea,
                             self.env,
+                            return_population=True,
                         )
                         t_ga += time.perf_counter() - t0
                 elif self.improve_mode == "resample":
@@ -446,6 +579,9 @@ class EAM(REINFORCE):
                             result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
                     t_decode += time.perf_counter() - t0
 
+                    if population_actions is not None:
+                        result.update({"population_actions": population_actions})
+
                     return result
                     
                 return None
@@ -463,11 +599,17 @@ class EAM(REINFORCE):
             ga_cost_gain = None
             ga_cost_gain_rel = None
             edge_div = None
-            order_div = None
+            edge_entropy = None
+            edge_simpson = None
+            route_div = None
+            edit_edge_div = None
             actions = None
             if ga_used:
                 actions = improved_out.get("actions", None)
-                pop_size = _infer_ga_pop_size(actions, td.batch_size[0])
+                pop_actions = improved_out.get("population_actions", None)
+                pop_size = _infer_ga_pop_size(
+                    pop_actions if pop_actions is not None else actions, td.batch_size[0]
+                )
                 mean_base = original_out["reward"].mean()
                 mean_improved = improved_out["reward"].mean()
                 ga_cost_gain = (mean_improved - mean_base) * pop_size
@@ -480,19 +622,40 @@ class EAM(REINFORCE):
                         (-improved_out["log_likelihood"]).mean()
                         - (-original_out["log_likelihood"]).mean()
                     )
-                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
+                    close_tour = self.env.name == "tsp"
+                    ignore_zero = self.env.name in DEPOT_ENVS
                     edge_div = 0.0
-                    order_div = 0.0
-                    if actions_b is not None:
-                        actions_np = actions_b.detach().cpu().numpy()
-                        edge_div = _edge_diversity(actions_np)
-                        n_nodes = _infer_num_nodes(self.env)
-                        if n_nodes is not None and n_nodes > 1:
-                            order_div = _order_diversity(
-                                actions_np,
-                                n_nodes,
-                                self.env.name in DEPOT_ENVS,
-                            )
+                    edge_entropy = 0.0
+                    edge_simpson = 0.0
+                    route_div = 0.0
+                    edit_edge_div = 0.0
+                    div_actions = actions
+                    pop_actions = improved_out.get("population_actions", None)
+                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
+                    pop_actions_b = _reshape_actions(pop_actions, td.batch_size[0], None)
+                    if pop_actions_b is not None and (
+                        actions_b is None or actions_b.shape[1] < pop_actions_b.shape[1]
+                    ):
+                        div_actions = pop_actions
+                    actions_np = _actions_to_numpy(div_actions, td.batch_size[0])
+                    if actions_np is not None:
+                        edge_div = _edge_diversity(
+                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
+                        )
+                        edge_entropy, edge_simpson = _edge_usage_diversity(
+                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
+                        )
+                        if ignore_zero:
+                            route_div = _route_assignment_diversity(actions_np)
+                    original_np = _actions_to_numpy(original_out.get("actions", None), td.batch_size[0])
+                    improved_np = _actions_to_numpy(actions, td.batch_size[0])
+                    if original_np is not None and improved_np is not None:
+                        edit_edge_div = _edge_edit_diversity(
+                            original_np,
+                            improved_np,
+                            close_tour=close_tour,
+                            ignore_zero=ignore_zero,
+                        )
                 t_diag += time.perf_counter() - t0
 
             if self.baseline_str == "rollout":
@@ -556,7 +719,10 @@ class EAM(REINFORCE):
                     {
                         "delta_nll": delta_nll.detach(),
                         "diversity_edge": torch.tensor(edge_div, device=td.device),
-                        "diversity_node": torch.tensor(order_div, device=td.device),
+                        "diversity_edge_entropy": torch.tensor(edge_entropy, device=td.device),
+                        "diversity_edge_simpson": torch.tensor(edge_simpson, device=td.device),
+                        "diversity_route": torch.tensor(route_div, device=td.device),
+                        "diversity_edit_edge": torch.tensor(edit_edge_div, device=td.device),
                     }
                 )
             
@@ -733,7 +899,10 @@ class EAM(REINFORCE):
                                                    "entropy",
                                                    "delta_nll",
                                                    "diversity_edge",
-                                                   "diversity_node",
+                                                   "diversity_edge_entropy",
+                                                   "diversity_edge_simpson",
+                                                   "diversity_route",
+                                                   "diversity_edit_edge",
                                                    "ga_cost_gain",
                                                    "ga_cost_gain_rel",
                                                    "t_decode",
@@ -913,10 +1082,16 @@ class SymEAM(REINFORCE):
                 
                 device = next(self.policy.parameters()).device
                 improved_actions = None
+                population_actions = None
                 
                 t0 = time.perf_counter()
-                improved_actions, _ = evolution_worker(original_actions, td,
-                                                         self.ea, self.env,)
+                improved_actions, _, population_actions = evolution_worker(
+                    original_actions,
+                    td,
+                    self.ea,
+                    self.env,
+                    return_population=True,
+                )
                 t_ga += time.perf_counter() - t0
                 
                 if improved_actions is not None:
@@ -932,6 +1107,9 @@ class SymEAM(REINFORCE):
                         padding_size = original_actions.shape[1] - result["actions"].shape[1]
                         result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
                     t_decode += time.perf_counter() - t0
+
+                    if population_actions is not None:
+                        result.update({"population_actions": population_actions})
                 
                     return result
                 
@@ -949,10 +1127,16 @@ class SymEAM(REINFORCE):
             ga_cost_gain = None
             ga_cost_gain_rel = None
             edge_div = None
-            order_div = None
+            edge_entropy = None
+            edge_simpson = None
+            route_div = None
+            edit_edge_div = None
             if ga_used:
                 actions = improved_out.get("actions", None)
-                pop_size = _infer_ga_pop_size(actions, td.batch_size[0])
+                pop_actions = improved_out.get("population_actions", None)
+                pop_size = _infer_ga_pop_size(
+                    pop_actions if pop_actions is not None else actions, td.batch_size[0]
+                )
                 mean_base = original_out["reward"].mean()
                 mean_improved = improved_out["reward"].mean()
                 ga_cost_gain = (mean_improved - mean_base) * pop_size
@@ -966,19 +1150,40 @@ class SymEAM(REINFORCE):
                         - (-original_out["log_likelihood"]).mean()
                     )
                     actions = improved_out.get("actions", None)
-                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
+                    close_tour = self.env.name == "tsp"
+                    ignore_zero = self.env.name in DEPOT_ENVS
                     edge_div = 0.0
-                    order_div = 0.0
-                    if actions_b is not None:
-                        actions_np = actions_b.detach().cpu().numpy()
-                        edge_div = _edge_diversity(actions_np)
-                        n_nodes = _infer_num_nodes(self.env)
-                        if n_nodes is not None and n_nodes > 1:
-                            order_div = _order_diversity(
-                                actions_np,
-                                n_nodes,
-                                self.env.name in DEPOT_ENVS,
-                            )
+                    edge_entropy = 0.0
+                    edge_simpson = 0.0
+                    route_div = 0.0
+                    edit_edge_div = 0.0
+                    div_actions = actions
+                    pop_actions = improved_out.get("population_actions", None)
+                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
+                    pop_actions_b = _reshape_actions(pop_actions, td.batch_size[0], None)
+                    if pop_actions_b is not None and (
+                        actions_b is None or actions_b.shape[1] < pop_actions_b.shape[1]
+                    ):
+                        div_actions = pop_actions
+                    actions_np = _actions_to_numpy(div_actions, td.batch_size[0])
+                    if actions_np is not None:
+                        edge_div = _edge_diversity(
+                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
+                        )
+                        edge_entropy, edge_simpson = _edge_usage_diversity(
+                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
+                        )
+                        if ignore_zero:
+                            route_div = _route_assignment_diversity(actions_np)
+                    original_np = _actions_to_numpy(original_out.get("actions", None), td.batch_size[0])
+                    improved_np = _actions_to_numpy(actions, td.batch_size[0])
+                    if original_np is not None and improved_np is not None:
+                        edit_edge_div = _edge_edit_diversity(
+                            original_np,
+                            improved_np,
+                            close_tour=close_tour,
+                            ignore_zero=ignore_zero,
+                        )
                 t_diag += time.perf_counter() - t0
             
             out = original_out
@@ -1053,7 +1258,10 @@ class SymEAM(REINFORCE):
                     {
                         "delta_nll": delta_nll.detach(),
                         "diversity_edge": torch.tensor(edge_div, device=td.device),
-                        "diversity_node": torch.tensor(order_div, device=td.device),
+                        "diversity_edge_entropy": torch.tensor(edge_entropy, device=td.device),
+                        "diversity_edge_simpson": torch.tensor(edge_simpson, device=td.device),
+                        "diversity_route": torch.tensor(route_div, device=td.device),
+                        "diversity_edit_edge": torch.tensor(edit_edge_div, device=td.device),
                     }
                 )
         else:
@@ -1127,7 +1335,10 @@ class SymEAM(REINFORCE):
                 "entropy",
                 "delta_nll",
                 "diversity_edge",
-                "diversity_node",
+                "diversity_edge_entropy",
+                "diversity_edge_simpson",
+                "diversity_route",
+                "diversity_edit_edge",
                 "ga_cost_gain",
                 "ga_cost_gain_rel",
                 "t_decode",
