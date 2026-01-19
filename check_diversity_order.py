@@ -76,6 +76,91 @@ def sample_policy_actions(
     return out["actions"]
 
 
+def repeat_actions(actions: torch.Tensor, num_samples: int) -> torch.Tensor:
+    if num_samples <= 1:
+        return actions
+    return actions.unsqueeze(1).repeat(1, num_samples, 1).reshape(-1, actions.shape[-1])
+
+
+def iid_random_tsp_actions(num_loc: int, batch_size: int, num_samples: int, device):
+    total = batch_size * num_samples
+    rand = torch.rand((total, num_loc), device=device)
+    return rand.argsort(dim=1)
+
+
+def build_seed_actions(
+    mode: str,
+    policy,
+    env,
+    td,
+    num_samples: int,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+):
+    if mode == "greedy":
+        with torch.no_grad():
+            out = policy(
+                td,
+                env,
+                phase="test",
+                decode_type="greedy",
+                calc_reward=False,
+                return_actions=True,
+            )
+        return repeat_actions(out["actions"], num_samples)
+    if mode == "iid":
+        if env.name != "tsp":
+            print("[warn] iid random seeds only supported for TSP; falling back to policy sampling.")
+            mode = "sampling"
+        else:
+            return iid_random_tsp_actions(
+                env.generator.num_loc, td.batch_size[0], num_samples, td.device
+            )
+    if mode == "sampling":
+        return sample_policy_actions(
+            policy,
+            env,
+            td,
+            num_samples=num_samples,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+        )
+    raise ValueError(f"Unknown seed mode: {mode}")
+
+
+def build_random_actions(
+    mode: str,
+    policy,
+    env,
+    td,
+    num_samples: int,
+    temperature: float,
+    top_p: float,
+    top_k: int,
+):
+    if mode == "iid":
+        if env.name != "tsp":
+            print("[warn] iid random baseline only supported for TSP; falling back to policy sampling.")
+            mode = "policy"
+        else:
+            return iid_random_tsp_actions(
+                env.generator.num_loc, td.batch_size[0], num_samples, td.device
+            )
+    if mode == "policy":
+        return sample_policy_actions(
+            policy,
+            env,
+            td,
+            num_samples=num_samples,
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+        )
+    raise ValueError(f"Unknown random mode: {mode}")
+
+
 def run_local_search(env, td, actions, max_iters: int, num_threads: int | None):
     td_cpu = td.cpu()
     actions_cpu = actions.detach().cpu()
@@ -141,10 +226,24 @@ def parse_args():
     parser.add_argument("--temperature", type=float, default=1.5)
     parser.add_argument("--top-p", type=float, default=0.0)
     parser.add_argument("--top-k", type=int, default=0)
+    parser.add_argument(
+        "--seed-mode",
+        type=str,
+        default="greedy",
+        choices=("greedy", "sampling", "iid"),
+        help="Seed solutions for LS/EAM.",
+    )
+    parser.add_argument(
+        "--random-mode",
+        type=str,
+        default="iid",
+        choices=("policy", "iid"),
+        help="Random baseline definition.",
+    )
     parser.add_argument("--ls-iters", type=int, default=50)
     parser.add_argument("--ls-threads", type=int, default=None)
-    parser.add_argument("--ga-gens", type=int, default=3)
-    parser.add_argument("--mutation-rate", type=float, default=0.1)
+    parser.add_argument("--ga-gens", type=int, default=5)
+    parser.add_argument("--mutation-rate", type=float, default=0.05)
     parser.add_argument("--crossover-rate", type=float, default=0.6)
     parser.add_argument("--selection-rate", type=float, default=0.2)
     parser.add_argument(
@@ -238,7 +337,19 @@ def main() -> int:
             td = env.reset(batch_size=batch_size)
             td = td.to(device)
 
-            random_actions = sample_policy_actions(
+            seed_actions = build_seed_actions(
+                args.seed_mode,
+                model.policy,
+                env,
+                td,
+                num_samples=args.num_samples,
+                temperature=args.temperature,
+                top_p=args.top_p,
+                top_k=args.top_k,
+            ).detach().cpu()
+
+            random_actions = build_random_actions(
+                args.random_mode,
                 model.policy,
                 env,
                 td,
@@ -249,14 +360,14 @@ def main() -> int:
             ).detach().cpu()
 
             ls_actions = run_local_search(
-                env, td, random_actions, args.ls_iters, args.ls_threads
+                env, td, seed_actions, args.ls_iters, args.ls_threads
             )
-            ls_actions = _align_improved_actions(ls_actions, random_actions)
+            ls_actions = _align_improved_actions(ls_actions, seed_actions)
 
             eam_actions, _, pop_actions = evolution_worker(
-                random_actions, td, ea, env, return_population=True
+                seed_actions, td, ea, env, return_population=True
             )
-            eam_actions = _align_improved_actions(eam_actions, random_actions)
+            eam_actions = _align_improved_actions(eam_actions, seed_actions)
             eam_div_actions = (
                 pop_actions if pop_actions is not None else eam_actions
             )
@@ -265,10 +376,10 @@ def main() -> int:
             ls_metrics = compute_diversity(ls_actions, batch_size, env.name)
             eam_metrics = compute_diversity(eam_div_actions, batch_size, env.name)
             ls_edit = compute_edit_diversity(
-                random_actions, ls_actions, batch_size, env.name
+                seed_actions, ls_actions, batch_size, env.name
             )
             eam_edit = compute_edit_diversity(
-                random_actions, eam_actions, batch_size, env.name
+                seed_actions, eam_actions, batch_size, env.name
             )
 
             for metric in totals["random"]:
@@ -300,6 +411,8 @@ def main() -> int:
             "problem": problem,
             "size": size,
             "metric": metric,
+            "seed_mode": args.seed_mode,
+            "random_mode": args.random_mode,
             "ok": ok,
             "random": totals["random"],
             "ls": totals["ls"],
