@@ -37,8 +37,8 @@ def main() -> int:
     )
 
     ea_kwargs = {
-        "num_generations": 3,
-        "mutation_rate": 0.1,
+        "num_generations": 5,
+        "mutation_rate": 0.05,
         "crossover_rate": 0.6,
         "selection_rate": 0.2,
         "batch_size": args.batch_size,
