@@ -322,6 +322,19 @@ class EAM(REINFORCE):
             improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
         return improved.to(device=actions.device)
 
+    def _align_improved_actions(
+        self, improved_actions: Optional[torch.Tensor], original_actions: Optional[torch.Tensor]
+    ) -> Optional[torch.Tensor]:
+        if improved_actions is None or original_actions is None:
+            return improved_actions
+        if improved_actions.dim() != original_actions.dim():
+            return improved_actions
+        if improved_actions.shape[-1] == original_actions.shape[-1]:
+            return improved_actions
+        if improved_actions.shape[-1] + 1 == original_actions.shape[-1]:
+            return torch.cat([original_actions[..., :1], improved_actions], dim=-1)
+        return improved_actions
+
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
@@ -405,6 +418,10 @@ class EAM(REINFORCE):
                     raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
                 
                 if improved_actions is not None:
+                    improved_actions = improved_actions.to(device=device)
+                    improved_actions = self._align_improved_actions(
+                        improved_actions, original_actions
+                    )
                     t0 = time.perf_counter()
                     if self.baseline_str == "rollout":
                         result = self.policy(
@@ -412,17 +429,17 @@ class EAM(REINFORCE):
                             self.env,
                             phase=phase,
                             num_starts=1,
-                            actions=improved_actions.to(device=device),
+                            actions=improved_actions,
                         )
                         
-                        result.update({"actions": improved_actions.to(device=device)})
+                        result.update({"actions": improved_actions})
                     else:
                         result = self.policy(
                             td, 
                             self.env, 
                             phase=phase, 
                             num_starts=n_start, 
-                            actions=improved_actions.to(device=device),
+                            actions=improved_actions,
                         )
                         if result["actions"].shape[1] < original_actions.shape[1]:
                             padding_size = original_actions.shape[1] - result["actions"].shape[1]
@@ -581,16 +598,20 @@ class EAM(REINFORCE):
                     raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
 
                 if improved_out is None and improved_actions is not None:
+                    improved_actions = improved_actions.to(device=device)
+                    improved_actions = self._align_improved_actions(
+                        improved_actions, original_actions
+                    )
                     if self.baseline_str == "rollout":
                         improved_out = self.policy(
                             td,
                             self.env,
                             phase=phase,
                             num_starts=1,
-                            actions=improved_actions.to(device=device),
+                            actions=improved_actions,
                         )
                         improved_out.update(
-                            {"actions": improved_actions.to(device=device)}
+                            {"actions": improved_actions}
                         )
                     else:
                         improved_out = self.policy(
@@ -598,7 +619,7 @@ class EAM(REINFORCE):
                             self.env,
                             phase=phase,
                             num_starts=n_start,
-                            actions=improved_actions.to(device=device),
+                            actions=improved_actions,
                         )
                         if (
                             original_actions is not None
