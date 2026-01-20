@@ -113,9 +113,8 @@ def main() -> int:
             "ea_prob": 0.01,
             "ea_epoch": 700,
             "improve_mode": "ga",
-            "val_improve_mode": "local_search",
-            "local_search_max_iterations": 100,
-            "val_local_search_max_iterations": 20,
+            "val_improve_mode": "ga",
+            "val_num_generations": 1,
         }
         model = EAM(
             env,
