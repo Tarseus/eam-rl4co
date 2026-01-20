@@ -425,6 +425,7 @@ class EAM(REINFORCE):
         self.val_local_search_max_iterations = ea_kwargs.get("val_local_search_max_iterations")
         self._ga_num_generations = ea_kwargs.get("num_generations", 1)
         self._ga_diag_counter = 0
+        self._local_search_warned = False
 
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
@@ -453,10 +454,18 @@ class EAM(REINFORCE):
         if self.local_search_num_threads is not None:
             kwargs["num_threads"] = self.local_search_num_threads
         try:
-            improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
-        except TypeError:
-            kwargs.pop("num_threads", None)
-            improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
+            try:
+                improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
+            except TypeError:
+                kwargs.pop("num_threads", None)
+                improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
+        except AssertionError as exc:
+            if not self._local_search_warned:
+                log.warning(
+                    "Local search is unavailable. Skipping improvement. Error: %s", exc
+                )
+                self._local_search_warned = True
+            return None
         return improved.to(device=actions.device)
 
     def _align_improved_actions(
