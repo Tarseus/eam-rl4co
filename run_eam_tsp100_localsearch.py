@@ -23,7 +23,6 @@ def main() -> int:
     parser.add_argument("--version", type=str, default=None)
     args = parser.parse_args()
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
     os.environ.setdefault("WANDB_MODE", "offline")
 
     env = TSPEnv(TSPGenerator(num_loc=100, loc_distribution="uniform"))
@@ -95,7 +94,7 @@ def main() -> int:
     trainer = RL4COTrainer(
         max_epochs=args.epochs,
         accelerator="gpu",
-        devices=[0],
+        devices=[args.cuda],
         precision=32,
         logger=logger,
         enable_checkpointing=False,

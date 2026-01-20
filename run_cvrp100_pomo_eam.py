@@ -113,8 +113,9 @@ def main() -> int:
             "ea_prob": 0.01,
             "ea_epoch": 700,
             "improve_mode": "ga",
+            "val_improve": False,
             "val_improve_mode": "ga",
-            "val_num_generations": 1,
+            "val_num_generations": 0,
         }
         model = EAM(
             env,
