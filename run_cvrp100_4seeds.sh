@@ -5,8 +5,8 @@ model="${1:-eam-pomo}"
 epochs="${2:-200}"
 log_dir="${3:-logs}"
 
-seeds=(0 1 2)
-gpus=(2 4 5)
+seeds=(0 1 2 3)
+gpus=(2 3 4 5)
 
 pids=()
 for idx in "${!seeds[@]}"; do
