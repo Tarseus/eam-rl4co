@@ -2,10 +2,10 @@ import argparse
 import csv
 import gc
 import os
-import time
 from dataclasses import dataclass
 
 import torch
+from torch.profiler import ProfilerActivity
 from lightning.pytorch.callbacks import Callback
 
 from rl4co.envs.routing import (
@@ -38,43 +38,56 @@ class TaskSpec:
     size: int
 
 
-class StepTimer(Callback):
+class ProfilerTimer(Callback):
     def __init__(self) -> None:
         self.cpu_time_s: float | None = None
         self.gpu_time_s: float | None = None
-        self._cpu_start: float | None = None
-        self._start_event: torch.cuda.Event | None = None
-        self._end_event: torch.cuda.Event | None = None
+        self._prof: torch.profiler.profile | None = None
+        self._use_cuda: bool = False
 
     def on_train_epoch_start(self, trainer, pl_module) -> None:
-        self.cpu_time_s = 0.0
-        if pl_module.device.type == "cuda":
-            self.gpu_time_s = 0.0
-        else:
-            self.gpu_time_s = None
-
-    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx) -> None:
-        device = pl_module.device
-        if device.type == "cuda":
-            torch.cuda.synchronize(device)
-            with torch.cuda.device(device):
-                self._start_event = torch.cuda.Event(enable_timing=True)
-                self._end_event = torch.cuda.Event(enable_timing=True)
-                self._start_event.record()
-        self._cpu_start = time.process_time()
+        activities = [ProfilerActivity.CPU]
+        self._use_cuda = pl_module.device.type == "cuda"
+        if self._use_cuda:
+            activities.append(ProfilerActivity.CUDA)
+        self._prof = torch.profiler.profile(
+            activities=activities,
+            record_shapes=False,
+            with_stack=False,
+            profile_memory=False,
+        )
+        self._prof.start()
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
-        if self._cpu_start is not None:
-            self.cpu_time_s += time.process_time() - self._cpu_start
-            self._cpu_start = None
-        device = pl_module.device
-        if self._start_event is not None and device.type == "cuda":
-            with torch.cuda.device(device):
-                self._end_event.record()
-                torch.cuda.synchronize(device)
-                self.gpu_time_s += self._start_event.elapsed_time(self._end_event) / 1000.0
-            self._start_event = None
-            self._end_event = None
+        if self._prof is not None:
+            self._prof.step()
+
+    def on_train_epoch_end(self, trainer, pl_module) -> None:
+        if self._prof is None:
+            return
+        self._prof.stop()
+        events = self._prof.key_averages()
+
+        def is_sync_event(evt) -> bool:
+            name = evt.key
+            if "synchronize" in name.lower():
+                return True
+            if name == "aten::item":
+                return True
+            return False
+
+        cpu_total_us = sum(
+            evt.self_cpu_time_total for evt in events if not is_sync_event(evt)
+        )
+        self.cpu_time_s = cpu_total_us / 1e6
+
+        if self._use_cuda:
+            cuda_total_us = sum(
+                getattr(evt, "self_cuda_time_total", 0.0) for evt in events
+            )
+            self.gpu_time_s = cuda_total_us / 1e6
+        else:
+            self.gpu_time_s = None
 
 
 def _default_metrics() -> dict:
@@ -179,7 +192,7 @@ def _build_model(spec: TaskSpec, args):
     raise ValueError(f"Unsupported model key: {spec.model_key}")
 
 
-def _build_trainer(args, timer: StepTimer):
+def _build_trainer(args, timer: ProfilerTimer):
     return RL4COTrainer(
         max_epochs=1,
         accelerator="gpu",
@@ -298,7 +311,7 @@ def main() -> int:
         problem_name = _format_problem(spec.problem, spec.size)
         print(f"Running {model_name} on {problem_name}...")
 
-        timer = StepTimer()
+        timer = ProfilerTimer()
         model = _build_model(spec, args)
         trainer = _build_trainer(args, timer)
         trainer.fit(model)
