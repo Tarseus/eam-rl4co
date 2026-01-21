@@ -38,7 +38,7 @@ class TaskSpec:
     size: int
 
 
-class EpochTimer(Callback):
+class StepTimer(Callback):
     def __init__(self) -> None:
         self.cpu_time_s: float | None = None
         self.gpu_time_s: float | None = None
@@ -47,7 +47,13 @@ class EpochTimer(Callback):
         self._end_event: torch.cuda.Event | None = None
 
     def on_train_epoch_start(self, trainer, pl_module) -> None:
-        self._cpu_start = time.process_time()
+        self.cpu_time_s = 0.0
+        if pl_module.device.type == "cuda":
+            self.gpu_time_s = 0.0
+        else:
+            self.gpu_time_s = None
+
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx) -> None:
         device = pl_module.device
         if device.type == "cuda":
             torch.cuda.synchronize(device)
@@ -55,16 +61,20 @@ class EpochTimer(Callback):
                 self._start_event = torch.cuda.Event(enable_timing=True)
                 self._end_event = torch.cuda.Event(enable_timing=True)
                 self._start_event.record()
+        self._cpu_start = time.process_time()
 
-    def on_train_epoch_end(self, trainer, pl_module) -> None:
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
         if self._cpu_start is not None:
-            self.cpu_time_s = time.process_time() - self._cpu_start
+            self.cpu_time_s += time.process_time() - self._cpu_start
+            self._cpu_start = None
         device = pl_module.device
         if self._start_event is not None and device.type == "cuda":
             with torch.cuda.device(device):
                 self._end_event.record()
                 torch.cuda.synchronize(device)
-                self.gpu_time_s = self._start_event.elapsed_time(self._end_event) / 1000.0
+                self.gpu_time_s += self._start_event.elapsed_time(self._end_event) / 1000.0
+            self._start_event = None
+            self._end_event = None
 
 
 def _default_metrics() -> dict:
@@ -169,7 +179,7 @@ def _build_model(spec: TaskSpec, args):
     raise ValueError(f"Unsupported model key: {spec.model_key}")
 
 
-def _build_trainer(args, timer: EpochTimer):
+def _build_trainer(args, timer: StepTimer):
     return RL4COTrainer(
         max_epochs=1,
         accelerator="gpu",
@@ -246,7 +256,7 @@ def _task_list() -> list[TaskSpec]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Measure CPU/GPU time for one training epoch across models."
+        description="Measure CPU/GPU compute time for one training epoch across models."
     )
     parser.add_argument("--cuda", type=int, default=0, help="Physical GPU id")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -288,7 +298,7 @@ def main() -> int:
         problem_name = _format_problem(spec.problem, spec.size)
         print(f"Running {model_name} on {problem_name}...")
 
-        timer = EpochTimer()
+        timer = StepTimer()
         model = _build_model(spec, args)
         trainer = _build_trainer(args, timer)
         trainer.fit(model)
