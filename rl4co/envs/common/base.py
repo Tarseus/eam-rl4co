@@ -67,6 +67,7 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
             run_type_checks=run_type_checks,
             allow_done_after_reset=allow_done_after_reset,
         )
+        self.allow_done_after_reset = allow_done_after_reset
         # if any kwargs are left, we want to warn the user
         kwargs.pop("name", None)  # we remove the name for checking
         if kwargs:
@@ -140,7 +141,12 @@ class RL4COEnvBase(EnvBase, metaclass=abc.ABCMeta):
             td = self.generator(batch_size=batch_size)
         batch_size = [batch_size] if isinstance(batch_size, int) else batch_size
         self.to(td.device)
-        return super().reset(td, batch_size=batch_size)
+        td_reset = super().reset(td, batch_size=batch_size)
+        if not self.allow_done_after_reset:
+            done = td_reset.get("done", None)
+            if done is not None:
+                td_reset.set("done", torch.zeros_like(done))
+        return td_reset
 
     def _torchrl_step(self, td: TensorDict) -> TensorDict:
         """See :meth:`super().step` for more details.
