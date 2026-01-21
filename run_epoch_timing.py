@@ -2,6 +2,7 @@ import argparse
 import csv
 import gc
 import os
+import time
 from dataclasses import dataclass
 
 import torch
@@ -42,10 +43,15 @@ class ProfilerTimer(Callback):
     def __init__(self) -> None:
         self.cpu_time_s: float | None = None
         self.gpu_time_s: float | None = None
+        self.cpu_only_time_s: float | None = None
+        self.cpu_with_cuda_time_s: float | None = None
+        self.wall_time_s: float | None = None
         self._prof: torch.profiler.profile | None = None
         self._use_cuda: bool = False
+        self._wall_start: float | None = None
 
     def on_train_epoch_start(self, trainer, pl_module) -> None:
+        self._wall_start = time.perf_counter()
         activities = [ProfilerActivity.CPU]
         self._use_cuda = pl_module.device.type == "cuda"
         if self._use_cuda:
@@ -80,7 +86,24 @@ class ProfilerTimer(Callback):
             evt.self_cpu_time_total for evt in events if not is_sync_event(evt)
         )
         self.cpu_time_s = cpu_total_us / 1e6
-
+        self.cpu_only_time_s = (
+            sum(
+                evt.self_cpu_time_total
+                for evt in events
+                if not is_sync_event(evt)
+                and getattr(evt, "self_cuda_time_total", 0.0) <= 0.0
+            )
+            / 1e6
+        )
+        self.cpu_with_cuda_time_s = (
+            sum(
+                evt.self_cpu_time_total
+                for evt in events
+                if not is_sync_event(evt)
+                and getattr(evt, "self_cuda_time_total", 0.0) > 0.0
+            )
+            / 1e6
+        )
         if self._use_cuda:
             cuda_total_us = sum(
                 getattr(evt, "self_cuda_time_total", 0.0) for evt in events
@@ -88,6 +111,8 @@ class ProfilerTimer(Callback):
             self.gpu_time_s = cuda_total_us / 1e6
         else:
             self.gpu_time_s = None
+        if self._wall_start is not None:
+            self.wall_time_s = time.perf_counter() - self._wall_start
 
 
 def _default_metrics() -> dict:
@@ -320,7 +345,10 @@ def main() -> int:
             "model": model_name,
             "problem": problem_name,
             "cpu_time_s": timer.cpu_time_s,
+            "cpu_only_time_s": timer.cpu_only_time_s,
+            "cpu_with_cuda_time_s": timer.cpu_with_cuda_time_s,
             "gpu_time_s": timer.gpu_time_s,
+            "wall_time_s": timer.wall_time_s,
             "batch_size": args.batch_size,
             "train_data_size": args.train_data_size,
             "precision": args.precision,
@@ -329,8 +357,16 @@ def main() -> int:
         _append_result(args.output, row)
 
         print(
-            f"  CPU {timer.cpu_time_s:.3f}s | GPU {timer.gpu_time_s:.3f}s"
-            if timer.cpu_time_s is not None and timer.gpu_time_s is not None
+            f"  CPU {timer.cpu_time_s:.3f}s | CPU-only {timer.cpu_only_time_s:.3f}s | "
+            f"CPU+CUDA {timer.cpu_with_cuda_time_s:.3f}s | GPU {timer.gpu_time_s:.3f}s | "
+            f"Wall {timer.wall_time_s:.3f}s"
+            if (
+                timer.cpu_time_s is not None
+                and timer.cpu_only_time_s is not None
+                and timer.cpu_with_cuda_time_s is not None
+                and timer.gpu_time_s is not None
+                and timer.wall_time_s is not None
+            )
             else f"  CPU {timer.cpu_time_s}s | GPU {timer.gpu_time_s}s"
         )
 
