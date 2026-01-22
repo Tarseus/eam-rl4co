@@ -312,6 +312,12 @@ def main() -> int:
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--top-p", type=float, default=0.0)
     parser.add_argument("--top-k", type=int, default=0)
+    parser.add_argument(
+        "--tie-tol",
+        type=float,
+        default=0.0,
+        help="If non-EAM is better than EAM by <= tie_tol, count as tie (asymmetric).",
+    )
     parser.add_argument("--output-dir", type=str, default="results/checkpoint_eval")
     args = parser.parse_args()
 
@@ -512,6 +518,7 @@ def main() -> int:
         writer.writerow(
             ["problem", "size", "model_a", "model_b", "wins", "ties", "losses", "total"]
         )
+        tie_tol = max(args.tie_tol, 0.0)
         def split_eam(method_name: str) -> tuple[bool, str]:
             if method_name.startswith("eam_"):
                 return True, method_name[len("eam_") :]
@@ -541,10 +548,9 @@ def main() -> int:
                         a = a_rewards[seed]
                         b = b_rewards[seed]
                         diff = a - b
-                        eps = 1e-9
-                        wins += int((diff > eps).sum())
-                        ties += int((np.abs(diff) <= eps).sum())
-                        losses += int((diff < -eps).sum())
+                        wins += int((diff > tie_tol).sum())
+                        ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
+                        losses += int((diff < 0).sum())
                     if shared_seeds:
                         info = results[a_label]["info"]
                         writer.writerow(
@@ -561,6 +567,7 @@ def main() -> int:
                 "method": args.method,
                 "num_augment": args.num_augment,
                 "num_starts": args.num_starts,
+                "tie_tol": args.tie_tol,
             },
             f,
             indent=2,
