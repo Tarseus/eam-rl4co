@@ -50,5 +50,10 @@ from rl4co.models.zoo.pomo import POMO
 from rl4co.models.zoo.ptrnet import PointerNetwork, PointerNetworkPolicy
 from rl4co.models.zoo.symnco import SymNCO, SymNCOPolicy
 
-from rl4co.models.zoo.earl.model import EAM, SymEAM
-from rl4co.models.zoo.earl.evolution import EA
+try:
+    from rl4co.models.zoo.earl.model import EAM, SymEAM
+    from rl4co.models.zoo.earl.evolution import EA
+except Exception:  # Optional deps (e.g., numba) may be unavailable.
+    EAM = None
+    SymEAM = None
+    EA = None
