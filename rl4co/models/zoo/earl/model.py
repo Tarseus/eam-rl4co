@@ -486,6 +486,7 @@ class EAM(REINFORCE):
     ):
         
         td = self.env.reset(batch)
+        init_td = td.clone()
         
         n_aug, n_start = self.num_augment, self.num_starts
         n_start = self.env.get_num_starts(td) if n_start is None else n_start
@@ -499,7 +500,6 @@ class EAM(REINFORCE):
         
         # Evaluate policy
         if phase == "train":
-            init_td = td.clone()
             original_out = None
             improved_out = None
             t_decode = 0.0
@@ -772,7 +772,7 @@ class EAM(REINFORCE):
                             try:
                                 improved_actions, _ = evolution_worker(
                                     original_actions,
-                                    td,
+                                    init_td,
                                     self.ea,
                                     self.env,
                                 )
@@ -782,11 +782,11 @@ class EAM(REINFORCE):
                     elif val_improve_mode == "resample":
                         if self.baseline_str == "rollout":
                             improved_out = self.policy(
-                                td, self.env, phase=phase, num_starts=1
+                                init_td, self.env, phase=phase, num_starts=1
                             )
                         else:
                             improved_out = self.policy(
-                                td, self.env, phase=phase, num_starts=n_start
+                                init_td, self.env, phase=phase, num_starts=n_start
                             )
                     elif val_improve_mode == "random_2opt":
                         num_iters = self._get_improve_iters(
@@ -804,7 +804,7 @@ class EAM(REINFORCE):
                             else self.local_search_max_iterations
                         )
                         improved_actions = self._apply_local_search(
-                            original_actions, td, max_iters
+                            original_actions, init_td, max_iters
                         )
                     else:
                         raise ValueError(f"Unknown improve_mode: {val_improve_mode}")
@@ -816,7 +816,7 @@ class EAM(REINFORCE):
                         )
                         if self.baseline_str == "rollout":
                             improved_out = self.policy(
-                                td,
+                                init_td,
                                 self.env,
                                 phase=phase,
                                 num_starts=1,
@@ -825,7 +825,7 @@ class EAM(REINFORCE):
                             improved_out.update({"actions": improved_actions})
                         else:
                             improved_out = self.policy(
-                                td,
+                                init_td,
                                 self.env,
                                 phase=phase,
                                 num_starts=n_start,
