@@ -229,7 +229,7 @@ def _default_metrics() -> dict:
     }
 
 
-def _build_env(problem: str, size: int):
+def _build_env(problem: str, size: int, *, check_solution: bool = True):
     if problem == "tsp":
         generator = TSPGenerator(num_loc=size, loc_distribution="uniform")
         return TSPEnv(generator)
@@ -240,7 +240,7 @@ def _build_env(problem: str, size: int):
         generator = KnapsackGenerator(
             num_items=size, weight_distribution="uniform", value_distribution="uniform"
         )
-        return KnapsackEnv(generator)
+        return KnapsackEnv(generator, check_solution=check_solution)
     if problem == "pctsp":
         generator = PCTSPGenerator(num_loc=size, loc_distribution="uniform")
         return PCTSPEnv(generator)
@@ -273,7 +273,8 @@ def _build_symnco_policy(env, args):
 
 
 def _build_model(spec: TaskSpec, args):
-    env = _build_env(spec.problem, spec.size)
+    check_solution = not (spec.problem == "kp" and spec.model_key == "pomo")
+    env = _build_env(spec.problem, spec.size, check_solution=check_solution)
     common_kwargs = {
         "batch_size": args.batch_size,
         "optimizer_kwargs": {"lr": args.lr, "weight_decay": args.weight_decay},
