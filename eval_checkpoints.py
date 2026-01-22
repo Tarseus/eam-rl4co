@@ -578,14 +578,29 @@ def main() -> int:
                 continue
             tie_tol_by_problem.setdefault(key, []).extend(entry["diffs"])
 
+        target_ratio = 0.8
         adaptive_tols = {}
         for key, diffs in tie_tol_by_problem.items():
+            base_tol = max(args.tie_tol, 0.0)
             if not diffs:
-                adaptive_tols[key] = max(args.tie_tol, 0.0)
+                adaptive_tols[key] = base_tol
                 continue
             flat = np.concatenate(diffs)
-            q = float(np.quantile(flat, 0.8))
-            adaptive_tols[key] = max(q, args.tie_tol, 0.0)
+            total = flat.size
+            if total == 0:
+                adaptive_tols[key] = base_tol
+                continue
+            loss_count = int((flat < 0).sum())
+            nonneg = flat[flat >= 0]
+            required_ties = math.ceil(target_ratio * total) - loss_count
+            if required_ties <= 0:
+                tol = 0.0
+            elif required_ties > nonneg.size:
+                tol = float(nonneg.max()) if nonneg.size > 0 else 0.0
+            else:
+                nonneg_sorted = np.sort(nonneg)
+                tol = float(nonneg_sorted[required_ties - 1])
+            adaptive_tols[key] = max(tol, base_tol)
 
         for entry in pair_entries:
             problem = entry["problem"]
@@ -626,7 +641,8 @@ def main() -> int:
                 "num_augment": args.num_augment,
                 "num_starts": args.num_starts,
                 "tie_tol": args.tie_tol,
-                "tie_tol_mode": "adaptive_non_kp",
+                "tie_tol_mode": "adaptive_non_kp_target",
+                "tie_loss_target": target_ratio,
             },
             f,
             indent=2,
