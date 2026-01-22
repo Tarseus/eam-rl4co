@@ -516,9 +516,19 @@ def main() -> int:
     with wtl_path.open("w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
-            ["problem", "size", "model_a", "model_b", "wins", "ties", "losses", "total"]
+            [
+                "problem",
+                "size",
+                "model_a",
+                "model_b",
+                "wins",
+                "ties",
+                "losses",
+                "total",
+                "tie_loss_ratio",
+            ]
         )
-        tie_tol = max(args.tie_tol, 0.0)
+
         def split_eam(method_name: str) -> tuple[bool, str]:
             if method_name.startswith("eam_"):
                 return True, method_name[len("eam_") :]
@@ -535,27 +545,75 @@ def main() -> int:
             else:
                 non_eam.setdefault(key, []).append(label)
 
+        pair_entries = []
         for key in sorted(set(non_eam.keys()) & set(eam.keys())):
             a_labels = non_eam[key]
             b_labels = eam[key]
             for a_label in a_labels:
                 for b_label in b_labels:
-                    wins = ties = losses = 0
                     a_rewards = results[a_label]["seed_rewards"]
                     b_rewards = results[b_label]["seed_rewards"]
                     shared_seeds = sorted(set(a_rewards.keys()) & set(b_rewards.keys()))
+                    diffs = []
                     for seed in shared_seeds:
-                        a = a_rewards[seed]
-                        b = b_rewards[seed]
-                        diff = a - b
-                        wins += int((diff > tie_tol).sum())
-                        ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
-                        losses += int((diff < 0).sum())
+                        diffs.append(a_rewards[seed] - b_rewards[seed])
                     if shared_seeds:
                         info = results[a_label]["info"]
-                        writer.writerow(
-                            [info.problem, info.size, a_label, b_label, wins, ties, losses, wins + ties + losses]
+                        pair_entries.append(
+                            {
+                                "problem": info.problem,
+                                "size": info.size,
+                                "a_label": a_label,
+                                "b_label": b_label,
+                                "diffs": diffs,
+                            }
                         )
+
+        tie_tol_by_problem = {}
+        for entry in pair_entries:
+            problem = entry["problem"]
+            size = entry["size"]
+            key = (problem, size)
+            if problem in {"kp", "knapsack"}:
+                continue
+            tie_tol_by_problem.setdefault(key, []).extend(entry["diffs"])
+
+        adaptive_tols = {}
+        for key, diffs in tie_tol_by_problem.items():
+            if not diffs:
+                adaptive_tols[key] = max(args.tie_tol, 0.0)
+                continue
+            flat = np.concatenate(diffs)
+            q = float(np.quantile(flat, 0.8))
+            adaptive_tols[key] = max(q, args.tie_tol, 0.0)
+
+        for entry in pair_entries:
+            problem = entry["problem"]
+            size = entry["size"]
+            if problem in {"kp", "knapsack"}:
+                tie_tol = max(args.tie_tol, 0.0)
+            else:
+                tie_tol = adaptive_tols.get((problem, size), max(args.tie_tol, 0.0))
+            wins = ties = losses = 0
+            for diff in entry["diffs"]:
+                wins += int((diff > tie_tol).sum())
+                ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
+                losses += int((diff < 0).sum())
+            total = wins + ties + losses
+            tie_loss_ratio = (ties + losses) / total if total > 0 else 0.0
+            writer.writerow(
+                [
+                    problem,
+                    size,
+                    entry["a_label"],
+                    entry["b_label"],
+                    wins,
+                    ties,
+                    losses,
+                    total,
+                    tie_loss_ratio,
+                ]
+            )
 
     with meta_path.open("w") as f:
         json.dump(
@@ -568,6 +626,7 @@ def main() -> int:
                 "num_augment": args.num_augment,
                 "num_starts": args.num_starts,
                 "tie_tol": args.tie_tol,
+                "tie_tol_mode": "adaptive_non_kp",
             },
             f,
             indent=2,
