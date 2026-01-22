@@ -40,39 +40,84 @@ class TaskSpec:
 
 
 class ProfilerTimer(Callback):
-    def __init__(self) -> None:
+    def __init__(self, profile_steps: int, profile_warmup: int) -> None:
         self.cpu_time_s: float | None = None
         self.gpu_time_s: float | None = None
         self.cpu_only_time_s: float | None = None
         self.cpu_with_cuda_time_s: float | None = None
         self.wall_time_s: float | None = None
+        self.device_type: str | None = None
+        self.cuda_available: bool | None = None
+        self.cuda_device_index: int | None = None
+        self.cuda_device_name: str | None = None
         self._prof: torch.profiler.profile | None = None
         self._use_cuda: bool = False
         self._wall_start: float | None = None
+        self._events = None
+        self._profile_steps = max(0, int(profile_steps))
+        self._profile_warmup = max(0, int(profile_warmup))
+        self._profiled_steps = 0
+        self._total_steps = 0
+        self._profiling = False
 
     def on_train_epoch_start(self, trainer, pl_module) -> None:
         self._wall_start = time.perf_counter()
-        activities = [ProfilerActivity.CPU]
-        self._use_cuda = pl_module.device.type == "cuda"
-        if self._use_cuda:
-            activities.append(ProfilerActivity.CUDA)
-        self._prof = torch.profiler.profile(
-            activities=activities,
-            record_shapes=False,
-            with_stack=False,
-            profile_memory=False,
+        self.device_type = pl_module.device.type
+        self.cuda_available = torch.cuda.is_available()
+        self.cuda_device_index = (
+            pl_module.device.index if self.device_type == "cuda" else None
         )
-        self._prof.start()
+        if self.cuda_device_index is not None and self.cuda_available:
+            self.cuda_device_name = torch.cuda.get_device_name(self.cuda_device_index)
+        else:
+            self.cuda_device_name = None
+        self._use_cuda = self.device_type == "cuda"
+        self._events = None
+        self._profiled_steps = 0
+        self._total_steps = 0
+        self._profiling = False
+        self._prof = None
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
-        if self._prof is not None:
+        self._total_steps += 1
+        if self._profile_steps <= 0:
+            return
+        if (
+            not self._profiling
+            and self._total_steps >= self._profile_warmup + 1
+            and self._profiled_steps < self._profile_steps
+        ):
+            activities = [ProfilerActivity.CPU]
+            if self._use_cuda:
+                activities.append(ProfilerActivity.CUDA)
+            self._prof = torch.profiler.profile(
+                activities=activities,
+                record_shapes=False,
+                with_stack=False,
+                profile_memory=False,
+            )
+            self._prof.start()
+            self._profiling = True
+        if self._profiling and self._prof is not None:
             self._prof.step()
+            self._profiled_steps += 1
+            if self._profiled_steps >= self._profile_steps:
+                self._prof.stop()
+                self._events = self._prof.key_averages()
+                self._prof = None
+                self._profiling = False
 
     def on_train_epoch_end(self, trainer, pl_module) -> None:
-        if self._prof is None:
+        if self._profiling and self._prof is not None:
+            self._prof.stop()
+            self._events = self._prof.key_averages()
+            self._prof = None
+            self._profiling = False
+        events = self._events
+        if events is None:
+            if self._wall_start is not None:
+                self.wall_time_s = time.perf_counter() - self._wall_start
             return
-        self._prof.stop()
-        events = self._prof.key_averages()
 
         def is_sync_event(evt) -> bool:
             name = evt.key
@@ -85,7 +130,12 @@ class ProfilerTimer(Callback):
         cpu_total_us = sum(
             evt.self_cpu_time_total for evt in events if not is_sync_event(evt)
         )
-        self.cpu_time_s = cpu_total_us / 1e6
+        scale = (
+            float(self._total_steps) / float(self._profiled_steps)
+            if self._profiled_steps > 0
+            else 0.0
+        )
+        self.cpu_time_s = (cpu_total_us / 1e6) * scale
         self.cpu_only_time_s = (
             sum(
                 evt.self_cpu_time_total
@@ -94,7 +144,7 @@ class ProfilerTimer(Callback):
                 and getattr(evt, "self_cuda_time_total", 0.0) <= 0.0
             )
             / 1e6
-        )
+        ) * scale
         self.cpu_with_cuda_time_s = (
             sum(
                 evt.self_cpu_time_total
@@ -103,12 +153,12 @@ class ProfilerTimer(Callback):
                 and getattr(evt, "self_cuda_time_total", 0.0) > 0.0
             )
             / 1e6
-        )
+        ) * scale
         if self._use_cuda:
             cuda_total_us = sum(
                 getattr(evt, "self_cuda_time_total", 0.0) for evt in events
             )
-            self.gpu_time_s = cuda_total_us / 1e6
+            self.gpu_time_s = (cuda_total_us / 1e6) * scale
         else:
             self.gpu_time_s = None
         if self._wall_start is not None:
@@ -319,6 +369,8 @@ def main() -> int:
     parser.add_argument("--ea-beta", type=float, default=3.0)
     parser.add_argument("--ea-prob", type=float, default=0.01)
     parser.add_argument("--ea-epoch", type=int, default=700)
+    parser.add_argument("--profile-steps", type=int, default=50)
+    parser.add_argument("--profile-warmup", type=int, default=5)
     parser.add_argument(
         "--output",
         type=str,
@@ -336,7 +388,10 @@ def main() -> int:
         problem_name = _format_problem(spec.problem, spec.size)
         print(f"Running {model_name} on {problem_name}...")
 
-        timer = ProfilerTimer()
+        timer = ProfilerTimer(
+            profile_steps=args.profile_steps,
+            profile_warmup=args.profile_warmup,
+        )
         model = _build_model(spec, args)
         trainer = _build_trainer(args, timer)
         trainer.fit(model)
@@ -349,6 +404,13 @@ def main() -> int:
             "cpu_with_cuda_time_s": timer.cpu_with_cuda_time_s,
             "gpu_time_s": timer.gpu_time_s,
             "wall_time_s": timer.wall_time_s,
+            "profiled_steps": timer._profiled_steps,
+            "total_steps": timer._total_steps,
+            "profile_warmup": args.profile_warmup,
+            "device_type": timer.device_type,
+            "cuda_available": timer.cuda_available,
+            "cuda_device_index": timer.cuda_device_index,
+            "cuda_device_name": timer.cuda_device_name,
             "batch_size": args.batch_size,
             "train_data_size": args.train_data_size,
             "precision": args.precision,
