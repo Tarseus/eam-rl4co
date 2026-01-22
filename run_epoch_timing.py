@@ -45,6 +45,8 @@ class ProfilerTimer(Callback):
         self.gpu_time_s: float | None = None
         self.cpu_only_time_s: float | None = None
         self.cpu_with_cuda_time_s: float | None = None
+        self.event_cpu_time_s: float | None = None
+        self.event_gpu_time_s: float | None = None
         self.wall_time_s: float | None = None
         self.device_type: str | None = None
         self.cuda_available: bool | None = None
@@ -59,6 +61,13 @@ class ProfilerTimer(Callback):
         self._profiled_steps = 0
         self._total_steps = 0
         self._profiling = False
+        self._event_profiled_steps = 0
+        self._event_cpu_accum = 0.0
+        self._event_gpu_accum = 0.0
+        self._event_cpu_start: float | None = None
+        self._event_start_event: torch.cuda.Event | None = None
+        self._event_end_event: torch.cuda.Event | None = None
+        self._event_active = False
 
     def on_train_epoch_start(self, trainer, pl_module) -> None:
         self._wall_start = time.perf_counter()
@@ -77,16 +86,24 @@ class ProfilerTimer(Callback):
         self._total_steps = 0
         self._profiling = False
         self._prof = None
+        self._event_profiled_steps = 0
+        self._event_cpu_accum = 0.0
+        self._event_gpu_accum = 0.0
+        self._event_cpu_start = None
+        self._event_start_event = None
+        self._event_end_event = None
+        self._event_active = False
 
-    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
-        self._total_steps += 1
+    def on_train_batch_start(self, trainer, pl_module, batch, batch_idx) -> None:
         if self._profile_steps <= 0:
             return
-        if (
+        next_step = self._total_steps + 1
+        should_profile = (
             not self._profiling
-            and self._total_steps >= self._profile_warmup + 1
+            and next_step >= self._profile_warmup + 1
             and self._profiled_steps < self._profile_steps
-        ):
+        )
+        if should_profile:
             activities = [ProfilerActivity.CPU]
             if self._use_cuda:
                 activities.append(ProfilerActivity.CUDA)
@@ -98,6 +115,37 @@ class ProfilerTimer(Callback):
             )
             self._prof.start()
             self._profiling = True
+        should_event = (
+            next_step >= self._profile_warmup + 1
+            and self._event_profiled_steps < self._profile_steps
+        )
+        if should_event:
+            if self._use_cuda:
+                torch.cuda.synchronize(pl_module.device)
+                with torch.cuda.device(pl_module.device):
+                    self._event_start_event = torch.cuda.Event(enable_timing=True)
+                    self._event_end_event = torch.cuda.Event(enable_timing=True)
+                    self._event_start_event.record()
+            self._event_cpu_start = time.process_time()
+            self._event_active = True
+
+    def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx) -> None:
+        if self._event_active:
+            if self._event_cpu_start is not None:
+                self._event_cpu_accum += time.process_time() - self._event_cpu_start
+                self._event_cpu_start = None
+            if self._use_cuda and self._event_start_event is not None:
+                with torch.cuda.device(pl_module.device):
+                    self._event_end_event.record()
+                    torch.cuda.synchronize(pl_module.device)
+                    self._event_gpu_accum += (
+                        self._event_start_event.elapsed_time(self._event_end_event)
+                        / 1000.0
+                    )
+                self._event_start_event = None
+                self._event_end_event = None
+            self._event_profiled_steps += 1
+            self._event_active = False
         if self._profiling and self._prof is not None:
             self._prof.step()
             self._profiled_steps += 1
@@ -106,6 +154,7 @@ class ProfilerTimer(Callback):
                 self._events = self._prof.key_averages()
                 self._prof = None
                 self._profiling = False
+        self._total_steps += 1
 
     def on_train_epoch_end(self, trainer, pl_module) -> None:
         if self._profiling and self._prof is not None:
@@ -161,6 +210,13 @@ class ProfilerTimer(Callback):
             self.gpu_time_s = (cuda_total_us / 1e6) * scale
         else:
             self.gpu_time_s = None
+        if self._event_profiled_steps > 0:
+            event_scale = float(self._total_steps) / float(self._event_profiled_steps)
+            self.event_cpu_time_s = self._event_cpu_accum * event_scale
+            self.event_gpu_time_s = self._event_gpu_accum * event_scale
+        else:
+            self.event_cpu_time_s = None
+            self.event_gpu_time_s = None
         if self._wall_start is not None:
             self.wall_time_s = time.perf_counter() - self._wall_start
 
@@ -403,10 +459,13 @@ def main() -> int:
             "cpu_only_time_s": timer.cpu_only_time_s,
             "cpu_with_cuda_time_s": timer.cpu_with_cuda_time_s,
             "gpu_time_s": timer.gpu_time_s,
+            "event_cpu_time_s": timer.event_cpu_time_s,
+            "event_gpu_time_s": timer.event_gpu_time_s,
             "wall_time_s": timer.wall_time_s,
             "profiled_steps": timer._profiled_steps,
             "total_steps": timer._total_steps,
             "profile_warmup": args.profile_warmup,
+            "event_profiled_steps": timer._event_profiled_steps,
             "device_type": timer.device_type,
             "cuda_available": timer.cuda_available,
             "cuda_device_index": timer.cuda_device_index,
@@ -421,12 +480,15 @@ def main() -> int:
         print(
             f"  CPU {timer.cpu_time_s:.3f}s | CPU-only {timer.cpu_only_time_s:.3f}s | "
             f"CPU+CUDA {timer.cpu_with_cuda_time_s:.3f}s | GPU {timer.gpu_time_s:.3f}s | "
+            f"Event CPU {timer.event_cpu_time_s:.3f}s | Event GPU {timer.event_gpu_time_s:.3f}s | "
             f"Wall {timer.wall_time_s:.3f}s"
             if (
                 timer.cpu_time_s is not None
                 and timer.cpu_only_time_s is not None
                 and timer.cpu_with_cuda_time_s is not None
                 and timer.gpu_time_s is not None
+                and timer.event_cpu_time_s is not None
+                and timer.event_gpu_time_s is not None
                 and timer.wall_time_s is not None
             )
             else f"  CPU {timer.cpu_time_s}s | GPU {timer.gpu_time_s}s"
