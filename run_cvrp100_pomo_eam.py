@@ -5,14 +5,27 @@ import time
 import lightning as L
 from lightning.pytorch.loggers import CSVLogger
 
-from rl4co.envs.routing import CVRPEnv, CVRPGenerator
+from rl4co.envs.routing import (
+    CVRPEnv,
+    CVRPGenerator,
+    KnapsackEnv,
+    KnapsackGenerator,
+    TSPEnv,
+    TSPGenerator,
+)
 from rl4co.models import AttentionModelPolicy, EAM, POMO
 from rl4co.utils import RL4COTrainer
+
+def _normalize_problem(name: str) -> str:
+    key = name.lower().strip()
+    if key == "knapsack":
+        key = "kp"
+    return key
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Train POMO or EAM-POMO on CVRP100."
+        description="Train POMO or EAM-POMO on CVRP/TSP/KP (any size)."
     )
     parser.add_argument(
         "--model",
@@ -20,10 +33,21 @@ def main() -> int:
         default="pomo",
         help="Model to train: pomo or eam-pomo",
     )
+    parser.add_argument(
+        "--problem",
+        type=str,
+        default="cvrp",
+        help="Problem type: cvrp, tsp, kp (or knapsack).",
+    )
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--device", type=int, default=0, help="Physical GPU id")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--problem-size", type=int, default=100)
+    parser.add_argument(
+        "--problem-size",
+        type=int,
+        default=100,
+        help="Problem size: #customers for CVRP, #nodes for TSP, #items for KP.",
+    )
     parser.add_argument("--num-augment", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--train-data-size", type=int, default=160_000)
@@ -41,13 +65,36 @@ def main() -> int:
     os.environ.setdefault("WANDB_MODE", "offline")
     L.seed_everything(args.seed, workers=True)
 
-    env = CVRPEnv(
-        CVRPGenerator(
-            num_loc=args.problem_size,
-            loc_distribution="uniform",
-            num_depots=1,
+    problem_key = _normalize_problem(args.problem)
+    if problem_key not in {"cvrp", "tsp", "kp"}:
+        raise SystemExit("Unknown problem. Use --problem cvrp, tsp, or kp.")
+
+    check_solution = not (problem_key == "kp" and model_key == "pomo")
+    if problem_key == "cvrp":
+        env = CVRPEnv(
+            CVRPGenerator(
+                num_loc=args.problem_size,
+                loc_distribution="uniform",
+                num_depots=1,
+            )
         )
-    )
+    elif problem_key == "tsp":
+        env = TSPEnv(
+            TSPGenerator(
+                num_loc=args.problem_size,
+                loc_distribution="uniform",
+            )
+        )
+    else:
+        env = KnapsackEnv(
+            KnapsackGenerator(
+                num_items=args.problem_size,
+                weight_distribution="uniform",
+                value_distribution="uniform",
+                capacity=args.capacity,
+            ),
+            check_solution=check_solution,
+        )
     policy = AttentionModelPolicy(
         env_name=env.name,
         embed_dim=128,
@@ -92,7 +139,7 @@ def main() -> int:
             batch_size=args.batch_size,
             optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
             lr_scheduler="MultiStepLR",
-            lr_scheduler_kwargs={"milestones": [160, 190], "gamma": 0.1},
+            lr_scheduler_kwargs={},
             train_data_size=args.train_data_size,
             val_data_size=args.val_data_size,
             test_data_size=args.test_data_size,
@@ -124,7 +171,7 @@ def main() -> int:
             batch_size=args.batch_size,
             optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
             lr_scheduler="MultiStepLR",
-            lr_scheduler_kwargs={"milestones": [160, 190], "gamma": 0.1},
+            lr_scheduler_kwargs={},
             train_data_size=args.train_data_size,
             val_data_size=args.val_data_size,
             test_data_size=args.test_data_size,
@@ -134,7 +181,7 @@ def main() -> int:
         )
         model_tag = "eam_pomo"
 
-    run_name = args.run_name or f"{model_tag}_cvrp{args.problem_size}"
+    run_name = args.run_name or f"{model_tag}_{problem_key}{args.problem_size}"
     version = args.version or (
         f"{time.strftime('%Y%m%d_%H%M%S')}_seed{args.seed}_gpu{args.device}"
     )
