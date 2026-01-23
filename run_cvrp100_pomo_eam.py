@@ -16,11 +16,48 @@ from rl4co.envs.routing import (
 from rl4co.models import AttentionModelPolicy, EAM, POMO
 from rl4co.utils import RL4COTrainer
 
+
+def _parse_milestones(value: str | None) -> list[int] | None:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        return [int(v) for v in value]
+    parts = [item.strip() for item in value.split(",") if item.strip()]
+    return [int(item) for item in parts] if parts else None
+
+
+def _default_lr_milestones(epochs: int) -> list[int]:
+    if epochs <= 1:
+        return []
+    first = max(1, int(epochs * 0.8))
+    second = max(first + 1, int(epochs * 0.95))
+    second = min(second, max(1, epochs - 1))
+    if first >= epochs:
+        return []
+    if second <= first or second >= epochs:
+        return [first]
+    return [first, second]
+
+
 def _normalize_problem(name: str) -> str:
     key = name.lower().strip()
     if key == "knapsack":
         key = "kp"
     return key
+
+
+def _require_eam():
+    if EAM is not None:
+        return EAM
+    try:
+        from rl4co.models.zoo.earl.model import EAM as EAM_cls
+    except Exception as exc:
+        raise SystemExit(
+            "EAM is unavailable. Install optional dependencies (e.g., numba) "
+            "and ensure rl4co.models.zoo.earl is importable. "
+            f"Original error: {exc}"
+        ) from exc
+    return EAM_cls
 
 
 def main() -> int:
@@ -48,6 +85,12 @@ def main() -> int:
         default=100,
         help="Problem size: #customers for CVRP, #nodes for TSP, #items for KP.",
     )
+    parser.add_argument(
+        "--capacity",
+        type=float,
+        default=None,
+        help="Override capacity for CVRP/KP (defaults to generator table/heuristic).",
+    )
     parser.add_argument("--num-augment", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--train-data-size", type=int, default=160_000)
@@ -56,6 +99,12 @@ def main() -> int:
     parser.add_argument("--log-dir", type=str, default="logs")
     parser.add_argument("--run-name", type=str, default=None)
     parser.add_argument("--version", type=str, default=None)
+    parser.add_argument(
+        "--lr-milestones",
+        type=str,
+        default=None,
+        help="Comma-separated epochs for MultiStepLR (default: 80% and 95% of --epochs).",
+    )
     args = parser.parse_args()
 
     model_key = args.model.lower().replace("_", "-")
@@ -76,6 +125,7 @@ def main() -> int:
                 num_loc=args.problem_size,
                 loc_distribution="uniform",
                 num_depots=1,
+                capacity=args.capacity,
             )
         )
     elif problem_key == "tsp":
@@ -132,6 +182,10 @@ def main() -> int:
         "test": ["reward", "max_reward", "max_aug_reward"],
     }
 
+    lr_milestones = _parse_milestones(args.lr_milestones)
+    if lr_milestones is None:
+        lr_milestones = _default_lr_milestones(args.epochs)
+
     if model_key == "pomo":
         model = POMO(
             env,
@@ -139,7 +193,7 @@ def main() -> int:
             batch_size=args.batch_size,
             optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
             lr_scheduler="MultiStepLR",
-            lr_scheduler_kwargs={},
+            lr_scheduler_kwargs={"milestones": lr_milestones, "gamma": 0.1},
             train_data_size=args.train_data_size,
             val_data_size=args.val_data_size,
             test_data_size=args.test_data_size,
@@ -164,14 +218,15 @@ def main() -> int:
             "val_improve_mode": "ga",
             "val_num_generations": 0,
         }
-        model = EAM(
+        eam_cls = _require_eam()
+        model = eam_cls(
             env,
             policy,
             baseline="shared",
             batch_size=args.batch_size,
             optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
             lr_scheduler="MultiStepLR",
-            lr_scheduler_kwargs={},
+            lr_scheduler_kwargs={"milestones": lr_milestones, "gamma": 0.1},
             train_data_size=args.train_data_size,
             val_data_size=args.val_data_size,
             test_data_size=args.test_data_size,
