@@ -1,0 +1,578 @@
+from __future__ import annotations
+
+import json
+import logging
+import os
+import random
+import re
+import time
+from dataclasses import asdict
+from typing import Any, Mapping, Sequence
+
+from dotenv import load_dotenv
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    BadRequestError,
+    InternalServerError,
+    OpenAI,
+    RateLimitError,
+)
+
+from .free_loss_compiler import (
+    CompiledFreeLoss,
+    compile_free_loss,
+    parse_free_loss_from_text,
+)
+from .free_loss_ir import FreeLossIR
+
+
+LOGGER = logging.getLogger(__name__)
+_OPENAI_CLIENT: OpenAI | None = None
+_ENV_LOADED = False
+
+
+def _load_env() -> None:
+    global _ENV_LOADED
+    if _ENV_LOADED:
+        return
+    load_dotenv()
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError("OPENAI_API_KEY is required for free-loss discovery.")
+    _ENV_LOADED = True
+
+
+def _make_openai_client() -> OpenAI:
+    timeout_s = float(os.getenv("OPENAI_TIMEOUT_S", "60") or 60)
+    max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "2") or 2)
+    api_key = os.environ["OPENAI_API_KEY"]
+    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    return OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_s, max_retries=max_retries)
+
+
+def _get_openai_client() -> OpenAI:
+    global _OPENAI_CLIENT
+    _load_env()
+    if _OPENAI_CLIENT is None:
+        _OPENAI_CLIENT = _make_openai_client()
+    return _OPENAI_CLIENT
+
+
+def _should_retry_llm_error(exc: Exception) -> bool:
+    # Treat transient transport/service issues as retryable. Some providers/proxies
+    # return "get_token_error" as a 500; this is usually transient as well.
+    retryable_types = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+    if isinstance(exc, retryable_types):
+        return True
+    if isinstance(exc, BadRequestError) and "get_token_error" in str(exc):
+        return True
+    return False
+
+
+def _read_prompt(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def _extract_json_object(text: str) -> str:
+    """Extract the first complete top-level JSON object from model output.
+
+    More robust than slicing from first '{' to last '}' because LLMs may emit
+    multiple objects or trailing text.
+    """
+
+    start = text.find("{")
+    if start == -1:
+        raise ValueError("No JSON object found in model output.")
+
+    depth = 0
+    end = None
+    for i, ch in enumerate(text[start:], start=start):
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end = i
+                break
+
+    if end is None or end <= start:
+        raise ValueError("Failed to locate a complete JSON object in model output.")
+
+    snippet = text[start : end + 1]
+
+    invalid_escape_pattern = re.compile(r'\\(?!["\\/bfnrtu])')
+    sanitized = invalid_escape_pattern.sub(r"\\\\", snippet)
+
+    def _escape_control_chars_in_strings(s: str) -> str:
+        out_chars: list[str] = []
+        in_string = False
+        escape = False
+        for ch in s:
+            if escape:
+                out_chars.append(ch)
+                escape = False
+                continue
+            if ch == "\\":
+                out_chars.append(ch)
+                escape = True
+                continue
+            if ch == '"':
+                out_chars.append(ch)
+                in_string = not in_string
+                continue
+            if in_string and ch in ("\n", "\r", "\t"):
+                if ch == "\n":
+                    out_chars.append("\\n")
+                elif ch == "\r":
+                    out_chars.append("\\r")
+                else:
+                    out_chars.append("\\t")
+                continue
+            out_chars.append(ch)
+        return "".join(out_chars)
+
+    return _escape_control_chars_in_strings(sanitized)
+
+
+def _call_llm(prompt: str) -> str:
+    client = _get_openai_client()
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4.1")
+
+    max_attempts = int(os.getenv("OPENAI_CALL_MAX_ATTEMPTS", "6") or 6)
+    base_backoff_s = float(os.getenv("OPENAI_CALL_BACKOFF_S", "1") or 1)
+    max_backoff_s = float(os.getenv("OPENAI_CALL_BACKOFF_MAX_S", "30") or 30)
+
+    last_exc: Exception | None = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            resp = client.chat.completions.create(
+                model=model_name,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.7,
+            )
+            content = resp.choices[0].message.content
+            if not content:
+                raise RuntimeError("LLM returned empty content.")
+            return content.strip()
+        except Exception as exc:  # noqa: BLE001
+            last_exc = exc
+            if attempt >= max_attempts or not _should_retry_llm_error(exc):
+                raise
+
+            sleep_s = min(max_backoff_s, base_backoff_s * (2 ** (attempt - 1)))
+            sleep_s = sleep_s * (0.5 + random.random())  # jitter
+            LOGGER.warning(
+                "LLM call failed (attempt %d/%d, model=%s): %s; retrying in %.1fs",
+                attempt,
+                max_attempts,
+                model_name,
+                str(exc),
+                sleep_s,
+            )
+            time.sleep(sleep_s)
+
+    # Should be unreachable, but keeps types happy.
+    raise RuntimeError("LLM call failed after retries.") from last_exc
+
+
+def generate_free_loss_candidate(
+    generation_prompt_path: str,
+    *,
+    operator_whitelist: Sequence[str],
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    del operator_whitelist
+    base_prompt = _read_prompt(generation_prompt_path)
+    prompt = base_prompt
+    if global_feedback is not None:
+        feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def crossover_free_loss(
+    crossover_prompt_path: str,
+    parents: Sequence[FreeLossIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    prompt = _read_prompt(crossover_prompt_path)
+    parent_blobs = []
+    for idx, parent in enumerate(parents):
+        metrics: Mapping[str, Any] = {}
+        if parents_fitness is not None and idx < len(parents_fitness):
+            metrics = parents_fitness[idx]
+        blob = {
+            "index": idx,
+            "name": parent.name,
+            "intuition": parent.intuition,
+            "pseudocode": parent.pseudocode,
+            "hyperparams": parent.hyperparams,
+            "operators_used": parent.operators_used,
+            "code": parent.code,
+            "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+            "metrics": {
+                "hf_like_score": float(metrics.get("hf_like_score", float("inf")))
+                if metrics
+                else None,
+                "validation_objective": float(metrics.get("validation_objective", float("inf")))
+                if metrics
+                else None,
+                "generalization_penalty": float(metrics.get("generalization_penalty", 0.0))
+                if metrics
+                else None,
+                "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            },
+        }
+        parent_blobs.append(blob)
+    prompt = prompt + "\n\nPARENTS_JSON:\n" + json.dumps(parent_blobs, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def mutate_free_loss(
+    mutation_prompt_path: str,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    prompt = _read_prompt(mutation_prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    parent_blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf")))
+            if metrics
+            else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0))
+            if metrics
+            else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+        },
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(parent_blob, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def e2_free_loss(
+    e2_prompt_path: str,
+    parents: Sequence[FreeLossIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    """E2: consensus extraction over p parents, then synthesize a new child loss."""
+
+    prompt = _read_prompt(e2_prompt_path)
+    parent_blobs = []
+    for idx, parent in enumerate(parents):
+        metrics: Mapping[str, Any] = {}
+        if parents_fitness is not None and idx < len(parents_fitness):
+            metrics = parents_fitness[idx]
+        blob = {
+            "index": idx,
+            "name": parent.name,
+            "intuition": parent.intuition,
+            "pseudocode": parent.pseudocode,
+            "hyperparams": parent.hyperparams,
+            "operators_used": parent.operators_used,
+            "code": parent.code,
+            "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+            "metrics": {
+                "hf_like_score": float(metrics.get("hf_like_score", float("inf")))
+                if metrics
+                else None,
+                "validation_objective": float(metrics.get("validation_objective", float("inf")))
+                if metrics
+                else None,
+                "generalization_penalty": float(metrics.get("generalization_penalty", 0.0))
+                if metrics
+                else None,
+                "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            },
+        }
+        parent_blobs.append(blob)
+
+    prompt = prompt + "\n\nPARENTS_JSON:\n" + json.dumps(parent_blobs, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
+
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def m2_tune_hparams(
+    m2_prompt_path: str,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    """M2: hyperparameter-only tuning; structurally identical to parent."""
+
+    prompt = _read_prompt(m2_prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    parent_blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf")))
+            if metrics
+            else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0))
+            if metrics
+            else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+        },
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(parent_blob, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
+
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    tuned = parse_free_loss_from_text(json_str)
+
+    parent_hp = dict(parent.hyperparams or {})
+    tuned_hp = dict(tuned.hyperparams or {})
+
+    # Enforce "hyperparams-only": keep structure and restrict hyperparam keys.
+    if parent.code.strip():
+        # If the parent has explicit code, only keep keys that already exist,
+        # since new keys won't be used unless the code changes (which is forbidden in M2).
+        tuned_hp = {k: tuned_hp.get(k, parent_hp.get(k)) for k in parent_hp.keys()}
+    else:
+        # Template-based losses may rely on compiler-known hyperparams; keep tuned as-is.
+        tuned_hp = tuned_hp or parent_hp
+
+    return FreeLossIR(
+        name=tuned.name or f"{parent.name}_m2",
+        intuition=tuned.intuition or parent.intuition,
+        pseudocode=tuned.pseudocode or parent.pseudocode,
+        hyperparams=tuned_hp,
+        operators_used=list(parent.operators_used),
+        implementation_hint=parent.implementation_hint,
+        code=parent.code,
+        theoretical_basis=tuned.theoretical_basis or getattr(parent, "theoretical_basis", ""),
+    )
+
+
+def m3_simplify_loss(
+    m3_prompt_path: str,
+    candidate: FreeLossIR,
+    failure_reason: Mapping[str, Any],
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    """M3: simplify/stabilize a candidate loss, given a failure reason."""
+
+    prompt = _read_prompt(m3_prompt_path)
+    payload = {
+        "candidate": {
+            "name": candidate.name,
+            "intuition": candidate.intuition,
+            "pseudocode": candidate.pseudocode,
+            "hyperparams": candidate.hyperparams,
+            "operators_used": candidate.operators_used,
+            "code": candidate.code,
+            "theoretical_basis": getattr(candidate, "theoretical_basis", ""),
+        },
+        "failure_reason": dict(failure_reason),
+    }
+    prompt = prompt + "\n\nCANDIDATE_AND_FAILURE_JSON:\n" + json.dumps(payload, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
+
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    simplified = parse_free_loss_from_text(json_str)
+
+    # Preserve the contract required by gates, even if the model drifts.
+    simplified.implementation_hint = candidate.implementation_hint
+    return simplified
+
+
+def repair_free_loss(
+    repair_prompt_path: str,
+    failed_ir: FreeLossIR,
+    failure_reason: Mapping[str, Any],
+) -> FreeLossIR:
+    prompt = _read_prompt(repair_prompt_path)
+    payload = {
+        "candidate": {
+            "name": failed_ir.name,
+            "intuition": failed_ir.intuition,
+            "pseudocode": failed_ir.pseudocode,
+            "hyperparams": failed_ir.hyperparams,
+            "operators_used": failed_ir.operators_used,
+            "code": failed_ir.code,
+            "theoretical_basis": getattr(failed_ir, "theoretical_basis", ""),
+        },
+        "failure_reason": failure_reason,
+    }
+    prompt = prompt + "\n\nCANDIDATE_AND_FAILURE_JSON:\n" + json.dumps(payload, indent=2)
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def repair_expects_with_prompt(
+    expects_repair_prompt_path: str,
+    ir: FreeLossIR,
+) -> FreeLossIR:
+    """Use a lightweight LLM prompt to normalize implementation_hint.expects.
+
+    This is only used when we already have an expects list, to coerce it into
+    a clean list of short input names.
+    """
+
+    prompt = _read_prompt(expects_repair_prompt_path)
+    payload = asdict(ir)
+    prompt = prompt + "\n\nIR_JSON:\n" + json.dumps(payload, indent=2)
+    raw = _call_llm(prompt)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def repair_from_gate_failure(
+    directed_repair_prompt_path: str,
+    parent_ir: FreeLossIR,
+    *,
+    strategy: str,
+    gate_spec: Mapping[str, Any],
+    fail_report: Mapping[str, Any],
+    counterexamples: Sequence[Mapping[str, Any]],
+    allowed_keys: Sequence[str],
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    """Generate a repaired child candidate guided by gate diagnostics.
+
+    The prompt is designed for CEGIS-style repair: provide a failure report
+    plus counterexamples (visible tests) and request a structured patch.
+    """
+
+    strategy = str(strategy or "").strip().lower()
+    if strategy not in {"e1", "e2", "m1", "m2"}:
+        raise ValueError(f"Unknown directed repair strategy: {strategy!r}")
+
+    prompt = _read_prompt(directed_repair_prompt_path)
+    prompt = (
+        prompt
+        + "\n\nSTRATEGY:\n"
+        + strategy
+        + "\n\nPARENT_CODE:\n"
+        + (parent_ir.code or "").strip()
+        + "\n\nGATE_SPEC_JSON:\n"
+        + json.dumps(dict(gate_spec), indent=2, ensure_ascii=False)
+        + "\n\nFAIL_REPORT_JSON:\n"
+        + json.dumps(dict(fail_report), indent=2, ensure_ascii=False)
+        + "\n\nCOUNTEREXAMPLES_JSON:\n"
+        + json.dumps(list(counterexamples), indent=2, ensure_ascii=False)
+        + "\n\nCONTRACT_JSON:\n"
+        + json.dumps(
+            {
+                "allowed_keys": list(allowed_keys),
+                "required_function": "generated_loss(batch, model_output, extra)",
+                "no_imports": True,
+                "no_external_state": True,
+                "must_be_numerically_stable": True,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+    )
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+
+    raw = _call_llm(prompt)
+    obj = json.loads(_extract_json_object(raw))
+
+    out_strategy = str(obj.get("strategy", strategy) or strategy).strip().lower()
+    expects_raw = obj.get("expects", None)
+    code = str(obj.get("code", "")).strip()
+    reasoning = str(obj.get("reasoning_brief", "")).strip()
+
+    if out_strategy not in {"e1", "e2", "m1", "m2"}:
+        out_strategy = strategy
+
+    if not code:
+        raise ValueError("Directed repair output missing 'code'.")
+    if "def generated_loss" not in code:
+        raise ValueError("Directed repair code must define 'generated_loss'.")
+
+    expects: list[str]
+    if isinstance(expects_raw, (list, tuple)):
+        expects = [str(x) for x in expects_raw]
+    elif expects_raw is None:
+        expects = [str(x) for x in (parent_ir.implementation_hint.expects or [])]
+    else:
+        expects = [str(expects_raw)]
+
+    # Optional: allow the model to update these, but default to the parent.
+    name = str(obj.get("name", "")).strip() or f"{parent_ir.name}_dr_{out_strategy}"
+    intuition = str(obj.get("intuition", "")).strip() or parent_ir.intuition
+    if reasoning:
+        intuition = f"{intuition}\nDirected repair ({out_strategy}): {reasoning}".strip()
+    pseudocode = str(obj.get("pseudocode", "")).strip() or parent_ir.pseudocode
+    hyperparams = obj.get("hyperparams", None)
+    if not isinstance(hyperparams, dict):
+        hyperparams = dict(parent_ir.hyperparams or {})
+    operators_used = obj.get("operators_used", None)
+    if isinstance(operators_used, (list, tuple)):
+        operators_list = [str(x) for x in operators_used] or list(parent_ir.operators_used)
+    else:
+        operators_list = list(parent_ir.operators_used)
+
+    mode = str(obj.get("mode", "") or parent_ir.implementation_hint.mode or "pairwise").strip().lower()
+    if mode not in {"pairwise", "setwise"}:
+        mode = str(parent_ir.implementation_hint.mode or "pairwise").strip().lower() or "pairwise"
+
+    return FreeLossIR(
+        name=name,
+        intuition=intuition,
+        pseudocode=pseudocode,
+        hyperparams=dict(hyperparams),
+        operators_used=operators_list,
+        implementation_hint=type(parent_ir.implementation_hint)(
+            expects=expects,
+            returns="scalar",
+            mode=mode,
+        ),
+        code=code,
+        theoretical_basis=str(obj.get("theoretical_basis", "")).strip()
+        or getattr(parent_ir, "theoretical_basis", ""),
+    )
+
+
+def compile_free_loss_candidate(
+    ir: FreeLossIR,
+    *,
+    operator_whitelist: Sequence[str],
+) -> CompiledFreeLoss:
+    return compile_free_loss(ir, operator_whitelist=operator_whitelist)

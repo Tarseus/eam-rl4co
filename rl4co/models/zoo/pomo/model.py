@@ -1,9 +1,15 @@
 from typing import Any, Callable
 
+import json
+from pathlib import Path
+
+import torch
 import torch.nn as nn
 
 from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
+from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
+from rl4co.models.rl.reinforce.preference_losses import pl_loss, po_loss
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
@@ -36,6 +42,11 @@ class POMO(REINFORCE):
         first_aug_identity: Whether to include the identity augmentation in the first position
         feats: List of features to augment
         num_starts: Number of starts for multi-start. If None, use the number of available actions
+        loss_type: Loss type to use. One of {"rl_loss", "po_loss", "pl_loss", "free_loss"}.
+        alpha: Scaling factor for log-likelihood in preference losses.
+        loss_kwargs: Optional keyword args reserved for preference losses.
+        pl_impl: Implementation choice for listwise loss, {"ptp", "stable"}.
+        free_loss_ir_json_path: Path to JSON IR for free_loss (required if loss_type="free_loss").
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -50,6 +61,11 @@ class POMO(REINFORCE):
         first_aug_identity: bool = True,
         feats: list = None,
         num_starts: int = None,
+        loss_type: str = "rl_loss",
+        alpha: float = 1.0,
+        loss_kwargs: dict | None = None,
+        pl_impl: str = "stable",
+        free_loss_ir_json_path: str | None = None,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
@@ -85,6 +101,20 @@ class POMO(REINFORCE):
         # Add `_multistart` to decode type for train, val and test in policy
         for phase in ["train", "val", "test"]:
             self.set_decode_type_multistart(phase)
+
+        self.loss_type = loss_type
+        self.alpha = float(alpha)
+        self.loss_kwargs = {} if loss_kwargs is None else dict(loss_kwargs)
+        self.pl_impl = pl_impl
+        self.free_loss_ir_json_path = free_loss_ir_json_path
+        self.free_loss = None
+        if self.loss_type == "free_loss":
+            self._load_free_loss()
+        if self.loss_kwargs:
+            log.warning(
+                "loss_kwargs is currently unused and will be ignored: %s",
+                self.loss_kwargs,
+            )
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -146,3 +176,101 @@ class POMO(REINFORCE):
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
+
+    def calculate_loss(
+        self,
+        td,
+        batch,
+        policy_out: dict,
+        reward: torch.Tensor | None = None,
+        log_likelihood: torch.Tensor | None = None,
+    ):
+        reward = reward if reward is not None else policy_out["reward"]
+        log_likelihood = (
+            log_likelihood if log_likelihood is not None else policy_out["log_likelihood"]
+        )
+
+        if self.loss_type == "rl_loss":
+            return super().calculate_loss(td, batch, policy_out, reward, log_likelihood)
+        if self.loss_type == "po_loss":
+            loss, pref_rate = po_loss(reward, log_likelihood, alpha=self.alpha)
+            policy_out.update(
+                {
+                    "loss": loss,
+                    "po_loss": loss.detach(),
+                    "po_pref_rate": pref_rate.detach(),
+                }
+            )
+            return policy_out
+        if self.loss_type == "pl_loss":
+            loss = pl_loss(
+                reward,
+                log_likelihood,
+                alpha=self.alpha,
+                impl=self.pl_impl,
+            )
+            policy_out.update({"loss": loss, "pl_loss": loss.detach()})
+            return policy_out
+        if self.loss_type == "free_loss":
+            loss, pair_count = self._free_loss_loss_fn(reward, log_likelihood)
+            policy_out.update(
+                {
+                    "loss": loss,
+                    "free_loss": loss.detach(),
+                    "free_loss_pair_count": pair_count,
+                }
+            )
+            return policy_out
+
+        raise ValueError(f"Unknown loss_type: {self.loss_type}")
+
+    def _load_free_loss(self) -> None:
+        if self.free_loss_ir_json_path is None:
+            raise ValueError(
+                "When loss_type is 'free_loss', free_loss_ir_json_path must be set."
+            )
+        path = Path(self.free_loss_ir_json_path).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"free_loss_ir_json_path does not exist: {path.as_posix()}"
+            )
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        ir_obj = payload.get("ir", payload)
+        ir = ir_from_json(ir_obj)
+        self.free_loss = compile_free_loss(ir)
+
+    def _free_loss_loss_fn(
+        self, reward: torch.Tensor, log_likelihood: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        if self.free_loss is None:
+            raise RuntimeError(
+                "free_loss is not compiled; check free_loss_ir_json_path."
+            )
+
+        objective = -reward
+        mask = objective[:, :, None] < objective[:, None, :]
+        b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)
+        pair_count = torch.tensor(
+            float(b_idx.numel()), device=reward.device, dtype=reward.dtype
+        )
+
+        if b_idx.numel() == 0:
+            advantage = reward - reward.float().mean(dim=1, keepdim=True)
+            loss = -(advantage * log_likelihood).mean()
+            return loss, pair_count
+
+        cost_a = objective[b_idx, winner_idx]
+        cost_b = objective[b_idx, loser_idx]
+        logp_w = log_likelihood[b_idx, winner_idx]
+        logp_l = log_likelihood[b_idx, loser_idx]
+        weight = torch.ones_like(cost_a)
+        batch = {
+            "cost_a": cost_a,
+            "cost_b": cost_b,
+            "log_prob_w": logp_w,
+            "log_prob_l": logp_l,
+            "weight": weight,
+        }
+        loss = self.free_loss.loss_fn(batch=batch, model_output={}, extra={"alpha": self.alpha})
+        return loss, pair_count

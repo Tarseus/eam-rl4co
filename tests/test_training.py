@@ -171,6 +171,30 @@ def test_pomo_reptile():
     trainer.test(model)
 
 
+def test_pomo_po_loss_smoke():
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    model = POMO(
+        env,
+        loss_type="po_loss",
+        alpha=1.0,
+        num_augment=1,
+        batch_size=4,
+        train_data_size=8,
+        val_data_size=8,
+        test_data_size=8,
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        devices=1,
+        accelerator=accelerator,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        limit_test_batches=1,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
 @pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
 def test_search_methods(SearchMethod):
     env = TSPEnv(generator_params=dict(num_loc=20))

@@ -20,6 +20,24 @@ python run.py experiment=routing/am env=tsp env.generator_params.num_loc=50 mode
 ```
 Here you may change the environment, e.g. with `env=cvrp` by command line or by modifying the corresponding experiment e.g. [configs/experiment/routing/am.yaml](https://github.com/ai4co/rl4co/tree/main/configs/experiment/routing/am.yaml).
 
+### POMO preference losses
+
+POMO can swap the training loss to preference-based variants that compare multi-start rollouts within the same instance. Configure via:
+
+- `model.loss_type`: `rl_loss` (default), `po_loss` (pairwise BT), `pl_loss` (listwise PL), or `free_loss` (IR-defined).
+- `model.alpha`: scales log-likelihood (acts like a preference temperature).
+- `model.pl_impl`: `stable` (default, O(B*P)) or `ptp` (legacy one-hot; formulation name only).
+- `model.free_loss_ir_json_path`: required if `loss_type=free_loss`.
+
+Examples:
+```bash
+python run.py experiment=routing/pomo model.loss_type=po_loss model.alpha=1.0
+python run.py experiment=routing/pomo model.loss_type=pl_loss model.pl_impl=stable
+python run.py experiment=routing/pomo model.loss_type=free_loss model.free_loss_ir_json_path=examples/free_loss_minimal.json
+```
+
+Note: RL4CO routing environments typically define `reward = -cost`, so larger reward indicates better solutions.
+
 
 ### Disable logging
 
