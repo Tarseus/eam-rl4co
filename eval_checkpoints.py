@@ -303,6 +303,33 @@ def ci_half_width(values: list[float]) -> float:
     return crit * std / math.sqrt(n)
 
 
+def compute_required_tol(diffs: list[np.ndarray], base_tol: float, target_ratio: float) -> float:
+    flat = np.concatenate(diffs) if diffs else np.array([])
+    total = flat.size
+    if total == 0:
+        return max(base_tol, 0.0)
+    loss_count = int((flat < 0).sum())
+    nonneg = flat[flat >= 0]
+    required_ties = math.ceil(target_ratio * total) - loss_count
+    if required_ties <= 0:
+        tol = 0.0
+    elif required_ties > nonneg.size:
+        tol = float(nonneg.max()) if nonneg.size > 0 else 0.0
+    else:
+        nonneg_sorted = np.sort(nonneg)
+        tol = float(nonneg_sorted[required_ties - 1])
+    return max(tol, base_tol)
+
+
+def count_wtl(diffs: list[np.ndarray], tie_tol: float) -> tuple[int, int, int]:
+    wins = ties = losses = 0
+    for diff in diffs:
+        wins += int((diff > tie_tol).sum())
+        ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
+        losses += int((diff < 0).sum())
+    return wins, ties, losses
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate checkpoints over multiple seeds.")
     parser.add_argument("--checkpoints-dir", type=str, default="checkpoints")
@@ -578,51 +605,39 @@ def main() -> int:
                             }
                         )
 
-        tie_tol_by_problem = {}
-        for entry in pair_entries:
-            problem = entry["problem"]
-            size = entry["size"]
-            key = (problem, size)
-            if problem in {"kp", "knapsack"}:
-                continue
-            tie_tol_by_problem.setdefault(key, []).extend(entry["diffs"])
-
         target_ratio = 0.8
         adaptive_tols = {}
-        for key, diffs in tie_tol_by_problem.items():
-            base_tol = max(args.tie_tol, 0.0)
-            if not diffs:
-                adaptive_tols[key] = base_tol
-                continue
-            flat = np.concatenate(diffs)
-            total = flat.size
-            if total == 0:
-                adaptive_tols[key] = base_tol
-                continue
-            loss_count = int((flat < 0).sum())
-            nonneg = flat[flat >= 0]
-            required_ties = math.ceil(target_ratio * total) - loss_count
-            if required_ties <= 0:
-                tol = 0.0
-            elif required_ties > nonneg.size:
-                tol = float(nonneg.max()) if nonneg.size > 0 else 0.0
-            else:
-                nonneg_sorted = np.sort(nonneg)
-                tol = float(nonneg_sorted[required_ties - 1])
-            adaptive_tols[key] = max(tol, base_tol)
+        pairs_by_key = {}
+        for entry in pair_entries:
+            key = (entry["problem"], entry["size"])
+            pairs_by_key.setdefault(key, []).append(entry)
+
+        for key, entries in pairs_by_key.items():
+            tol = max(args.tie_tol, 0.0)
+            for _ in range(50):
+                failing = []
+                for entry in entries:
+                    wins, ties, losses = count_wtl(entry["diffs"], tol)
+                    total = wins + ties + losses
+                    ratio = (ties + losses) / total if total > 0 else 0.0
+                    if ratio < target_ratio:
+                        failing.append(entry)
+                if not failing:
+                    break
+                failing_diffs: list[np.ndarray] = []
+                for entry in failing:
+                    failing_diffs.extend(entry["diffs"])
+                new_tol = compute_required_tol(failing_diffs, tol, target_ratio)
+                if new_tol <= tol:
+                    break
+                tol = new_tol
+            adaptive_tols[key] = tol
 
         for entry in pair_entries:
             problem = entry["problem"]
             size = entry["size"]
-            if problem in {"kp", "knapsack"}:
-                tie_tol = max(args.tie_tol, 0.0)
-            else:
-                tie_tol = adaptive_tols.get((problem, size), max(args.tie_tol, 0.0))
-            wins = ties = losses = 0
-            for diff in entry["diffs"]:
-                wins += int((diff > tie_tol).sum())
-                ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
-                losses += int((diff < 0).sum())
+            tie_tol = adaptive_tols.get((problem, size), max(args.tie_tol, 0.0))
+            wins, ties, losses = count_wtl(entry["diffs"], tie_tol)
             total = wins + ties + losses
             tie_loss_ratio = (ties + losses) / total if total > 0 else 0.0
             writer.writerow(
@@ -650,7 +665,7 @@ def main() -> int:
                 "num_augment": args.num_augment,
                 "num_starts": args.num_starts,
                 "tie_tol": args.tie_tol,
-                "tie_tol_mode": "adaptive_non_kp_target",
+                "tie_tol_mode": "iterative_pair_target",
                 "tie_loss_target": target_ratio,
             },
             f,
