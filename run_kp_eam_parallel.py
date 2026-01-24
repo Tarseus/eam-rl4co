@@ -3,6 +3,7 @@ import os
 import time
 
 from lightning.pytorch.loggers import CSVLogger
+from lightning.pytorch.callbacks import ModelCheckpoint
 
 from rl4co.envs.routing import KnapsackEnv, KnapsackGenerator
 from rl4co.models import AttentionModel, AttentionModelPolicy, EAM, POMO
@@ -45,13 +46,23 @@ def _fit_model(
     version: str,
 ) -> None:
     logger = CSVLogger(save_dir=log_dir, name=run_name, version=version)
+    checkpoint_dir = os.path.join("checkpoints", run_name, version)
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=checkpoint_dir,
+        filename="epoch_{epoch:03d}",
+        save_last=True,
+        save_top_k=1,
+        monitor="val/reward",
+        mode="max",
+    )
     trainer = RL4COTrainer(
         max_epochs=epochs,
         accelerator="gpu",
         devices=[device_index],
         precision=32,
         logger=logger,
-        enable_checkpointing=False,
+        callbacks=[checkpoint_callback],
+        enable_checkpointing=True,
     )
     trainer.fit(model)
 

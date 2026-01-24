@@ -251,6 +251,15 @@ def resolve_eval_config(
             num_starts = model_num_starts
             use_multistart = num_starts is not None and num_starts > 1
 
+    # Avoid reporting best-of-starts for knapsack unless explicitly requested.
+    if (
+        env.name == "knapsack"
+        and num_starts_override is None
+        and method == "auto"
+    ):
+        num_starts = 1
+        use_multistart = False
+
     use_augment = num_augment > 1
 
     if method != "auto":
