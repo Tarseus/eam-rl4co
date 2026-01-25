@@ -6,7 +6,7 @@ from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import CSVLogger
 
 from rl4co.envs.routing import KnapsackEnv, KnapsackGenerator
-from rl4co.models import AttentionModelPolicy, EAM, POMO
+from rl4co.models import AttentionModel, AttentionModelPolicy, EAM, POMO
 from rl4co.utils import RL4COTrainer
 
 
@@ -85,7 +85,7 @@ def _train_pomo_kp(
     run_name: str,
     version: str,
     device_index: int,
-) -> None:
+    ) -> None:
     # POMO on KP can emit infeasible sequences; skip validity assertions to avoid hard failures.
     env = _build_env(problem, problem_size, check_solution=False)
     policy = _build_policy(env)
@@ -100,6 +100,45 @@ def _train_pomo_kp(
         val_data_size=val_data_size,
         test_data_size=test_data_size,
         num_augment=num_augment,
+        metrics=_default_metrics(),
+    )
+    _fit_model(
+        model,
+        epochs=epochs,
+        device_index=device_index,
+        log_dir=log_dir,
+        run_name=run_name,
+        version=version,
+    )
+
+
+def _train_am_kp(
+    *,
+    problem: str,
+    problem_size: int,
+    epochs: int,
+    batch_size: int,
+    train_data_size: int,
+    val_data_size: int,
+    test_data_size: int,
+    log_dir: str,
+    run_name: str,
+    version: str,
+    device_index: int,
+) -> None:
+    env = _build_env(problem, problem_size)
+    policy = _build_policy(env)
+    model = AttentionModel(
+        env,
+        policy,
+        baseline="rollout",
+        batch_size=batch_size,
+        optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
+        lr_scheduler="MultiStepLR",
+        lr_scheduler_kwargs={"milestones": [80, 95], "gamma": 0.1},
+        train_data_size=train_data_size,
+        val_data_size=val_data_size,
+        test_data_size=test_data_size,
         metrics=_default_metrics(),
     )
     _fit_model(
@@ -171,6 +210,8 @@ def _train_eam_kp(
 def _normalize_algo(algo: str, baseline: str | None) -> tuple[str, str | None]:
     algo = algo.lower()
     baseline = baseline.lower() if baseline is not None else None
+    if algo in {"am", "attention", "attentionmodel"}:
+        return "am", "rollout"
     if algo in {"eam_am", "eam-am"}:
         return "eam", "rollout"
     if algo in {"eam_pomo", "eam-shared"}:
@@ -222,6 +263,23 @@ def main() -> int:
         )
         return 0
 
+    if algo == "am":
+        run_name = f"am_{problem}{args.size}"
+        _train_am_kp(
+            problem=problem,
+            problem_size=args.size,
+            epochs=args.epochs,
+            batch_size=args.batch_size,
+            train_data_size=args.train_data_size,
+            val_data_size=args.val_data_size,
+            test_data_size=args.test_data_size,
+            log_dir=args.log_dir,
+            run_name=run_name,
+            version=version,
+            device_index=device_index,
+        )
+        return 0
+
     if algo == "eam":
         if baseline is None:
             baseline = "shared"
@@ -248,7 +306,7 @@ def main() -> int:
         )
         return 0
 
-    raise SystemExit(f"Unsupported algo '{algo}'. Expected 'pomo' or 'eam'.")
+    raise SystemExit(f"Unsupported algo '{algo}'. Expected 'am', 'pomo', or 'eam'.")
 
 
 if __name__ == "__main__":
