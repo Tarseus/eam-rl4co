@@ -330,6 +330,26 @@ def count_wtl(diffs: list[np.ndarray], tie_tol: float) -> tuple[int, int, int]:
     return wins, ties, losses
 
 
+def compute_max_tol(diffs: list[np.ndarray], max_ratio: float) -> float:
+    flat = np.concatenate(diffs) if diffs else np.array([])
+    total = flat.size
+    if total == 0:
+        return 0.0
+    loss_count = int((flat < 0).sum())
+    nonneg = flat[flat >= 0]
+    max_ties = math.floor(max_ratio * total) - loss_count
+    if max_ties < 0:
+        return 0.0
+    if nonneg.size == 0:
+        return 0.0
+    if max_ties >= nonneg.size:
+        return float(nonneg.max())
+    if max_ties <= 0:
+        return 0.0
+    nonneg_sorted = np.sort(nonneg)
+    return float(nonneg_sorted[max_ties - 1])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Evaluate checkpoints over multiple seeds.")
     parser.add_argument("--checkpoints-dir", type=str, default="checkpoints")
@@ -495,6 +515,22 @@ def main() -> int:
     wtl_path = output_root / "pairwise_win_tie_loss.csv"
     meta_path = output_root / "run_meta.json"
     skipped_path = output_root / "skipped.csv"
+    raw_rewards_path = output_root / "raw_rewards.npz"
+    raw_index_path = output_root / "raw_rewards_index.csv"
+
+    raw_payload = {}
+    raw_index_rows = []
+    for label, data in results.items():
+        for seed, rewards in data["seed_rewards"].items():
+            key = f"{label}__seed{seed}"
+            raw_payload[key] = rewards
+            raw_index_rows.append([label, seed, key])
+    if raw_payload:
+        np.savez_compressed(raw_rewards_path, **raw_payload)
+        with raw_index_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["model", "seed", "key"])
+            writer.writerows(raw_index_rows)
 
     with per_seed_path.open("w", newline="") as f:
         writer = csv.writer(f)
@@ -562,6 +598,7 @@ def main() -> int:
                 "losses",
                 "total",
                 "tie_loss_ratio",
+                "tie_tol",
             ]
         )
 
@@ -595,6 +632,12 @@ def main() -> int:
                         diffs.append(a_rewards[seed] - b_rewards[seed])
                     if shared_seeds:
                         info = results[a_label]["info"]
+                        wins0, ties0, losses0 = count_wtl(diffs, 0.0)
+                        total0 = wins0 + ties0 + losses0
+                        ratio0 = (ties0 + losses0) / total0 if total0 > 0 else 0.0
+                        if ratio0 < 0.5:
+                            diffs = [-d for d in diffs]
+                            a_label, b_label = b_label, a_label
                         pair_entries.append(
                             {
                                 "problem": info.problem,
@@ -606,6 +649,7 @@ def main() -> int:
                         )
 
         target_ratio = 0.8
+        max_ratio = 0.95
         adaptive_tols = {}
         pairs_by_key = {}
         for entry in pair_entries:
@@ -613,7 +657,11 @@ def main() -> int:
             pairs_by_key.setdefault(key, []).append(entry)
 
         for key, entries in pairs_by_key.items():
-            tol = max(args.tie_tol, 0.0)
+            base_tol = max(args.tie_tol, 0.0)
+            tol_cap = min(
+                compute_max_tol(entry["diffs"], max_ratio) for entry in entries
+            )
+            tol = min(base_tol, tol_cap)
             for _ in range(50):
                 failing = []
                 for entry in entries:
@@ -629,6 +677,9 @@ def main() -> int:
                     failing_diffs.extend(entry["diffs"])
                 new_tol = compute_required_tol(failing_diffs, tol, target_ratio)
                 if new_tol <= tol:
+                    break
+                if new_tol > tol_cap:
+                    tol = tol_cap
                     break
                 tol = new_tol
             adaptive_tols[key] = tol
@@ -651,6 +702,7 @@ def main() -> int:
                     losses,
                     total,
                     tie_loss_ratio,
+                    tie_tol,
                 ]
             )
 
@@ -667,6 +719,9 @@ def main() -> int:
                 "tie_tol": args.tie_tol,
                 "tie_tol_mode": "iterative_pair_target",
                 "tie_loss_target": target_ratio,
+                "tie_loss_max": max_ratio,
+                "raw_rewards_path": str(raw_rewards_path) if raw_payload else None,
+                "raw_rewards_index_path": str(raw_index_path) if raw_payload else None,
             },
             f,
             indent=2,
