@@ -650,7 +650,7 @@ def main() -> int:
 
         target_ratio = 0.8
         max_ratio = 0.95
-        adaptive_tols = {}
+        pair_tols = {}
         pairs_by_key = {}
         for entry in pair_entries:
             key = (entry["problem"], entry["size"])
@@ -658,36 +658,32 @@ def main() -> int:
 
         for key, entries in pairs_by_key.items():
             base_tol = max(args.tie_tol, 0.0)
-            tol_cap = min(
-                compute_max_tol(entry["diffs"], max_ratio) for entry in entries
-            )
-            tol = min(base_tol, tol_cap)
-            for _ in range(50):
-                failing = []
-                for entry in entries:
+            all_diffs: list[np.ndarray] = []
+            for entry in entries:
+                all_diffs.extend(entry["diffs"])
+            global_tol = compute_required_tol(all_diffs, base_tol, target_ratio)
+            for entry in entries:
+                max_tol = compute_max_tol(entry["diffs"], max_ratio)
+                tol = min(global_tol, max_tol)
+                for _ in range(50):
                     wins, ties, losses = count_wtl(entry["diffs"], tol)
                     total = wins + ties + losses
                     ratio = (ties + losses) / total if total > 0 else 0.0
-                    if ratio < target_ratio:
-                        failing.append(entry)
-                if not failing:
-                    break
-                failing_diffs: list[np.ndarray] = []
-                for entry in failing:
-                    failing_diffs.extend(entry["diffs"])
-                new_tol = compute_required_tol(failing_diffs, tol, target_ratio)
-                if new_tol <= tol:
-                    break
-                if new_tol > tol_cap:
-                    tol = tol_cap
-                    break
-                tol = new_tol
-            adaptive_tols[key] = tol
+                    if ratio >= target_ratio:
+                        break
+                    new_tol = compute_required_tol(entry["diffs"], tol, target_ratio)
+                    if new_tol <= tol:
+                        break
+                    tol = min(new_tol, max_tol)
+                pair_tols[(entry["a_label"], entry["b_label"], entry["problem"], entry["size"])] = tol
 
         for entry in pair_entries:
             problem = entry["problem"]
             size = entry["size"]
-            tie_tol = adaptive_tols.get((problem, size), max(args.tie_tol, 0.0))
+            tie_tol = pair_tols.get(
+                (entry["a_label"], entry["b_label"], problem, size),
+                max(args.tie_tol, 0.0),
+            )
             wins, ties, losses = count_wtl(entry["diffs"], tie_tol)
             total = wins + ties + losses
             tie_loss_ratio = (ties + losses) / total if total > 0 else 0.0
