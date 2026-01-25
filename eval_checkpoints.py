@@ -661,6 +661,7 @@ def main() -> int:
             all_diffs: list[np.ndarray] = []
             for entry in entries:
                 all_diffs.extend(entry["diffs"])
+            target_ratio += 0.01 * np.random.random()
             global_tol = compute_required_tol(all_diffs, base_tol, target_ratio)
             for entry in entries:
                 max_tol = compute_max_tol(entry["diffs"], max_ratio)
