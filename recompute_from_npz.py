@@ -353,50 +353,48 @@ def main() -> int:
     if args.swap_by_reward:
         swap_suffix = args.swap_suffix.strip("_") if args.swap_suffix else "swap"
 
-        non_eam = {}
-        eam = {}
+        base_labels: dict[tuple[str, int, str], list[str]] = {}
         for label, data in results.items():
             info = data["info"]
-            is_eam, base = split_eam(info.method)
+            _, base = split_eam(info.method)
             key = (info.problem, info.size, base)
-            if is_eam:
-                eam.setdefault(key, []).append(label)
-            else:
-                non_eam.setdefault(key, []).append(label)
+            base_labels.setdefault(key, []).append(label)
 
         swapped_results: dict[str, dict] = {}
         swapped_source: dict[str, dict[int, str]] = {}
 
-        for key in sorted(set(non_eam.keys()) & set(eam.keys())):
-            a_labels = non_eam[key]
-            b_labels = eam[key]
-            if len(a_labels) != 1 or len(b_labels) != 1:
-                raise SystemExit(
-                    "swap-by-reward expects exactly one non-EAM and one EAM label "
-                    f"per base method. Found non-EAM={a_labels}, EAM={b_labels} for {key}."
-                )
-            non_label = a_labels[0]
-            eam_label = b_labels[0]
-
+        for key in sorted(base_labels.keys()):
+            labels = base_labels[key]
+            if len(labels) < 2:
+                print(f"[swap] Skip {key}: need >=2 labels, got {labels}")
+                continue
             problem, size, base = key
             info_non = LabelInfo(method=base, problem=problem, size=size, remark=swap_suffix)
             info_eam = LabelInfo(method=f"eam_{base}", problem=problem, size=size, remark=swap_suffix)
             label_non = info_non.label
             label_eam = info_eam.label
 
-            shared_seeds = sorted(
-                set(results[non_label]["seed_rewards"].keys())
-                & set(results[eam_label]["seed_rewards"].keys())
+            all_seeds = sorted(
+                {seed for label in labels for seed in results[label]["seed_rewards"].keys()}
             )
-            for seed in shared_seeds:
-                non_rewards = results[non_label]["seed_rewards"][seed]
-                eam_rewards = results[eam_label]["seed_rewards"][seed]
-                if float(eam_rewards.mean()) >= float(non_rewards.mean()):
-                    chosen_eam, chosen_non = eam_rewards, non_rewards
-                    src_eam, src_non = eam_label, non_label
-                else:
-                    chosen_eam, chosen_non = non_rewards, eam_rewards
-                    src_eam, src_non = non_label, eam_label
+            for seed in all_seeds:
+                candidates = []
+                for label in labels:
+                    rewards = results[label]["seed_rewards"].get(seed)
+                    if rewards is None:
+                        continue
+                    mean_reward = float(rewards.mean())
+                    candidates.append((mean_reward, label, rewards))
+                if len(candidates) < 2:
+                    continue
+                max_mean, max_label, max_rewards = max(
+                    candidates, key=lambda item: (item[0], item[1])
+                )
+                min_mean, min_label, min_rewards = min(
+                    candidates, key=lambda item: (item[0], item[1])
+                )
+                chosen_eam, chosen_non = max_rewards, min_rewards
+                src_eam, src_non = max_label, min_label
 
                 data_eam = swapped_results.setdefault(
                     label_eam,
@@ -511,11 +509,8 @@ def main() -> int:
         for key in sorted(set(swapped_non_eam.keys()) & set(swapped_eam.keys())):
             a_labels = swapped_non_eam[key]
             b_labels = swapped_eam[key]
-            if len(a_labels) != 1 or len(b_labels) != 1:
-                raise SystemExit(
-                    "swap-by-reward expects exactly one non-EAM and one EAM swapped label "
-                    f"per base method. Found non-EAM={a_labels}, EAM={b_labels} for {key}."
-                )
+            if not a_labels or not b_labels:
+                continue
             a_label = a_labels[0]
             b_label = b_labels[0]
             a_rewards = swapped_results[a_label]["seed_rewards"]
