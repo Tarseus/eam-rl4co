@@ -1594,7 +1594,7 @@ def inverse_mutate_op(pop, mutation_rate, prize, dist_matrix, max_distances):
             
     return mutated_pop
 
-@nb.njit(nb.int64[:,:](nb.int64[:], nb.int64, nb.int64, nb.float64, nb.bool), parallel=True, nogil=True)
+@nb.njit(nb.int64[:,:](nb.int64[:], nb.int64, nb.int64, nb.float64, nb.boolean), parallel=True, nogil=True)
 def generate_population(route, pop_size, env_code, mutate_rate, verbose=False):
     """Generate population from a single route"""
     n = len(route) - 1

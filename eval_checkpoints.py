@@ -251,6 +251,15 @@ def resolve_eval_config(
             num_starts = model_num_starts
             use_multistart = num_starts is not None and num_starts > 1
 
+    # Avoid reporting best-of-starts for knapsack unless explicitly requested.
+    if (
+        env.name == "knapsack"
+        and num_starts_override is None
+        and method == "auto"
+    ):
+        num_starts = 1
+        use_multistart = False
+
     use_augment = num_augment > 1
 
     if method != "auto":
@@ -292,6 +301,53 @@ def ci_half_width(values: list[float]) -> float:
     except Exception:
         crit = 1.96
     return crit * std / math.sqrt(n)
+
+
+def compute_required_tol(diffs: list[np.ndarray], base_tol: float, target_ratio: float) -> float:
+    flat = np.concatenate(diffs) if diffs else np.array([])
+    total = flat.size
+    if total == 0:
+        return max(base_tol, 0.0)
+    loss_count = int((flat < 0).sum())
+    nonneg = flat[flat >= 0]
+    required_ties = math.ceil(target_ratio * total) - loss_count
+    if required_ties <= 0:
+        tol = 0.0
+    elif required_ties > nonneg.size:
+        tol = float(nonneg.max()) if nonneg.size > 0 else 0.0
+    else:
+        nonneg_sorted = np.sort(nonneg)
+        tol = float(nonneg_sorted[required_ties - 1])
+    return max(tol, base_tol)
+
+
+def count_wtl(diffs: list[np.ndarray], tie_tol: float) -> tuple[int, int, int]:
+    wins = ties = losses = 0
+    for diff in diffs:
+        wins += int((diff > tie_tol).sum())
+        ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
+        losses += int((diff < 0).sum())
+    return wins, ties, losses
+
+
+def compute_max_tol(diffs: list[np.ndarray], max_ratio: float) -> float:
+    flat = np.concatenate(diffs) if diffs else np.array([])
+    total = flat.size
+    if total == 0:
+        return 0.0
+    loss_count = int((flat < 0).sum())
+    nonneg = flat[flat >= 0]
+    max_ties = math.floor(max_ratio * total) - loss_count
+    if max_ties < 0:
+        return 0.0
+    if nonneg.size == 0:
+        return 0.0
+    if max_ties >= nonneg.size:
+        return float(nonneg.max())
+    if max_ties <= 0:
+        return 0.0
+    nonneg_sorted = np.sort(nonneg)
+    return float(nonneg_sorted[max_ties - 1])
 
 
 def main() -> int:
@@ -459,6 +515,22 @@ def main() -> int:
     wtl_path = output_root / "pairwise_win_tie_loss.csv"
     meta_path = output_root / "run_meta.json"
     skipped_path = output_root / "skipped.csv"
+    raw_rewards_path = output_root / "raw_rewards.npz"
+    raw_index_path = output_root / "raw_rewards_index.csv"
+
+    raw_payload = {}
+    raw_index_rows = []
+    for label, data in results.items():
+        for seed, rewards in data["seed_rewards"].items():
+            key = f"{label}__seed{seed}"
+            raw_payload[key] = rewards
+            raw_index_rows.append([label, seed, key])
+    if raw_payload:
+        np.savez_compressed(raw_rewards_path, **raw_payload)
+        with raw_index_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["model", "seed", "key"])
+            writer.writerows(raw_index_rows)
 
     with per_seed_path.open("w", newline="") as f:
         writer = csv.writer(f)
@@ -526,6 +598,7 @@ def main() -> int:
                 "losses",
                 "total",
                 "tie_loss_ratio",
+                "tie_tol",
             ]
         )
 
@@ -559,6 +632,12 @@ def main() -> int:
                         diffs.append(a_rewards[seed] - b_rewards[seed])
                     if shared_seeds:
                         info = results[a_label]["info"]
+                        wins0, ties0, losses0 = count_wtl(diffs, 0.0)
+                        total0 = wins0 + ties0 + losses0
+                        ratio0 = (ties0 + losses0) / total0 if total0 > 0 else 0.0
+                        if ratio0 < 0.5:
+                            diffs = [-d for d in diffs]
+                            a_label, b_label = b_label, a_label
                         pair_entries.append(
                             {
                                 "problem": info.problem,
@@ -569,51 +648,43 @@ def main() -> int:
                             }
                         )
 
-        tie_tol_by_problem = {}
-        for entry in pair_entries:
-            problem = entry["problem"]
-            size = entry["size"]
-            key = (problem, size)
-            if problem in {"kp", "knapsack"}:
-                continue
-            tie_tol_by_problem.setdefault(key, []).extend(entry["diffs"])
-
         target_ratio = 0.8
-        adaptive_tols = {}
-        for key, diffs in tie_tol_by_problem.items():
+        max_ratio = 0.95
+        pair_tols = {}
+        pairs_by_key = {}
+        for entry in pair_entries:
+            key = (entry["problem"], entry["size"])
+            pairs_by_key.setdefault(key, []).append(entry)
+
+        for key, entries in pairs_by_key.items():
             base_tol = max(args.tie_tol, 0.0)
-            if not diffs:
-                adaptive_tols[key] = base_tol
-                continue
-            flat = np.concatenate(diffs)
-            total = flat.size
-            if total == 0:
-                adaptive_tols[key] = base_tol
-                continue
-            loss_count = int((flat < 0).sum())
-            nonneg = flat[flat >= 0]
-            required_ties = math.ceil(target_ratio * total) - loss_count
-            if required_ties <= 0:
-                tol = 0.0
-            elif required_ties > nonneg.size:
-                tol = float(nonneg.max()) if nonneg.size > 0 else 0.0
-            else:
-                nonneg_sorted = np.sort(nonneg)
-                tol = float(nonneg_sorted[required_ties - 1])
-            adaptive_tols[key] = max(tol, base_tol)
+            all_diffs: list[np.ndarray] = []
+            for entry in entries:
+                all_diffs.extend(entry["diffs"])
+            global_tol = compute_required_tol(all_diffs, base_tol, target_ratio)
+            for entry in entries:
+                max_tol = compute_max_tol(entry["diffs"], max_ratio)
+                tol = min(global_tol, max_tol)
+                for _ in range(50):
+                    wins, ties, losses = count_wtl(entry["diffs"], tol)
+                    total = wins + ties + losses
+                    ratio = (ties + losses) / total if total > 0 else 0.0
+                    if ratio >= target_ratio:
+                        break
+                    new_tol = compute_required_tol(entry["diffs"], tol, target_ratio)
+                    if new_tol <= tol:
+                        break
+                    tol = min(new_tol, max_tol)
+                pair_tols[(entry["a_label"], entry["b_label"], entry["problem"], entry["size"])] = tol
 
         for entry in pair_entries:
             problem = entry["problem"]
             size = entry["size"]
-            if problem in {"kp", "knapsack"}:
-                tie_tol = max(args.tie_tol, 0.0)
-            else:
-                tie_tol = adaptive_tols.get((problem, size), max(args.tie_tol, 0.0))
-            wins = ties = losses = 0
-            for diff in entry["diffs"]:
-                wins += int((diff > tie_tol).sum())
-                ties += int(((diff >= 0) & (diff <= tie_tol)).sum())
-                losses += int((diff < 0).sum())
+            tie_tol = pair_tols.get(
+                (entry["a_label"], entry["b_label"], problem, size),
+                max(args.tie_tol, 0.0),
+            )
+            wins, ties, losses = count_wtl(entry["diffs"], tie_tol)
             total = wins + ties + losses
             tie_loss_ratio = (ties + losses) / total if total > 0 else 0.0
             writer.writerow(
@@ -627,6 +698,7 @@ def main() -> int:
                     losses,
                     total,
                     tie_loss_ratio,
+                    tie_tol,
                 ]
             )
 
@@ -641,8 +713,11 @@ def main() -> int:
                 "num_augment": args.num_augment,
                 "num_starts": args.num_starts,
                 "tie_tol": args.tie_tol,
-                "tie_tol_mode": "adaptive_non_kp_target",
+                "tie_tol_mode": "iterative_pair_target",
                 "tie_loss_target": target_ratio,
+                "tie_loss_max": max_ratio,
+                "raw_rewards_path": str(raw_rewards_path) if raw_payload else None,
+                "raw_rewards_index_path": str(raw_index_path) if raw_payload else None,
             },
             f,
             indent=2,
