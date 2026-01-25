@@ -7,8 +7,8 @@ log_dir="${3:-logs}"
 problem="${4:-cvrp}"
 problem_size="${5:-100}"
 
-seeds=(0 1 2 3)
-gpus=(2 3 4 5)
+seeds=(0 1 2 3 4)
+gpus=(1 2 3 4 5)
 
 pids=()
 for idx in "${!seeds[@]}"; do
