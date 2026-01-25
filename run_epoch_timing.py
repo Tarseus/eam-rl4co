@@ -296,7 +296,7 @@ def _build_model(spec: TaskSpec, args):
             policy,
             baseline="symnco",
             num_augment=args.symnco_num_augment,
-            num_starts=None,
+            num_starts=0,
             **common_kwargs,
         )
     if spec.model_key == "eam_pomo":
@@ -368,26 +368,26 @@ def _append_result(path: str, row: dict) -> None:
 
 def _task_list() -> list[TaskSpec]:
     tasks = []
-    for problem, size in [
-        ("tsp", 50),
-        ("tsp", 100),
-        ("cvrp", 50),
-        ("cvrp", 100),
-        ("kp", 50),
-        ("kp", 100),
-        ("pctsp", 100),
-        ("op", 100),
-    ]:
-        tasks.append(TaskSpec("am", problem, size))
-    for problem, size in [
-        ("tsp", 50),
-        ("tsp", 100),
-        ("cvrp", 50),
-        ("cvrp", 100),
-        ("kp", 50),
-        ("kp", 100),
-    ]:
-        tasks.append(TaskSpec("pomo", problem, size))
+    # for problem, size in [
+    #     ("tsp", 50),
+    #     ("tsp", 100),
+    #     ("cvrp", 50),
+    #     ("cvrp", 100),
+    #     ("kp", 50),
+    #     ("kp", 100),
+    #     ("pctsp", 100),
+    #     ("op", 100),
+    # ]:
+    #     tasks.append(TaskSpec("am", problem, size))
+    # for problem, size in [
+    #     ("tsp", 50),
+    #     ("tsp", 100),
+    #     ("cvrp", 50),
+    #     ("cvrp", 100),
+    #     ("kp", 50),
+    #     ("kp", 100),
+    # ]:
+    #     tasks.append(TaskSpec("pomo", problem, size))
     for problem, size in [
         ("tsp", 50),
         ("tsp", 100),

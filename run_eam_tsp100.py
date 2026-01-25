@@ -1,7 +1,9 @@
 import argparse
 import os
 import time
+from pathlib import Path
 
+from lightning.pytorch.callbacks import ModelCheckpoint
 from rl4co.envs.routing import TSPEnv, TSPGenerator
 from rl4co.models import AttentionModelPolicy, EAM
 from rl4co.utils import RL4COTrainer
@@ -21,6 +23,8 @@ def main() -> int:
     parser.add_argument("--log-dir", type=str, default="logs")
     parser.add_argument("--run-name", type=str, default="eam_tsp100")
     parser.add_argument("--version", type=str, default=None)
+    parser.add_argument("--resume", action="store_true", help="Resume from latest checkpoint.")
+    parser.add_argument("--ckpt-path", type=str, default=None, help="Resume from a specific checkpoint.")
     args = parser.parse_args()
 
     os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda)
@@ -86,8 +90,57 @@ def main() -> int:
         ea_kwargs=ea_kwargs,
     )
 
+    def resolve_resume_checkpoint(run_name: str, version: str | None) -> tuple[str | None, str | None]:
+        root = Path("checkpoints") / run_name
+        if version:
+            vdir = root / version
+            if not vdir.exists():
+                return None, None
+            last_ckpt = vdir / "last.ckpt"
+            if last_ckpt.exists():
+                return str(last_ckpt), version
+            ckpts = sorted(vdir.rglob("*.ckpt"), key=lambda p: p.stat().st_mtime)
+            if ckpts:
+                return str(ckpts[-1]), version
+            return None, None
+        if not root.exists():
+            return None, None
+        version_dirs = sorted([d for d in root.iterdir() if d.is_dir()], key=lambda p: p.stat().st_mtime)
+        for vdir in reversed(version_dirs):
+            last_ckpt = vdir / "last.ckpt"
+            if last_ckpt.exists():
+                return str(last_ckpt), vdir.name
+            ckpts = sorted(vdir.rglob("*.ckpt"), key=lambda p: p.stat().st_mtime)
+            if ckpts:
+                return str(ckpts[-1]), vdir.name
+        return None, None
+
     version = args.version or time.strftime("%Y%m%d_%H%M%S")
+    ckpt_path = None
+    if args.ckpt_path:
+        ckpt_candidate = Path(args.ckpt_path)
+        if not ckpt_candidate.exists():
+            raise SystemExit(f"Checkpoint not found: {ckpt_candidate}")
+        ckpt_path = str(ckpt_candidate)
+        if args.version is None:
+            version = ckpt_candidate.parent.name
+    elif args.resume:
+        ckpt_path, resume_version = resolve_resume_checkpoint(args.run_name, args.version)
+        if ckpt_path is None:
+            raise SystemExit("No checkpoint found to resume from.")
+        if args.version is None and resume_version is not None:
+            version = resume_version
+
     logger = CSVLogger(save_dir=args.log_dir, name=args.run_name, version=version)
+    checkpoint_dir = os.path.join("checkpoints", args.run_name, version)
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=checkpoint_dir,
+        filename="epoch_{epoch:03d}",
+        save_last=True,
+        save_top_k=1,
+        monitor="val/reward",
+        mode="max",
+    )
 
     trainer = RL4COTrainer(
         max_epochs=args.epochs,
@@ -95,9 +148,10 @@ def main() -> int:
         devices=[0],
         precision=32,
         logger=logger,
-        enable_checkpointing=False,
+        callbacks=[checkpoint_callback],
+        enable_checkpointing=True,
     )
-    trainer.fit(model)
+    trainer.fit(model, ckpt_path=ckpt_path)
     return 0
 
 
