@@ -12,10 +12,12 @@ import inspect
 import numpy as np
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from tensordict import TensorDict
 
 from rl4co.envs import get_env
 from rl4co.tasks.eval import evaluate_policy
+from rl4co.models.zoo.earl.evolution import EA, evolution_worker
 
 
 @dataclass(frozen=True)
@@ -58,6 +60,19 @@ PROBLEM_CODES = [
 PROBLEM_PATTERN = re.compile(
     r"(?P<problem>{})(?P<size>\d+)".format("|".join(PROBLEM_CODES))
 )
+
+DEFAULT_EA_KWARGS = {
+    "num_generations": 3,
+    "mutation_rate": 0.1,
+    "crossover_rate": 0.6,
+    "selection_rate": 0.2,
+    "batch_size": 64,
+    "ea_batch_size": 64,
+    "alpha": 0.5,
+    "beta": 3,
+    "ea_prob": 0.01,
+    "ea_epoch": 700,
+}
 
 
 def parse_seeds(text: str) -> list[int]:
@@ -141,18 +156,6 @@ def build_policy_for_model(model_cls, env, policy_kwargs: dict):
 
 def load_model_checkpoint(model_cls, path: Path, env):
     errors = []
-    default_ea_kwargs = {
-        "num_generations": 3,
-        "mutation_rate": 0.1,
-        "crossover_rate": 0.6,
-        "selection_rate": 0.2,
-        "batch_size": 64,
-        "ea_batch_size": 64,
-        "alpha": 0.5,
-        "beta": 3,
-        "ea_prob": 0.01,
-        "ea_epoch": 700,
-    }
     try:
         def filter_init_kwargs(cls, kwargs):
             sig = inspect.signature(cls.__init__)
@@ -180,7 +183,7 @@ def load_model_checkpoint(model_cls, path: Path, env):
                 init_kwargs["num_starts"] = 0
         if model_cls.__name__ in ("EAM", "SymEAM"):
             ea_kwargs = init_kwargs.get("ea_kwargs", {}) or {}
-            merged = {**default_ea_kwargs, **ea_kwargs}
+            merged = {**DEFAULT_EA_KWARGS, **ea_kwargs}
             init_kwargs["ea_kwargs"] = merged
         init_kwargs["env"] = env
         if policy is not None:
@@ -206,6 +209,51 @@ def load_model_checkpoint(model_cls, path: Path, env):
             errors.append(str(exc))
 
     return None, "; ".join(errors)
+
+
+def run_ga_search(
+    env,
+    dataset,
+    actions: torch.Tensor | np.ndarray,
+    ea: EA,
+    batch_size: int,
+) -> tuple[np.ndarray, float]:
+    if isinstance(actions, np.ndarray):
+        actions = torch.from_numpy(actions)
+    actions = actions.cpu()
+    if actions.dim() != 2:
+        raise ValueError(f"GA expects 2D actions, got shape={tuple(actions.shape)}")
+
+    data_len = len(dataset)
+    if data_len != actions.shape[0]:
+        raise ValueError(
+            f"GA actions length mismatch: actions={actions.shape[0]} dataset={data_len}"
+        )
+
+    batch_size = max(1, min(int(batch_size), data_len))
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=False,
+        num_workers=0,
+        collate_fn=dataset.collate_fn,
+    )
+
+    start = time.time()
+    rewards_list = []
+    offset = 0
+
+    for batch in dataloader:
+        bs = int(batch.batch_size[0])
+        batch_actions = actions[offset : offset + bs]
+        offset += bs
+        td = env.reset(batch)
+        improved_actions, init_td = evolution_worker(batch_actions, td, ea, env)
+        rewards = env.get_reward(init_td, improved_actions)
+        rewards_list.append(rewards.cpu())
+
+    rewards = torch.cat(rewards_list).numpy()
+    return rewards, time.time() - start
 
 
 def infer_num_starts(env, dataset) -> int | None:
@@ -374,12 +422,27 @@ def main() -> int:
         default=0.0,
         help="If non-EAM is better than EAM by <= tie_tol, count as tie (asymmetric).",
     )
+    parser.add_argument(
+        "--ga-seed",
+        type=int,
+        default=None,
+        help="Run GA search on this seed after evaluation. Use -1 to disable (default: first seed).",
+    )
     parser.add_argument("--output-dir", type=str, default="results/checkpoint_eval")
     args = parser.parse_args()
 
     seeds = parse_seeds(args.seeds)
     if not seeds:
         raise SystemExit("No valid seeds provided.")
+
+    ga_seed = args.ga_seed
+    if ga_seed is None:
+        ga_seed = seeds[0]
+    if ga_seed is not None and ga_seed < 0:
+        ga_seed = None
+    if ga_seed is not None and ga_seed not in seeds:
+        print(f"[warn] GA seed {ga_seed} not in seeds {seeds}; GA search disabled.")
+        ga_seed = None
 
     ckpt_dir = Path(args.checkpoints_dir)
     if not ckpt_dir.exists():
@@ -407,6 +470,7 @@ def main() -> int:
 
     env_cache = {}
     dataset_cache = {}
+    ea_cache = {}
     results = {}
     skipped_details = []
 
@@ -423,6 +487,9 @@ def main() -> int:
         if info.group_key not in env_cache:
             env_cache[info.group_key] = build_env(info.problem, info.size)
         env = env_cache[info.group_key]
+        if info.group_key not in ea_cache:
+            ea_cache[info.group_key] = EA(env, DEFAULT_EA_KWARGS)
+        ea = ea_cache[info.group_key]
 
         model, load_error = load_model_checkpoint(model_cls, info.path, env)
         if model is None:
@@ -441,6 +508,8 @@ def main() -> int:
         seed_means = {}
         seed_stds = {}
         seed_times = {}
+        seed_ga_rewards = {}
+        seed_ga_times = {}
 
         for seed in seeds:
             dataset_key = (info.group_key, seed)
@@ -502,12 +571,39 @@ def main() -> int:
             seed_stds[seed] = float(rewards.std(ddof=1)) if rewards.size > 1 else 0.0
             seed_times[seed] = float(result["inference_time"])
 
+            if ga_seed is not None and seed == ga_seed:
+                try:
+                    set_global_seed(seed)
+                    ga_batch_size = args.batch_size or DEFAULT_EA_KWARGS["ea_batch_size"]
+                    ga_rewards, ga_time = run_ga_search(
+                        env,
+                        dataset,
+                        result["actions"],
+                        ea,
+                        ga_batch_size,
+                    )
+                    seed_ga_rewards[seed] = ga_rewards
+                    seed_ga_times[seed] = float(ga_time)
+                except Exception as exc:
+                    skipped_details.append(
+                        {
+                            "file": info.path.name,
+                            "reason": f"ga_failed: {exc}",
+                            "seed": seed,
+                        }
+                    )
+                    print(
+                        f"[skip] GA search failed for {info.path.name} (seed={seed}): {exc}"
+                    )
+
         results[info.label] = {
             "info": info,
             "seed_rewards": seed_rewards,
             "seed_means": seed_means,
             "seed_stds": seed_stds,
             "seed_times": seed_times,
+            "seed_ga_rewards": seed_ga_rewards,
+            "seed_ga_times": seed_ga_times,
         }
 
     per_seed_path = output_root / "per_seed.csv"
@@ -517,20 +613,34 @@ def main() -> int:
     skipped_path = output_root / "skipped.csv"
     raw_rewards_path = output_root / "raw_rewards.npz"
     raw_index_path = output_root / "raw_rewards_index.csv"
+    raw_ga_rewards_path = output_root / "raw_rewards_ga.npz"
+    raw_ga_index_path = output_root / "raw_rewards_ga_index.csv"
 
     raw_payload = {}
     raw_index_rows = []
+    raw_ga_payload = {}
+    raw_ga_index_rows = []
     for label, data in results.items():
         for seed, rewards in data["seed_rewards"].items():
             key = f"{label}__seed{seed}"
             raw_payload[key] = rewards
             raw_index_rows.append([label, seed, key])
+        for seed, rewards in data["seed_ga_rewards"].items():
+            key = f"{label}__seed{seed}"
+            raw_ga_payload[key] = rewards
+            raw_ga_index_rows.append([label, seed, key])
     if raw_payload:
         np.savez_compressed(raw_rewards_path, **raw_payload)
         with raw_index_path.open("w", newline="") as f:
             writer = csv.writer(f)
             writer.writerow(["model", "seed", "key"])
             writer.writerows(raw_index_rows)
+    if raw_ga_payload:
+        np.savez_compressed(raw_ga_rewards_path, **raw_ga_payload)
+        with raw_ga_index_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["model", "seed", "key"])
+            writer.writerows(raw_ga_index_rows)
 
     with per_seed_path.open("w", newline="") as f:
         writer = csv.writer(f)
@@ -719,6 +829,10 @@ def main() -> int:
                 "tie_loss_max": max_ratio,
                 "raw_rewards_path": str(raw_rewards_path) if raw_payload else None,
                 "raw_rewards_index_path": str(raw_index_path) if raw_payload else None,
+                "raw_ga_rewards_path": str(raw_ga_rewards_path) if raw_ga_payload else None,
+                "raw_ga_rewards_index_path": str(raw_ga_index_path) if raw_ga_payload else None,
+                "ga_seed": ga_seed,
+                "ga_kwargs": DEFAULT_EA_KWARGS,
             },
             f,
             indent=2,
