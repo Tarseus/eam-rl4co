@@ -217,7 +217,8 @@ def run_ga_search(
     actions: torch.Tensor | np.ndarray,
     ea: EA,
     batch_size: int,
-) -> tuple[np.ndarray, float]:
+    return_actions: bool = False,
+) -> tuple[np.ndarray, float, np.ndarray | None]:
     if isinstance(actions, np.ndarray):
         actions = torch.from_numpy(actions)
     actions = actions.cpu()
@@ -241,6 +242,7 @@ def run_ga_search(
 
     start = time.time()
     rewards_list = []
+    actions_list = []
     offset = 0
 
     for batch in dataloader:
@@ -251,9 +253,12 @@ def run_ga_search(
         improved_actions, init_td = evolution_worker(batch_actions, td, ea, env)
         rewards = env.get_reward(init_td, improved_actions)
         rewards_list.append(rewards.cpu())
+        if return_actions:
+            actions_list.append(improved_actions.cpu())
 
     rewards = torch.cat(rewards_list).numpy()
-    return rewards, time.time() - start
+    ga_actions = torch.cat(actions_list).numpy() if return_actions else None
+    return rewards, time.time() - start, ga_actions
 
 
 def infer_num_starts(env, dataset) -> int | None:
@@ -428,6 +433,12 @@ def main() -> int:
         default=None,
         help="Run GA search on this seed after evaluation. Use -1 to disable (default: first seed).",
     )
+    parser.add_argument(
+        "--print-actions",
+        type=int,
+        default=0,
+        help="Print first N solutions for the GA seed (0 to disable).",
+    )
     parser.add_argument("--output-dir", type=str, default="results/checkpoint_eval")
     args = parser.parse_args()
 
@@ -510,6 +521,8 @@ def main() -> int:
         seed_times = {}
         seed_ga_rewards = {}
         seed_ga_times = {}
+        seed_actions = {}
+        seed_ga_actions = {}
 
         for seed in seeds:
             dataset_key = (info.group_key, seed)
@@ -570,20 +583,35 @@ def main() -> int:
             seed_means[seed] = float(rewards.mean())
             seed_stds[seed] = float(rewards.std(ddof=1)) if rewards.size > 1 else 0.0
             seed_times[seed] = float(result["inference_time"])
+            if ga_seed is not None and seed == ga_seed:
+                seed_actions[seed] = result["actions"].numpy()
 
             if ga_seed is not None and seed == ga_seed:
                 try:
                     set_global_seed(seed)
                     ga_batch_size = args.batch_size or DEFAULT_EA_KWARGS["ea_batch_size"]
-                    ga_rewards, ga_time = run_ga_search(
+                    ga_rewards, ga_time, ga_actions = run_ga_search(
                         env,
                         dataset,
                         result["actions"],
                         ea,
                         ga_batch_size,
+                        return_actions=True,
                     )
                     seed_ga_rewards[seed] = ga_rewards
                     seed_ga_times[seed] = float(ga_time)
+                    if ga_actions is not None:
+                        seed_ga_actions[seed] = ga_actions
+                    if args.print_actions:
+                        n_print = max(0, int(args.print_actions))
+                        if n_print > 0:
+                            base_actions = seed_actions.get(seed)
+                            print(f"[actions] {info.label} seed={seed} base[:{n_print}]:")
+                            if base_actions is not None:
+                                print(base_actions[:n_print])
+                            print(f"[actions] {info.label} seed={seed} ga[:{n_print}]:")
+                            if ga_actions is not None:
+                                print(ga_actions[:n_print])
                 except Exception as exc:
                     skipped_details.append(
                         {
@@ -604,22 +632,33 @@ def main() -> int:
             "seed_times": seed_times,
             "seed_ga_rewards": seed_ga_rewards,
             "seed_ga_times": seed_ga_times,
+            "seed_actions": seed_actions,
+            "seed_ga_actions": seed_ga_actions,
         }
 
     per_seed_path = output_root / "per_seed.csv"
     summary_path = output_root / "summary.csv"
     wtl_path = output_root / "pairwise_win_tie_loss.csv"
+    ga_wtl_path = output_root / "pairwise_win_tie_loss_ga.csv"
     meta_path = output_root / "run_meta.json"
     skipped_path = output_root / "skipped.csv"
     raw_rewards_path = output_root / "raw_rewards.npz"
     raw_index_path = output_root / "raw_rewards_index.csv"
     raw_ga_rewards_path = output_root / "raw_rewards_ga.npz"
     raw_ga_index_path = output_root / "raw_rewards_ga_index.csv"
+    raw_actions_path = output_root / "raw_actions.npz"
+    raw_actions_index_path = output_root / "raw_actions_index.csv"
+    raw_ga_actions_path = output_root / "raw_actions_ga.npz"
+    raw_ga_actions_index_path = output_root / "raw_actions_ga_index.csv"
 
     raw_payload = {}
     raw_index_rows = []
     raw_ga_payload = {}
     raw_ga_index_rows = []
+    raw_actions_payload = {}
+    raw_actions_index_rows = []
+    raw_ga_actions_payload = {}
+    raw_ga_actions_index_rows = []
     for label, data in results.items():
         for seed, rewards in data["seed_rewards"].items():
             key = f"{label}__seed{seed}"
@@ -629,6 +668,14 @@ def main() -> int:
             key = f"{label}__seed{seed}"
             raw_ga_payload[key] = rewards
             raw_ga_index_rows.append([label, seed, key])
+        for seed, actions in data["seed_actions"].items():
+            key = f"{label}__seed{seed}"
+            raw_actions_payload[key] = actions
+            raw_actions_index_rows.append([label, seed, key])
+        for seed, actions in data["seed_ga_actions"].items():
+            key = f"{label}__seed{seed}"
+            raw_ga_actions_payload[key] = actions
+            raw_ga_actions_index_rows.append([label, seed, key])
     if raw_payload:
         np.savez_compressed(raw_rewards_path, **raw_payload)
         with raw_index_path.open("w", newline="") as f:
@@ -641,6 +688,18 @@ def main() -> int:
             writer = csv.writer(f)
             writer.writerow(["model", "seed", "key"])
             writer.writerows(raw_ga_index_rows)
+    if raw_actions_payload:
+        np.savez_compressed(raw_actions_path, **raw_actions_payload)
+        with raw_actions_index_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["model", "seed", "key"])
+            writer.writerows(raw_actions_index_rows)
+    if raw_ga_actions_payload:
+        np.savez_compressed(raw_ga_actions_path, **raw_ga_actions_payload)
+        with raw_ga_actions_index_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["model", "seed", "key"])
+            writer.writerows(raw_ga_actions_index_rows)
 
     with per_seed_path.open("w", newline="") as f:
         writer = csv.writer(f)
@@ -695,6 +754,11 @@ def main() -> int:
                 ]
             )
 
+    def split_eam(method_name: str) -> tuple[bool, str]:
+        if method_name.startswith("eam_"):
+            return True, method_name[len("eam_") :]
+        return False, method_name
+
     with wtl_path.open("w", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
@@ -711,11 +775,6 @@ def main() -> int:
                 "tie_tol",
             ]
         )
-
-        def split_eam(method_name: str) -> tuple[bool, str]:
-            if method_name.startswith("eam_"):
-                return True, method_name[len("eam_") :]
-            return False, method_name
 
         non_eam = {}
         eam = {}
@@ -813,6 +872,99 @@ def main() -> int:
                 ]
             )
 
+    ga_entries = []
+    if ga_seed is not None:
+        non_eam = {}
+        eam = {}
+        for label, data in results.items():
+            info = data["info"]
+            is_eam, base = split_eam(info.method)
+            key = (info.problem, info.size, base)
+            if is_eam:
+                eam.setdefault(key, []).append(label)
+            else:
+                non_eam.setdefault(key, []).append(label)
+
+        # non-EAM+GA vs EAM
+        for key in sorted(set(non_eam.keys()) & set(eam.keys())):
+            a_labels = non_eam[key]
+            b_labels = eam[key]
+            for a_label in a_labels:
+                a_ga_rewards = results[a_label]["seed_ga_rewards"].get(ga_seed)
+                if a_ga_rewards is None:
+                    continue
+                for b_label in b_labels:
+                    b_rewards = results[b_label]["seed_rewards"].get(ga_seed)
+                    if b_rewards is None:
+                        continue
+                    info = results[a_label]["info"]
+                    ga_entries.append(
+                        {
+                            "problem": info.problem,
+                            "size": info.size,
+                            "a_label": f"{a_label}+ga",
+                            "b_label": b_label,
+                            "diffs": [a_ga_rewards - b_rewards],
+                        }
+                    )
+
+        # EAM+GA vs EAM (same label)
+        for label, data in results.items():
+            info = data["info"]
+            is_eam, _ = split_eam(info.method)
+            if not is_eam:
+                continue
+            ga_rewards = data["seed_ga_rewards"].get(ga_seed)
+            base_rewards = data["seed_rewards"].get(ga_seed)
+            if ga_rewards is None or base_rewards is None:
+                continue
+            ga_entries.append(
+                {
+                    "problem": info.problem,
+                    "size": info.size,
+                    "a_label": f"{label}+ga",
+                    "b_label": label,
+                    "diffs": [ga_rewards - base_rewards],
+                }
+            )
+
+    if ga_entries:
+        with ga_wtl_path.open("w", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    "problem",
+                    "size",
+                    "model_a",
+                    "model_b",
+                    "wins",
+                    "ties",
+                    "losses",
+                    "total",
+                    "tie_loss_ratio",
+                    "tie_tol",
+                ]
+            )
+            for entry in ga_entries:
+                tie_tol = max(args.tie_tol, 0.0)
+                wins, ties, losses = count_wtl(entry["diffs"], tie_tol)
+                total = wins + ties + losses
+                tie_loss_ratio = (ties + losses) / total if total > 0 else 0.0
+                writer.writerow(
+                    [
+                        entry["problem"],
+                        entry["size"],
+                        entry["a_label"],
+                        entry["b_label"],
+                        wins,
+                        ties,
+                        losses,
+                        total,
+                        tie_loss_ratio,
+                        tie_tol,
+                    ]
+                )
+
     with meta_path.open("w") as f:
         json.dump(
             {
@@ -831,6 +983,11 @@ def main() -> int:
                 "raw_rewards_index_path": str(raw_index_path) if raw_payload else None,
                 "raw_ga_rewards_path": str(raw_ga_rewards_path) if raw_ga_payload else None,
                 "raw_ga_rewards_index_path": str(raw_ga_index_path) if raw_ga_payload else None,
+                "raw_actions_path": str(raw_actions_path) if raw_actions_payload else None,
+                "raw_actions_index_path": str(raw_actions_index_path) if raw_actions_payload else None,
+                "raw_ga_actions_path": str(raw_ga_actions_path) if raw_ga_actions_payload else None,
+                "raw_ga_actions_index_path": str(raw_ga_actions_index_path) if raw_ga_actions_payload else None,
+                "ga_wtl_path": str(ga_wtl_path) if ga_entries else None,
                 "ga_seed": ga_seed,
                 "ga_kwargs": DEFAULT_EA_KWARGS,
             },
@@ -851,6 +1008,8 @@ def main() -> int:
     print(f"Saved per-seed results to: {per_seed_path}")
     print(f"Saved summary results to: {summary_path}")
     print(f"Saved win/tie/loss results to: {wtl_path}")
+    if ga_entries:
+        print(f"Saved GA win/tie/loss results to: {ga_wtl_path}")
     print(f"Saved metadata to: {meta_path}")
     return 0
 
