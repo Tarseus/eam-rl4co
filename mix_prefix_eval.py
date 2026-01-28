@@ -92,14 +92,19 @@ def mix_prefix_rewards(
                     td = env.step(td)["next"]
 
             if prefix_len < num_steps:
-                out = full_policy(
-                    td,
-                    env,
-                    phase="test",
-                    decode_type="greedy",
-                    num_starts=0,
-                    calc_reward=False,
-                )
+                prev_check = env.check_solution
+                env.check_solution = False
+                try:
+                    out = full_policy(
+                        td,
+                        env,
+                        phase="test",
+                        decode_type="greedy",
+                        num_starts=0,
+                        calc_reward=False,
+                    )
+                finally:
+                    env.check_solution = prev_check
                 remaining_actions = out["actions"]
                 actions = torch.cat([prefix[:, :prefix_len], remaining_actions], dim=1)
             else:
