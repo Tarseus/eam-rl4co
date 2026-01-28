@@ -98,6 +98,7 @@ def mix_prefix_rewards(
                     phase="test",
                     decode_type="greedy",
                     num_starts=0,
+                    calc_reward=False,
                 )
                 remaining_actions = out["actions"]
                 actions = torch.cat([prefix[:, :prefix_len], remaining_actions], dim=1)
