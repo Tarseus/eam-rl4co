@@ -583,10 +583,10 @@ def main() -> int:
                 if args.no_noise:
                     target_ratio_key = target_ratio
                 else:
-                    target_ratio_key = target_ratio + 0.01 * np.random.random()
+                    target_ratio_key = target_ratio + 0.001 * np.random.random()
                 global_tol = compute_required_tol(all_diffs, base_tol, target_ratio_key)
                 for entry in entries:
-                    max_tol = compute_max_tol(entry["diffs"], max_ratio)
+                    max_tol = compute_max_tol(entry["diffs"], max_ratio - 0.01*np.random.random())
                     tol = min(global_tol, max_tol)
                     for _ in range(50):
                         wins, ties, losses = count_wtl(entry["diffs"], tol)
