@@ -1,0 +1,36 @@
+{
+  "checkpoints_dir": "checkpoints",
+  "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "num_instances": 1000,
+  "device": "cuda",
+  "method": "auto",
+  "num_augment": null,
+  "num_starts": null,
+  "tie_tol": 0.0,
+  "tie_tol_mode": "iterative_pair_target",
+  "tie_loss_target": 0.8509808547198712,
+  "tie_loss_max": 0.95,
+  "raw_rewards_path": "results/checkpoint_eval/20260126_020656/raw_rewards.npz",
+  "raw_rewards_index_path": "results/checkpoint_eval/20260126_020656/raw_rewards_index.csv",
+  "raw_ga_rewards_path": "results/checkpoint_eval/20260126_020656/raw_rewards_ga.npz",
+  "raw_ga_rewards_index_path": "results/checkpoint_eval/20260126_020656/raw_rewards_ga_index.csv",
+  "ga_seed": 3,
+  "ga_kwargs": {
+    "num_generations": 3,
+    "mutation_rate": 0.1,
+    "crossover_rate": 0.6,
+    "selection_rate": 0.2,
+    "batch_size": 64,
+    "ea_batch_size": 64,
+    "alpha": 0.5,
+    "beta": 3,
+    "ea_prob": 0.01,
+    "ea_epoch": 700
+  }
+}
