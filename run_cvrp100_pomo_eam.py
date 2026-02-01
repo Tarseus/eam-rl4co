@@ -60,16 +60,22 @@ def _parse_bool(value: str | None, *, default: bool) -> bool:
 
 
 class CorrelatedKnapsackGenerator(KnapsackGenerator):
-    """Knapsack generator with value correlated to weight (harder but similar scale)."""
+    """Knapsack generator with mixed correlated values (harder but similar scale)."""
 
-    def __init__(self, *args, value_noise: float = 0.05, **kwargs):
+    def __init__(self, *args, value_noise: float = 0.05, corr: float = 0.7, **kwargs):
         super().__init__(*args, **kwargs)
         self.value_noise = value_noise
+        if not 0.0 <= corr <= 1.0:
+            raise ValueError(f"corr must be in [0, 1], got {corr}")
+        self.corr = corr
 
     def _generate(self, batch_size) -> TensorDict:
         weights = self.weight_sampler.sample((*batch_size, self.num_items))
+        base_values = self.value_sampler.sample((*batch_size, self.num_items))
         noise = torch.empty_like(weights).uniform_(-self.value_noise, self.value_noise)
-        values = (weights + noise).clamp(self.min_value, self.max_value)
+        values = (
+            self.corr * weights + (1.0 - self.corr) * base_values + noise
+        ).clamp(self.min_value, self.max_value)
 
         items = torch.stack((weights, values), dim=-1)
         depot = torch.zeros(*batch_size, 1, 2, device=items.device, dtype=items.dtype)
@@ -163,6 +169,12 @@ def main() -> int:
         default=0.05,
         help="Noise added to correlated KP values (default: 0.05).",
     )
+    parser.add_argument(
+        "--kp-corr",
+        type=float,
+        default=0.7,
+        help="Mixing factor between weights and independent values (0..1).",
+    )
     args = parser.parse_args()
 
     model_key = args.model.lower().replace("_", "-")
@@ -196,20 +208,20 @@ def main() -> int:
         )
     else:
         kp_gen_cls = CorrelatedKnapsackGenerator if kp_correlated else KnapsackGenerator
-        env = KnapsackEnv(
-            kp_gen_cls(
-                num_items=args.problem_size,
-                min_weight=args.kp_min_weight,
-                max_weight=args.kp_max_weight,
-                min_value=args.kp_min_value,
-                max_value=args.kp_max_value,
-                weight_distribution="uniform",
-                value_distribution="uniform",
-                capacity=args.capacity,
-                value_noise=args.kp_value_noise if kp_correlated else None,
-            ),
-            check_solution=check_solution,
-        )
+        kp_gen_kwargs = {
+            "num_items": args.problem_size,
+            "min_weight": args.kp_min_weight,
+            "max_weight": args.kp_max_weight,
+            "min_value": args.kp_min_value,
+            "max_value": args.kp_max_value,
+            "weight_distribution": "uniform",
+            "value_distribution": "uniform",
+            "capacity": args.capacity,
+        }
+        if kp_correlated:
+            kp_gen_kwargs["value_noise"] = args.kp_value_noise
+            kp_gen_kwargs["corr"] = args.kp_corr
+        env = KnapsackEnv(kp_gen_cls(**kp_gen_kwargs), check_solution=check_solution)
     policy = AttentionModelPolicy(
         env_name=env.name,
         embed_dim=128,

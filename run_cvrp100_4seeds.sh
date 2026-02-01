@@ -6,6 +6,10 @@ epochs="${2:-200}"
 log_dir="${3:-logs}"
 problem="${4:-cvrp}"
 problem_size="${5:-100}"
+extra_args=()
+if [[ $# -gt 5 ]]; then
+  extra_args=("${@:6}")
+fi
 
 seeds=(0 1 2 3 4)
 gpus=(1 2 3 4 5)
@@ -27,7 +31,8 @@ for idx in "${!seeds[@]}"; do
     --seed "${seed}" \
     --device "${gpu}" \
     --log-dir "${log_dir}" \
-    --run-name "${model}_${problem}${problem_size}_seed${seed}" > "${log_file}" 2>&1 &
+    --run-name "${model}_${problem}${problem_size}_seed${seed}" \
+    "${extra_args[@]}" > "${log_file}" 2>&1 &
     
   pids+=("$!")
 done
