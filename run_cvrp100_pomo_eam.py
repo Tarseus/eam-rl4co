@@ -3,7 +3,9 @@ import os
 import time
 
 import lightning as L
+import torch
 from lightning.pytorch.loggers import CSVLogger
+from tensordict.tensordict import TensorDict
 
 from rl4co.envs.routing import (
     CVRPEnv,
@@ -44,6 +46,46 @@ def _normalize_problem(name: str) -> str:
     if key == "knapsack":
         key = "kp"
     return key
+
+
+def _parse_bool(value: str | None, *, default: bool) -> bool:
+    if value is None:
+        return default
+    lowered = value.strip().lower()
+    if lowered in {"1", "true", "yes", "y"}:
+        return True
+    if lowered in {"0", "false", "no", "n"}:
+        return False
+    raise SystemExit(f"Invalid boolean value: {value!r}. Use true/false.")
+
+
+class CorrelatedKnapsackGenerator(KnapsackGenerator):
+    """Knapsack generator with value correlated to weight (harder but similar scale)."""
+
+    def __init__(self, *args, value_noise: float = 0.05, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.value_noise = value_noise
+
+    def _generate(self, batch_size) -> TensorDict:
+        weights = self.weight_sampler.sample((*batch_size, self.num_items))
+        noise = torch.empty_like(weights).uniform_(-self.value_noise, self.value_noise)
+        values = (weights + noise).clamp(self.min_value, self.max_value)
+
+        items = torch.stack((weights, values), dim=-1)
+        depot = torch.zeros(*batch_size, 1, 2, device=items.device, dtype=items.dtype)
+        locs = torch.cat((depot, items), dim=-2)
+        capacity = torch.full((*batch_size, 1), self.capacity)
+
+        return TensorDict(
+            {
+                "weights": weights,
+                "demand": weights,
+                "values": values,
+                "locs": locs,
+                "vehicle_capacity": capacity,
+            },
+            batch_size=batch_size,
+        )
 
 
 def _require_eam():
@@ -105,6 +147,22 @@ def main() -> int:
         default=None,
         help="Comma-separated epochs for MultiStepLR (default: 80% and 95% of --epochs).",
     )
+    parser.add_argument(
+        "--kp-correlated",
+        type=str,
+        default="true",
+        help="Use correlated KP values (true/false). Default: true.",
+    )
+    parser.add_argument("--kp-min-weight", type=float, default=0.4)
+    parser.add_argument("--kp-max-weight", type=float, default=0.6)
+    parser.add_argument("--kp-min-value", type=float, default=0.4)
+    parser.add_argument("--kp-max-value", type=float, default=0.6)
+    parser.add_argument(
+        "--kp-value-noise",
+        type=float,
+        default=0.05,
+        help="Noise added to correlated KP values (default: 0.05).",
+    )
     args = parser.parse_args()
 
     model_key = args.model.lower().replace("_", "-")
@@ -119,6 +177,7 @@ def main() -> int:
         raise SystemExit("Unknown problem. Use --problem cvrp, tsp, or kp.")
 
     check_solution = not (problem_key == "kp" and model_key == "pomo")
+    kp_correlated = _parse_bool(args.kp_correlated, default=True)
     if problem_key == "cvrp":
         env = CVRPEnv(
             CVRPGenerator(
@@ -136,12 +195,18 @@ def main() -> int:
             )
         )
     else:
+        kp_gen_cls = CorrelatedKnapsackGenerator if kp_correlated else KnapsackGenerator
         env = KnapsackEnv(
-            KnapsackGenerator(
+            kp_gen_cls(
                 num_items=args.problem_size,
+                min_weight=args.kp_min_weight,
+                max_weight=args.kp_max_weight,
+                min_value=args.kp_min_value,
+                max_value=args.kp_max_value,
                 weight_distribution="uniform",
                 value_distribution="uniform",
                 capacity=args.capacity,
+                value_noise=args.kp_value_noise if kp_correlated else None,
             ),
             check_solution=check_solution,
         )
