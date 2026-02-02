@@ -123,6 +123,109 @@ class RatioCapacityCorrelatedKnapsackGenerator(CorrelatedKnapsackGenerator):
         return td
 
 
+class SubsetSumKnapsackGenerator(KnapsackGenerator):
+    """Subset-sum style KP: values == weights with discrete weights.
+
+    We keep (weight, value) features in [0, 1] to match the knapsack env's `locs` spec.
+    """
+
+    def __init__(
+        self,
+        *,
+        num_items: int,
+        w_max: int = 100,
+        capacity_ratio: float = 0.5,
+    ) -> None:
+        super().__init__(
+            num_items=num_items,
+            min_weight=0.0,
+            max_weight=1.0,
+            min_value=0.0,
+            max_value=1.0,
+            weight_distribution="uniform",
+            value_distribution="uniform",
+            capacity=None,
+        )
+        self.w_max = int(w_max)
+        self.capacity_ratio = float(capacity_ratio)
+
+    def _generate(self, batch_size) -> TensorDict:
+        weights_int = torch.randint(
+            1, self.w_max + 1, (*batch_size, self.num_items), dtype=torch.int64
+        )
+        weights = weights_int.float() / float(self.w_max)
+        values = weights.clone()
+
+        items = torch.stack((weights, values), dim=-1)
+        depot = torch.zeros(*batch_size, 1, 2, device=items.device, dtype=items.dtype)
+        locs = torch.cat((depot, items), dim=-2)
+        capacity = weights.sum(-1, keepdim=True) * self.capacity_ratio
+
+        return TensorDict(
+            {
+                "weights": weights,
+                "demand": weights,
+                "values": values,
+                "locs": locs,
+                "vehicle_capacity": capacity,
+            },
+            batch_size=batch_size,
+        )
+
+
+class StronglyCorrelatedKnapsackGenerator(KnapsackGenerator):
+    """Strongly-correlated integer-ish KP: values ~= weights + discrete noise."""
+
+    def __init__(
+        self,
+        *,
+        num_items: int,
+        w_max: int = 100,
+        v_noise_max: int = 10,
+        capacity_ratio: float = 0.5,
+    ) -> None:
+        super().__init__(
+            num_items=num_items,
+            min_weight=0.0,
+            max_weight=1.0,
+            min_value=0.0,
+            max_value=1.0,
+            weight_distribution="uniform",
+            value_distribution="uniform",
+            capacity=None,
+        )
+        self.w_max = int(w_max)
+        self.v_noise_max = int(v_noise_max)
+        self.capacity_ratio = float(capacity_ratio)
+
+    def _generate(self, batch_size) -> TensorDict:
+        weights_int = torch.randint(
+            1, self.w_max + 1, (*batch_size, self.num_items), dtype=torch.int64
+        )
+        noise_int = torch.randint(
+            0, self.v_noise_max + 1, (*batch_size, self.num_items), dtype=torch.int64
+        )
+        denom = float(self.w_max + self.v_noise_max)
+        weights = weights_int.float() / denom
+        values = (weights_int + noise_int).float() / denom
+
+        items = torch.stack((weights, values), dim=-1)
+        depot = torch.zeros(*batch_size, 1, 2, device=items.device, dtype=items.dtype)
+        locs = torch.cat((depot, items), dim=-2)
+        capacity = weights.sum(-1, keepdim=True) * self.capacity_ratio
+
+        return TensorDict(
+            {
+                "weights": weights,
+                "demand": weights,
+                "values": values,
+                "locs": locs,
+                "vehicle_capacity": capacity,
+            },
+            batch_size=batch_size,
+        )
+
+
 def _require_eam():
     if EAM is not None:
         return EAM
@@ -202,6 +305,53 @@ class KnapsackBaselineEvalCallback(Callback):
         self._did_log = True
 
 
+class LogKpNumStartsCallback(Callback):
+    """Log effective num_starts once at the beginning of training (KP only)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._did_log = False
+
+    def on_train_batch_start(  # type: ignore[override]
+        self, trainer, pl_module, batch, batch_idx: int
+    ) -> None:
+        if self._did_log or batch_idx != 0:
+            return
+        if not getattr(trainer, "is_global_zero", True):
+            return
+        env = getattr(pl_module, "env", None)
+        if env is None or getattr(env, "name", None) != "knapsack":
+            return
+
+        batch_td = batch[0] if isinstance(batch, (tuple, list)) else batch
+        if not isinstance(batch_td, TensorDict):
+            return
+
+        td0 = batch_td[:1] if batch_td.shape[0] > 1 else batch_td
+        td_reset = env.reset(td0)
+        n_start_env = int(env.get_num_starts(td_reset))
+        n_start_model = getattr(pl_module, "num_starts", None)
+        n_start_eff = int(n_start_model) if n_start_model is not None else n_start_env
+
+        pl_module.log(
+            "train/num_starts_env",
+            float(n_start_env),
+            on_step=False,
+            on_epoch=True,
+            prog_bar=False,
+            logger=True,
+        )
+        pl_module.log(
+            "train/num_starts_effective",
+            float(n_start_eff),
+            on_step=False,
+            on_epoch=True,
+            prog_bar=False,
+            logger=True,
+        )
+        self._did_log = True
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Train POMO or EAM-POMO on CVRP/TSP/KP (any size)."
@@ -266,6 +416,25 @@ def main() -> int:
         help="Use correlated KP values (true/false). Default: true.",
     )
     parser.add_argument(
+        "--kp-kind",
+        type=str,
+        default="uniform",
+        choices=["uniform", "subset-sum", "strongly-correlated"],
+        help="KP only: instance generator kind.",
+    )
+    parser.add_argument(
+        "--kp-w-max",
+        type=int,
+        default=100,
+        help="KP only (subset-sum/strongly-correlated): max discrete weight.",
+    )
+    parser.add_argument(
+        "--kp-v-noise-max",
+        type=int,
+        default=10,
+        help="KP only (strongly-correlated): max additive noise to values.",
+    )
+    parser.add_argument(
         "--kp-baseline-eval-size",
         type=int,
         default=32,
@@ -310,6 +479,9 @@ def main() -> int:
 
     check_solution = not (problem_key == "kp" and model_key == "pomo")
     kp_correlated = _parse_bool(args.kp_correlated, default=True)
+    if problem_key == "kp" and args.num_augment != 1:
+        # KP 'locs' are (weight, value) features, not Euclidean coordinates, so dihedral augmentation is invalid.
+        args.num_augment = 1
     if problem_key == "cvrp":
         env = CVRPEnv(
             CVRPGenerator(
@@ -327,31 +499,51 @@ def main() -> int:
             )
         )
     else:
-        kp_gen_kwargs = {
-            "num_items": args.problem_size,
-            "min_weight": args.kp_min_weight,
-            "max_weight": args.kp_max_weight,
-            "min_value": args.kp_min_value,
-            "max_value": args.kp_max_value,
-            "weight_distribution": "uniform",
-            "value_distribution": "uniform",
-            "capacity": args.capacity,
-        }
-        if kp_correlated:
-            kp_gen_kwargs["value_noise"] = args.kp_value_noise
-            kp_gen_kwargs["corr"] = args.kp_corr
-        if args.kp_capacity_ratio is not None:
-            kp_gen_kwargs["capacity"] = None
-            kp_gen_kwargs["capacity_ratio"] = args.kp_capacity_ratio
-            kp_gen_cls = (
-                RatioCapacityCorrelatedKnapsackGenerator
-                if kp_correlated
-                else RatioCapacityKnapsackGenerator
+        if args.kp_kind != "uniform":
+            cap_ratio = (
+                args.kp_capacity_ratio if args.kp_capacity_ratio is not None else 0.5
             )
+            if args.kp_kind == "subset-sum":
+                kp_gen_cls = SubsetSumKnapsackGenerator
+                kp_gen_kwargs = {
+                    "num_items": args.problem_size,
+                    "w_max": args.kp_w_max,
+                    "capacity_ratio": cap_ratio,
+                }
+            else:
+                kp_gen_cls = StronglyCorrelatedKnapsackGenerator
+                kp_gen_kwargs = {
+                    "num_items": args.problem_size,
+                    "w_max": args.kp_w_max,
+                    "v_noise_max": args.kp_v_noise_max,
+                    "capacity_ratio": cap_ratio,
+                }
         else:
-            kp_gen_cls = (
-                CorrelatedKnapsackGenerator if kp_correlated else KnapsackGenerator
-            )
+            kp_gen_kwargs = {
+                "num_items": args.problem_size,
+                "min_weight": args.kp_min_weight,
+                "max_weight": args.kp_max_weight,
+                "min_value": args.kp_min_value,
+                "max_value": args.kp_max_value,
+                "weight_distribution": "uniform",
+                "value_distribution": "uniform",
+                "capacity": args.capacity,
+            }
+            if kp_correlated:
+                kp_gen_kwargs["value_noise"] = args.kp_value_noise
+                kp_gen_kwargs["corr"] = args.kp_corr
+            if args.kp_capacity_ratio is not None:
+                kp_gen_kwargs["capacity"] = None
+                kp_gen_kwargs["capacity_ratio"] = args.kp_capacity_ratio
+                kp_gen_cls = (
+                    RatioCapacityCorrelatedKnapsackGenerator
+                    if kp_correlated
+                    else RatioCapacityKnapsackGenerator
+                )
+            else:
+                kp_gen_cls = (
+                    CorrelatedKnapsackGenerator if kp_correlated else KnapsackGenerator
+                )
         env = KnapsackEnv(kp_gen_cls(**kp_gen_kwargs), check_solution=check_solution)
     policy = AttentionModelPolicy(
         env_name=env.name,
@@ -389,6 +581,10 @@ def main() -> int:
         ],
         "test": ["reward", "max_reward", "max_aug_reward"],
     }
+    if problem_key == "kp":
+        # With augmentation disabled for KP, augmented metrics are meaningless/misleading.
+        metrics["val"] = [m for m in metrics["val"] if "aug" not in m]
+        metrics["test"] = [m for m in metrics["test"] if "aug" not in m]
 
     lr_milestones = _parse_milestones(args.lr_milestones)
     if lr_milestones is None:
@@ -462,6 +658,7 @@ def main() -> int:
                 optimal_every=args.kp_optimal_eval_every,
             )
         )
+        callbacks.append(LogKpNumStartsCallback())
     trainer = RL4COTrainer(
         max_epochs=args.epochs,
         accelerator="gpu",
