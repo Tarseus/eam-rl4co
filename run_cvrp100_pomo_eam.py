@@ -246,10 +246,18 @@ class KnapsackBaselineEvalCallback(Callback):
     This is meant as a sanity check for remaining headroom; solving optimal is expensive.
     """
 
-    def __init__(self, *, eval_size: int = 32, optimal_every: int = 1) -> None:
+    def __init__(
+        self,
+        *,
+        greedy_eval_size: int = 32,
+        optimal_eval_size: int = 8,
+        optimal_every: int = 1,
+    ) -> None:
         super().__init__()
-        self.eval_size = eval_size
-        self.optimal_every = max(1, int(optimal_every))
+        self.greedy_eval_size = int(greedy_eval_size)
+        self.optimal_eval_size = int(optimal_eval_size)
+        # Allow disabling optimal by passing 0.
+        self.optimal_every = int(optimal_every)
         self._did_log = False
 
     def on_validation_epoch_start(self, trainer, pl_module) -> None:  # type: ignore[override]
@@ -271,12 +279,17 @@ class KnapsackBaselineEvalCallback(Callback):
             return
 
         # Compute on CPU and on a small subset to keep validation fast.
-        if self.eval_size is not None and td.shape[0] > self.eval_size:
-            td = td[: self.eval_size]
+        max_needed = max(self.greedy_eval_size, self.optimal_eval_size, 0)
+        if max_needed > 0 and td.shape[0] > max_needed:
+            td = td[:max_needed]
         td = td.to("cpu")
 
         try:
-            greedy_mean = float(env.get_greedy_solutions(td))
+            greedy_mean = (
+                float(env.get_greedy_solutions(td, max_instances=self.greedy_eval_size))
+                if self.greedy_eval_size > 0
+                else float("nan")
+            )
         except Exception:
             greedy_mean = float("nan")
         pl_module.log(
@@ -288,9 +301,15 @@ class KnapsackBaselineEvalCallback(Callback):
             logger=True,
         )
 
-        if (trainer.current_epoch % self.optimal_every) == 0:
+        if (
+            self.optimal_every > 0
+            and self.optimal_eval_size > 0
+            and (trainer.current_epoch % self.optimal_every) == 0
+        ):
             try:
-                optimal_mean = float(env.get_optimal_solutions(td))
+                optimal_mean = float(
+                    env.get_optimal_solutions(td, max_instances=self.optimal_eval_size)
+                )
             except Exception:
                 optimal_mean = float("nan")
             pl_module.log(
@@ -438,13 +457,19 @@ def main() -> int:
         "--kp-baseline-eval-size",
         type=int,
         default=32,
-        help="KP only: number of val instances to compute greedy/optimal baselines on each epoch.",
+        help="KP only: number of val instances to compute greedy baseline on each epoch.",
+    )
+    parser.add_argument(
+        "--kp-optimal-eval-size",
+        type=int,
+        default=8,
+        help="KP only: number of val instances to compute optimal baseline on (0 to disable).",
     )
     parser.add_argument(
         "--kp-optimal-eval-every",
         type=int,
         default=1,
-        help="KP only: compute optimal baseline every N validation epochs (default: 1).",
+        help="KP only: compute optimal baseline every N validation epochs (0 to disable).",
     )
     parser.add_argument("--kp-min-weight", type=float, default=0.4)
     parser.add_argument("--kp-max-weight", type=float, default=0.6)
@@ -654,7 +679,8 @@ def main() -> int:
     if problem_key == "kp":
         callbacks.append(
             KnapsackBaselineEvalCallback(
-                eval_size=args.kp_baseline_eval_size,
+                greedy_eval_size=args.kp_baseline_eval_size,
+                optimal_eval_size=args.kp_optimal_eval_size,
                 optimal_every=args.kp_optimal_eval_every,
             )
         )

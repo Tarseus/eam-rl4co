@@ -6,7 +6,11 @@ from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.utils.ops import gather_by_index
 from rl4co.utils.pylogger import get_pylogger
 from .generator import KnapsackGenerator
-import pulp
+
+try:
+    import pulp
+except ImportError:  # pragma: no cover
+    pulp = None
 
 log = get_pylogger(__name__)
 
@@ -229,6 +233,11 @@ class KnapsackEnv(RL4COEnvBase):
         """Get average optimal solution value for the knapsack problem over a batch.
         Note: This solves a MILP per instance with CBC and can be slow for large batches.
         """
+        if pulp is None:
+            raise RuntimeError(
+                "pulp is not installed; cannot compute optimal knapsack solutions. "
+                "Install pulp to enable this baseline."
+            )
         if max_instances is not None:
             td = td[:max_instances]
         weights = td["demand"].cpu().numpy()
