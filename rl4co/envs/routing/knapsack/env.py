@@ -120,8 +120,10 @@ class KnapsackEnv(RL4COEnvBase):
     def get_action_mask(td: TensorDict) -> torch.Tensor:
         exceeds_cap = td["demand"] + td["used_capacity"] > td["vehicle_capacity"] + 1e-6
         mask = td["visited"][..., 1:] | exceeds_cap
-        action_mask = ~mask
-        action_mask = torch.cat((torch.ones_like(action_mask[..., :1]), action_mask), -1)
+        # Only allow the finish action (0) when no feasible item remains.
+        item_mask = ~mask  # [B, n_items], True means feasible item
+        finish_allowed = ~item_mask.any(-1, keepdim=True)  # [B, 1]
+        action_mask = torch.cat((finish_allowed, item_mask), -1)
         done = td.get("done", None)
         if done is not None:
             if done.dim() == 1:
