@@ -4,6 +4,7 @@ import time
 
 import lightning as L
 import torch
+from lightning import Callback
 from lightning.pytorch.loggers import CSVLogger
 from tensordict.tensordict import TensorDict
 
@@ -73,9 +74,9 @@ class CorrelatedKnapsackGenerator(KnapsackGenerator):
         weights = self.weight_sampler.sample((*batch_size, self.num_items))
         base_values = self.value_sampler.sample((*batch_size, self.num_items))
         noise = torch.empty_like(weights).uniform_(-self.value_noise, self.value_noise)
-        values = (
-            self.corr * weights + (1.0 - self.corr) * base_values + noise
-        ).clamp(self.min_value, self.max_value)
+        values = (self.corr * weights + (1.0 - self.corr) * base_values + noise).clamp(
+            self.min_value, self.max_value
+        )
 
         items = torch.stack((weights, values), dim=-1)
         depot = torch.zeros(*batch_size, 1, 2, device=items.device, dtype=items.dtype)
@@ -134,6 +135,71 @@ def _require_eam():
             f"Original error: {exc}"
         ) from exc
     return EAM_cls
+
+
+class KnapsackBaselineEvalCallback(Callback):
+    """Log greedy/optimal baselines on a small KP batch once per val epoch.
+
+    This is meant as a sanity check for remaining headroom; solving optimal is expensive.
+    """
+
+    def __init__(self, *, eval_size: int = 32, optimal_every: int = 1) -> None:
+        super().__init__()
+        self.eval_size = eval_size
+        self.optimal_every = max(1, int(optimal_every))
+        self._did_log = False
+
+    def on_validation_epoch_start(self, trainer, pl_module) -> None:  # type: ignore[override]
+        self._did_log = False
+
+    def on_validation_batch_end(  # type: ignore[override]
+        self, trainer, pl_module, outputs, batch, batch_idx: int, dataloader_idx: int = 0
+    ) -> None:
+        if self._did_log or batch_idx != 0:
+            return
+        if not getattr(trainer, "is_global_zero", True):
+            return
+        env = getattr(pl_module, "env", None)
+        if env is None or getattr(env, "name", None) != "knapsack":
+            return
+
+        td = batch[0] if isinstance(batch, (tuple, list)) else batch
+        if not isinstance(td, TensorDict):
+            return
+
+        # Compute on CPU and on a small subset to keep validation fast.
+        if self.eval_size is not None and td.shape[0] > self.eval_size:
+            td = td[: self.eval_size]
+        td = td.to("cpu")
+
+        try:
+            greedy_mean = float(env.get_greedy_solutions(td))
+        except Exception:
+            greedy_mean = float("nan")
+        pl_module.log(
+            "val/greedy_mean",
+            greedy_mean,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+        )
+
+        if (trainer.current_epoch % self.optimal_every) == 0:
+            try:
+                optimal_mean = float(env.get_optimal_solutions(td))
+            except Exception:
+                optimal_mean = float("nan")
+            pl_module.log(
+                "val/optimal_mean",
+                optimal_mean,
+                on_step=False,
+                on_epoch=True,
+                prog_bar=True,
+                logger=True,
+            )
+
+        self._did_log = True
 
 
 def main() -> int:
@@ -198,6 +264,18 @@ def main() -> int:
         type=str,
         default="true",
         help="Use correlated KP values (true/false). Default: true.",
+    )
+    parser.add_argument(
+        "--kp-baseline-eval-size",
+        type=int,
+        default=32,
+        help="KP only: number of val instances to compute greedy/optimal baselines on each epoch.",
+    )
+    parser.add_argument(
+        "--kp-optimal-eval-every",
+        type=int,
+        default=1,
+        help="KP only: compute optimal baseline every N validation epochs (default: 1).",
     )
     parser.add_argument("--kp-min-weight", type=float, default=0.4)
     parser.add_argument("--kp-max-weight", type=float, default=0.6)
@@ -376,12 +454,21 @@ def main() -> int:
     )
     logger = CSVLogger(save_dir=args.log_dir, name=run_name, version=version)
 
+    callbacks: list[Callback] = []
+    if problem_key == "kp":
+        callbacks.append(
+            KnapsackBaselineEvalCallback(
+                eval_size=args.kp_baseline_eval_size,
+                optimal_every=args.kp_optimal_eval_every,
+            )
+        )
     trainer = RL4COTrainer(
         max_epochs=args.epochs,
         accelerator="gpu",
         devices=[args.device],
         precision=32,
         logger=logger,
+        callbacks=callbacks,
         enable_checkpointing=False,
     )
     trainer.fit(model)
