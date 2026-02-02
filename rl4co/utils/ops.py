@@ -146,6 +146,12 @@ def select_start_nodes(td, env, num_starts):
         )
     elif env.name in ["jssp", "fjsp"]:
         raise NotImplementedError("Multistart not yet supported for FJSP/JSSP")
+    elif env.name == "knapsack":
+        # Sample available items as start nodes; index 0 is the finish action.
+        avail = td["action_mask"][..., 1:].float()
+        replacement = bool((avail.sum(-1) < num_starts).any())
+        selected = torch.multinomial(avail, num_starts, replacement=replacement) + 1
+        selected = rearrange(selected, "b n -> (n b)")
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (
