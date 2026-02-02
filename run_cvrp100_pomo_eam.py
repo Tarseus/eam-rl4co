@@ -140,6 +140,12 @@ def main() -> int:
         help="Override capacity for CVRP/KP (defaults to generator table/heuristic).",
     )
     parser.add_argument("--num-augment", type=int, default=8)
+    parser.add_argument(
+        "--num-starts",
+        type=int,
+        default=None,
+        help="Number of multistart rollouts. For KP, recommend 5 or 10.",
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--train-data-size", type=int, default=160_000)
     parser.add_argument("--val-data-size", type=int, default=10_000)
@@ -187,6 +193,8 @@ def main() -> int:
     problem_key = _normalize_problem(args.problem)
     if problem_key not in {"cvrp", "tsp", "kp"}:
         raise SystemExit("Unknown problem. Use --problem cvrp, tsp, or kp.")
+    if problem_key == "kp" and args.num_starts is None:
+        args.num_starts = 5
 
     check_solution = not (problem_key == "kp" and model_key == "pomo")
     kp_correlated = _parse_bool(args.kp_correlated, default=True)
@@ -267,6 +275,7 @@ def main() -> int:
         model = POMO(
             env,
             policy,
+            num_starts=args.num_starts,
             batch_size=args.batch_size,
             optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
             lr_scheduler="MultiStepLR",
@@ -300,6 +309,7 @@ def main() -> int:
             env,
             policy,
             baseline="shared",
+            num_starts=args.num_starts,
             batch_size=args.batch_size,
             optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
             lr_scheduler="MultiStepLR",
