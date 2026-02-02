@@ -94,6 +94,34 @@ class CorrelatedKnapsackGenerator(KnapsackGenerator):
         )
 
 
+class RatioCapacityKnapsackGenerator(KnapsackGenerator):
+    """Knapsack generator with per-instance capacity = ratio * sum(weights)."""
+
+    def __init__(self, *args, capacity_ratio: float, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.capacity_ratio = capacity_ratio
+
+    def _generate(self, batch_size) -> TensorDict:
+        td = super()._generate(batch_size)
+        weights = td["weights"]
+        td["vehicle_capacity"] = weights.sum(-1, keepdim=True) * self.capacity_ratio
+        return td
+
+
+class RatioCapacityCorrelatedKnapsackGenerator(CorrelatedKnapsackGenerator):
+    """Correlated knapsack with per-instance capacity = ratio * sum(weights)."""
+
+    def __init__(self, *args, capacity_ratio: float, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.capacity_ratio = capacity_ratio
+
+    def _generate(self, batch_size) -> TensorDict:
+        td = super()._generate(batch_size)
+        weights = td["weights"]
+        td["vehicle_capacity"] = weights.sum(-1, keepdim=True) * self.capacity_ratio
+        return td
+
+
 def _require_eam():
     if EAM is not None:
         return EAM
@@ -138,6 +166,12 @@ def main() -> int:
         type=float,
         default=None,
         help="Override capacity for CVRP/KP (defaults to generator table/heuristic).",
+    )
+    parser.add_argument(
+        "--kp-capacity-ratio",
+        type=float,
+        default=None,
+        help="If set, capacity = ratio * sum(weights) per instance (overrides --capacity).",
     )
     parser.add_argument("--num-augment", type=int, default=8)
     parser.add_argument(
@@ -215,7 +249,6 @@ def main() -> int:
             )
         )
     else:
-        kp_gen_cls = CorrelatedKnapsackGenerator if kp_correlated else KnapsackGenerator
         kp_gen_kwargs = {
             "num_items": args.problem_size,
             "min_weight": args.kp_min_weight,
@@ -229,6 +262,18 @@ def main() -> int:
         if kp_correlated:
             kp_gen_kwargs["value_noise"] = args.kp_value_noise
             kp_gen_kwargs["corr"] = args.kp_corr
+        if args.kp_capacity_ratio is not None:
+            kp_gen_kwargs["capacity"] = None
+            kp_gen_kwargs["capacity_ratio"] = args.kp_capacity_ratio
+            kp_gen_cls = (
+                RatioCapacityCorrelatedKnapsackGenerator
+                if kp_correlated
+                else RatioCapacityKnapsackGenerator
+            )
+        else:
+            kp_gen_cls = (
+                CorrelatedKnapsackGenerator if kp_correlated else KnapsackGenerator
+            )
         env = KnapsackEnv(kp_gen_cls(**kp_gen_kwargs), check_solution=check_solution)
     policy = AttentionModelPolicy(
         env_name=env.name,
