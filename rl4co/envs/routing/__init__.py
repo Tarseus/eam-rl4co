@@ -1,30 +1,61 @@
-from rl4co.envs.routing.atsp.env import ATSPEnv
-from rl4co.envs.routing.atsp.generator import ATSPGenerator
-from rl4co.envs.routing.cvrp.env import CVRPEnv
-from rl4co.envs.routing.cvrp.generator import CVRPGenerator
-from rl4co.envs.routing.cvrpmvc.env import CVRPMVCEnv
-from rl4co.envs.routing.cvrptw.env import CVRPTWEnv
-from rl4co.envs.routing.cvrptw.generator import CVRPTWGenerator
-from rl4co.envs.routing.mdcpdp.env import MDCPDPEnv
-from rl4co.envs.routing.mdcpdp.generator import MDCPDPGenerator
-from rl4co.envs.routing.mtsp.env import MTSPEnv
-from rl4co.envs.routing.mtsp.generator import MTSPGenerator
-from rl4co.envs.routing.mtvrp.env import MTVRPEnv
-from rl4co.envs.routing.mtvrp.generator import MTVRPGenerator
-from rl4co.envs.routing.op.env import OPEnv
-from rl4co.envs.routing.op.generator import OPGenerator
-from rl4co.envs.routing.pctsp.env import PCTSPEnv
-from rl4co.envs.routing.pctsp.generator import PCTSPGenerator
-from rl4co.envs.routing.pdp.env import PDPEnv, PDPRuinRepairEnv
-from rl4co.envs.routing.pdp.generator import PDPGenerator
-from rl4co.envs.routing.sdvrp.env import SDVRPEnv
-from rl4co.envs.routing.shpp.env import SHPPEnv
-from rl4co.envs.routing.shpp.generator import SHPPGenerator
-from rl4co.envs.routing.spctsp.env import SPCTSPEnv
-from rl4co.envs.routing.svrp.env import SVRPEnv
-from rl4co.envs.routing.svrp.generator import SVRPGenerator
-from rl4co.envs.routing.tsp.env import DenseRewardTSPEnv, TSPEnv, TSPkoptEnv
-from rl4co.envs.routing.tsp.generator import TSPGenerator
+"""
+Routing environments and generators.
 
-from rl4co.envs.routing.knapsack.env import KnapsackEnv
-from rl4co.envs.routing.knapsack.generator import KnapsackGenerator
+This package is used by both training code (with optional dependencies installed) and
+stand-alone scripts (where optional dependencies may be missing). To keep imports robust,
+we guard all re-exports and only expose symbols that import successfully.
+"""
+
+
+def _try_import(module: str, names: list[str]) -> None:
+    try:  # pragma: no cover
+        mod = __import__(module, fromlist=names)
+        for name in names:
+            globals()[name] = getattr(mod, name)
+    except Exception:
+        return
+
+
+# TSP
+_try_import("rl4co.envs.routing.tsp.env", ["DenseRewardTSPEnv", "TSPEnv", "TSPkoptEnv"])
+_try_import("rl4co.envs.routing.tsp.generator", ["TSPGenerator"])
+
+# ATSP
+_try_import("rl4co.envs.routing.atsp.env", ["ATSPEnv"])
+_try_import("rl4co.envs.routing.atsp.generator", ["ATSPGenerator"])
+
+# CVRP family
+_try_import("rl4co.envs.routing.cvrp.env", ["CVRPEnv"])
+_try_import("rl4co.envs.routing.cvrp.generator", ["CVRPGenerator"])
+_try_import("rl4co.envs.routing.cvrptw.env", ["CVRPTWEnv"])
+_try_import("rl4co.envs.routing.cvrptw.generator", ["CVRPTWGenerator"])
+_try_import("rl4co.envs.routing.cvrpmvc.env", ["CVRPMVCEnv"])
+
+# OP / (S)PCTSP
+_try_import("rl4co.envs.routing.op.env", ["OPEnv"])
+_try_import("rl4co.envs.routing.op.generator", ["OPGenerator"])
+_try_import("rl4co.envs.routing.pctsp.env", ["PCTSPEnv"])
+_try_import("rl4co.envs.routing.pctsp.generator", ["PCTSPGenerator"])
+_try_import("rl4co.envs.routing.spctsp.env", ["SPCTSPEnv"])
+
+# PDP variants
+_try_import("rl4co.envs.routing.pdp.env", ["PDPEnv", "PDPRuinRepairEnv"])
+_try_import("rl4co.envs.routing.pdp.generator", ["PDPGenerator"])
+
+# Other routing
+_try_import("rl4co.envs.routing.sdvrp.env", ["SDVRPEnv"])
+_try_import("rl4co.envs.routing.shpp.env", ["SHPPEnv"])
+_try_import("rl4co.envs.routing.shpp.generator", ["SHPPGenerator"])
+_try_import("rl4co.envs.routing.mdcpdp.env", ["MDCPDPEnv"])
+_try_import("rl4co.envs.routing.mdcpdp.generator", ["MDCPDPGenerator"])
+_try_import("rl4co.envs.routing.mtsp.env", ["MTSPEnv"])
+_try_import("rl4co.envs.routing.mtsp.generator", ["MTSPGenerator"])
+_try_import("rl4co.envs.routing.mtvrp.env", ["MTVRPEnv"])
+_try_import("rl4co.envs.routing.mtvrp.generator", ["MTVRPGenerator"])
+_try_import("rl4co.envs.routing.svrp.env", ["SVRPEnv"])
+_try_import("rl4co.envs.routing.svrp.generator", ["SVRPGenerator"])
+
+# Knapsack
+_try_import("rl4co.envs.routing.knapsack.env", ["KnapsackEnv"])
+_try_import("rl4co.envs.routing.knapsack.generator", ["KnapsackGenerator"])
+

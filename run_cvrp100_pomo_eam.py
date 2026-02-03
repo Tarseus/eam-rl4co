@@ -16,7 +16,7 @@ from rl4co.envs.routing import (
     TSPEnv,
     TSPGenerator,
 )
-from rl4co.models import AttentionModelPolicy, EAM, POMO
+from rl4co.models import AttentionModel, AttentionModelPolicy, EAM, POMO
 from rl4co.utils import RL4COTrainer
 
 
@@ -379,7 +379,7 @@ def main() -> int:
         "--model",
         type=str,
         default="pomo",
-        help="Model to train: pomo or eam-pomo",
+        help="Model to train: pomo, eam-pomo, or am",
     )
     parser.add_argument(
         "--problem",
@@ -490,8 +490,8 @@ def main() -> int:
     args = parser.parse_args()
 
     model_key = args.model.lower().replace("_", "-")
-    if model_key not in {"pomo", "eam-pomo"}:
-        raise SystemExit("Unknown model. Use --model pomo or --model eam-pomo.")
+    if model_key not in {"pomo", "eam-pomo", "am"}:
+        raise SystemExit("Unknown model. Use --model pomo, eam-pomo, or am.")
 
     os.environ.setdefault("WANDB_MODE", "offline")
     L.seed_everything(args.seed, workers=True)
@@ -632,6 +632,22 @@ def main() -> int:
             metrics=metrics,
         )
         model_tag = "pomo"
+    elif model_key == "am":
+        model = AttentionModel(
+            env,
+            policy,
+            baseline="rollout",
+            reward_scale="norm",
+            batch_size=args.batch_size,
+            optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-6},
+            lr_scheduler="MultiStepLR",
+            lr_scheduler_kwargs={"milestones": lr_milestones, "gamma": 0.1},
+            train_data_size=args.train_data_size,
+            val_data_size=args.val_data_size,
+            test_data_size=args.test_data_size,
+            metrics=metrics,
+        )
+        model_tag = "am"
     else:
         ea_kwargs = {
             "num_generations": 3,

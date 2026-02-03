@@ -96,7 +96,7 @@ def evolution_worker(actions, _td, ea, env, return_population: bool = False):
             env_td = {}
             for key in keys:
                 if key in td:
-                    env_td[key] = td[key][b:b+1].cpu()
+                    env_td[key] = td[key][b:b+1]
             env_td = TensorDict(env_td, batch_size=[1])
             
             verbose = (b == 0)
@@ -109,7 +109,7 @@ def evolution_worker(actions, _td, ea, env, return_population: bool = False):
             for future in concurrent.futures.as_completed(futures):
                 b, evolved = future.result()
                 evolved_np = np.array(evolved, dtype=np.int64)
-                new_actions[b] = torch.from_numpy(evolved_np)
+                new_actions[b] = evolved_np
             
         new_actions = torch.as_tensor(new_actions, dtype=torch.int64)
         pop_actions = new_actions if return_population else None
@@ -187,19 +187,15 @@ class EA():
         """
         device = td.device if td.device is not None else torch.device("cpu")
         
-        pop_copy = copy.deepcopy(pop)
-        tensor_pop = (
-            torch.tensor(pop_copy, device=device, dtype=torch.int64)
-            if not isinstance(pop, torch.Tensor)
-            else pop.to(device=device, dtype=torch.int64)
-        )
+        if isinstance(pop, torch.Tensor):
+            tensor_pop = pop.to(device=device, dtype=torch.int64)
+        else:
+            pop_np = np.asarray(pop, dtype=np.int64)
+            tensor_pop = torch.as_tensor(pop_np, device=device, dtype=torch.int64)
 
         pop_size = tensor_pop.shape[0]
         if td.batch_size[0] == 1 and pop_size > 1:
-            expanded_td = TensorDict({}, batch_size=[pop_size])
-            for key, value in td.items():
-                if isinstance(value, torch.Tensor):
-                    expanded_td[key] = value.expand(pop_size, *value.shape[1:])
+            expanded_td = td.expand(pop_size)
             result = -self.reward_fn(expanded_td, tensor_pop).cpu().numpy().astype(np.float32)
             return result
         else:
@@ -211,9 +207,8 @@ class EA():
         return result
 
     def get_fitness(self, pop, td, verbose=False):
-        safe_pop = copy.deepcopy(pop)
         problem_size = pop.shape[1]
-        costs = self.get_cost(safe_pop, td, verbose)
+        costs = self.get_cost(pop, td, verbose)
         if self.env_name == "tsp":
             fitness = calculate_fitness_tsp(costs, problem_size)
         elif self.env_name == "cvrp":
@@ -288,7 +283,7 @@ class EA():
             dist_mat = np.sqrt(np.sum(diff ** 2, axis=-1))
             return dist_mat
         dist_mat = None
-        pop = copy.deepcopy(init_pop)
+        pop = init_pop.copy()
         
         if self.env_name == "op":
             dist_mat = calculate_distance_matrix(td["locs"].cpu().numpy())
@@ -298,7 +293,7 @@ class EA():
         # before_update = copy.deepcopy(pop)
         fitness = self.fitness_fn(pop, td, verbose)
         
-        initial_first_nodes = copy.deepcopy(init_pop[:, 0])
+        initial_first_nodes = init_pop[:, 0].copy()
         unique_first_nodes = len(np.unique(initial_first_nodes)) == len(initial_first_nodes)
         node_to_position = {node: idx for idx, node in enumerate(initial_first_nodes)}
         
@@ -1647,79 +1642,143 @@ def generate_batch_population(batch_routes, env_code, mutate_rate):
     
     return population
 
+@nb.njit(nb.int64[:](nb.int64[:], nb.float32[:], nb.float64), nogil=True)
 def repair_knapsack_sequence(chrom, weights, capacity):
-    selected = []
+    """Repair a knapsack chromosome (sequence of item indices) to a feasible, duplicate-free prefix.
+
+    Items are kept in chromosome order until a finish action (0) is encountered or capacity is exceeded.
+    """
+    chrom_length = chrom.shape[0]
+    num_items = weights.shape[0]
+    used = np.zeros(num_items + 1, dtype=nb.boolean)
+    out = np.zeros(chrom_length, dtype=nb.int64)
     total_w = 0.0
-    for a in chrom:
+    pos = 0
+    for k in range(chrom_length):
+        a = chrom[k]
         if a == 0:
             break
-        if a not in selected:
-            w = weights[a - 1]
-            if total_w + w <= capacity:
-                selected.append(a)
-                total_w += w
-    seq = np.zeros_like(chrom)
-    if len(selected) > 0:
-        seq[: len(selected)] = np.array(selected, dtype=seq.dtype)
-    return seq
+        if a < 1 or a > num_items:
+            continue
+        if used[a]:
+            continue
+        w = weights[a - 1]
+        if total_w + w <= capacity + 1e-12:
+            used[a] = True
+            out[pos] = a
+            pos += 1
+            total_w += w
+    return out
 
 
+@nb.njit(nb.int64[:, :](nb.int64[:, :], nb.float64, nb.float32[:], nb.float64), parallel=True, nogil=True)
 def uniform_crossover_knapsack(parents, crossover_rate, weights, capacity):
     pop_size, chrom_length = parents.shape
-    offspring = parents.copy()
-    for i in range(pop_size // 2):
-        p1 = parents[2 * i].copy()
-        p2 = parents[2 * i + 1].copy()
+    offspring = np.empty_like(parents)
+
+    pair_count = pop_size // 2
+    for i in prange(pair_count):
+        idx1 = 2 * i
+        idx2 = 2 * i + 1
+        p1 = parents[idx1]
+        p2 = parents[idx2]
+
         if np.random.random() < crossover_rate:
-            mask = np.random.random(chrom_length) < 0.5
-            child1 = np.where(mask, p2, p1)
-            child2 = np.where(mask, p1, p2)
-            child1 = repair_knapsack_sequence(child1, weights, capacity)
-            child2 = repair_knapsack_sequence(child2, weights, capacity)
-            offspring[2 * i] = child1
-            offspring[2 * i + 1] = child2
+            child1 = np.empty(chrom_length, dtype=nb.int64)
+            child2 = np.empty(chrom_length, dtype=nb.int64)
+            for j in range(chrom_length):
+                if np.random.random() < 0.5:
+                    child1[j] = p2[j]
+                    child2[j] = p1[j]
+                else:
+                    child1[j] = p1[j]
+                    child2[j] = p2[j]
+            offspring[idx1] = repair_knapsack_sequence(child1, weights, capacity)
+            offspring[idx2] = repair_knapsack_sequence(child2, weights, capacity)
         else:
-            offspring[2 * i] = p1
-            offspring[2 * i + 1] = p2
+            offspring[idx1] = p1
+            offspring[idx2] = p2
+
+    if pop_size % 2 == 1:
+        offspring[pop_size - 1] = parents[pop_size - 1]
     return offspring
 
 
+@nb.njit(nb.int64[:, :](nb.int64[:, :], nb.float64, nb.float32[:], nb.float64), parallel=True, nogil=True)
 def flip_mutate_knapsack(pop, mutation_rate, weights, capacity):
     pop_size, chrom_length = pop.shape
-    mutated = pop.copy()
     num_items = chrom_length - 1
-    for i in range(pop_size):
-        items = [a for a in mutated[i] if a != 0]
-        for j in range(1, num_items + 1):
-            if np.random.random() < mutation_rate:
-                if j in items:
-                    items.remove(j)
-                else:
-                    items.append(j)
-        # Deduplicate while preserving order to avoid overflow
-        if items:
-            seen = set()
-            deduped = []
-            for a in items:
-                if a not in seen:
-                    deduped.append(a)
-                    seen.add(a)
-            items = deduped
+    mutated = np.zeros_like(pop)
 
-        total_w = sum(weights[j - 1] for j in items)
-        while total_w > capacity and items:
-            idx = np.random.randint(len(items))
-            total_w -= weights[items[idx] - 1]
-            items.pop(idx)
-        # Ensure we leave room for a finish action (0) and never overflow the chromosome
-        max_items = max(chrom_length - 1, 0)
-        while len(items) > max_items and items:
-            idx = np.random.randint(len(items))
-            items.pop(idx)
-        seq = np.zeros(chrom_length, dtype=pop.dtype)
-        if len(items) > 0:
-            seq[: len(items)] = np.array(items, dtype=seq.dtype)
-        mutated[i] = seq
+    for i in prange(pop_size):
+        selected = np.zeros(num_items + 1, dtype=nb.boolean)
+        original_order = np.zeros(chrom_length, dtype=nb.int64)
+        order_len = 0
+
+        # Parse current chromosome into a set + order buffer
+        for k in range(chrom_length):
+            a = pop[i, k]
+            if a == 0:
+                break
+            if a < 1 or a > num_items:
+                continue
+            if not selected[a]:
+                selected[a] = True
+                original_order[order_len] = a
+                order_len += 1
+
+        # Flip each item with probability mutation_rate
+        for item in range(1, num_items + 1):
+            if np.random.random() < mutation_rate:
+                selected[item] = not selected[item]
+
+        # Enforce capacity constraint by randomly dropping items until feasible
+        total_w = 0.0
+        for item in range(1, num_items + 1):
+            if selected[item]:
+                total_w += weights[item - 1]
+
+        while total_w > capacity + 1e-12:
+            count = 0
+            for item in range(1, num_items + 1):
+                if selected[item]:
+                    count += 1
+            if count == 0:
+                break
+            pick = np.random.randint(count)
+            cur = 0
+            for item in range(1, num_items + 1):
+                if selected[item]:
+                    if cur == pick:
+                        selected[item] = False
+                        total_w -= weights[item - 1]
+                        break
+                    cur += 1
+
+        # Emit chromosome: keep original order first, then append remaining selected items
+        out = np.zeros(chrom_length, dtype=nb.int64)
+        out_pos = 0
+        used = np.zeros(num_items + 1, dtype=nb.boolean)
+
+        for k in range(order_len):
+            a = original_order[k]
+            if a != 0 and selected[a]:
+                out[out_pos] = a
+                out_pos += 1
+                used[a] = True
+                if out_pos >= chrom_length - 1:
+                    break
+
+        if out_pos < chrom_length - 1:
+            for item in range(1, num_items + 1):
+                if selected[item] and not used[item]:
+                    out[out_pos] = item
+                    out_pos += 1
+                    if out_pos >= chrom_length - 1:
+                        break
+
+        mutated[i] = out
+
     return mutated
 
 
