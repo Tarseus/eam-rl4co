@@ -7,7 +7,15 @@ from dataclasses import dataclass
 
 import torch
 from torch.profiler import ProfilerActivity
-from lightning.pytorch.callbacks import Callback
+
+try:
+    from lightning.pytorch.callbacks import Callback
+except ImportError as exc:  # pragma: no cover
+    raise ImportError(
+        "Failed to import Lightning dependencies.\n"
+        "If you see an error about `tokenizers` / `transformers`, fix the environment first "
+        "(e.g., upgrade `tokenizers` to match your installed `transformers`)."
+    ) from exc
 
 from rl4co.envs.routing import (
     CVRPEnv,
@@ -27,6 +35,7 @@ from rl4co.models import (
     EAM,
     POMO,
     SymNCO,
+    SymEAM,
     SymNCOPolicy,
 )
 from rl4co.utils import RL4COTrainer
@@ -296,10 +305,12 @@ def _build_model(spec: TaskSpec, args):
             policy,
             baseline="symnco",
             num_augment=args.symnco_num_augment,
+            alpha=args.symnco_alpha,
+            beta=args.symnco_beta,
             num_starts=0,
             **common_kwargs,
         )
-    if spec.model_key == "eam_pomo":
+    if spec.model_key in {"eam_pomo", "eam_am"}:
         policy = _build_am_policy(env, args)
         ea_kwargs = {
             "num_generations": args.ea_num_generations,
@@ -313,11 +324,46 @@ def _build_model(spec: TaskSpec, args):
             "ea_prob": args.ea_prob,
             "ea_epoch": args.ea_epoch,
         }
+        if spec.model_key == "eam_am":
+            return EAM(
+                env,
+                policy,
+                baseline="rollout",
+                num_augment=args.am_num_augment,
+                num_starts=1,
+                ea_kwargs=ea_kwargs,
+                **common_kwargs,
+            )
         return EAM(
             env,
             policy,
             baseline="shared",
             num_augment=args.pomo_num_augment,
+            ea_kwargs=ea_kwargs,
+            **common_kwargs,
+        )
+    if spec.model_key == "eam_symnco":
+        policy = _build_symnco_policy(env, args)
+        ea_kwargs = {
+            "num_generations": args.ea_num_generations,
+            "mutation_rate": args.ea_mutation_rate,
+            "crossover_rate": args.ea_crossover_rate,
+            "selection_rate": args.ea_selection_rate,
+            "batch_size": args.batch_size,
+            "ea_batch_size": args.batch_size,
+            "alpha": args.ea_alpha,
+            "beta": args.ea_beta,
+            "ea_prob": args.ea_prob,
+            "ea_epoch": args.ea_epoch,
+        }
+        return SymEAM(
+            env,
+            policy,
+            baseline="symnco",
+            num_augment=args.symnco_num_augment,
+            alpha=args.symnco_alpha,
+            beta=args.symnco_beta,
+            num_starts=0,
             ea_kwargs=ea_kwargs,
             **common_kwargs,
         )
@@ -349,7 +395,9 @@ def _model_label(model_key: str) -> str:
         "am": "AttentionModel",
         "pomo": "POMO",
         "symnco": "SymNCO",
+        "eam_am": "EAM-AM",
         "eam_pomo": "EAM-POMO",
+        "eam_symnco": "EAM-SymNCO",
     }
     return labels.get(model_key, model_key)
 
@@ -366,42 +414,60 @@ def _append_result(path: str, row: dict) -> None:
         writer.writerow(row)
 
 
-def _task_list() -> list[TaskSpec]:
-    tasks = []
-    # for problem, size in [
-    #     ("tsp", 50),
-    #     ("tsp", 100),
-    #     ("cvrp", 50),
-    #     ("cvrp", 100),
-    #     ("kp", 50),
-    #     ("kp", 100),
-    #     ("pctsp", 100),
-    #     ("op", 100),
-    # ]:
-    #     tasks.append(TaskSpec("am", problem, size))
-    # for problem, size in [
-    #     ("tsp", 50),
-    #     ("tsp", 100),
-    #     ("cvrp", 50),
-    #     ("cvrp", 100),
-    #     ("kp", 50),
-    #     ("kp", 100),
-    # ]:
-    #     tasks.append(TaskSpec("pomo", problem, size))
-    for problem, size in [
-        ("tsp", 50),
-        ("tsp", 100),
-        ("cvrp", 50),
-        ("cvrp", 100),
-    ]:
-        tasks.append(TaskSpec("symnco", problem, size))
-    tasks.append(TaskSpec("eam_pomo", "tsp", 100))
-    return tasks
+def _task_list(suite: str) -> list[TaskSpec]:
+    suite = suite.lower().strip()
+    if suite == "sampled":
+        tasks: list[TaskSpec] = []
+        for problem, size in [
+            ("tsp", 50),
+            ("tsp", 100),
+            ("cvrp", 50),
+            ("cvrp", 100),
+        ]:
+            tasks.append(TaskSpec("symnco", problem, size))
+        tasks.append(TaskSpec("eam_pomo", "tsp", 100))
+        return tasks
+    if suite == "tevc":
+        tasks = []
+        for problem, size in [
+            ("tsp", 50),
+            ("tsp", 100),
+            ("cvrp", 50),
+            ("cvrp", 100),
+            ("kp", 50),
+            ("kp", 100),
+            ("pctsp", 100),
+            ("op", 100),
+        ]:
+            tasks.append(TaskSpec("eam_am", problem, size))
+        for problem, size in [
+            ("tsp", 50),
+            ("tsp", 100),
+            ("cvrp", 50),
+            ("cvrp", 100),
+        ]:
+            tasks.append(TaskSpec("eam_pomo", problem, size))
+        for problem, size in [
+            ("tsp", 50),
+            ("tsp", 100),
+            ("cvrp", 50),
+            ("cvrp", 100),
+        ]:
+            tasks.append(TaskSpec("eam_symnco", problem, size))
+        return tasks
+    raise ValueError(f"Unsupported suite: {suite}. Choose from: sampled, tevc")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Measure CPU/GPU compute time for one training epoch across models."
+    )
+    parser.add_argument(
+        "--suite",
+        type=str,
+        choices=["sampled", "tevc"],
+        default="sampled",
+        help="Task suite to run. Use 'tevc' for the TEVC timing matrix.",
     )
     parser.add_argument("--cuda", type=int, default=0, help="Physical GPU id")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -416,8 +482,11 @@ def main() -> int:
     parser.add_argument("--num-heads", type=int, default=8)
     parser.add_argument("--normalization", type=str, default="instance")
     parser.add_argument("--use-graph-context", action="store_true", default=False)
+    parser.add_argument("--am-num-augment", type=int, default=1)
     parser.add_argument("--pomo-num-augment", type=int, default=8)
     parser.add_argument("--symnco-num-augment", type=int, default=4)
+    parser.add_argument("--symnco-alpha", type=float, default=0.2)
+    parser.add_argument("--symnco-beta", type=float, default=1.0)
     parser.add_argument("--ea-num-generations", type=int, default=5)
     parser.add_argument("--ea-mutation-rate", type=float, default=0.05)
     parser.add_argument("--ea-crossover-rate", type=float, default=0.6)
@@ -440,7 +509,7 @@ def main() -> int:
         args.precision = int(args.precision)
 
     results = []
-    for spec in _task_list():
+    for spec in _task_list(args.suite):
         model_name = _model_label(spec.model_key)
         problem_name = _format_problem(spec.problem, spec.size)
         print(f"Running {model_name} on {problem_name}...")
