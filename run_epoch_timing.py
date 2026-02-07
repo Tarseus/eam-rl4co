@@ -458,6 +458,30 @@ def _task_list(suite: str) -> list[TaskSpec]:
     raise ValueError(f"Unsupported suite: {suite}. Choose from: sampled, tevc")
 
 
+def _normalize_problem_name(name: str) -> str:
+    name = name.lower().strip()
+    aliases = {
+        "knapsack": "kp",
+        "tsp": "tsp",
+        "cvrp": "cvrp",
+        "kp": "kp",
+        "pctsp": "pctsp",
+        "op": "op",
+    }
+    if name not in aliases:
+        raise ValueError(f"Unsupported problem name: {name}")
+    return aliases[name]
+
+
+def _parse_exclude_problems(values: list[str] | None) -> set[str]:
+    if not values:
+        return set()
+    parts: list[str] = []
+    for value in values:
+        parts.extend([p for p in value.split(",") if p.strip()])
+    return {_normalize_problem_name(p) for p in parts}
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Measure CPU/GPU compute time for one training epoch across models."
@@ -468,6 +492,13 @@ def main() -> int:
         choices=["sampled", "tevc"],
         default="sampled",
         help="Task suite to run. Use 'tevc' for the TEVC timing matrix.",
+    )
+    parser.add_argument(
+        "--exclude-problems",
+        type=str,
+        nargs="*",
+        default=[],
+        help="Problems to skip (space- or comma-separated), e.g. --exclude-problems kp or --exclude-problems kp,op",
     )
     parser.add_argument("--cuda", type=int, default=0, help="Physical GPU id")
     parser.add_argument("--batch-size", type=int, default=64)
@@ -509,7 +540,10 @@ def main() -> int:
         args.precision = int(args.precision)
 
     results = []
+    exclude = _parse_exclude_problems(args.exclude_problems)
     for spec in _task_list(args.suite):
+        if spec.problem in exclude:
+            continue
         model_name = _model_label(spec.model_key)
         problem_name = _format_problem(spec.problem, spec.size)
         print(f"Running {model_name} on {problem_name}...")
