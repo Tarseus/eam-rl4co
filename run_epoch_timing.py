@@ -427,6 +427,22 @@ def _task_list(suite: str) -> list[TaskSpec]:
             tasks.append(TaskSpec("symnco", problem, size))
         tasks.append(TaskSpec("eam_pomo", "tsp", 100))
         return tasks
+    if suite in {"tevc_base", "tevc-non-eam", "tevc_noneam"}:
+        # Non-EAM baselines across the TEVC problem set.
+        tasks: list[TaskSpec] = []
+        for model_key in ["am", "pomo", "symnco"]:
+            for problem, size in [
+                ("tsp", 50),
+                ("tsp", 100),
+                ("cvrp", 50),
+                ("cvrp", 100),
+                ("kp", 50),
+                ("kp", 100),
+                ("pctsp", 100),
+                ("op", 100),
+            ]:
+                tasks.append(TaskSpec(model_key, problem, size))
+        return tasks
     if suite == "tevc":
         tasks = []
         for problem, size in [
@@ -455,7 +471,9 @@ def _task_list(suite: str) -> list[TaskSpec]:
         ]:
             tasks.append(TaskSpec("eam_symnco", problem, size))
         return tasks
-    raise ValueError(f"Unsupported suite: {suite}. Choose from: sampled, tevc")
+    raise ValueError(
+        f"Unsupported suite: {suite}. Choose from: sampled, tevc, tevc_base"
+    )
 
 
 def _normalize_problem_name(name: str) -> str:
@@ -489,9 +507,9 @@ def main() -> int:
     parser.add_argument(
         "--suite",
         type=str,
-        choices=["sampled", "tevc"],
+        choices=["sampled", "tevc", "tevc_base"],
         default="sampled",
-        help="Task suite to run. Use 'tevc' for the TEVC timing matrix.",
+        help="Task suite to run. Use 'tevc' for EAM variants, 'tevc_base' for non-EAM baselines.",
     )
     parser.add_argument(
         "--exclude-problems",
