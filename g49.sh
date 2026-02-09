@@ -8,4 +8,13 @@ nohup python run_epoch_timing.py \
     --profile-warmup 0 \
     --exclude-problems kp > timing_tevc.log 2>&1 &
 
+# Non-EAM baselines (AM, POMO, SymNCO) on the full TEVC problem set.
+# Same sampling setup as epoch_timing_tevc.csv (profile-steps=500, warmup=0).
+nohup python run_epoch_timing.py \
+    --suite tevc_base \
+    --cuda 0 \
+    --output results/epoch_timing_tevc_base.csv \
+    --profile-steps 500 \
+    --profile-warmup 0 > timing_tevc_base.log 2>&1 &
+
 # python run_gaussian_rosenblatt_eval.py --ckpt-path checkpoints/pomo_tsp100.ckpt --num-instances 1000 --seed 0 --device cuda
