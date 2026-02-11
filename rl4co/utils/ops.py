@@ -124,7 +124,7 @@ def get_num_starts(td, env_name=None):
         num_starts = (
             num_starts - 1
         ) // 2  # only half of the nodes (i.e. pickup nodes) can be start nodes
-    elif env_name in ["cvrp", "cvrptw", "sdvrp", "mtsp", "op", "pctsp", "spctsp", "knapsack"]:
+    elif env_name in ["cvrp", "cvrptw", "sdvrp", "mtsp", "op", "pctsp", "spctsp"]:
         num_starts = num_starts - 1  # depot cannot be a start node
 
     return num_starts
@@ -148,20 +148,6 @@ def select_start_nodes(td, env, num_starts):
         )
     elif env.name in ["jssp", "fjsp"]:
         raise NotImplementedError("Multistart not yet supported for FJSP/JSSP")
-    elif env.name == "knapsack":
-        # Sample available items as start nodes; index 0 is the finish action.
-        avail = td["action_mask"][..., 1:].float()
-        avail_sum = avail.sum(-1)
-        replacement = bool((avail_sum < num_starts).any())
-        # Guard against instances with no feasible item at all: start with finish (0).
-        no_item = avail_sum == 0
-        probs = avail.clone()
-        if no_item.any():
-            probs[no_item] = torch.ones_like(probs[no_item])
-        selected = torch.multinomial(probs, num_starts, replacement=replacement) + 1
-        if no_item.any():
-            selected[no_item] = 0
-        selected = rearrange(selected, "b n -> (n b)")
     else:
         # Environments with depot: we do not select the depot as a start node
         selected = (

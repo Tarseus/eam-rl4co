@@ -35,7 +35,6 @@ def env_dynamic_embedding(env_name: str, config: dict) -> nn.Module:
         "jssp": JSSPDynamicEmbedding,
         "fjsp": JSSPDynamicEmbedding,
         "mtvrp": StaticEmbedding,
-        "knapsack": StaticEmbedding,
     }
 
     if env_name not in embedding_registry:
