@@ -64,8 +64,8 @@ def evolution_worker(actions, _td, ea, env, return_population: bool = False):
                 env_code = 2
             elif ea.env_name == "op":
                 env_code = 3
-            elif ea.env_name == "knapsack":
-                env_code = 4
+            else:
+                raise ValueError(f"Unsupported env for evolution: {ea.env_name}")
                 
             if np.any(np.all(actions == 0, axis=2)):
                 print("Warning: actions contains rows with all zeros.")
@@ -86,9 +86,8 @@ def evolution_worker(actions, _td, ea, env, return_population: bool = False):
             keys = ['locs', 'prize', 'max_length']
         elif ea.env_name == "ffsp":
             keys = ['job_duration', 'schedule', 'job_location', 'run_time']
-        elif ea.env_name == "knapsack":
-            # NOTE: KnapsackEnv uses `demand` for capacity checks; keep `weights` as well for EA operators.
-            keys = ['weights', 'demand', 'values', 'vehicle_capacity']
+        else:
+            raise ValueError(f"Unsupported env for evolution: {ea.env_name}")
             
         def process_batch(b):
             batch_actions = actions[b]
@@ -119,12 +118,6 @@ def evolution_worker(actions, _td, ea, env, return_population: bool = False):
         else:
             new_actions = new_actions[:, 0].squeeze(1)
 
-        # Ensure trajectories terminate for environments that require an explicit finish action.
-        # For KnapsackEnv, action 0 is "finish" and is always valid; missing it can make evaluation loop run past
-        # the provided action sequence length.
-        if ea.env_name == "knapsack" and new_actions.numel() > 0:
-            new_actions[..., -1] = 0
-            
         if return_population:
             return new_actions, init_td, pop_actions
         return new_actions, init_td
@@ -167,10 +160,8 @@ class EA():
             self.select_fn = elitism_selection
             self.crossover_fn = multi_point_crossover_ffsp
             self.mutate_fn = swap_mutate_ffsp
-        elif self.env_name == "knapsack":
-            self.select_fn = elitism_selection
-            self.crossover_fn = uniform_crossover_knapsack
-            self.mutate_fn = flip_mutate_knapsack
+        else:
+            raise ValueError(f"Unsupported env for EA operators: {self.env_name}")
         
         assert self.num_generations is not None, "Number of generations must be specified"
         assert self.mutation_rate is not None, "Mutation rate must be specified"
@@ -219,8 +210,8 @@ class EA():
             fitness = calculate_fitness_op(costs, problem_size)
         elif self.env_name == "ffsp":
             fitness = calculate_fitness_ffsp(costs, problem_size)
-        elif self.env_name == "knapsack":
-            fitness = calculate_fitness_knapsack(costs, problem_size)
+        else:
+            raise ValueError(f"Unsupported env for EA fitness: {self.env_name}")
         return fitness
         
     def select(self, pop, fitness):
@@ -244,11 +235,6 @@ class EA():
             prize = td["prize"].squeeze(-1).squeeze().numpy()
             max_length = td["max_length"].squeeze().numpy()
             offspring = self.crossover_fn(parents, self.crossover_rate, prize, dist_mat, max_length)
-            
-        elif self.env_name == "knapsack":
-            weights = td["weights"].squeeze().numpy()
-            capacity = float(td["vehicle_capacity"].squeeze())
-            offspring = self.crossover_fn(parents, self.crossover_rate, weights, capacity)
           
         assert not (offspring == -1).any(), "Invalid offspring generated"
         assert offspring.shape[1] == parents.shape[1], "Offspring shape mismatch"  
@@ -261,10 +247,6 @@ class EA():
             prize = td["prize"].squeeze(-1).squeeze().numpy()
             max_length = td["max_length"].squeeze().numpy()
             return self.mutate_fn(offspring, self.mutation_rate, prize, dist_mat, max_length)
-        elif self.env_name == "knapsack":
-            weights = td["weights"].squeeze().numpy()
-            capacity = float(td["vehicle_capacity"].squeeze())
-            return self.mutate_fn(offspring, self.mutation_rate, weights, capacity)
         return self.mutate_fn(offspring, self.mutation_rate)
     
     def run(self, init_pop, td, verbose=False):
@@ -288,7 +270,7 @@ class EA():
         if self.env_name == "op":
             dist_mat = calculate_distance_matrix(td["locs"].cpu().numpy())
             pop = self.mutate(pop, td, dist_mat)
-        elif self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "ffsp" or self.env_name == "knapsack":
+        elif self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "ffsp":
             pop = self.mutate(pop, td)
         # before_update = copy.deepcopy(pop)
         fitness = self.fitness_fn(pop, td, verbose)
@@ -335,7 +317,7 @@ class EA():
                     combined_pop = np.vstack([pop, offspring])
                 combined_fitness = np.concatenate([fitness, mutated_fitness])
                 
-                if (self.method == "am" and (self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "op" or self.env_name == "knapsack")) or (not unique_first_nodes):
+                if (self.method == "am" and (self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "op")) or (not unique_first_nodes):
                     sorted_indices = np.argsort(combined_fitness)[::-1]
                     sorted_pop = combined_pop[sorted_indices]
                     sorted_fitness = combined_fitness[sorted_indices]
@@ -1642,150 +1624,3 @@ def generate_batch_population(batch_routes, env_code, mutate_rate):
     
     return population
 
-@nb.njit(nb.int64[:](nb.int64[:], nb.float32[:], nb.float64), nogil=True)
-def repair_knapsack_sequence(chrom, weights, capacity):
-    """Repair a knapsack chromosome (sequence of item indices) to a feasible, duplicate-free prefix.
-
-    Items are kept in chromosome order until a finish action (0) is encountered or capacity is exceeded.
-    """
-    chrom_length = chrom.shape[0]
-    num_items = weights.shape[0]
-    used = np.zeros(num_items + 1, dtype=nb.boolean)
-    out = np.zeros(chrom_length, dtype=nb.int64)
-    total_w = 0.0
-    pos = 0
-    for k in range(chrom_length):
-        a = chrom[k]
-        if a == 0:
-            break
-        if a < 1 or a > num_items:
-            continue
-        if used[a]:
-            continue
-        w = weights[a - 1]
-        if total_w + w <= capacity + 1e-12:
-            used[a] = True
-            out[pos] = a
-            pos += 1
-            total_w += w
-    return out
-
-
-@nb.njit(nb.int64[:, :](nb.int64[:, :], nb.float64, nb.float32[:], nb.float64), parallel=True, nogil=True)
-def uniform_crossover_knapsack(parents, crossover_rate, weights, capacity):
-    pop_size, chrom_length = parents.shape
-    offspring = np.empty_like(parents)
-
-    pair_count = pop_size // 2
-    for i in prange(pair_count):
-        idx1 = 2 * i
-        idx2 = 2 * i + 1
-        p1 = parents[idx1]
-        p2 = parents[idx2]
-
-        if np.random.random() < crossover_rate:
-            child1 = np.empty(chrom_length, dtype=nb.int64)
-            child2 = np.empty(chrom_length, dtype=nb.int64)
-            for j in range(chrom_length):
-                if np.random.random() < 0.5:
-                    child1[j] = p2[j]
-                    child2[j] = p1[j]
-                else:
-                    child1[j] = p1[j]
-                    child2[j] = p2[j]
-            offspring[idx1] = repair_knapsack_sequence(child1, weights, capacity)
-            offspring[idx2] = repair_knapsack_sequence(child2, weights, capacity)
-        else:
-            offspring[idx1] = p1
-            offspring[idx2] = p2
-
-    if pop_size % 2 == 1:
-        offspring[pop_size - 1] = parents[pop_size - 1]
-    return offspring
-
-
-@nb.njit(nb.int64[:, :](nb.int64[:, :], nb.float64, nb.float32[:], nb.float64), parallel=True, nogil=True)
-def flip_mutate_knapsack(pop, mutation_rate, weights, capacity):
-    pop_size, chrom_length = pop.shape
-    num_items = chrom_length - 1
-    mutated = np.zeros_like(pop)
-
-    for i in prange(pop_size):
-        selected = np.zeros(num_items + 1, dtype=nb.boolean)
-        original_order = np.zeros(chrom_length, dtype=nb.int64)
-        order_len = 0
-
-        # Parse current chromosome into a set + order buffer
-        for k in range(chrom_length):
-            a = pop[i, k]
-            if a == 0:
-                break
-            if a < 1 or a > num_items:
-                continue
-            if not selected[a]:
-                selected[a] = True
-                original_order[order_len] = a
-                order_len += 1
-
-        # Flip each item with probability mutation_rate
-        for item in range(1, num_items + 1):
-            if np.random.random() < mutation_rate:
-                selected[item] = not selected[item]
-
-        # Enforce capacity constraint by randomly dropping items until feasible
-        total_w = 0.0
-        for item in range(1, num_items + 1):
-            if selected[item]:
-                total_w += weights[item - 1]
-
-        while total_w > capacity + 1e-12:
-            count = 0
-            for item in range(1, num_items + 1):
-                if selected[item]:
-                    count += 1
-            if count == 0:
-                break
-            pick = np.random.randint(count)
-            cur = 0
-            for item in range(1, num_items + 1):
-                if selected[item]:
-                    if cur == pick:
-                        selected[item] = False
-                        total_w -= weights[item - 1]
-                        break
-                    cur += 1
-
-        # Emit chromosome: keep original order first, then append remaining selected items
-        out = np.zeros(chrom_length, dtype=nb.int64)
-        out_pos = 0
-        used = np.zeros(num_items + 1, dtype=nb.boolean)
-
-        for k in range(order_len):
-            a = original_order[k]
-            if a != 0 and selected[a]:
-                out[out_pos] = a
-                out_pos += 1
-                used[a] = True
-                if out_pos >= chrom_length - 1:
-                    break
-
-        if out_pos < chrom_length - 1:
-            for item in range(1, num_items + 1):
-                if selected[item] and not used[item]:
-                    out[out_pos] = item
-                    out_pos += 1
-                    if out_pos >= chrom_length - 1:
-                        break
-
-        mutated[i] = out
-
-    return mutated
-
-
-@nb.njit(nb.float32[:](nb.float32[:], nb.int64), nogil=True)
-def calculate_fitness_knapsack(costs, problem_size):
-    result = np.empty_like(costs)
-    worst_cost = np.float32(0.0)
-    for i in range(len(costs)):
-        result[i] = worst_cost - costs[i]
-    return result

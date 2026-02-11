@@ -54,8 +54,3 @@ _try_import("rl4co.envs.routing.mtvrp.env", ["MTVRPEnv"])
 _try_import("rl4co.envs.routing.mtvrp.generator", ["MTVRPGenerator"])
 _try_import("rl4co.envs.routing.svrp.env", ["SVRPEnv"])
 _try_import("rl4co.envs.routing.svrp.generator", ["SVRPGenerator"])
-
-# Knapsack
-_try_import("rl4co.envs.routing.knapsack.env", ["KnapsackEnv"])
-_try_import("rl4co.envs.routing.knapsack.generator", ["KnapsackGenerator"])
-

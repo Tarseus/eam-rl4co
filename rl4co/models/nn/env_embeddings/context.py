@@ -37,7 +37,6 @@ def env_context_embedding(env_name: str, config: dict) -> nn.Module:
         "shpp": TSPContext,
         "flp": FLPContext,
         "mcp": MCPContext,
-        "knapsack": VRPContext,
     }
 
     if env_name not in embedding_registry:

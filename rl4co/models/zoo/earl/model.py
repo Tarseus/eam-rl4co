@@ -8,7 +8,7 @@ from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.zoo.earl.evolution import evolution_worker, EA
-from rl4co.utils.ops import gather_by_index, unbatchify, batchify
+from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 from rl4co.utils.ops import get_distance_matrix
 
@@ -48,7 +48,6 @@ DEPOT_ENVS = {
     "op",
     "pctsp",
     "spctsp",
-    "knapsack",
 }
 
 
@@ -307,32 +306,7 @@ def _order_diversity(actions_np: np.ndarray, n_nodes: int, ignore_zero: bool) ->
     return _average_pairwise(per_batch)
 
 
-def _infer_num_traj(actions: Optional[torch.Tensor], batch_size: int) -> int:
-    actions_b = _reshape_actions(actions, batch_size, None)
-    if actions_b is None:
-        return 1
-    return int(actions_b.shape[1])
 
-
-def _random_2opt(actions: torch.Tensor, num_iters: int, keep_first: bool = True) -> torch.Tensor:
-    if actions is None or actions.dim() != 2 or num_iters <= 0:
-        return actions
-    batch_size, seq_len = actions.shape
-    if seq_len < 4 or batch_size == 0:
-        return actions
-    start_low = 1 if keep_first else 0
-    if start_low >= seq_len - 1:
-        return actions
-    actions_np = actions.detach().cpu().numpy()
-    rng = np.random.default_rng()
-    for _ in range(num_iters):
-        i = rng.integers(start_low, seq_len - 1, size=batch_size)
-        j = rng.integers(i + 1, seq_len, size=batch_size)
-        for b in range(batch_size):
-            a = int(i[b])
-            b_idx = int(j[b])
-            actions_np[b, a : b_idx + 1] = actions_np[b, a : b_idx + 1][::-1]
-    return torch.from_numpy(actions_np).to(device=actions.device)
 
 
 DEFAULT_GA_POP_SIZE = 50
@@ -366,10 +340,19 @@ class EAM(REINFORCE):
         first_aug_identity: bool = True,
         feats: list = None,
         num_starts: int = None,
-        ea_kwargs: dict = {},
+        ea_kwargs: dict | None = None,
         shared_buffer = None,
         **kwargs,
     ):
+        ea_kwargs = {} if ea_kwargs is None else dict(ea_kwargs)
+        ea_kwargs.setdefault("num_generations", 3)
+        ea_kwargs.setdefault("mutation_rate", 0.1)
+        ea_kwargs.setdefault("crossover_rate", 0.6)
+        ea_kwargs.setdefault("selection_rate", 0.2)
+        ea_kwargs.setdefault("alpha", 0.5)
+        ea_kwargs.setdefault("beta", 3.0)
+        ea_kwargs.setdefault("ea_prob", 1.0)
+        ea_kwargs.setdefault("ea_epoch", -1)
 
         if policy is None:
             policy_kwargs_with_defaults = {
@@ -411,62 +394,16 @@ class EAM(REINFORCE):
         else:
             self.ea = EA(env, ea_kwargs)
         
-        self.ea_prob = ea_kwargs.get("ea_prob")
-        self.ea_epoch = ea_kwargs.get("ea_epoch")
-        self.improve_mode = ea_kwargs.get("improve_mode", "ga")
-        self.val_improve_mode = ea_kwargs.get("val_improve_mode")
-        self.random_2opt_iters = ea_kwargs.get("random_2opt_iters")
-        self.local_search_max_iterations = ea_kwargs.get("local_search_max_iterations")
-        self.local_search_num_threads = ea_kwargs.get("local_search_num_threads")
+        self.ea_prob = float(ea_kwargs.get("ea_prob"))
+        self.ea_epoch = int(ea_kwargs.get("ea_epoch"))
         self.val_improve = ea_kwargs.get("val_improve", True)
         self.val_improve_prob = ea_kwargs.get("val_improve_prob", 1.0)
         self.val_num_generations = ea_kwargs.get("val_num_generations")
-        self.val_random_2opt_iters = ea_kwargs.get("val_random_2opt_iters")
-        self.val_local_search_max_iterations = ea_kwargs.get("val_local_search_max_iterations")
         self._ga_num_generations = ea_kwargs.get("num_generations", 1)
         self._ga_diag_counter = 0
-        self._local_search_warned = False
 
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
-
-    def _get_improve_iters(self, override: Optional[int]) -> int:
-        if override is not None:
-            return max(1, int(override))
-        return max(1, int(self._ga_num_generations or 1))
-
-    def _apply_random_2opt(self, actions: torch.Tensor, num_iters: int) -> Optional[torch.Tensor]:
-        if actions is None:
-            return None
-        return _random_2opt(actions, num_iters, keep_first=True)
-
-    def _apply_local_search(
-        self, actions: torch.Tensor, td: TensorDict, max_iterations: int
-    ) -> Optional[torch.Tensor]:
-        if actions is None:
-            return None
-        td_cpu = td.cpu()
-        actions_cpu = actions.detach().cpu()
-        n_traj = _infer_num_traj(actions_cpu, td.batch_size[0])
-        if n_traj > 1:
-            td_cpu = batchify(td_cpu, n_traj)
-        kwargs = {"max_iterations": max_iterations}
-        if self.local_search_num_threads is not None:
-            kwargs["num_threads"] = self.local_search_num_threads
-        try:
-            try:
-                improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
-            except TypeError:
-                kwargs.pop("num_threads", None)
-                improved = self.env.local_search(td_cpu, actions_cpu, **kwargs)
-        except AssertionError as exc:
-            if not self._local_search_warned:
-                log.warning(
-                    "Local search is unavailable. Skipping improvement. Error: %s", exc
-                )
-                self._local_search_warned = True
-            return None
-        return improved.to(device=actions.device)
 
     def _align_improved_actions(
         self, improved_actions: Optional[torch.Tensor], original_actions: Optional[torch.Tensor]
@@ -526,45 +463,16 @@ class EAM(REINFORCE):
                 improved_actions = None
                 population_actions = None
                 
-                if self.improve_mode == "ga":
-                    if hasattr(self, "ea"):
-                        t0 = time.perf_counter()
-                        improved_actions, _, population_actions = evolution_worker(
-                            original_actions,
-                            td,
-                            self.ea,
-                            self.env,
-                            return_population=True,
-                        )
-                        t_ga += time.perf_counter() - t0
-                elif self.improve_mode == "resample":
+                if hasattr(self, "ea"):
                     t0 = time.perf_counter()
-                    if self.baseline_str == "rollout":
-                        result = self.policy(
-                            td, self.env, phase=phase, num_starts=1, return_entropy=True
-                        )
-                    else:
-                        result = self.policy(
-                            td,
-                            self.env,
-                            phase=phase,
-                            num_starts=n_start,
-                            return_entropy=True,
-                        )
-                    t_decode += time.perf_counter() - t0
-                    return result
-                elif self.improve_mode == "random_2opt":
-                    t0 = time.perf_counter()
-                    num_iters = self._get_improve_iters(self.random_2opt_iters)
-                    improved_actions = self._apply_random_2opt(original_actions, num_iters)
+                    improved_actions, _, population_actions = evolution_worker(
+                        original_actions,
+                        td,
+                        self.ea,
+                        self.env,
+                        return_population=True,
+                    )
                     t_ga += time.perf_counter() - t0
-                elif self.improve_mode == "local_search":
-                    t0 = time.perf_counter()
-                    max_iters = self._get_improve_iters(self.local_search_max_iterations)
-                    improved_actions = self._apply_local_search(original_actions, td, max_iters)
-                    t_ga += time.perf_counter() - t0
-                else:
-                    raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
                 
                 if improved_actions is not None:
                     improved_actions = improved_actions.to(device=device)
@@ -755,59 +663,24 @@ class EAM(REINFORCE):
                     self.val_improve_prob is None
                     or np.random.random() <= self.val_improve_prob
                 ):
-                    val_improve_mode = (
-                        self.val_improve_mode
-                        if self.val_improve_mode is not None
-                        else self.improve_mode
-                    )
                     improved_actions = None
                     original_actions = out.get("actions", None)
                     device = next(self.policy.parameters()).device
-                    if val_improve_mode == "ga":
-                        if hasattr(self, "ea") and original_actions is not None:
-                            prev_num_generations = None
-                            if self.val_num_generations is not None:
-                                prev_num_generations = self.ea.num_generations
-                                self.ea.num_generations = self.val_num_generations
-                            try:
-                                improved_actions, _ = evolution_worker(
-                                    original_actions,
-                                    init_td,
-                                    self.ea,
-                                    self.env,
-                                )
-                            finally:
-                                if prev_num_generations is not None:
-                                    self.ea.num_generations = prev_num_generations
-                    elif val_improve_mode == "resample":
-                        if self.baseline_str == "rollout":
-                            improved_out = self.policy(
-                                init_td, self.env, phase=phase, num_starts=1
+                    if hasattr(self, "ea") and original_actions is not None:
+                        prev_num_generations = None
+                        if self.val_num_generations is not None:
+                            prev_num_generations = self.ea.num_generations
+                            self.ea.num_generations = self.val_num_generations
+                        try:
+                            improved_actions, _ = evolution_worker(
+                                original_actions,
+                                init_td,
+                                self.ea,
+                                self.env,
                             )
-                        else:
-                            improved_out = self.policy(
-                                init_td, self.env, phase=phase, num_starts=n_start
-                            )
-                    elif val_improve_mode == "random_2opt":
-                        num_iters = self._get_improve_iters(
-                            self.val_random_2opt_iters
-                            if self.val_random_2opt_iters is not None
-                            else self.random_2opt_iters
-                        )
-                        improved_actions = self._apply_random_2opt(
-                            original_actions, num_iters
-                        )
-                    elif val_improve_mode == "local_search":
-                        max_iters = self._get_improve_iters(
-                            self.val_local_search_max_iterations
-                            if self.val_local_search_max_iterations is not None
-                            else self.local_search_max_iterations
-                        )
-                        improved_actions = self._apply_local_search(
-                            original_actions, init_td, max_iters
-                        )
-                    else:
-                        raise ValueError(f"Unknown improve_mode: {val_improve_mode}")
+                        finally:
+                            if prev_num_generations is not None:
+                                self.ea.num_generations = prev_num_generations
 
                     if improved_out is None and improved_actions is not None:
                         improved_actions = improved_actions.to(device=device)
