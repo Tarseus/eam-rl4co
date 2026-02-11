@@ -1,2259 +1,0 @@
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:209: Attribute 'env' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['env'])`.
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:209: Attribute 'policy' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['policy'])`.
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/core/saving.py:195: Found keys that are not in the model state dict but in the checkpoint: ['baseline.baseline.policy.encoder.init_embedding.init_embed.weight', 'baseline.baseline.policy.encoder.init_embedding.init_embed.bias', 'baseline.baseline.policy.encoder.init_embedding.init_embed_depot.weight', 'baseline.baseline.policy.encoder.init_embedding.init_embed_depot.bias', 'baseline.baseline.policy.encoder.net.layers.0.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.0.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.0.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.0.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.0.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.0.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.0.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.0.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.1.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.1.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.1.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.1.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.1.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.1.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.1.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.1.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.2.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.2.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.2.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.2.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.2.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.2.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.2.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.2.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.3.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.3.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.3.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.3.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.3.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.3.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.3.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.3.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.4.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.4.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.4.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.4.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.4.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.4.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.4.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.4.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.5.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.5.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.5.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.5.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.5.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.5.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.5.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.5.3.normalizer.bias', 'baseline.baseline.policy.decoder.context_embedding.project_context.weight', 'baseline.baseline.policy.decoder.pointer.project_out.weight', 'baseline.baseline.policy.decoder.project_node_embeddings.weight', 'baseline.baseline.policy.decoder.project_fixed_context.weight']
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:01<00:01,  1.49s/it]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.11it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.01it/s]
-Mean reward for multistart_greedy: -16.4345
-Time: 1.9802s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.01it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.00it/s]
-Mean reward for multistart_greedy: -16.4897
-Time: 1.0003s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.96it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.01it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.00it/s]
-Mean reward for multistart_greedy: -16.4599
-Time: 0.9989s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.5585
-Time: 1.0074s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.4582
-Time: 1.0050s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.01it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]
-Mean reward for multistart_greedy: -16.4979
-Time: 1.0018s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.3612
-Time: 1.0040s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.5828
-Time: 1.0046s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.4165
-Time: 1.0081s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.3664
-Time: 1.0034s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.5331
-Time: 1.0069s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.5781
-Time: 1.0058s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.01it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]
-Mean reward for multistart_greedy: -16.5586
-Time: 1.0012s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.95it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.6521
-Time: 1.0103s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.5639
-Time: 1.0106s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.6075
-Time: 1.0040s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.4677
-Time: 1.0109s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.6866
-Time: 1.0092s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.5158
-Time: 1.0101s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.82it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.89it/s]
-Mean reward for multistart_greedy: -16.4709
-Time: 1.0559s
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/migration/utils.py:56: The loaded checkpoint was produced with Lightning v2.5.1, which is newer than your current Lightning version: v2.5.0
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.46it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.45it/s]
-Mean reward for multistart_greedy: -10.7633
-Time: 0.2251s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.43it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]
-Mean reward for multistart_greedy: -10.8088
-Time: 0.2264s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.37it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.36it/s]
-Mean reward for multistart_greedy: -10.7896
-Time: 0.2296s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]
-Mean reward for multistart_greedy: -10.7906
-Time: 0.2268s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.41it/s]
-Mean reward for multistart_greedy: -10.8204
-Time: 0.2270s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]
-Mean reward for multistart_greedy: -10.8095
-Time: 0.2268s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]
-Mean reward for multistart_greedy: -10.7875
-Time: 0.2266s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.42it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.41it/s]
-Mean reward for multistart_greedy: -10.8082
-Time: 0.2270s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.33it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.32it/s]
-Mean reward for multistart_greedy: -10.7157
-Time: 0.2317s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.41it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.40it/s]
-Mean reward for multistart_greedy: -10.7940
-Time: 0.2276s
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/migration/utils.py:56: The loaded checkpoint was produced with Lightning v2.5.2, which is newer than your current Lightning version: v2.5.0
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.14it/s]
-Mean reward for multistart_greedy: 0.9899
-Time: 0.0868s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.73it/s]
-Mean reward for multistart_greedy: 0.9899
-Time: 0.0847s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.59it/s]
-Mean reward for multistart_greedy: 0.9905
-Time: 0.0851s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.58it/s]
-Mean reward for multistart_greedy: 0.9902
-Time: 0.0852s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.51it/s]
-Mean reward for multistart_greedy: 0.9897
-Time: 0.0854s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.41it/s]
-Mean reward for multistart_greedy: 0.9905
-Time: 0.0858s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.50it/s]
-Mean reward for multistart_greedy: 0.9903
-Time: 0.0854s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.66it/s]
-Mean reward for multistart_greedy: 0.9900
-Time: 0.0849s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.39it/s]
-Mean reward for multistart_greedy: 0.9901
-Time: 0.0858s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00, 23.43it/s]
-Mean reward for multistart_greedy: 0.9901
-Time: 0.0857s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.09it/s]
-Mean reward for multistart_greedy: 0.9810
-Time: 0.0457s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.94it/s]
-Mean reward for multistart_greedy: 0.9799
-Time: 0.0439s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 23.01it/s]
-Mean reward for multistart_greedy: 0.9802
-Time: 0.0438s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.76it/s]
-Mean reward for multistart_greedy: 0.9794
-Time: 0.0443s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.93it/s]
-Mean reward for multistart_greedy: 0.9803
-Time: 0.0439s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.32it/s]
-Mean reward for multistart_greedy: 0.9808
-Time: 0.0451s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.36it/s]
-Mean reward for multistart_greedy: 0.9807
-Time: 0.0451s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.35it/s]
-Mean reward for multistart_greedy: 0.9812
-Time: 0.0450s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 22.18it/s]
-Mean reward for multistart_greedy: 0.9806
-Time: 0.0455s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00, 21.47it/s]
-Mean reward for multistart_greedy: 0.9806
-Time: 0.0469s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.24it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.40it/s]
-Mean reward for multistart_greedy: 31.8757
-Time: 0.5895s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.34it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-Mean reward for multistart_greedy: 32.0597
-Time: 0.5799s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.44it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.49it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
-Mean reward for multistart_greedy: 31.9115
-Time: 0.5751s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.24it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.42it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-Mean reward for multistart_greedy: 31.9018
-Time: 0.5903s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.43it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.51it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.50it/s]
-Mean reward for multistart_greedy: 31.9034
-Time: 0.5725s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.51it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.49it/s]
-Mean reward for multistart_greedy: 31.9682
-Time: 0.5740s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.26it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.41it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.38it/s]
-Mean reward for multistart_greedy: 31.9410
-Time: 0.5915s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.34it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-Mean reward for multistart_greedy: 31.9477
-Time: 0.5804s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.23it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]
-Mean reward for multistart_greedy: 31.9631
-Time: 0.5946s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.35it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-Mean reward for multistart_greedy: 32.0969
-Time: 0.5838s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.07it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]
-Mean reward for multistart_greedy: -6.2197
-Time: 0.6242s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.15it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-Mean reward for multistart_greedy: -6.2260
-Time: 0.6202s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.10it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.20it/s]
-Mean reward for multistart_greedy: -6.2202
-Time: 0.6263s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.18it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.15it/s]
-Mean reward for multistart_greedy: -6.2482
-Time: 0.6351s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.13it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-Mean reward for multistart_greedy: -6.2323
-Time: 0.6188s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.14it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]
-Mean reward for multistart_greedy: -6.2261
-Time: 0.6178s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.04it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.19it/s]
-Mean reward for multistart_greedy: -6.2392
-Time: 0.6279s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.15it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.27it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]
-Mean reward for multistart_greedy: -6.2312
-Time: 0.6164s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.17it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]
-Mean reward for multistart_greedy: -6.2212
-Time: 0.6218s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.22it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.27it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]
-Mean reward for multistart_greedy: -6.2320
-Time: 0.6138s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.15it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]
-Mean reward for multistart_greedy: -6.2218
-Time: 0.6133s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.17it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.28it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]
-Mean reward for multistart_greedy: -6.2344
-Time: 0.6143s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.13it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]
-Mean reward for multistart_greedy: -6.2286
-Time: 0.6220s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.08it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]
-Mean reward for multistart_greedy: -6.2497
-Time: 0.6240s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.24it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.28it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.27it/s]
-Mean reward for multistart_greedy: -6.2436
-Time: 0.6111s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.10it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.97it/s]
-Mean reward for multistart_greedy: -6.2367
-Time: 0.6748s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.06it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.20it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.18it/s]
-Mean reward for multistart_greedy: -6.2445
-Time: 0.6294s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.11it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]
-Mean reward for multistart_greedy: -6.2413
-Time: 0.6137s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.08it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.19it/s]
-Mean reward for multistart_greedy: -6.2194
-Time: 0.6268s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.10it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.18it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.16it/s]
-Mean reward for multistart_greedy: -6.2380
-Time: 0.6325s
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/migration/utils.py:56: The loaded checkpoint was produced with Lightning v2.5.0.post0, which is newer than your current Lightning version: v2.5.0
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.06it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.17it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.15it/s]
-Mean reward for multistart_greedy: -6.2695
-Time: 0.6344s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.05it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.02it/s]
-Mean reward for multistart_greedy: -6.2806
-Time: 0.6618s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.08it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.17it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.15it/s]
-Mean reward for multistart_greedy: -6.2759
-Time: 0.6348s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.08it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.06it/s]
-Mean reward for multistart_greedy: -6.3043
-Time: 0.6536s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.08it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]
-Mean reward for multistart_greedy: -6.2871
-Time: 0.6241s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.97it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.11it/s]
-Mean reward for multistart_greedy: -6.2845
-Time: 0.6439s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.13it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.21it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.19it/s]
-Mean reward for multistart_greedy: -6.2956
-Time: 0.6267s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.10it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]
-Mean reward for multistart_greedy: -6.2893
-Time: 0.6220s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.14it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.11it/s]
-Mean reward for multistart_greedy: -6.2732
-Time: 0.6436s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.12it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.14it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.13it/s]
-Mean reward for multistart_greedy: -6.2797
-Time: 0.6388s
-/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/core/saving.py:195: Found keys that are not in the model state dict but in the checkpoint: ['baseline.baseline.policy.encoder.init_embedding.init_embed.weight', 'baseline.baseline.policy.encoder.init_embedding.init_embed.bias', 'baseline.baseline.policy.encoder.net.layers.0.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.0.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.0.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.0.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.0.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.0.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.0.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.0.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.0.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.1.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.1.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.1.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.1.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.1.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.1.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.1.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.1.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.1.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.2.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.2.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.2.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.2.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.2.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.2.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.2.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.2.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.2.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.3.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.3.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.3.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.3.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.3.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.3.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.3.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.3.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.3.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.4.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.4.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.4.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.4.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.4.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.4.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.4.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.4.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.4.3.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.5.0.module.Wqkv.weight', 'baseline.baseline.policy.encoder.net.layers.5.0.module.Wqkv.bias', 'baseline.baseline.policy.encoder.net.layers.5.0.module.out_proj.weight', 'baseline.baseline.policy.encoder.net.layers.5.0.module.out_proj.bias', 'baseline.baseline.policy.encoder.net.layers.5.1.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.5.1.normalizer.bias', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.0.weight', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.0.bias', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.1.weight', 'baseline.baseline.policy.encoder.net.layers.5.2.module.lins.1.bias', 'baseline.baseline.policy.encoder.net.layers.5.3.normalizer.weight', 'baseline.baseline.policy.encoder.net.layers.5.3.normalizer.bias', 'baseline.baseline.policy.decoder.context_embedding.W_placeholder', 'baseline.baseline.policy.decoder.context_embedding.project_context.weight', 'baseline.baseline.policy.decoder.pointer.project_out.weight', 'baseline.baseline.policy.decoder.project_node_embeddings.weight', 'baseline.baseline.policy.decoder.project_fixed_context.weight']
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -8.1917
-Time: 0.8167s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -8.1842
-Time: 0.8174s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -8.2084
-Time: 0.8202s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]
-Mean reward for multistart_greedy: -8.2079
-Time: 0.8141s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.40it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]
-Mean reward for multistart_greedy: -8.2107
-Time: 0.8110s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.40it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]
-Mean reward for multistart_greedy: -8.2072
-Time: 0.8116s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.41it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]
-Mean reward for multistart_greedy: -8.2026
-Time: 0.8107s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.41it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]
-Mean reward for multistart_greedy: -8.2157
-Time: 0.8104s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.40it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]
-Mean reward for multistart_greedy: -8.2198
-Time: 0.8118s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]
-Mean reward for multistart_greedy: -8.2095
-Time: 0.8133s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]
-Mean reward for multistart_greedy: -5.8212
-Time: 0.1723s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.86it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.86it/s]
-Mean reward for multistart_greedy: -5.8147
-Time: 0.1711s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.83it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]
-Mean reward for multistart_greedy: -5.8232
-Time: 0.1720s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.76it/s]
-Mean reward for multistart_greedy: -5.8336
-Time: 0.1738s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.87it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.87it/s]
-Mean reward for multistart_greedy: -5.8286
-Time: 0.1707s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.87it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.87it/s]
-Mean reward for multistart_greedy: -5.8282
-Time: 0.1707s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.85it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.84it/s]
-Mean reward for multistart_greedy: -5.8171
-Time: 0.1714s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.84it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.84it/s]
-Mean reward for multistart_greedy: -5.8376
-Time: 0.1715s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.88it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.88it/s]
-Mean reward for multistart_greedy: -5.8087
-Time: 0.1704s
-test_file not set. Generating dataset instead
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.86it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.86it/s]
-Mean reward for multistart_greedy: -5.8055
-Time: 0.1710s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.3245
-Time: 1.0121s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.3896
-Time: 1.0060s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -16.3396
-Time: 1.0224s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -16.4573
-Time: 1.0172s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.89it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -16.3513
-Time: 1.0201s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.3901
-Time: 1.0070s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.2746
-Time: 1.0120s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -16.4835
-Time: 1.0075s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -16.3144
-Time: 1.0191s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -16.2676
-Time: 1.0171s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]
-Mean reward for multistart_greedy: -10.7408
-Time: 0.2146s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.7737
-Time: 0.2151s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.68it/s]
-Mean reward for multistart_greedy: -10.7750
-Time: 0.2138s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
-Mean reward for multistart_greedy: -10.7564
-Time: 0.2108s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
-Mean reward for multistart_greedy: -10.7913
-Time: 0.2105s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.70it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.70it/s]
-Mean reward for multistart_greedy: -10.7826
-Time: 0.2131s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
-Mean reward for multistart_greedy: -10.7501
-Time: 0.2135s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
-Mean reward for multistart_greedy: -10.7717
-Time: 0.2110s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
-Mean reward for multistart_greedy: -10.6903
-Time: 0.2111s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.60it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.59it/s]
-Mean reward for multistart_greedy: -10.7711
-Time: 0.2179s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.21it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.35it/s]
-Mean reward for multistart_greedy: 31.7224
-Time: 0.5979s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.36it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]
-Mean reward for multistart_greedy: 31.8494
-Time: 0.5985s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.42it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.41it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.41it/s]
-Mean reward for multistart_greedy: 31.7115
-Time: 0.5868s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.30it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.42it/s]
-Mean reward for multistart_greedy: 31.7964
-Time: 0.5850s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-Mean reward for multistart_greedy: 31.7391
-Time: 0.5790s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.35it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.50it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]
-Mean reward for multistart_greedy: 31.8082
-Time: 0.5766s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.33it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]
-Mean reward for multistart_greedy: 31.7463
-Time: 0.5790s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.21it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-Mean reward for multistart_greedy: 31.8005
-Time: 0.5896s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.32it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.36it/s]
-Mean reward for multistart_greedy: 31.8615
-Time: 0.5947s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.35it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]
-Mean reward for multistart_greedy: 31.9448
-Time: 0.5819s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.35it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]
-Mean reward for multistart_greedy: 31.2851
-Time: 0.5810s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-Mean reward for multistart_greedy: 31.4494
-Time: 0.5809s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.36it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.44it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]
-Mean reward for multistart_greedy: 31.2992
-Time: 0.5835s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.30it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.40it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.39it/s]
-Mean reward for multistart_greedy: 31.3057
-Time: 0.5909s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.44it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.52it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.51it/s]
-Mean reward for multistart_greedy: 31.2567
-Time: 0.5708s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.32it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.51it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.48it/s]
-Mean reward for multistart_greedy: 31.3403
-Time: 0.5756s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.33it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.45it/s]
-Mean reward for multistart_greedy: 31.2481
-Time: 0.5805s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.27it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.32it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.31it/s]
-Mean reward for multistart_greedy: 31.2987
-Time: 0.6046s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.32it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.37it/s]
-Mean reward for multistart_greedy: 31.4282
-Time: 0.5944s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.36it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.43it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.42it/s]
-Mean reward for multistart_greedy: 31.4286
-Time: 0.5847s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.15it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.27it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]
-Mean reward for multistart_greedy: -6.2149
-Time: 0.6151s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.14it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-Mean reward for multistart_greedy: -6.2305
-Time: 0.6190s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.11it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]
-Mean reward for multistart_greedy: -6.2241
-Time: 0.6184s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.08it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.26it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-Mean reward for multistart_greedy: -6.2508
-Time: 0.6206s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.12it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.24it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.22it/s]
-Mean reward for multistart_greedy: -6.2415
-Time: 0.6220s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.11it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.25it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.23it/s]
-Mean reward for multistart_greedy: -6.2349
-Time: 0.6199s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.22it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.30it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]
-Mean reward for multistart_greedy: -6.2369
-Time: 0.6088s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.18it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.31it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.29it/s]
-Mean reward for multistart_greedy: -6.2385
-Time: 0.6085s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.18it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.34it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.31it/s]
-Mean reward for multistart_greedy: -6.2258
-Time: 0.6039s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  3.03it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.14it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  3.12it/s]
-Mean reward for multistart_greedy: -6.2341
-Time: 0.6411s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.40it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]
-Mean reward for multistart_greedy: -8.0960
-Time: 0.8126s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.40it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.48it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]
-Mean reward for multistart_greedy: -8.0863
-Time: 0.8118s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.31it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.41it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.40it/s]
-Mean reward for multistart_greedy: -8.1042
-Time: 0.8351s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -8.1037
-Time: 0.8185s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.47it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -8.1113
-Time: 0.8157s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -8.1116
-Time: 0.8197s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -8.1031
-Time: 0.8195s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -8.1082
-Time: 0.8211s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -8.1076
-Time: 0.8172s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -8.1040
-Time: 0.8180s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.74it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.74it/s]
-Mean reward for multistart_greedy: -5.8098
-Time: 0.1747s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.83it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]
-Mean reward for multistart_greedy: -5.8043
-Time: 0.1720s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]
-Mean reward for multistart_greedy: -5.8109
-Time: 0.1734s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.85it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.84it/s]
-Mean reward for multistart_greedy: -5.8207
-Time: 0.1716s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]
-Mean reward for multistart_greedy: -5.8183
-Time: 0.1725s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.79it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]
-Mean reward for multistart_greedy: -5.8176
-Time: 0.1733s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.79it/s]
-Mean reward for multistart_greedy: -5.8091
-Time: 0.1730s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.34it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.33it/s]
-Mean reward for multistart_greedy: -5.8164
-Time: 0.1878s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.79it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]
-Mean reward for multistart_greedy: -5.8016
-Time: 0.1732s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.72it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.71it/s]
-Mean reward for multistart_greedy: -5.7944
-Time: 0.1754s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9080
-Time: 1.0128s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9537
-Time: 1.0149s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9108
-Time: 1.0150s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.0078
-Time: 1.0109s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9151
-Time: 1.0123s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9583
-Time: 1.0126s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8318
-Time: 1.0137s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.0467
-Time: 1.0093s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.8914
-Time: 1.0089s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8372
-Time: 1.0169s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.68it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]
-Mean reward for multistart_greedy: -10.5110
-Time: 0.2143s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.64it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.63it/s]
-Mean reward for multistart_greedy: -10.5522
-Time: 0.2162s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.63it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.63it/s]
-Mean reward for multistart_greedy: -10.5456
-Time: 0.2164s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
-Mean reward for multistart_greedy: -10.5301
-Time: 0.2114s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.77it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
-Mean reward for multistart_greedy: -10.5679
-Time: 0.2104s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
-Mean reward for multistart_greedy: -10.5629
-Time: 0.2136s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
-Mean reward for multistart_greedy: -10.5378
-Time: 0.2108s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.77it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
-Mean reward for multistart_greedy: -10.5599
-Time: 0.2103s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]
-Mean reward for multistart_greedy: -10.4682
-Time: 0.2172s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.68it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.68it/s]
-Mean reward for multistart_greedy: -10.5435
-Time: 0.2141s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
-Mean reward for multistart_greedy: -10.5434
-Time: 0.2107s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
-Mean reward for multistart_greedy: -10.5899
-Time: 0.2107s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
-Mean reward for multistart_greedy: -10.5890
-Time: 0.2136s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
-Mean reward for multistart_greedy: -10.5742
-Time: 0.2105s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]
-Mean reward for multistart_greedy: -10.6019
-Time: 0.2145s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.59it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.58it/s]
-Mean reward for multistart_greedy: -10.5958
-Time: 0.2186s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.75it/s]
-Mean reward for multistart_greedy: -10.5704
-Time: 0.2110s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.76it/s]
-Mean reward for multistart_greedy: -10.5888
-Time: 0.2105s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]
-Mean reward for multistart_greedy: -10.5028
-Time: 0.2169s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.5791
-Time: 0.2154s
-[skip] Failed to load eam_pomo_kp50.ckpt: Number of generations must be specified; Number of generations must be specified; Number of generations must be specified
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8065
-Time: 0.8159s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.7980
-Time: 0.8160s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8135
-Time: 0.8161s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8147
-Time: 0.8191s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8134
-Time: 0.8170s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8163
-Time: 0.8187s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8119
-Time: 0.8160s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8184
-Time: 0.8166s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8113
-Time: 0.8172s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8134
-Time: 0.8177s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.64it/s]
-Mean reward for multistart_greedy: -5.7088
-Time: 0.1776s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.61it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.60it/s]
-Mean reward for multistart_greedy: -5.7035
-Time: 0.1787s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]
-Mean reward for multistart_greedy: -5.7111
-Time: 0.1722s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]
-Mean reward for multistart_greedy: -5.7187
-Time: 0.1722s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.71it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.70it/s]
-Mean reward for multistart_greedy: -5.7198
-Time: 0.1756s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.85it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.84it/s]
-Mean reward for multistart_greedy: -5.7162
-Time: 0.1715s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
-Mean reward for multistart_greedy: -5.7073
-Time: 0.1725s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.83it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]
-Mean reward for multistart_greedy: -5.7159
-Time: 0.1721s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
-Mean reward for multistart_greedy: -5.7004
-Time: 0.1727s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.82it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]
-Mean reward for multistart_greedy: -5.6907
-Time: 0.1723s
-[skip] Failed to load eam_symnco_cvrp100.ckpt: SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline
-[skip] Failed to load eam_symnco_cvrp50.ckpt: SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline
-[skip] Failed to load eam_symnco_cvrp50_backup.ckpt: SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline
-[skip] Failed to load eam_symnco_tsp100.ckpt: SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline
-[skip] Failed to load eam_symnco_tsp50.ckpt: SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline; SymNCO only supports custom-symnco baseline
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9249
-Time: 1.0113s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9690
-Time: 1.0144s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9279
-Time: 1.0159s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.0253
-Time: 1.0116s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9308
-Time: 1.0095s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.90it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -15.9746
-Time: 1.0194s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.8525
-Time: 1.0085s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.0649
-Time: 1.0106s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9043
-Time: 1.0096s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8488
-Time: 1.0158s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9305
-Time: 1.0138s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9797
-Time: 1.0157s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.94it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  2.00it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]
-Mean reward for multistart_greedy: -15.9311
-Time: 1.0073s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -16.0327
-Time: 1.0113s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9443
-Time: 1.0118s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9881
-Time: 1.0096s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.90it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -15.8573
-Time: 1.0188s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.90it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -16.0774
-Time: 1.0192s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.88it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.95it/s]
-Mean reward for multistart_greedy: -15.9084
-Time: 1.0270s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8551
-Time: 1.0146s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]
-Mean reward for multistart_greedy: -10.5261
-Time: 0.2124s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.64it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.63it/s]
-Mean reward for multistart_greedy: -10.5797
-Time: 0.2162s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.68it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]
-Mean reward for multistart_greedy: -10.5656
-Time: 0.2143s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
-Mean reward for multistart_greedy: -10.5495
-Time: 0.2137s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.71it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.71it/s]
-Mean reward for multistart_greedy: -10.5824
-Time: 0.2126s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.64it/s]
-Mean reward for multistart_greedy: -10.5825
-Time: 0.2156s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]
-Mean reward for multistart_greedy: -10.5528
-Time: 0.2123s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
-Mean reward for multistart_greedy: -10.5719
-Time: 0.2114s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.4869
-Time: 0.2153s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]
-Mean reward for multistart_greedy: -10.5589
-Time: 0.2150s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.71it/s]
-Mean reward for multistart_greedy: -10.5261
-Time: 0.2124s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.5797
-Time: 0.2152s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.61it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.61it/s]
-Mean reward for multistart_greedy: -10.5656
-Time: 0.2174s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.60it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.60it/s]
-Mean reward for multistart_greedy: -10.5495
-Time: 0.2178s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.71it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.71it/s]
-Mean reward for multistart_greedy: -10.5824
-Time: 0.2126s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.73it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.73it/s]
-Mean reward for multistart_greedy: -10.5825
-Time: 0.2117s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.74it/s]
-Mean reward for multistart_greedy: -10.5528
-Time: 0.2113s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.70it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
-Mean reward for multistart_greedy: -10.5719
-Time: 0.2133s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]
-Mean reward for multistart_greedy: -10.4869
-Time: 0.2167s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.5589
-Time: 0.2154s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.74it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.87it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.85it/s]
-Mean reward for multistart_greedy: 40.5517
-Time: 0.7017s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.81it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.89it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.88it/s]
-Mean reward for multistart_greedy: 40.4729
-Time: 0.6955s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.86it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.92it/s]
-Mean reward for multistart_greedy: 40.4511
-Time: 0.6850s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.81it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.83it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.83it/s]
-Mean reward for multistart_greedy: 40.4917
-Time: 0.7079s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.81it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.89it/s]
-Mean reward for multistart_greedy: 40.5193
-Time: 0.6920s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.73it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.81it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.79it/s]
-Mean reward for multistart_greedy: 40.5347
-Time: 0.7159s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.78it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.90it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.88it/s]
-Mean reward for multistart_greedy: 40.4347
-Time: 0.6949s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.85it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.90it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.89it/s]
-Mean reward for multistart_greedy: 40.5170
-Time: 0.6912s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.78it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.89it/s]
-Mean reward for multistart_greedy: 40.4634
-Time: 0.6925s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.75it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.88it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.86it/s]
-Mean reward for multistart_greedy: 40.4079
-Time: 0.6995s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.98it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.98it/s]
-Mean reward for multistart_greedy: 20.0985
-Time: 0.1676s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.99it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.98it/s]
-Mean reward for multistart_greedy: 20.0411
-Time: 0.1675s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.76it/s]
-Mean reward for multistart_greedy: 20.0265
-Time: 0.1739s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.08it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.07it/s]
-Mean reward for multistart_greedy: 20.0563
-Time: 0.1649s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.09it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.09it/s]
-Mean reward for multistart_greedy: 20.0732
-Time: 0.1645s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.11it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.10it/s]
-Mean reward for multistart_greedy: 20.1175
-Time: 0.1642s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.10it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.09it/s]
-Mean reward for multistart_greedy: 20.0982
-Time: 0.1644s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.10it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.10it/s]
-Mean reward for multistart_greedy: 20.0769
-Time: 0.1643s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.02it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  6.02it/s]
-Mean reward for multistart_greedy: 20.1024
-Time: 0.1665s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.95it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.94it/s]
-Mean reward for multistart_greedy: 20.1690
-Time: 0.1686s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.54it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.53it/s]
-Mean reward for multistart_greedy: 2.5937
-Time: 0.1053s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.24it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.23it/s]
-Mean reward for multistart_greedy: 2.5935
-Time: 0.1086s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  8.89it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  8.87it/s]
-Mean reward for multistart_greedy: 2.5301
-Time: 0.1129s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.54it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.53it/s]
-Mean reward for multistart_greedy: 2.6483
-Time: 0.1053s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.56it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.54it/s]
-Mean reward for multistart_greedy: 2.5581
-Time: 0.1051s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.12it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.10it/s]
-Mean reward for multistart_greedy: 2.5966
-Time: 0.1101s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.55it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.53it/s]
-Mean reward for multistart_greedy: 2.5755
-Time: 0.1052s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.26it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.25it/s]
-Mean reward for multistart_greedy: 2.5633
-Time: 0.1084s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.49it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.48it/s]
-Mean reward for multistart_greedy: 2.5593
-Time: 0.1058s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.25it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  9.24it/s]
-Mean reward for multistart_greedy: 2.6371
-Time: 0.1085s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.7998
-Time: 0.8193s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.7906
-Time: 0.8185s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8076
-Time: 0.8214s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8108
-Time: 0.8191s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8091
-Time: 0.8198s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8097
-Time: 0.8210s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.31it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.41it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.40it/s]
-Mean reward for multistart_greedy: -7.8049
-Time: 0.8347s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8145
-Time: 0.8209s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8065
-Time: 0.8186s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.35it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.43it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.42it/s]
-Mean reward for multistart_greedy: -7.8067
-Time: 0.8271s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]
-Mean reward for multistart_greedy: -5.7107
-Time: 0.1736s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.79it/s]
-Mean reward for multistart_greedy: -5.7057
-Time: 0.1729s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.79it/s]
-Mean reward for multistart_greedy: -5.7108
-Time: 0.1729s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
-Mean reward for multistart_greedy: -5.7191
-Time: 0.1726s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.76it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.76it/s]
-Mean reward for multistart_greedy: -5.7192
-Time: 0.1740s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
-Mean reward for multistart_greedy: -5.7178
-Time: 0.1728s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.78it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]
-Mean reward for multistart_greedy: -5.7085
-Time: 0.1736s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
-Mean reward for multistart_greedy: -5.7176
-Time: 0.1728s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.80it/s]
-Mean reward for multistart_greedy: -5.7005
-Time: 0.1727s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  5.77it/s]
-Mean reward for multistart_greedy: -5.6918
-Time: 0.1738s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8954
-Time: 1.0154s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.9487
-Time: 1.0124s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9025
-Time: 1.0154s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -16.0107
-Time: 1.0134s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9130
-Time: 1.0143s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.96it/s]
-Mean reward for multistart_greedy: -15.9560
-Time: 1.0193s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8355
-Time: 1.0147s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -16.0462
-Time: 1.0132s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8884
-Time: 1.0146s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8398
-Time: 1.0174s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.91it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8410
-Time: 1.0181s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.8917
-Time: 1.0115s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.8431
-Time: 1.0127s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9529
-Time: 1.0156s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8567
-Time: 1.0133s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9045
-Time: 1.0140s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.99it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]
-Mean reward for multistart_greedy: -15.7798
-Time: 1.0117s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.9872
-Time: 1.0136s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.92it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.8265
-Time: 1.0145s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  1.93it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.98it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:01<00:00,  1.97it/s]
-Mean reward for multistart_greedy: -15.7799
-Time: 1.0139s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.72it/s]
-Mean reward for multistart_greedy: -10.7633
-Time: 0.2123s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.61it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.61it/s]
-Mean reward for multistart_greedy: -10.8088
-Time: 0.2173s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]
-Mean reward for multistart_greedy: -10.7896
-Time: 0.2150s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.7906
-Time: 0.2156s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.66it/s]
-Mean reward for multistart_greedy: -10.8204
-Time: 0.2149s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.65it/s]
-Mean reward for multistart_greedy: -10.8095
-Time: 0.2154s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]
-Mean reward for multistart_greedy: -10.7875
-Time: 0.2147s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.67it/s]
-Mean reward for multistart_greedy: -10.8082
-Time: 0.2147s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.61it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.60it/s]
-Mean reward for multistart_greedy: -10.7157
-Time: 0.2175s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 1024 (ratio: 5)
-Using automatic batch size: 1024
-Running multistart_greedy:   0%|          | 0/1 [00:00<?, ?it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.50it/s]Running multistart_greedy: 100%|██████████| 1/1 [00:00<00:00,  4.50it/s]
-Mean reward for multistart_greedy: -10.7940
-Time: 0.2225s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.36it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.43it/s]
-Mean reward for multistart_greedy: -7.7979
-Time: 0.8248s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.7882
-Time: 0.8190s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.31it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.42it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.40it/s]
-Mean reward for multistart_greedy: -7.8056
-Time: 0.8324s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8090
-Time: 0.8187s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.37it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8038
-Time: 0.8214s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8064
-Time: 0.8185s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8012
-Time: 0.8173s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8121
-Time: 0.8199s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.38it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.44it/s]
-Mean reward for multistart_greedy: -7.8046
-Time: 0.8186s
-Warning: GreedyMultiStartEval does not use kwargs {'temperature': 1.0, 'top_p': 0.0, 'top_k': 0}
-Effective batch size: 512 (ratio: 10)
-Using automatic batch size: 512
-Running multistart_greedy:   0%|          | 0/2 [00:00<?, ?it/s]Running multistart_greedy:  50%|█████     | 1/2 [00:00<00:00,  2.39it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.46it/s]Running multistart_greedy: 100%|██████████| 2/2 [00:00<00:00,  2.45it/s]
-Mean reward for multistart_greedy: -7.8043
-Time: 0.8181s
-[skip] Failed to load symnco_tsp50.ckpt: Attempting to deserialize object on CUDA device 7 but torch.cuda.device_count() is 6. Please use torch.load with map_location to map your storages to an existing device.; Attempting to deserialize object on CUDA device 7 but torch.cuda.device_count() is 6. Please use torch.load with map_location to map your storages to an existing device.; SymNCO only supports custom-symnco baseline
-[warn] Skipped details saved to: results/checkpoint_eval/20260115_134225/skipped.csv
-Saved per-seed results to: results/checkpoint_eval/20260115_134225/per_seed.csv
-Saved summary results to: results/checkpoint_eval/20260115_134225/summary.csv
-Saved win/tie/loss results to: results/checkpoint_eval/20260115_134225/pairwise_win_tie_loss.csv
-Saved metadata to: results/checkpoint_eval/20260115_134225/run_meta.json
