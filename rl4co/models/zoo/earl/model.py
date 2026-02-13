@@ -1,5 +1,4 @@
-from typing import Any, Callable
-from typing import IO, Any, Optional, Union, cast
+from typing import IO, Any, Callable, Optional, Union, cast
 
 import torch.nn as nn
 
@@ -10,21 +9,11 @@ from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.zoo.earl.evolution import evolution_worker, EA
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
-from rl4co.utils.ops import get_distance_matrix
 
-import concurrent.futures
 import numpy as np
-import time
-import numba as nb
 
 from tensordict import TensorDict
 import torch
-
-from rl4co.utils.decoding import (
-    DecodingStrategy,
-    get_decoding_strategy,
-    get_log_likelihood,
-)
 
 log = get_pylogger(__name__)
 
@@ -39,286 +28,6 @@ def sigmoid_schedule(epoch, max_epoch, initial_prob, final_prob):
 def step_schedule(epoch, ea_prob, ea_epoch):
     return ea_prob if (epoch <= ea_epoch or ea_epoch < 0)else 0.0
 
-DEPOT_ENVS = {
-    "cvrp",
-    "cvrptw",
-    "cvrpmvc",
-    "sdvrp",
-    "mtsp",
-    "op",
-    "pctsp",
-    "spctsp",
-}
-
-
-def _infer_num_nodes(env: RL4COEnvBase) -> Optional[int]:
-    gen = getattr(env, "generator", None)
-    if gen is None:
-        return None
-    for attr in ("num_loc", "num_items"):
-        val = getattr(gen, attr, None)
-        if val is not None:
-            return int(val)
-    return None
-
-
-def _reshape_actions(actions: torch.Tensor, batch_size: int, n_traj: Optional[int]):
-    if actions is None or batch_size <= 0:
-        return None
-    if actions.dim() == 3:
-        return actions if actions.shape[0] == batch_size else None
-    if actions.dim() != 2:
-        return None
-    total = actions.shape[0]
-    if total % batch_size != 0:
-        return None
-    inferred = total // batch_size
-    n_traj = inferred if n_traj is None else inferred
-    return actions.view(batch_size, inferred, actions.shape[1])
-
-
-def _actions_to_numpy(actions: Optional[torch.Tensor], batch_size: int) -> Optional[np.ndarray]:
-    actions_b = _reshape_actions(actions, batch_size, None)
-    if actions_b is None:
-        return None
-    return actions_b.detach().cpu().numpy()
-
-
-def _edge_set(
-    seq: np.ndarray, close_tour: bool = False, ignore_zero: bool = False
-) -> set[tuple[int, int]]:
-    edges = set()
-    first = None
-    prev = None
-    for node in seq:
-        node = int(node)
-        if ignore_zero and node == 0:
-            prev = None
-            continue
-        if first is None:
-            first = node
-        if prev is not None and prev != node:
-            if prev < node:
-                edges.add((prev, node))
-            else:
-                edges.add((node, prev))
-        prev = node
-    if close_tour and first is not None and prev is not None and first != prev:
-        if first < prev:
-            edges.add((first, prev))
-        else:
-            edges.add((prev, first))
-    return edges
-
-
-def _average_pairwise(values: list[float]) -> float:
-    if not values:
-        return 0.0
-    return float(sum(values) / len(values))
-
-
-def _jaccard_distance(set_a: set, set_b: set) -> float:
-    union = set_a | set_b
-    if not union:
-        return 0.0
-    return 1.0 - (len(set_a & set_b) / len(union))
-
-
-def _edge_diversity(
-    actions_np: np.ndarray, close_tour: bool = False, ignore_zero: bool = False
-) -> float:
-    batch_size, n_traj, _ = actions_np.shape
-    per_batch = []
-    for b in range(batch_size):
-        if n_traj < 2:
-            continue
-        edge_sets = [
-            _edge_set(actions_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
-            for i in range(n_traj)
-        ]
-        total = 0.0
-        count = 0
-        for i in range(n_traj - 1):
-            for j in range(i + 1, n_traj):
-                total += _jaccard_distance(edge_sets[i], edge_sets[j])
-                count += 1
-        per_batch.append(total / count if count > 0 else 0.0)
-    return _average_pairwise(per_batch)
-
-
-def _edge_usage_diversity(
-    actions_np: np.ndarray, close_tour: bool = False, ignore_zero: bool = False
-) -> tuple[float, float]:
-    batch_size, n_traj, _ = actions_np.shape
-    per_batch_entropy = []
-    per_batch_simpson = []
-    for b in range(batch_size):
-        if n_traj < 2:
-            continue
-        edge_sets = [
-            _edge_set(actions_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
-            for i in range(n_traj)
-        ]
-        counts = {}
-        for edges in edge_sets:
-            for edge in edges:
-                counts[edge] = counts.get(edge, 0) + 1
-        total = sum(counts.values())
-        if total == 0 or len(counts) < 2:
-            per_batch_entropy.append(0.0)
-            per_batch_simpson.append(0.0)
-            continue
-        probs = np.fromiter((c / total for c in counts.values()), dtype=np.float64)
-        entropy = -float(np.sum(probs * np.log(probs)))
-        entropy /= float(np.log(probs.size))
-        simpson = 1.0 - float(np.sum(probs * probs))
-        simpson /= float(1.0 - 1.0 / probs.size)
-        per_batch_entropy.append(entropy)
-        per_batch_simpson.append(simpson)
-    return _average_pairwise(per_batch_entropy), _average_pairwise(per_batch_simpson)
-
-
-def _route_signature(seq: np.ndarray) -> set[frozenset[int]]:
-    routes = set()
-    current = []
-    for node in seq:
-        node = int(node)
-        if node == 0:
-            if current:
-                routes.add(frozenset(current))
-                current = []
-            continue
-        if node > 0:
-            current.append(node)
-    if current:
-        routes.add(frozenset(current))
-    return routes
-
-
-def _route_assignment_diversity(actions_np: np.ndarray) -> float:
-    batch_size, n_traj, _ = actions_np.shape
-    per_batch = []
-    for b in range(batch_size):
-        if n_traj < 2:
-            continue
-        route_sets = [_route_signature(actions_np[b, i]) for i in range(n_traj)]
-        total = 0.0
-        count = 0
-        for i in range(n_traj - 1):
-            for j in range(i + 1, n_traj):
-                total += _jaccard_distance(route_sets[i], route_sets[j])
-                count += 1
-        per_batch.append(total / count if count > 0 else 0.0)
-    return _average_pairwise(per_batch)
-
-
-def _edge_edit_diversity(
-    original_np: np.ndarray,
-    improved_np: np.ndarray,
-    close_tour: bool = False,
-    ignore_zero: bool = False,
-) -> float:
-    batch_size, n_orig, _ = original_np.shape
-    _, n_impr, _ = improved_np.shape
-    per_batch = []
-    for b in range(batch_size):
-        if n_orig < 1 or n_impr < 1:
-            continue
-        orig_sets = [
-            _edge_set(original_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
-            for i in range(n_orig)
-        ]
-        impr_sets = [
-            _edge_set(improved_np[b, i], close_tour=close_tour, ignore_zero=ignore_zero)
-            for i in range(n_impr)
-        ]
-        total = 0.0
-        count = 0
-        if n_orig == n_impr:
-            for i in range(n_orig):
-                total += _jaccard_distance(orig_sets[i], impr_sets[i])
-                count += 1
-        else:
-            for i in range(n_orig):
-                for j in range(n_impr):
-                    total += _jaccard_distance(orig_sets[i], impr_sets[j])
-                    count += 1
-        per_batch.append(total / count if count > 0 else 0.0)
-    return _average_pairwise(per_batch)
-
-
-def _rank_sequence(seq: np.ndarray, n_nodes: int, ignore_zero: bool) -> list[int]:
-    default_rank = n_nodes + 1
-    ranks = [default_rank] * n_nodes
-    for pos, node in enumerate(seq):
-        node = int(node)
-        if ignore_zero and node == 0:
-            continue
-        if ignore_zero:
-            if not (1 <= node <= n_nodes):
-                continue
-            idx = node - 1
-        else:
-            if not (0 <= node < n_nodes):
-                continue
-            idx = node
-        if ranks[idx] == default_rank:
-            ranks[idx] = pos
-    return ranks
-
-
-def _discordant_pairs(rank_a: list[int], rank_b: list[int]) -> tuple[int, int]:
-    n = len(rank_a)
-    discordant = 0
-    total_pairs = n * (n - 1) // 2
-    for i in range(n - 1):
-        ai = rank_a[i]
-        bi = rank_b[i]
-        for j in range(i + 1, n):
-            da = ai - rank_a[j]
-            db = bi - rank_b[j]
-            if da == 0 or db == 0:
-                continue
-            if da * db < 0:
-                discordant += 1
-    return discordant, total_pairs
-
-
-def _order_diversity(actions_np: np.ndarray, n_nodes: int, ignore_zero: bool) -> float:
-    batch_size, n_traj, _ = actions_np.shape
-    per_batch = []
-    for b in range(batch_size):
-        if n_traj < 2:
-            continue
-        ranks = [_rank_sequence(actions_np[b, i], n_nodes, ignore_zero) for i in range(n_traj)]
-        total = 0.0
-        count = 0
-        for i in range(n_traj - 1):
-            for j in range(i + 1, n_traj):
-                discordant, total_pairs = _discordant_pairs(ranks[i], ranks[j])
-                if total_pairs == 0:
-                    dist = 0.0
-                else:
-                    dist = discordant / total_pairs
-                total += dist
-                count += 1
-        per_batch.append(total / count if count > 0 else 0.0)
-    return _average_pairwise(per_batch)
-
-
-
-
-
-DEFAULT_GA_POP_SIZE = 50
-
-
-def _infer_ga_pop_size(
-    actions: Optional[torch.Tensor], batch_size: int, default_size: int = DEFAULT_GA_POP_SIZE
-) -> int:
-    actions_b = _reshape_actions(actions, batch_size, None)
-    if actions_b is not None and actions_b.shape[1] > 1:
-        return int(actions_b.shape[1])
-    return int(default_size)
 
 class EAM(REINFORCE):
     """
@@ -400,7 +109,6 @@ class EAM(REINFORCE):
         self.val_improve_prob = ea_kwargs.get("val_improve_prob", 1.0)
         self.val_num_generations = ea_kwargs.get("val_num_generations")
         self._ga_num_generations = ea_kwargs.get("num_generations", 1)
-        self._ga_diag_counter = 0
 
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
@@ -439,47 +147,34 @@ class EAM(REINFORCE):
         if phase == "train":
             original_out = None
             improved_out = None
-            t_decode = 0.0
-            t_ga = 0.0
-            t_diag = 0.0
             
             def run_original_policy():
-                nonlocal t_decode
-                t0 = time.perf_counter()
                 if self.baseline_str == "rollout":
                     result = self.policy(td, self.env, phase=phase, num_starts=1, return_entropy=True)
                 else:
                     result = self.policy(td, self.env, phase=phase, num_starts=n_start, return_entropy=True)
-                t_decode += time.perf_counter() - t0
                 return result
             
             def run_improved_policy(original_actions, td):
-                nonlocal t_decode, t_ga
-                
                 if np.random.random() > self.improve_prob:
                     return None
                 
                 device = next(self.policy.parameters()).device
                 improved_actions = None
-                population_actions = None
                 
                 if hasattr(self, "ea"):
-                    t0 = time.perf_counter()
-                    improved_actions, _, population_actions = evolution_worker(
+                    improved_actions, _ = evolution_worker(
                         original_actions,
                         td,
                         self.ea,
                         self.env,
-                        return_population=True,
                     )
-                    t_ga += time.perf_counter() - t0
                 
                 if improved_actions is not None:
                     improved_actions = improved_actions.to(device=device)
                     improved_actions = self._align_improved_actions(
                         improved_actions, original_actions
                     )
-                    t0 = time.perf_counter()
                     if self.baseline_str == "rollout":
                         result = self.policy(
                             td, 
@@ -501,10 +196,6 @@ class EAM(REINFORCE):
                         if result["actions"].shape[1] < original_actions.shape[1]:
                             padding_size = original_actions.shape[1] - result["actions"].shape[1]
                             result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
-                    t_decode += time.perf_counter() - t0
-
-                    if population_actions is not None:
-                        result.update({"population_actions": population_actions})
 
                     return result
                     
@@ -512,75 +203,6 @@ class EAM(REINFORCE):
             
             original_out = run_original_policy()
             improved_out = run_improved_policy(original_out["actions"], init_td)
-
-            ga_used = improved_out is not None
-            compute_diag = False
-            if ga_used:
-                self._ga_diag_counter += 1
-                compute_diag = self._ga_diag_counter % 10 == 0
-
-            delta_nll = None
-            ga_cost_gain = None
-            ga_cost_gain_rel = None
-            edge_div = None
-            edge_entropy = None
-            edge_simpson = None
-            route_div = None
-            edit_edge_div = None
-            actions = None
-            if ga_used:
-                actions = improved_out.get("actions", None)
-                pop_actions = improved_out.get("population_actions", None)
-                pop_size = _infer_ga_pop_size(
-                    pop_actions if pop_actions is not None else actions, td.batch_size[0]
-                )
-                mean_base = original_out["reward"].mean()
-                mean_improved = improved_out["reward"].mean()
-                ga_cost_gain = (mean_improved - mean_base) * pop_size
-                denom = mean_base.abs() * pop_size + 1e-8
-                ga_cost_gain_rel = ga_cost_gain / denom
-            if ga_used and compute_diag:
-                t0 = time.perf_counter()
-                with torch.no_grad():
-                    delta_nll = (
-                        (-improved_out["log_likelihood"]).mean()
-                        - (-original_out["log_likelihood"]).mean()
-                    )
-                    close_tour = self.env.name == "tsp"
-                    ignore_zero = self.env.name in DEPOT_ENVS
-                    edge_div = 0.0
-                    edge_entropy = 0.0
-                    edge_simpson = 0.0
-                    route_div = 0.0
-                    edit_edge_div = 0.0
-                    div_actions = actions
-                    pop_actions = improved_out.get("population_actions", None)
-                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
-                    pop_actions_b = _reshape_actions(pop_actions, td.batch_size[0], None)
-                    if pop_actions_b is not None and (
-                        actions_b is None or actions_b.shape[1] < pop_actions_b.shape[1]
-                    ):
-                        div_actions = pop_actions
-                    actions_np = _actions_to_numpy(div_actions, td.batch_size[0])
-                    if actions_np is not None:
-                        edge_div = _edge_diversity(
-                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
-                        )
-                        edge_entropy, edge_simpson = _edge_usage_diversity(
-                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
-                        )
-                        if ignore_zero:
-                            route_div = _route_assignment_diversity(actions_np)
-                    original_np = _actions_to_numpy(original_out.get("actions", None), td.batch_size[0])
-                    improved_np = _actions_to_numpy(actions, td.batch_size[0])
-                    if original_np is not None and improved_np is not None:
-                        edit_edge_div = _edge_edit_diversity(
-                            original_np,
-                            improved_np,
-                            close_tour=close_tour,
-                            ignore_zero=ignore_zero,
-                        )
-                t_diag += time.perf_counter() - t0
 
             if self.baseline_str == "rollout":
                 # using am as baseline
@@ -591,7 +213,6 @@ class EAM(REINFORCE):
                 original_reward = unbatchify(original_out["reward"], (n_aug, n_start))
                 original_log_likelihood = unbatchify(original_out["log_likelihood"], (n_aug, n_start))
             self.calculate_loss(td, batch, original_out, original_reward, original_log_likelihood)
-            original_loss = original_out["loss"]
             
             if improved_out is not None:
                 if self.baseline_str == "rollout":
@@ -623,32 +244,6 @@ class EAM(REINFORCE):
                 })
             else:
                 out = original_out
-
-            out.update(
-                {
-                    "t_decode": torch.tensor(t_decode, device=td.device),
-                    "t_ga": torch.tensor(t_ga, device=td.device),
-                    "t_diag": torch.tensor(t_diag, device=td.device),
-                }
-            )
-            if ga_used and ga_cost_gain is not None:
-                out.update(
-                    {
-                        "ga_cost_gain": ga_cost_gain.detach(),
-                        "ga_cost_gain_rel": ga_cost_gain_rel.detach(),
-                    }
-                )
-            if ga_used and compute_diag and delta_nll is not None:
-                out.update(
-                    {
-                        "delta_nll": delta_nll.detach(),
-                        "diversity_edge": torch.tensor(edge_div, device=td.device),
-                        "diversity_edge_entropy": torch.tensor(edge_entropy, device=td.device),
-                        "diversity_edge_simpson": torch.tensor(edge_simpson, device=td.device),
-                        "diversity_route": torch.tensor(route_div, device=td.device),
-                        "diversity_edit_edge": torch.tensor(edit_edge_div, device=td.device),
-                    }
-                )
             
         else:
             if self.baseline_str == "rollout":
@@ -800,47 +395,13 @@ class EAM(REINFORCE):
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
 
-    def on_train_batch_start(self, batch, batch_idx):
-        self._t_total_start = time.perf_counter()
-        self._t_update_start = None
-
-    def on_before_backward(self, loss):
-        if self._t_update_start is None:
-            self._t_update_start = time.perf_counter()
-
-    def on_after_optimizer_step(self, optimizer):
-        if self._t_update_start is not None:
-            t_update = time.perf_counter() - self._t_update_start
-            self.log("train/t_update", t_update, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
-            self._t_update_start = None
-
-    def on_train_batch_end(self, outputs, batch, batch_idx):
-        if getattr(self, "_t_total_start", None) is not None:
-            t_total = time.perf_counter() - self._t_total_start
-            self.log("train/t_total_raw", t_total, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
-    
     def instantiate_metrics(self, metrics: dict):
         """Dictionary of metrics to be logged at each phase"""
         if not metrics:
             log.info("No metrics specified, using default")
-        self.train_metrics = metrics.get("train", ["loss", 
-                                                   "reward", 
-                                                   "max_reward",
-                                                   "alpha",
-                                                   "rate_mean",
-                                                   "rate_std",
-                                                   "entropy",
-                                                   "delta_nll",
-                                                   "diversity_edge",
-                                                   "diversity_edge_entropy",
-                                                   "diversity_edge_simpson",
-                                                   "diversity_route",
-                                                   "diversity_edit_edge",
-                                                   "ga_cost_gain",
-                                                   "ga_cost_gain_rel",
-                                                   "t_decode",
-                                                   "t_ga",
-                                                   "t_diag"])
+        self.train_metrics = metrics.get(
+            "train", ["loss", "reward", "max_reward", "alpha", "rate_mean", "rate_std", "entropy"]
+        )
         self.val_metrics = metrics.get("val", ["reward", "max_reward", "max_aug_reward"])
         self.test_metrics = metrics.get("test", ["reward", "max_reward", "max_aug_reward"])
         self.log_on_step = metrics.get("log_on_step", True)
@@ -969,7 +530,6 @@ class SymEAM(REINFORCE):
         self.ea_prob = ea_kwargs.get("ea_prob")
         self.ea_epoch = ea_kwargs.get("ea_epoch")
         self.ea = EA(env, ea_kwargs)
-        self._ga_diag_counter = 0
         
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
@@ -991,23 +551,16 @@ class SymEAM(REINFORCE):
             
             original_out = None
             improved_out = None
-            t_decode = 0.0
-            t_ga = 0.0
-            t_diag = 0.0
             
             def run_original_policy():
-                nonlocal t_decode
-                t0 = time.perf_counter()
                 result = self.policy(td,
                                      self.env,
                                      phase=phase,
                                      num_starts=n_start,
                                      return_entropy=True)
-                t_decode += time.perf_counter() - t0
                 return result
             
             def run_improved_policy(original_actions):
-                nonlocal t_decode, t_ga
                 td = init_td
                 
                 if np.random.random() > self.improve_prob:
@@ -1015,20 +568,15 @@ class SymEAM(REINFORCE):
                 
                 device = next(self.policy.parameters()).device
                 improved_actions = None
-                population_actions = None
                 
-                t0 = time.perf_counter()
-                improved_actions, _, population_actions = evolution_worker(
+                improved_actions, _ = evolution_worker(
                     original_actions,
                     td,
                     self.ea,
                     self.env,
-                    return_population=True,
                 )
-                t_ga += time.perf_counter() - t0
                 
                 if improved_actions is not None:
-                    t0 = time.perf_counter()
                     result = self.policy(td, 
                                          self.env, 
                                          phase=phase, 
@@ -1039,10 +587,6 @@ class SymEAM(REINFORCE):
                     if result["actions"].shape[1] < original_actions.shape[1]:
                         padding_size = original_actions.shape[1] - result["actions"].shape[1]
                         result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
-                    t_decode += time.perf_counter() - t0
-
-                    if population_actions is not None:
-                        result.update({"population_actions": population_actions})
                 
                     return result
                 
@@ -1050,74 +594,6 @@ class SymEAM(REINFORCE):
             
             original_out = run_original_policy()
             improved_out = run_improved_policy(original_out["actions"])
-            ga_used = improved_out is not None
-            compute_diag = False
-            if ga_used:
-                self._ga_diag_counter += 1
-                compute_diag = self._ga_diag_counter % 10 == 0
-
-            delta_nll = None
-            ga_cost_gain = None
-            ga_cost_gain_rel = None
-            edge_div = None
-            edge_entropy = None
-            edge_simpson = None
-            route_div = None
-            edit_edge_div = None
-            if ga_used:
-                actions = improved_out.get("actions", None)
-                pop_actions = improved_out.get("population_actions", None)
-                pop_size = _infer_ga_pop_size(
-                    pop_actions if pop_actions is not None else actions, td.batch_size[0]
-                )
-                mean_base = original_out["reward"].mean()
-                mean_improved = improved_out["reward"].mean()
-                ga_cost_gain = (mean_improved - mean_base) * pop_size
-                denom = mean_base.abs() * pop_size + 1e-8
-                ga_cost_gain_rel = ga_cost_gain / denom
-            if ga_used and compute_diag:
-                t0 = time.perf_counter()
-                with torch.no_grad():
-                    delta_nll = (
-                        (-improved_out["log_likelihood"]).mean()
-                        - (-original_out["log_likelihood"]).mean()
-                    )
-                    actions = improved_out.get("actions", None)
-                    close_tour = self.env.name == "tsp"
-                    ignore_zero = self.env.name in DEPOT_ENVS
-                    edge_div = 0.0
-                    edge_entropy = 0.0
-                    edge_simpson = 0.0
-                    route_div = 0.0
-                    edit_edge_div = 0.0
-                    div_actions = actions
-                    pop_actions = improved_out.get("population_actions", None)
-                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
-                    pop_actions_b = _reshape_actions(pop_actions, td.batch_size[0], None)
-                    if pop_actions_b is not None and (
-                        actions_b is None or actions_b.shape[1] < pop_actions_b.shape[1]
-                    ):
-                        div_actions = pop_actions
-                    actions_np = _actions_to_numpy(div_actions, td.batch_size[0])
-                    if actions_np is not None:
-                        edge_div = _edge_diversity(
-                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
-                        )
-                        edge_entropy, edge_simpson = _edge_usage_diversity(
-                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
-                        )
-                        if ignore_zero:
-                            route_div = _route_assignment_diversity(actions_np)
-                    original_np = _actions_to_numpy(original_out.get("actions", None), td.batch_size[0])
-                    improved_np = _actions_to_numpy(actions, td.batch_size[0])
-                    if original_np is not None and improved_np is not None:
-                        edit_edge_div = _edge_edit_diversity(
-                            original_np,
-                            improved_np,
-                            close_tour=close_tour,
-                            ignore_zero=ignore_zero,
-                        )
-                t_diag += time.perf_counter() - t0
             
             out = original_out
             
@@ -1172,31 +648,6 @@ class SymEAM(REINFORCE):
                     }
                 )
 
-            out.update(
-                {
-                    "t_decode": torch.tensor(t_decode, device=td.device),
-                    "t_ga": torch.tensor(t_ga, device=td.device),
-                    "t_diag": torch.tensor(t_diag, device=td.device),
-                }
-            )
-            if ga_used and ga_cost_gain is not None:
-                out.update(
-                    {
-                        "ga_cost_gain": ga_cost_gain.detach(),
-                        "ga_cost_gain_rel": ga_cost_gain_rel.detach(),
-                    }
-                )
-            if ga_used and compute_diag and delta_nll is not None:
-                out.update(
-                    {
-                        "delta_nll": delta_nll.detach(),
-                        "diversity_edge": torch.tensor(edge_div, device=td.device),
-                        "diversity_edge_entropy": torch.tensor(edge_entropy, device=td.device),
-                        "diversity_edge_simpson": torch.tensor(edge_simpson, device=td.device),
-                        "diversity_route": torch.tensor(route_div, device=td.device),
-                        "diversity_edit_edge": torch.tensor(edit_edge_div, device=td.device),
-                    }
-                )
         else:
             out = self.policy(td, self.env, phase=phase, num_starts=n_start)
             
@@ -1233,51 +684,13 @@ class SymEAM(REINFORCE):
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
 
-    def on_train_batch_start(self, batch, batch_idx):
-        self._t_total_start = time.perf_counter()
-        self._t_update_start = None
-
-    def on_before_backward(self, loss):
-        if self._t_update_start is None:
-            self._t_update_start = time.perf_counter()
-
-    def on_after_optimizer_step(self, optimizer):
-        if self._t_update_start is not None:
-            t_update = time.perf_counter() - self._t_update_start
-            self.log("train/t_update", t_update, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
-            self._t_update_start = None
-
-    def on_train_batch_end(self, outputs, batch, batch_idx):
-        if getattr(self, "_t_total_start", None) is not None:
-            t_total = time.perf_counter() - self._t_total_start
-            self.log("train/t_total_raw", t_total, on_step=True, on_epoch=False, prog_bar=False, sync_dist=True)
-
     def instantiate_metrics(self, metrics: dict):
         """Dictionary of metrics to be logged at each phase"""
         if not metrics:
             log.info("No metrics specified, using default")
         self.train_metrics = metrics.get(
             "train",
-            [
-                "loss",
-                "reward",
-                "max_reward",
-                "alpha",
-                "rate_mean",
-                "rate_std",
-                "entropy",
-                "delta_nll",
-                "diversity_edge",
-                "diversity_edge_entropy",
-                "diversity_edge_simpson",
-                "diversity_route",
-                "diversity_edit_edge",
-                "ga_cost_gain",
-                "ga_cost_gain_rel",
-                "t_decode",
-                "t_ga",
-                "t_diag",
-            ],
+            ["loss", "reward", "max_reward", "alpha", "rate_mean", "rate_std", "entropy"],
         )
         self.val_metrics = metrics.get("val", ["reward", "max_reward", "max_aug_reward"])
         self.test_metrics = metrics.get("test", ["reward", "max_reward", "max_aug_reward"])
