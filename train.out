@@ -1,0 +1,415 @@
+[2026-02-16 06:33:50,494][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 06:33:50,497][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 06:33:50,535][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 06:33:54,320][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 06:33:54,383][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-16 06:33:54,402][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 06:33:54,403][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 06:33:54,403][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 06:33:54,406][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 06:33:54,406][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-16 06:33:54,407][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 06:33:54,408][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 06:33:54,408][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 06:33:54,412][rl4co.utils.trainer][INFO] - Configuring DDP strategy automatically with 6 GPUs
+[2026-02-16 06:33:54,418][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 06:34:02,819][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 06:34:02,819][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 06:34:02,825][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp/tsp20_val_seed4321.npz
+[2026-02-16 06:34:02,844][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp/tsp50_val_seed4321.npz
+[2026-02-16 06:34:02,888][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 06:34:02,968][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp/vrp100_val_seed4321.npz
+[2026-02-16 06:34:03,073][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp/pctsp100_val_seed4321.npz
+[2026-02-16 06:34:03,129][rl4co.data.generate_data][INFO] - Saving op dataset to data/op/op_unif20_val_seed4321.npz
+[2026-02-16 06:34:03,156][rl4co.data.generate_data][INFO] - Saving op dataset to data/op/op_unif50_val_seed4321.npz
+[2026-02-16 06:34:03,212][rl4co.data.generate_data][INFO] - Saving op dataset to data/op/op_unif100_val_seed4321.npz
+[2026-02-16 06:34:03,308][rl4co.data.generate_data][INFO] - Saving op dataset to data/op/op_dist100_val_seed4321.npz
+[2026-02-16 06:34:03,367][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp/pdp100_val_seed4321.npz
+[2026-02-16 06:34:03,850][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp/atsp20_val_seed4321.npz
+[2026-02-16 06:34:11,458][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp/atsp50_val_seed4321.npz
+[2026-02-16 06:38:40,132][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 06:38:40,135][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 06:38:40,171][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 06:38:43,988][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 06:38:44,037][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-16 06:38:44,058][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 06:38:44,058][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 06:38:44,059][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 06:38:44,062][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 06:38:44,062][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-16 06:38:44,063][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 06:38:44,064][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 06:38:44,064][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 06:38:44,074][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 06:38:44,246][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 06:38:44,247][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 06:39:41,044][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp/atsp100_test_seed1234.npz
+[2026-02-16 06:39:41,376][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-16 06:39:42,033][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 06:39:42,067][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-02-16 06:39:42,198][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-16 06:39:42,198][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-02-16 06:47:05,787][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 07:11:15,150][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 07:11:15,153][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 07:11:15,190][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 07:11:19,018][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 07:11:19,067][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-16 07:11:19,088][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 07:11:19,088][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 07:11:19,088][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 07:11:19,092][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 07:11:19,092][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-02-16 07:11:19,093][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 07:11:19,093][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 07:11:19,093][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-02-16 07:11:19,095][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 07:11:19,100][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/hydra/_internal/instantiate/_instantiate2.py", line 92, in _call_target
+    return _target_(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 109, in __init__
+    super().__init__(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/argparse.py", line 70, in insert_env_defaults
+    return fn(self, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 426, in __init__
+    self._callback_connector.on_trainer_init(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/callback_connector.py", line 74, in on_trainer_init
+    self._configure_progress_bar(enable_progress_bar)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/callback_connector.py", line 134, in _configure_progress_bar
+    raise MisconfigurationException(
+lightning.fabric.utilities.exceptions.MisconfigurationException: Trainer was configured with `enable_progress_bar=False` but found `RichProgressBar` in callbacks list.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 53, in run
+    trainer: RL4COTrainer = hydra.utils.instantiate(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/hydra/_internal/instantiate/_instantiate2.py", line 226, in instantiate
+    return instantiate_node(
+           ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/hydra/_internal/instantiate/_instantiate2.py", line 347, in instantiate_node
+    return _call_target(_target_, partial, args, kwargs, full_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/hydra/_internal/instantiate/_instantiate2.py", line 97, in _call_target
+    raise InstantiationException(msg) from e
+hydra.errors.InstantiationException: Error in call to target 'rl4co.utils.trainer.RL4COTrainer':
+MisconfigurationException('Trainer was configured with `enable_progress_bar=False` but found `RichProgressBar` in callbacks list.')
+full_key: trainer
+[2026-02-16 07:11:19,103][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_07-11-15
+[2026-02-16 07:11:19,103][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-16 07:14:54,946][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 07:14:54,950][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 07:14:54,987][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 07:14:58,777][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 07:14:58,824][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-16 07:14:58,845][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 07:14:58,845][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 07:14:58,845][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 07:14:58,848][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 07:14:58,849][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 07:14:58,850][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 07:14:58,850][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-02-16 07:14:58,851][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 07:14:58,861][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-16 07:14:58,862][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 07:14:58,934][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 07:14:58,934][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 07:14:58,935][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-16 07:14:59,751][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 07:14:59,802][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-02-16 07:14:59,966][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-16 07:14:59,967][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-02-16 07:22:26,100][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 07:29:49,130][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 07:37:12,370][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 07:44:34,052][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 07:51:56,471][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 08:03:56,342][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 08:03:56,345][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 08:03:56,382][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 08:04:00,101][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 08:04:00,152][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-02-16 08:04:00,172][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 08:04:00,173][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 08:04:00,173][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 08:04:00,176][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 08:04:00,177][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 08:04:00,177][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 08:04:00,178][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-02-16 08:04:00,179][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 08:04:00,188][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-16 08:04:00,190][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 08:04:00,274][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 08:04:00,275][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 08:04:00,275][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-16 08:04:00,864][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 08:04:00,897][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-02-16 08:04:01,043][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-16 08:04:01,044][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-02-16 08:11:49,293][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 08:19:17,312][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-02-16 08:19:33,761][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 08:19:33,764][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 08:19:33,800][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 08:19:37,669][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 08:19:37,737][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 08:19:37,737][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 08:19:37,737][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 08:19:37,741][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 08:19:37,741][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 08:19:37,742][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 08:19:37,742][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-02-16 08:19:37,744][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 08:19:37,747][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-02-16 08:19:37,754][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-16 08:19:37,755][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 08:19:37,826][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 08:19:37,826][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 08:19:37,826][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-16 08:19:38,619][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 08:19:38,670][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-02-16 08:19:38,879][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-16 08:19:38,880][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-02-16 08:19:39,172][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 146, in fit
+    super().fit(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 982, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1024, in _run_stage
+    self._run_sanity_check()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_sanity_check
+    val_loop.run()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 144, in run
+    self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 433, in _evaluation_step
+    output = call._call_strategy_hook(trainer, hook_name, *step_args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 323, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+    return self.lightning_module.validation_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/rl/common/base.py", line 261, in validation_step
+    return self.shared_step(
+           ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/model.py", line 150, in shared_step
+    out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 331, in forward
+    encoded_first_node = _get_encoding(encoded_nodes, td["current_node"])
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 20, in _get_encoding
+    picked_nodes = encoded_nodes.gather(dim=1, index=gathering_index)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Index tensor must have the same number of dimensions as input tensor
+[2026-02-16 08:19:39,178][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-19-33
+[2026-02-16 08:19:39,178][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-16 08:25:53,700][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 08:25:53,703][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 08:25:53,738][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 08:25:57,556][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 08:25:57,627][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 08:25:57,627][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 08:25:57,627][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 08:25:57,631][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 08:25:57,632][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 08:25:57,632][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 08:25:57,633][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-02-16 08:25:57,635][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 08:25:57,638][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-02-16 08:25:57,644][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-16 08:25:57,646][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 08:25:57,718][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 08:25:57,719][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 08:25:57,719][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-16 08:25:58,396][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 08:25:58,429][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-02-16 08:25:58,630][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-16 08:25:58,630][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-02-16 08:25:58,891][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 146, in fit
+    super().fit(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 982, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1024, in _run_stage
+    self._run_sanity_check()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_sanity_check
+    val_loop.run()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 144, in run
+    self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 433, in _evaluation_step
+    output = call._call_strategy_hook(trainer, hook_name, *step_args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 323, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+    return self.lightning_module.validation_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/rl/common/base.py", line 261, in validation_step
+    return self.shared_step(
+           ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/model.py", line 150, in shared_step
+    out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 331, in forward
+    encoded_first_node = _get_encoding(encoded_nodes, td["current_node"])
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 20, in _get_encoding
+    picked_nodes = encoded_nodes.gather(dim=1, index=gathering_index)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Index tensor must have the same number of dimensions as input tensor
+[2026-02-16 08:25:58,898][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-25-53
+[2026-02-16 08:25:58,899][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-02-16 08:37:33,360][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-02-16 08:37:33,363][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-02-16 08:37:33,398][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-02-16 08:37:37,114][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-02-16 08:37:37,185][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-02-16 08:37:37,185][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-02-16 08:37:37,185][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-02-16 08:37:37,189][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-02-16 08:37:37,189][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-02-16 08:37:37,190][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-02-16 08:37:37,190][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-02-16 08:37:37,192][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-02-16 08:37:37,196][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-02-16 08:37:37,202][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-02-16 08:37:37,204][rl4co.tasks.train][INFO] - Starting training!
+[2026-02-16 08:37:37,278][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-02-16 08:37:37,278][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-02-16 08:37:37,278][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-02-16 08:37:37,866][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-02-16 08:37:37,897][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-02-16 08:37:38,140][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-02-16 08:37:38,141][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-02-16 08:37:38,391][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 146, in fit
+    super().fit(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 982, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1024, in _run_stage
+    self._run_sanity_check()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_sanity_check
+    val_loop.run()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 144, in run
+    self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 433, in _evaluation_step
+    output = call._call_strategy_hook(trainer, hook_name, *step_args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 323, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+    return self.lightning_module.validation_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/rl/common/base.py", line 261, in validation_step
+    return self.shared_step(
+           ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/model.py", line 150, in shared_step
+    out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 360, in forward
+    probs = self.decoder(encoded_last_node, ninf_mask)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 258, in forward
+    out = layer(out, ninf_mask)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 192, in forward
+    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 49, in _multi_head_attention
+    score = torch.matmul(q, k.transpose(2, 3))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: The size of tensor a (51200) must match the size of tensor b (512) at non-singleton dimension 0
+[2026-02-16 08:37:38,394][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-33
+[2026-02-16 08:37:38,394][rl4co.utils.utils][INFO] - Closing loggers...
