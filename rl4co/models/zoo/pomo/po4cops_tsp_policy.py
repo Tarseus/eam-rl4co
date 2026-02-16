@@ -325,7 +325,8 @@ class PO4COPsTSPPolicy(nn.Module):
         if num_starts is None or num_starts <= 0:
             num_starts = env.get_num_starts(td)
 
-        self.pre_forward(td)
+        # Encode once on the original batch.
+        self.encoded_nodes = self.encoder(td["locs"])
         td = td.clone()
 
         first_action = select_start_nodes(td, env, num_starts)
@@ -334,6 +335,8 @@ class PO4COPsTSPPolicy(nn.Module):
         td = env.step(td)["next"]
 
         encoded_nodes = batchify(self.encoded_nodes, num_starts)
+        # IMPORTANT: kv must match multistart-expanded batch dimension.
+        self.decoder.set_kv(encoded_nodes)
         encoded_first_node = _get_encoding(encoded_nodes, td["current_node"])
         self.decoder.set_q1(encoded_first_node)
 
