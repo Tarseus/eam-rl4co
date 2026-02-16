@@ -6,7 +6,7 @@ import torch.nn.functional as F
 
 from tensordict import TensorDict
 
-from rl4co.utils.ops import batchify, select_start_nodes
+from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
 
 
 def _get_encoding(encoded_nodes: torch.Tensor, node_index_to_pick: torch.Tensor) -> torch.Tensor:
@@ -325,19 +325,22 @@ class PO4COPsTSPPolicy(nn.Module):
         if num_starts is None or num_starts <= 0:
             num_starts = env.get_num_starts(td)
 
-        # Encode once on the original batch.
-        self.encoded_nodes = self.encoder(td["locs"])
-        td = td.clone()
+        td_base = td.clone()
+        base_batch = td_base.shape[0]
 
-        first_action = select_start_nodes(td, env, num_starts)
-        td = batchify(td, num_starts)
-        td.set("action", first_action)
-        td = env.step(td)["next"]
-
-        encoded_nodes = batchify(self.encoded_nodes, num_starts)
-        # IMPORTANT: kv must match multistart-expanded batch dimension.
+        # Match PO4COPs: k/v are computed once from the base batch [B, N, E]
+        encoded_nodes = self.encoder(td_base["locs"])
         self.decoder.set_kv(encoded_nodes)
-        encoded_first_node = _get_encoding(encoded_nodes, td["current_node"])
+
+        # Environment rollout still uses flattened multistart batch [B*S, ...]
+        td_flat = batchify(td_base, num_starts)
+        first_action_flat = select_start_nodes(td_base, env, num_starts)
+        td_flat.set("action", first_action_flat)
+        td_flat = env.step(td_flat)["next"]
+
+        first_action = unbatchify(first_action_flat, num_starts)
+        current_node = unbatchify(td_flat["current_node"], num_starts)
+        encoded_first_node = _get_encoding(encoded_nodes, current_node)
         self.decoder.set_q1(encoded_first_node)
 
         actions = [first_action]
@@ -350,16 +353,17 @@ class PO4COPsTSPPolicy(nn.Module):
             decode_type == "softmax"
         )
 
-        done = td["done"]
+        done = td_flat["done"]
         while not done.all():
-            encoded_last_node = _get_encoding(encoded_nodes, td["current_node"])
+            current_node = unbatchify(td_flat["current_node"], num_starts)
+            encoded_last_node = _get_encoding(encoded_nodes, current_node)
+
+            action_mask = unbatchify(td_flat["action_mask"], num_starts)
             ninf_mask = torch.where(
-                td["action_mask"],
-                torch.zeros_like(td["action_mask"], dtype=encoded_nodes.dtype),
+                action_mask,
+                torch.zeros_like(action_mask, dtype=encoded_nodes.dtype),
                 float("-inf"),
             )
-            if ninf_mask.dim() == 2:
-                ninf_mask = ninf_mask[:, None, :]
             probs = self.decoder(encoded_last_node, ninf_mask)
 
             if use_sampling:
@@ -369,21 +373,22 @@ class PO4COPsTSPPolicy(nn.Module):
                 selected = probs.argmax(dim=2)
 
             prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1).clamp_min(1e-12)
-            if prob.dim() == 2 and prob.size(1) == 1:
-                prob = prob.squeeze(1)
-            action = selected.squeeze(1) if selected.dim() == 2 and selected.size(1) == 1 else selected
             log_probs.append(prob.log())
-            actions.append(action)
+            actions.append(selected)
 
-            td.set("action", action)
-            td = env.step(td)["next"]
-            done = td["done"]
+            selected_flat = selected.transpose(0, 1).reshape(-1)
+            td_flat.set("action", selected_flat)
+            td_flat = env.step(td_flat)["next"]
+            done = td_flat["done"]
 
-        actions = torch.stack(actions, dim=1)
-        log_likelihood = torch.stack(log_probs, dim=1).sum(dim=1)
-        reward = env.get_reward(td, actions)
+        actions_3d = torch.stack(actions, dim=2)  # [B, S, T]
+        log_likelihood_2d = torch.stack(log_probs, dim=2).sum(dim=2)  # [B, S]
+
+        actions_flat = actions_3d.permute(1, 0, 2).reshape(base_batch * num_starts, -1)
+        log_likelihood = log_likelihood_2d.transpose(0, 1).reshape(-1)
+        reward = env.get_reward(td_flat, actions_flat)
 
         out = {"reward": reward, "log_likelihood": log_likelihood}
         if return_actions:
-            out["actions"] = actions
+            out["actions"] = actions_flat
         return out
