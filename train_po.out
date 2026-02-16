@@ -1,0 +1,405 @@
+[[36m2026-02-16 08:37:33,360[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Enforcing tags! <cfg.extras.enforce_tags=True>[0m
+[[36m2026-02-16 08:37:33,363[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Printing config tree with Rich! <cfg.extras.print_config=True>[0m
+CONFIG
+├── model
+│   └── generate_default_data: true                                             
+│       metrics:                                                                
+│         train:                                                                
+│         - loss                                                                
+│         - reward                                                              
+│         - po_loss                                                             
+│         - pl_loss                                                             
+│         - po_pref_rate                                                        
+│         val:                                                                  
+│         - reward                                                              
+│         - max_reward                                                          
+│         - max_aug_reward                                                      
+│         test:                                                                 
+│         - reward                                                              
+│         - max_reward                                                          
+│         - max_aug_reward                                                      
+│         log_on_step: true                                                     
+│       _target_: rl4co.models.POMO                                             
+│       num_augment: 8                                                          
+│       loss_type: po_loss                                                      
+│       alpha: 0.05                                                             
+│       pl_impl: stable                                                         
+│       loss_kwargs: {}                                                         
+│       free_loss_ir_json_path: null                                            
+│       num_starts: 100                                                         
+│       batch_size: 64                                                          
+│       train_data_size: 100000                                                 
+│       val_data_size: 10000                                                    
+│       test_data_size: 10000                                                   
+│       optimizer: Adam                                                         
+│       optimizer_kwargs:                                                       
+│         lr: 0.0003                                                            
+│         weight_decay: 1.0e-06                                                 
+│       lr_scheduler: MultiStepLR                                               
+│       lr_scheduler_kwargs:                                                    
+│         milestones:                                                           
+│         - 3001                                                                
+│         gamma: 0.2                                                            
+│       policy_kwargs:                                                          
+│         po4cops_compat: true                                                  
+│         embed_dim: 128                                                        
+│         num_encoder_layers: 6                                                 
+│         decoder_layer_num: 1                                                  
+│         qkv_dim: 16                                                           
+│         num_heads: 8                                                          
+│         feedforward_hidden: 512                                               
+│         tanh_clipping: 50                                                     
+│         eval_type: argmax                                                     
+│         val_decode_type: greedy                                               
+│         test_decode_type: greedy                                              
+│                                                                               
+├── callbacks
+│   └── model_checkpoint:                                                       
+│         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
+│         dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-3
+│         filename: epoch_{epoch:03d}                                           
+│         monitor: val/reward                                                   
+│         verbose: false                                                        
+│         save_last: true                                                       
+│         save_top_k: 1                                                         
+│         mode: max                                                             
+│         auto_insert_metric_name: false                                        
+│         save_weights_only: false                                              
+│         every_n_train_steps: null                                             
+│         train_time_interval: null                                             
+│         every_n_epochs: null                                                  
+│         save_on_train_epoch_end: null                                         
+│       model_summary:                                                          
+│         _target_: lightning.pytorch.callbacks.RichModelSummary                
+│         max_depth: 5                                                          
+│       speed_monitor:                                                          
+│         _target_: rl4co.utils.callbacks.speed_monitor.SpeedMonitor            
+│         intra_step_time: true                                                 
+│         inter_step_time: true                                                 
+│         epoch_time: true                                                      
+│                                                                               
+├── logger
+│   └── csv:                                                                    
+│         _target_: lightning.pytorch.loggers.csv_logs.CSVLogger                
+│         save_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-
+│         name: csv/                                                            
+│         prefix: ''                                                            
+│                                                                               
+├── trainer
+│   └── _target_: rl4co.utils.trainer.RL4COTrainer                              
+│       default_root_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_
+│       gradient_clip_val: null                                                 
+│       accelerator: gpu                                                        
+│       precision: 32-true                                                      
+│       check_val_every_n_epoch: 1                                              
+│       deterministic: false                                                    
+│       max_epochs: 2010                                                        
+│       devices: 1                                                              
+│       strategy: auto                                                          
+│       accumulate_grad_batches: 1                                              
+│       enable_progress_bar: false                                              
+│       log_every_n_steps: 50                                                   
+│                                                                               
+├── paths
+│   └── root_dir: /data1/gushengda/eam-rl4co                                    
+│       data_dir: /data1/gushengda/eam-rl4co/data                               
+│       log_dir: /data1/gushengda/eam-rl4co/logs                                
+│       output_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-
+│       work_dir: /data1/gushengda/eam-rl4co                                    
+│                                                                               
+├── extras
+│   └── ignore_warnings: false                                                  
+│       enforce_tags: true                                                      
+│       print_config: true                                                      
+│                                                                               
+├── mode
+│   └── train                                                                   
+├── tags
+│   └── ['dev']                                                                 
+├── train
+│   └── True                                                                    
+├── test
+│   └── True                                                                    
+├── compile
+│   └── False                                                                   
+├── ckpt_path
+│   └── None                                                                    
+├── seed
+│   └── 1234                                                                    
+├── matmul_precision
+│   └── medium                                                                  
+└── env
+    └── _target_: rl4co.envs.TSPEnv                                             
+        name: tsp                                                               
+        generator_params:                                                       
+          num_loc: 100                                                          
+          loc_distribution: uniform                                             
+        data_dir: /data1/gushengda/eam-rl4co/data/tsp                           
+        val_file: tsp100_val_seed4321.npz                                       
+        test_file: tsp100_test_seed1234.npz                                     
+                                                                                
+Seed set to 1234
+[[36m2026-02-16 08:37:33,398[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating environment <rl4co.envs.TSPEnv>[0m
+[[36m2026-02-16 08:37:37,114[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating model <rl4co.models.POMO>[0m
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:209: Attribute 'env' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['env'])`.
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:209: Attribute 'policy' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['policy'])`.
+[[36m2026-02-16 08:37:37,185[0m][[34mrl4co.data.transforms[0m][[32mINFO[0m] - Features not passed, defaulting to 'locs'[0m
+[[36m2026-02-16 08:37:37,185[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating callbacks...[0m
+[[36m2026-02-16 08:37:37,185[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
+[[36m2026-02-16 08:37:37,189[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>[0m
+[[36m2026-02-16 08:37:37,189[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>[0m
+[[36m2026-02-16 08:37:37,190[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating loggers...[0m
+[[36m2026-02-16 08:37:37,190[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>[0m
+[[36m2026-02-16 08:37:37,192[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating trainer...[0m
+[[36m2026-02-16 08:37:37,196[0m][[34mrl4co.utils.trainer[0m][[33mWARNING[0m] - gradient_clip_val is set to None. This may lead to unstable training.[0m
+Trainer already configured with model summary callbacks: [<class 'lightning.pytorch.callbacks.rich_model_summary.RichModelSummary'>]. Skipping setting a default `ModelSummary` callback.
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+[[36m2026-02-16 08:37:37,202[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Logging hyperparameters![0m
+[[36m2026-02-16 08:37:37,204[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Starting training![0m
+[[36m2026-02-16 08:37:37,278[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up batch sizes for train/val/test[0m
+[[36m2026-02-16 08:37:37,278[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating default datasets. If found, they will not be overwritten[0m
+[[36m2026-02-16 08:37:37,278[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up datasets[0m
+[[36m2026-02-16 08:37:37,866[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz[0m
+[[36m2026-02-16 08:37:37,897[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz[0m
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5]
+[[36m2026-02-16 08:37:38,140[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating optimizer <Adam>[0m
+[[36m2026-02-16 08:37:38,141[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating LR scheduler <MultiStepLR>[0m
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
+┃    ┃ Name                                       ┃ Type      ┃ Params ┃ Mode  ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━┩
+│ 0  │ env                                        │ TSPEnv    │      0 │ train │
+│ 1  │ policy                                     │ PO4COPsT… │  1.5 M │ train │
+│ 2  │ policy.encoder                             │ _PO4COPs… │  1.2 M │ train │
+│ 3  │ policy.encoder.embedding                   │ Linear    │    384 │ train │
+│ 4  │ policy.encoder.layers                      │ ModuleLi… │  1.2 M │ train │
+│ 5  │ policy.encoder.layers.0                    │ _Encoder… │  197 K │ train │
+│ 6  │ policy.encoder.layers.0.Wq                 │ Linear    │ 16.4 K │ train │
+│ 7  │ policy.encoder.layers.0.Wk                 │ Linear    │ 16.4 K │ train │
+│ 8  │ policy.encoder.layers.0.Wv                 │ Linear    │ 16.4 K │ train │
+│ 9  │ policy.encoder.layers.0.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 10 │ policy.encoder.layers.0.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 11 │ policy.encoder.layers.0.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 12 │ policy.encoder.layers.0.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 13 │ policy.encoder.layers.1                    │ _Encoder… │  197 K │ train │
+│ 14 │ policy.encoder.layers.1.Wq                 │ Linear    │ 16.4 K │ train │
+│ 15 │ policy.encoder.layers.1.Wk                 │ Linear    │ 16.4 K │ train │
+│ 16 │ policy.encoder.layers.1.Wv                 │ Linear    │ 16.4 K │ train │
+│ 17 │ policy.encoder.layers.1.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 18 │ policy.encoder.layers.1.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 19 │ policy.encoder.layers.1.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 20 │ policy.encoder.layers.1.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 21 │ policy.encoder.layers.2                    │ _Encoder… │  197 K │ train │
+│ 22 │ policy.encoder.layers.2.Wq                 │ Linear    │ 16.4 K │ train │
+│ 23 │ policy.encoder.layers.2.Wk                 │ Linear    │ 16.4 K │ train │
+│ 24 │ policy.encoder.layers.2.Wv                 │ Linear    │ 16.4 K │ train │
+│ 25 │ policy.encoder.layers.2.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 26 │ policy.encoder.layers.2.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 27 │ policy.encoder.layers.2.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 28 │ policy.encoder.layers.2.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 29 │ policy.encoder.layers.3                    │ _Encoder… │  197 K │ train │
+│ 30 │ policy.encoder.layers.3.Wq                 │ Linear    │ 16.4 K │ train │
+│ 31 │ policy.encoder.layers.3.Wk                 │ Linear    │ 16.4 K │ train │
+│ 32 │ policy.encoder.layers.3.Wv                 │ Linear    │ 16.4 K │ train │
+│ 33 │ policy.encoder.layers.3.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 34 │ policy.encoder.layers.3.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 35 │ policy.encoder.layers.3.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 36 │ policy.encoder.layers.3.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 37 │ policy.encoder.layers.4                    │ _Encoder… │  197 K │ train │
+│ 38 │ policy.encoder.layers.4.Wq                 │ Linear    │ 16.4 K │ train │
+│ 39 │ policy.encoder.layers.4.Wk                 │ Linear    │ 16.4 K │ train │
+│ 40 │ policy.encoder.layers.4.Wv                 │ Linear    │ 16.4 K │ train │
+│ 41 │ policy.encoder.layers.4.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 42 │ policy.encoder.layers.4.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 43 │ policy.encoder.layers.4.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 44 │ policy.encoder.layers.4.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 45 │ policy.encoder.layers.5                    │ _Encoder… │  197 K │ train │
+│ 46 │ policy.encoder.layers.5.Wq                 │ Linear    │ 16.4 K │ train │
+│ 47 │ policy.encoder.layers.5.Wk                 │ Linear    │ 16.4 K │ train │
+│ 48 │ policy.encoder.layers.5.Wv                 │ Linear    │ 16.4 K │ train │
+│ 49 │ policy.encoder.layers.5.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 50 │ policy.encoder.layers.5.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 51 │ policy.encoder.layers.5.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 52 │ policy.encoder.layers.5.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 53 │ policy.decoder                             │ _PO4COPs… │  263 K │ train │
+│ 54 │ policy.decoder.layers                      │ ModuleLi… │  263 K │ train │
+│ 55 │ policy.decoder.layers.0                    │ _Decoder… │  214 K │ train │
+│ 56 │ policy.decoder.layers.0.Wq_first           │ Linear    │ 16.4 K │ train │
+│ 57 │ policy.decoder.layers.0.Wq_last            │ Linear    │ 16.4 K │ train │
+│ 58 │ policy.decoder.layers.0.Wk                 │ Linear    │ 16.4 K │ train │
+│ 59 │ policy.decoder.layers.0.Wv                 │ Linear    │ 16.4 K │ train │
+│ 60 │ policy.decoder.layers.0.multi_head_combine │ Linear    │ 16.5 K │ train │
+│ 61 │ policy.decoder.layers.0.add_and_norm_1     │ _AddAndN… │    256 │ train │
+│ 62 │ policy.decoder.layers.0.feed_forward       │ _FeedFor… │  131 K │ train │
+│ 63 │ policy.decoder.layers.0.add_and_norm_2     │ _AddAndN… │    256 │ train │
+│ 64 │ policy.decoder.layers.1                    │ _Decoder… │ 49.2 K │ train │
+│ 65 │ policy.decoder.layers.1.Wq_first           │ Linear    │ 16.4 K │ train │
+│ 66 │ policy.decoder.layers.1.Wq_last            │ Linear    │ 16.4 K │ train │
+│ 67 │ policy.decoder.layers.1.Wlogit_k           │ Linear    │ 16.4 K │ train │
+│ 68 │ baseline                                   │ SharedBa… │      0 │ train │
+└────┴────────────────────────────────────────────┴───────────┴────────┴───────┘
+Trainable params: 1.5 M                                                         
+Non-trainable params: 0                                                         
+Total params: 1.5 M                                                             
+Total estimated model params size (MB): 5                                       
+Modules in train mode: 97                                                       
+Modules in eval mode: 0                                                         
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:425: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=223` in the `DataLoader` to improve performance.
+[[36m2026-02-16 08:37:38,391[0m][[34mrl4co.utils.utils[0m][[31mERROR[0m] - [0m
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 146, in fit
+    super().fit(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 982, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1024, in _run_stage
+    self._run_sanity_check()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_sanity_check
+    val_loop.run()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 144, in run
+    self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 433, in _evaluation_step
+    output = call._call_strategy_hook(trainer, hook_name, *step_args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 323, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+    return self.lightning_module.validation_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/rl/common/base.py", line 261, in validation_step
+    return self.shared_step(
+           ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/model.py", line 150, in shared_step
+    out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 360, in forward
+    probs = self.decoder(encoded_last_node, ninf_mask)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 258, in forward
+    out = layer(out, ninf_mask)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 192, in forward
+    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 49, in _multi_head_attention
+    score = torch.matmul(q, k.transpose(2, 3))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: The size of tensor a (51200) must match the size of tensor b (512) at non-singleton dimension 0
+[[36m2026-02-16 08:37:38,394[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-33[0m
+[[36m2026-02-16 08:37:38,394[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Closing loggers...[0m
+Error executing job with overrides: ['experiment=routing/pomo-po4cops-tsp100-po', '~callbacks.learning_rate_monitor', '~callbacks.rich_progress_bar']
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 105, in train
+    metric_dict, _ = run(cfg)
+                     ^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 51, in wrap
+    raise ex
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 146, in fit
+    super().fit(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 982, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1024, in _run_stage
+    self._run_sanity_check()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1053, in _run_sanity_check
+    val_loop.run()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/utilities.py", line 179, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 144, in run
+    self._evaluation_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/evaluation_loop.py", line 433, in _evaluation_step
+    output = call._call_strategy_hook(trainer, hook_name, *step_args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 323, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 412, in validation_step
+    return self.lightning_module.validation_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/rl/common/base.py", line 261, in validation_step
+    return self.shared_step(
+           ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/model.py", line 150, in shared_step
+    out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 360, in forward
+    probs = self.decoder(encoded_last_node, ninf_mask)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 258, in forward
+    out = layer(out, ninf_mask)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 192, in forward
+    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 49, in _multi_head_attention
+    score = torch.matmul(q, k.transpose(2, 3))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: The size of tensor a (51200) must match the size of tensor b (512) at non-singleton dimension 0
+
+Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
