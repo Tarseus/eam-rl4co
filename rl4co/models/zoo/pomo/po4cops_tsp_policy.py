@@ -10,6 +10,10 @@ from rl4co.utils.ops import batchify, select_start_nodes
 
 
 def _get_encoding(encoded_nodes: torch.Tensor, node_index_to_pick: torch.Tensor) -> torch.Tensor:
+    original_dim = node_index_to_pick.dim()
+    if original_dim == 1:
+        node_index_to_pick = node_index_to_pick[:, None]
+
     batch_size = node_index_to_pick.size(0)
     index_shape = node_index_to_pick.shape
     embedding_dim = encoded_nodes.size(2)
@@ -18,6 +22,8 @@ def _get_encoding(encoded_nodes: torch.Tensor, node_index_to_pick: torch.Tensor)
     if len(index_shape) == 3:
         gathering_index = gathering_index.reshape(batch_size, -1, embedding_dim)
     picked_nodes = encoded_nodes.gather(dim=1, index=gathering_index)
+    if original_dim == 1:
+        return picked_nodes
     return picked_nodes
 
 
@@ -345,8 +351,12 @@ class PO4COPsTSPPolicy(nn.Module):
         while not done.all():
             encoded_last_node = _get_encoding(encoded_nodes, td["current_node"])
             ninf_mask = torch.where(
-                td["action_mask"], torch.zeros_like(td["action_mask"], dtype=encoded_nodes.dtype), float("-inf")
+                td["action_mask"],
+                torch.zeros_like(td["action_mask"], dtype=encoded_nodes.dtype),
+                float("-inf"),
             )
+            if ninf_mask.dim() == 2:
+                ninf_mask = ninf_mask[:, None, :]
             probs = self.decoder(encoded_last_node, ninf_mask)
 
             if use_sampling:
@@ -356,10 +366,13 @@ class PO4COPsTSPPolicy(nn.Module):
                 selected = probs.argmax(dim=2)
 
             prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1).clamp_min(1e-12)
+            if prob.dim() == 2 and prob.size(1) == 1:
+                prob = prob.squeeze(1)
+            action = selected.squeeze(1) if selected.dim() == 2 and selected.size(1) == 1 else selected
             log_probs.append(prob.log())
-            actions.append(selected)
+            actions.append(action)
 
-            td.set("action", selected)
+            td.set("action", action)
             td = env.step(td)["next"]
             done = td["done"]
 
