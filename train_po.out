@@ -1,5 +1,5 @@
-[[36m2026-02-16 08:37:33,360[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Enforcing tags! <cfg.extras.enforce_tags=True>[0m
-[[36m2026-02-16 08:37:33,363[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Printing config tree with Rich! <cfg.extras.print_config=True>[0m
+[[36m2026-02-16 08:44:35,250[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Enforcing tags! <cfg.extras.enforce_tags=True>[0m
+[[36m2026-02-16 08:44:35,253[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Printing config tree with Rich! <cfg.extras.print_config=True>[0m
 CONFIG
 ├── model
 │   └── generate_default_data: true                                             
@@ -56,7 +56,7 @@ CONFIG
 ├── callbacks
 │   └── model_checkpoint:                                                       
 │         _target_: lightning.pytorch.callbacks.ModelCheckpoint                 
-│         dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-3
+│         dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-44-3
 │         filename: epoch_{epoch:03d}                                           
 │         monitor: val/reward                                                   
 │         verbose: false                                                        
@@ -81,7 +81,7 @@ CONFIG
 ├── logger
 │   └── csv:                                                                    
 │         _target_: lightning.pytorch.loggers.csv_logs.CSVLogger                
-│         save_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-
+│         save_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-44-
 │         name: csv/                                                            
 │         prefix: ''                                                            
 │                                                                               
@@ -104,7 +104,7 @@ CONFIG
 │   └── root_dir: /data1/gushengda/eam-rl4co                                    
 │       data_dir: /data1/gushengda/eam-rl4co/data                               
 │       log_dir: /data1/gushengda/eam-rl4co/logs                                
-│       output_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-
+│       output_dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-44-
 │       work_dir: /data1/gushengda/eam-rl4co                                    
 │                                                                               
 ├── extras
@@ -139,33 +139,33 @@ CONFIG
         test_file: tsp100_test_seed1234.npz                                     
                                                                                 
 Seed set to 1234
-[[36m2026-02-16 08:37:33,398[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating environment <rl4co.envs.TSPEnv>[0m
-[[36m2026-02-16 08:37:37,114[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating model <rl4co.models.POMO>[0m
+[[36m2026-02-16 08:44:35,288[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating environment <rl4co.envs.TSPEnv>[0m
+[[36m2026-02-16 08:44:39,064[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating model <rl4co.models.POMO>[0m
 /data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:209: Attribute 'env' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['env'])`.
 /data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/utilities/parsing.py:209: Attribute 'policy' is an instance of `nn.Module` and is already saved during checkpointing. It is recommended to ignore them using `self.save_hyperparameters(ignore=['policy'])`.
-[[36m2026-02-16 08:37:37,185[0m][[34mrl4co.data.transforms[0m][[32mINFO[0m] - Features not passed, defaulting to 'locs'[0m
-[[36m2026-02-16 08:37:37,185[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating callbacks...[0m
-[[36m2026-02-16 08:37:37,185[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
-[[36m2026-02-16 08:37:37,189[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>[0m
-[[36m2026-02-16 08:37:37,189[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>[0m
-[[36m2026-02-16 08:37:37,190[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating loggers...[0m
-[[36m2026-02-16 08:37:37,190[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>[0m
-[[36m2026-02-16 08:37:37,192[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating trainer...[0m
-[[36m2026-02-16 08:37:37,196[0m][[34mrl4co.utils.trainer[0m][[33mWARNING[0m] - gradient_clip_val is set to None. This may lead to unstable training.[0m
+[[36m2026-02-16 08:44:39,133[0m][[34mrl4co.data.transforms[0m][[32mINFO[0m] - Features not passed, defaulting to 'locs'[0m
+[[36m2026-02-16 08:44:39,133[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating callbacks...[0m
+[[36m2026-02-16 08:44:39,133[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>[0m
+[[36m2026-02-16 08:44:39,137[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>[0m
+[[36m2026-02-16 08:44:39,137[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>[0m
+[[36m2026-02-16 08:44:39,138[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating loggers...[0m
+[[36m2026-02-16 08:44:39,138[0m][[34mrl4co.utils.instantiators[0m][[32mINFO[0m] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>[0m
+[[36m2026-02-16 08:44:39,140[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Instantiating trainer...[0m
+[[36m2026-02-16 08:44:39,144[0m][[34mrl4co.utils.trainer[0m][[33mWARNING[0m] - gradient_clip_val is set to None. This may lead to unstable training.[0m
 Trainer already configured with model summary callbacks: [<class 'lightning.pytorch.callbacks.rich_model_summary.RichModelSummary'>]. Skipping setting a default `ModelSummary` callback.
 GPU available: True (cuda), used: True
 TPU available: False, using: 0 TPU cores
 HPU available: False, using: 0 HPUs
-[[36m2026-02-16 08:37:37,202[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Logging hyperparameters![0m
-[[36m2026-02-16 08:37:37,204[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Starting training![0m
-[[36m2026-02-16 08:37:37,278[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up batch sizes for train/val/test[0m
-[[36m2026-02-16 08:37:37,278[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating default datasets. If found, they will not be overwritten[0m
-[[36m2026-02-16 08:37:37,278[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up datasets[0m
-[[36m2026-02-16 08:37:37,866[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz[0m
-[[36m2026-02-16 08:37:37,897[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz[0m
+[[36m2026-02-16 08:44:39,150[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Logging hyperparameters![0m
+[[36m2026-02-16 08:44:39,152[0m][[34mrl4co.tasks.train[0m][[32mINFO[0m] - Starting training![0m
+[[36m2026-02-16 08:44:39,222[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up batch sizes for train/val/test[0m
+[[36m2026-02-16 08:44:39,222[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Generating default datasets. If found, they will not be overwritten[0m
+[[36m2026-02-16 08:44:39,223[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Setting up datasets[0m
+[[36m2026-02-16 08:44:39,815[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz[0m
+[[36m2026-02-16 08:44:39,847[0m][[34mrl4co.envs.common.base[0m][[32mINFO[0m] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz[0m
 LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [0,1,2,3,4,5]
-[[36m2026-02-16 08:37:38,140[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating optimizer <Adam>[0m
-[[36m2026-02-16 08:37:38,141[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating LR scheduler <MultiStepLR>[0m
+[[36m2026-02-16 08:44:40,100[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating optimizer <Adam>[0m
+[[36m2026-02-16 08:44:40,101[0m][[34mrl4co.models.rl.common.base[0m][[32mINFO[0m] - Instantiating LR scheduler <MultiStepLR>[0m
 ┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━┓
 ┃    ┃ Name                                       ┃ Type      ┃ Params ┃ Mode  ┃
 ┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━┩
@@ -246,7 +246,7 @@ Total estimated model params size (MB): 5
 Modules in train mode: 97                                                       
 Modules in eval mode: 0                                                         
 /data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/connectors/data_connector.py:425: The 'val_dataloader' does not have many workers which may be a bottleneck. Consider increasing the value of the `num_workers` argument` to `num_workers=223` in the `DataLoader` to improve performance.
-[[36m2026-02-16 08:37:38,391[0m][[34mrl4co.utils.utils[0m][[31mERROR[0m] - [0m
+[[36m2026-02-16 08:44:40,443[0m][[34mrl4co.utils.utils[0m][[31mERROR[0m] - [0m
 Traceback (most recent call last):
   File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
     metric_dict, object_dict = task_func(cfg=cfg)
@@ -295,7 +295,7 @@ Traceback (most recent call last):
   File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
     return forward_call(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 360, in forward
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 363, in forward
     probs = self.decoder(encoded_last_node, ninf_mask)
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
@@ -313,15 +313,37 @@ Traceback (most recent call last):
   File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
     return forward_call(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 192, in forward
-    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 49, in _multi_head_attention
-    score = torch.matmul(q, k.transpose(2, 3))
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: The size of tensor a (51200) must match the size of tensor b (512) at non-singleton dimension 0
-[[36m2026-02-16 08:37:38,394[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-37-33[0m
-[[36m2026-02-16 08:37:38,394[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Closing loggers...[0m
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 194, in forward
+    out1 = self.add_and_norm_1(input_tensor, multi_head_out)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 73, in forward
+    normalized = self.norm(transposed)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/instancenorm.py", line 124, in forward
+    return self._apply_instance_norm(input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/instancenorm.py", line 47, in _apply_instance_norm
+    return F.instance_norm(
+           ^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/functional.py", line 2865, in instance_norm
+    _verify_spatial_size(input.size())
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/functional.py", line 2831, in _verify_spatial_size
+    raise ValueError(
+ValueError: Expected more than 1 spatial element when training, got input size torch.Size([51200, 128, 1])
+[[36m2026-02-16 08:44:40,454[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/2026-02-16_08-44-35[0m
+[[36m2026-02-16 08:44:40,454[0m][[34mrl4co.utils.utils[0m][[32mINFO[0m] - Closing loggers...[0m
 Error executing job with overrides: ['experiment=routing/pomo-po4cops-tsp100-po', '~callbacks.learning_rate_monitor', '~callbacks.rich_progress_bar']
 Traceback (most recent call last):
   File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 105, in train
@@ -376,7 +398,7 @@ Traceback (most recent call last):
   File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
     return forward_call(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 360, in forward
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 363, in forward
     probs = self.decoder(encoded_last_node, ninf_mask)
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
@@ -394,12 +416,34 @@ Traceback (most recent call last):
   File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
     return forward_call(*args, **kwargs)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 192, in forward
-    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 49, in _multi_head_attention
-    score = torch.matmul(q, k.transpose(2, 3))
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-RuntimeError: The size of tensor a (51200) must match the size of tensor b (512) at non-singleton dimension 0
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 194, in forward
+    out1 = self.add_and_norm_1(input_tensor, multi_head_out)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 73, in forward
+    normalized = self.norm(transposed)
+                 ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/instancenorm.py", line 124, in forward
+    return self._apply_instance_norm(input)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/instancenorm.py", line 47, in _apply_instance_norm
+    return F.instance_norm(
+           ^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/functional.py", line 2865, in instance_norm
+    _verify_spatial_size(input.size())
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/functional.py", line 2831, in _verify_spatial_size
+    raise ValueError(
+ValueError: Expected more than 1 spatial element when training, got input size torch.Size([51200, 128, 1])
 
 Set the environment variable HYDRA_FULL_ERROR=1 for a complete stack trace.
