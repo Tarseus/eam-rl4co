@@ -12,6 +12,7 @@ from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
 from rl4co.models.rl.reinforce.preference_losses import pl_loss, po_loss
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.am import AttentionModelPolicy
+from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
@@ -71,15 +72,31 @@ class POMO(REINFORCE):
         self.save_hyperparameters(logger=False)
 
         if policy is None:
-            policy_kwargs_with_defaults = {
-                "num_encoder_layers": 6,
-                "normalization": "instance",
-                "use_graph_context": False,
-            }
-            policy_kwargs_with_defaults.update(policy_kwargs)
-            policy = AttentionModelPolicy(
-                env_name=env.name, **policy_kwargs_with_defaults
-            )
+            use_po4cops_compat = bool(policy_kwargs.pop("po4cops_compat", False))
+            if use_po4cops_compat:
+                policy_kwargs_with_defaults = {
+                    "embedding_dim": policy_kwargs.pop("embed_dim", 128),
+                    "encoder_layer_num": policy_kwargs.pop("num_encoder_layers", 6),
+                    "decoder_layer_num": policy_kwargs.pop("decoder_layer_num", 1),
+                    "qkv_dim": policy_kwargs.pop("qkv_dim", 16),
+                    "head_num": policy_kwargs.pop("num_heads", 8),
+                    "ff_hidden_dim": policy_kwargs.pop("feedforward_hidden", 512),
+                    "logit_clipping": policy_kwargs.pop("tanh_clipping", 50),
+                    "eval_type": policy_kwargs.pop("eval_type", "argmax"),
+                    "env_name": env.name,
+                }
+                policy_kwargs_with_defaults.update(policy_kwargs)
+                policy = PO4COPsTSPPolicy(**policy_kwargs_with_defaults)
+            else:
+                policy_kwargs_with_defaults = {
+                    "num_encoder_layers": 6,
+                    "normalization": "instance",
+                    "use_graph_context": False,
+                }
+                policy_kwargs_with_defaults.update(policy_kwargs)
+                policy = AttentionModelPolicy(
+                    env_name=env.name, **policy_kwargs_with_defaults
+                )
 
         assert baseline == "shared", "POMO only supports shared baseline"
 

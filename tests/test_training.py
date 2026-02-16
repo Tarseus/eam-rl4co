@@ -195,6 +195,44 @@ def test_pomo_po_loss_smoke():
     trainer.test(model)
 
 
+def test_pomo_po4cops_compat_po_loss_smoke():
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    model = POMO(
+        env,
+        loss_type="po_loss",
+        alpha=0.05,
+        num_augment=1,
+        num_starts=20,
+        batch_size=4,
+        train_data_size=8,
+        val_data_size=8,
+        test_data_size=8,
+        policy_kwargs={
+            "po4cops_compat": True,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+        },
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        devices=1,
+        accelerator=accelerator,
+        precision="32-true",
+        gradient_clip_val=None,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        limit_test_batches=1,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
 @pytest.mark.parametrize("SearchMethod", [ActiveSearch, EASEmb, EASLay])
 def test_search_methods(SearchMethod):
     env = TSPEnv(generator_params=dict(num_loc=20))
