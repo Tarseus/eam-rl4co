@@ -256,8 +256,25 @@ def compile_free_loss(ir: FreeLossIR, *, operator_whitelist: Sequence[str] | Non
 
         # Execute in a tightly restricted namespace. We deliberately strip
         # builtins to avoid access to filesystem, subprocesses, etc.
+        # NOTE: We keep a tiny allowlist of safe builtins to make LLM/codegen
+        # losses ergonomic (e.g., `float(...)`, `isinstance(...)`). Dangerous
+        # builtins like `open`, `eval`, `exec`, `__import__`, etc. remain absent,
+        # and additional safety is enforced by the AST validator above.
         safe_globals: Dict[str, Any] = {
-            "__builtins__": {},
+            "__builtins__": {
+                "float": float,
+                "int": int,
+                "bool": bool,
+                "dict": dict,
+                "list": list,
+                "tuple": tuple,
+                "set": set,
+                "min": min,
+                "max": max,
+                "abs": abs,
+                "len": len,
+                "isinstance": isinstance,
+            },
             "torch": torch,
             "F": F,
             "ops": ops_accessor,
