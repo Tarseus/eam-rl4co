@@ -8,6 +8,7 @@ import torch
 from .free_loss_compiler import CompiledFreeLoss
 from .free_loss_ir import FreeLossIR
 from fitness.co_features import build_model_output
+from fitness.free_loss_fidelity import PrefBatch
 
 
 @dataclass
@@ -34,6 +35,443 @@ class PreferenceSemanticGateResult:
     swap_pass_rate: float | None = None
     gap_pass_rate: float | None = None
     trace: Dict[str, Any] | None = None
+
+
+@dataclass
+class PreferenceBuilderGateResult:
+    ok: bool
+    reason: str = ""
+    pair_count: int | None = None
+    coverage: float | None = None
+    max_pairs_per_instance: int | None = None
+    weight_min: float | None = None
+    weight_max: float | None = None
+    semantic_pass_rate: float | None = None
+    trace: Dict[str, Any] | None = None
+
+
+@dataclass
+class JointPreferenceGateResult:
+    ok: bool
+    reason: str = ""
+    grad_w_pass_rate: float | None = None
+    grad_l_pass_rate: float | None = None
+    swap_ok: bool | None = None
+    effective_grad_ratio: float | None = None
+    trace: Dict[str, Any] | None = None
+
+
+def run_preference_builder_gates(
+    pref_batch: PrefBatch,
+    *,
+    feature_cache: Mapping[str, torch.Tensor],
+    min_pairs: int = 1,
+    min_coverage: float = 1.0,
+    max_pairs_per_instance: int = 4096,
+    weight_nonneg: bool = True,
+    semantic_tolerance: float = 0.0,
+    semantic_min_pass_rate: float = 1.0,
+) -> PreferenceBuilderGateResult:
+    """Validate a builder-produced PrefBatch against basic constraints.
+
+    These gates are intended to be logged into `gate_reports.jsonl` via the
+    returned `trace` dict, which follows the same `failed_gate` / `failure_kind`
+    convention as the existing free-loss gates.
+    """
+
+    mode = str(pref_batch.mode or "").strip().lower()
+    if mode != "pairwise":
+        return PreferenceBuilderGateResult(
+            ok=True,
+            reason="skipped_non_pairwise",
+            trace={"failed_gate": None, "variant": "builder", "mode": mode},
+        )
+
+    objective = feature_cache.get("objective")
+    if not isinstance(objective, torch.Tensor) or objective.ndim != 2:
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="missing_or_invalid_objective",
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "missing_or_invalid_objective",
+            },
+        )
+
+    if pref_batch.pair_idx is None:
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="missing_pair_idx",
+            trace={"failed_gate": "PreferenceBuilder", "failure_kind": "missing_pair_idx"},
+        )
+
+    b_idx, winner_idx, loser_idx = pref_batch.pair_idx
+    pair_count = int(b_idx.numel())
+    if pair_count < int(min_pairs):
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason=f"empty_or_too_few_pairs: {pair_count}",
+            pair_count=pair_count,
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "empty_or_too_few_pairs",
+                "metric": {
+                    "metric_name": "pair_count",
+                    "observed_value": pair_count,
+                    "threshold": int(min_pairs),
+                    "direction": ">=",
+                },
+            },
+        )
+
+    B = int(objective.shape[0])
+    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=B)
+    covered = int((counts > 0).sum().item())
+    coverage = float(covered) / float(max(B, 1))
+    max_pairs = int(counts.max().item()) if counts.numel() else 0
+
+    if coverage + 1e-12 < float(min_coverage):
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="insufficient_coverage",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "insufficient_coverage",
+                "metric": {
+                    "metric_name": "coverage",
+                    "observed_value": coverage,
+                    "threshold": float(min_coverage),
+                    "direction": ">=",
+                },
+            },
+        )
+
+    if max_pairs > int(max_pairs_per_instance):
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="max_pairs_per_instance_exceeded",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "max_pairs_per_instance_exceeded",
+                "metric": {
+                    "metric_name": "max_pairs_per_instance",
+                    "observed_value": max_pairs,
+                    "threshold": int(max_pairs_per_instance),
+                    "direction": "<=",
+                },
+            },
+        )
+
+    weight = pref_batch.weight
+    if weight is None:
+        weight = torch.ones(pair_count, dtype=torch.float32)
+    if not isinstance(weight, torch.Tensor) or weight.ndim != 1 or int(weight.numel()) != pair_count:
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="invalid_weight",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "invalid_weight",
+                "observed_shape": None if not isinstance(weight, torch.Tensor) else tuple(weight.shape),
+            },
+        )
+    if not torch.isfinite(weight).all().item():
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="weight_not_finite",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            trace={"failed_gate": "PreferenceBuilder", "failure_kind": "weight_not_finite"},
+        )
+    if weight_nonneg and (weight < 0.0).any().item():
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="weight_negative",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            trace={"failed_gate": "PreferenceBuilder", "failure_kind": "weight_negative"},
+        )
+
+    obj_w = objective[b_idx, winner_idx]
+    obj_l = objective[b_idx, loser_idx]
+    tol = float(semantic_tolerance)
+    ok_mask = obj_w <= (obj_l + tol)
+    semantic_pass_rate = float(ok_mask.to(dtype=torch.float32).mean().item())
+    if semantic_pass_rate + 1e-12 < float(semantic_min_pass_rate):
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="winner_loser_semantics_violation",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            weight_min=float(weight.min().item()) if weight.numel() else None,
+            weight_max=float(weight.max().item()) if weight.numel() else None,
+            semantic_pass_rate=semantic_pass_rate,
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "winner_loser_semantics_violation",
+                "metric": {
+                    "metric_name": "semantic_pass_rate",
+                    "observed_value": semantic_pass_rate,
+                    "threshold": float(semantic_min_pass_rate),
+                    "direction": ">=",
+                },
+                "tolerance": tol,
+            },
+        )
+
+    return PreferenceBuilderGateResult(
+        ok=True,
+        reason="ok",
+        pair_count=pair_count,
+        coverage=coverage,
+        max_pairs_per_instance=max_pairs,
+        weight_min=float(weight.min().item()) if weight.numel() else None,
+        weight_max=float(weight.max().item()) if weight.numel() else None,
+        semantic_pass_rate=semantic_pass_rate,
+        trace={
+            "failed_gate": None,
+            "checks": [
+                {
+                    "metric_name": "pair_count",
+                    "observed_value": pair_count,
+                    "threshold": int(min_pairs),
+                    "direction": ">=",
+                },
+                {
+                    "metric_name": "coverage",
+                    "observed_value": coverage,
+                    "threshold": float(min_coverage),
+                    "direction": ">=",
+                },
+                {
+                    "metric_name": "max_pairs_per_instance",
+                    "observed_value": max_pairs,
+                    "threshold": int(max_pairs_per_instance),
+                    "direction": "<=",
+                },
+                {
+                    "metric_name": "semantic_pass_rate",
+                    "observed_value": semantic_pass_rate,
+                    "threshold": float(semantic_min_pass_rate),
+                    "direction": ">=",
+                },
+            ],
+        },
+    )
+
+
+def run_joint_preference_gates(
+    compiled: CompiledFreeLoss,
+    *,
+    pref_batch: PrefBatch,
+    feature_cache: Mapping[str, torch.Tensor],
+    min_pass_rate: float = 0.8,
+    swap_tolerance: float = 1e-3,
+    grad_eps: float = 1e-8,
+    min_effective_grad_ratio: float = 0.1,
+    variant: str = "visible",
+) -> JointPreferenceGateResult:
+    """Joint gate on (builder output, loss function) using one forward/backward pass."""
+
+    variant = str(variant or "visible").strip().lower()
+    mode = str(getattr(compiled.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
+    if mode != "pairwise":
+        return JointPreferenceGateResult(
+            ok=True,
+            reason="skipped_non_pairwise",
+            trace={"failed_gate": None, "variant": variant, "mode": mode},
+        )
+
+    try:
+        full_batch = pref_batch.to_pairwise_loss_batch(feature_cache)
+    except Exception as exc:  # noqa: BLE001
+        return JointPreferenceGateResult(
+            ok=False,
+            reason=f"pref_batch_to_loss_batch_error: {exc}",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "pref_batch_to_loss_batch_error",
+                "message": str(exc),
+                "variant": variant,
+            },
+        )
+
+    expects = [str(x) for x in (compiled.ir.implementation_hint.expects or [])]
+    if expects:
+        batch = {k: full_batch[k] for k in expects if k in full_batch}
+    else:
+        batch = dict(full_batch)
+
+    log_prob_w0 = batch.get("log_prob_w")
+    log_prob_l0 = batch.get("log_prob_l")
+    if not isinstance(log_prob_w0, torch.Tensor) or not isinstance(log_prob_l0, torch.Tensor):
+        return JointPreferenceGateResult(
+            ok=False,
+            reason="missing_log_prob_tensors",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "missing_log_prob_tensors",
+                "variant": variant,
+            },
+        )
+
+    # Make log-prob tensors leaf + differentiable, independent of any upstream model.
+    log_prob_w = log_prob_w0.detach().clone().requires_grad_(True)
+    log_prob_l = log_prob_l0.detach().clone().requires_grad_(True)
+    batch = dict(batch)
+    batch["log_prob_w"] = log_prob_w
+    batch["log_prob_l"] = log_prob_l
+
+    try:
+        loss = compiled.loss_fn(batch=batch, model_output={}, extra={"alpha": 1.0})
+    except Exception as exc:  # noqa: BLE001
+        return JointPreferenceGateResult(
+            ok=False,
+            reason=f"forward_error: {exc}",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "forward_error",
+                "message": str(exc),
+                "variant": variant,
+            },
+        )
+
+    if not isinstance(loss, torch.Tensor) or loss.numel() != 1:
+        return JointPreferenceGateResult(
+            ok=False,
+            reason="loss_not_scalar_tensor",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "loss_not_scalar_tensor",
+                "observed_type": str(type(loss)),
+                "observed_shape": None if not isinstance(loss, torch.Tensor) else tuple(loss.shape),
+                "variant": variant,
+            },
+        )
+    if not torch.isfinite(loss).all().item():
+        return JointPreferenceGateResult(
+            ok=False,
+            reason="loss_not_finite",
+            trace={"failed_gate": "JointPreference", "failure_kind": "loss_not_finite", "variant": variant},
+        )
+
+    try:
+        loss.backward()
+    except Exception as exc:  # noqa: BLE001
+        return JointPreferenceGateResult(
+            ok=False,
+            reason=f"backward_error: {exc}",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "backward_error",
+                "message": str(exc),
+                "variant": variant,
+            },
+        )
+
+    grad_w = log_prob_w.grad
+    grad_l = log_prob_l.grad
+    if grad_w is None or grad_l is None:
+        return JointPreferenceGateResult(
+            ok=False,
+            reason="missing_grads",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "missing_grads",
+                "variant": variant,
+            },
+        )
+    if not torch.isfinite(grad_w).all().item() or not torch.isfinite(grad_l).all().item():
+        return JointPreferenceGateResult(
+            ok=False,
+            reason="grad_not_finite",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "grad_not_finite",
+                "variant": variant,
+            },
+        )
+
+    w_pass = float((grad_w < 0.0).to(dtype=torch.float32).mean().item())
+    l_pass = float((grad_l > 0.0).to(dtype=torch.float32).mean().item())
+    effective = (grad_w.abs() > float(grad_eps)) | (grad_l.abs() > float(grad_eps))
+    effective_ratio = float(effective.to(dtype=torch.float32).mean().item())
+
+    # Swap check: swap winner/loser signals and ensure loss increases.
+    swap_batch = dict(batch)
+    swap_batch["log_prob_w"], swap_batch["log_prob_l"] = batch["log_prob_l"].detach(), batch["log_prob_w"].detach()
+    if "cost_a" in swap_batch and "cost_b" in swap_batch:
+        swap_batch["cost_a"], swap_batch["cost_b"] = swap_batch["cost_b"], swap_batch["cost_a"]
+    for key in list(swap_batch.keys()):
+        if key.startswith("delta_") and isinstance(swap_batch[key], torch.Tensor):
+            swap_batch[key] = -swap_batch[key]
+
+    swap_ok: bool | None = None
+    loss_swap_val: float | None = None
+    try:
+        loss_swap = compiled.loss_fn(batch=swap_batch, model_output={}, extra={"alpha": 1.0})
+        if isinstance(loss_swap, torch.Tensor) and loss_swap.numel() == 1 and torch.isfinite(loss_swap).all().item():
+            loss_swap_val = float(loss_swap.item())
+            swap_ok = loss_swap_val >= float(loss.item()) + float(swap_tolerance)
+    except Exception:  # noqa: BLE001
+        swap_ok = False
+
+    ok = (
+        w_pass >= float(min_pass_rate)
+        and l_pass >= float(min_pass_rate)
+        and effective_ratio >= float(min_effective_grad_ratio)
+        and (True if swap_ok is None else bool(swap_ok))
+    )
+    where_failed: list[str] = []
+    if w_pass < float(min_pass_rate):
+        where_failed.append("log_prob_w_direction")
+    if l_pass < float(min_pass_rate):
+        where_failed.append("log_prob_l_direction")
+    if effective_ratio < float(min_effective_grad_ratio):
+        where_failed.append("saturation")
+    if swap_ok is False:
+        where_failed.append("swap")
+
+    return JointPreferenceGateResult(
+        ok=ok,
+        reason="ok" if ok else "joint_preference_violation",
+        grad_w_pass_rate=w_pass,
+        grad_l_pass_rate=l_pass,
+        swap_ok=swap_ok,
+        effective_grad_ratio=effective_ratio,
+        trace={
+            "failed_gate": None if ok else "JointPreference",
+            "failure_kind": None if ok else "joint_preference_violation",
+            "observed": {
+                "grad_w_pass_rate": w_pass,
+                "grad_l_pass_rate": l_pass,
+                "effective_grad_ratio": effective_ratio,
+                "loss": float(loss.item()),
+                "loss_swap": loss_swap_val,
+                "swap_ok": swap_ok,
+            },
+            "threshold": {
+                "min_pass_rate": float(min_pass_rate),
+                "swap_tolerance": float(swap_tolerance),
+                "min_effective_grad_ratio": float(min_effective_grad_ratio),
+                "grad_eps": float(grad_eps),
+            },
+            "where_failed": where_failed,
+            "variant": variant,
+        },
+    )
 
 
 _PAIRWISE_SUPPORTED_KEYS: Set[str] = {
@@ -185,7 +623,7 @@ def run_static_gates(
 def run_dynamic_gates(
     compiled: CompiledFreeLoss,
     batch: Mapping[str, Any],
-    model: torch.nn.Module,
+    model: torch.nn.Module | None = None,
     *,
     model_output: Mapping[str, torch.Tensor] | None = None,
     required_batch_keys: Sequence[str] | None = None,
@@ -242,7 +680,8 @@ def run_dynamic_gates(
                 },
             )
 
-    model.zero_grad()
+    if model is not None:
+        model.zero_grad()
 
     dummy_output: Dict[str, torch.Tensor] = dict(model_output or {})
 
@@ -331,20 +770,42 @@ def run_dynamic_gates(
             )
 
         total_norm_sq = 0.0
-        for p in model.parameters():
-            if p.grad is None:
-                continue
-            if not torch.isfinite(p.grad).all():
-                return DynamicGateResult(
-                    ok=False,
-                    reason="NaN/Inf in gradients.",
-                    trace={
-                        "failed_gate": "DynamicStability",
-                        "failure_kind": "grad_not_finite",
-                    },
-                )
-            total_norm_sq += float(p.grad.norm().item() ** 2)
-        grad_norm = total_norm_sq ** 0.5
+        if model is not None:
+            for p in model.parameters():
+                if p.grad is None:
+                    continue
+                if not torch.isfinite(p.grad).all():
+                    return DynamicGateResult(
+                        ok=False,
+                        reason="NaN/Inf in gradients.",
+                        trace={
+                            "failed_gate": "DynamicStability",
+                            "failure_kind": "grad_not_finite",
+                        },
+                    )
+                total_norm_sq += float(p.grad.norm().item() ** 2)
+            grad_norm = total_norm_sq ** 0.5
+        else:
+            # No model provided: validate autograd connectivity and finiteness
+            # of gradients w.r.t. any input tensors that require grad.
+            grad_tensors: list[torch.Tensor] = []
+            for v in list(batch.values()) + list(dummy_output.values()):
+                if isinstance(v, torch.Tensor) and bool(v.requires_grad):
+                    grad_tensors.append(v)
+            for t in grad_tensors:
+                if t.grad is None:
+                    continue
+                if not torch.isfinite(t.grad).all():
+                    return DynamicGateResult(
+                        ok=False,
+                        reason="NaN/Inf in input gradients.",
+                        trace={
+                            "failed_gate": "DynamicStability",
+                            "failure_kind": "input_grad_not_finite",
+                        },
+                    )
+                total_norm_sq += float(t.grad.norm().item() ** 2)
+            grad_norm = total_norm_sq ** 0.5
 
     if grad_norm > grad_norm_max:
         loss_val = float(loss.item())
@@ -355,14 +816,15 @@ def run_dynamic_gates(
             grad_norm=grad_norm,
             trace={
                 "failed_gate": "DynamicStability",
-                "failure_kind": "grad_norm_exceeds_max",
+                "failure_kind": "grad_norm_exceeds_max" if model is not None else "input_grad_norm_exceeds_max",
                 "metric": {
-                    "metric_name": "grad_norm",
+                    "metric_name": "grad_norm" if model is not None else "input_grad_norm",
                     "observed_value": grad_norm,
                     "threshold": float(grad_norm_max),
                     "direction": "<=",
                 },
                 "loss_value": loss_val,
+                "model_provided": bool(model is not None),
             },
         )
 
@@ -393,9 +855,10 @@ def run_dynamic_gates(
         grad_norm=grad_norm,
         trace={
             "failed_gate": None,
+            "model_provided": bool(model is not None),
             "checks": [
                 {
-                    "metric_name": "grad_norm",
+                    "metric_name": "grad_norm" if model is not None else "input_grad_norm",
                     "observed_value": grad_norm,
                     "threshold": float(grad_norm_max),
                     "direction": "<=",

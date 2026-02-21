@@ -842,6 +842,10 @@ def _worker_evaluate_candidate(args: Tuple[
         baseline_epoch_violation_weight=float(
             free_cfg_dict.get("baseline_epoch_violation_weight", 1.0)
         ),
+        baseline_epoch_window_k=int(free_cfg_dict.get("baseline_epoch_window_k", 10) or 10),
+        baseline_epoch_window_violation_weight=float(
+            free_cfg_dict.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+        ),
     )
 
     # Reconstruct IR and compiled loss in the worker.
@@ -882,6 +886,16 @@ def _worker_evaluate_candidate(args: Tuple[
             "epoch_objective_mean": None,
             "epoch_baseline_violations": None,
             "epoch_better_than_baseline": None,
+            "epoch_window_eval": {
+                "k": int(free_cfg.baseline_epoch_window_k),
+                "early_mean": None,
+                "late_mean": None,
+                "objectives": [],
+            },
+            "baseline_epoch_window_eval": {"early_mean": None, "late_mean": None},
+            "epoch_window_margins": None,
+            "epoch_window_violations": None,
+            "epoch_window_better_than_baseline": None,
             "train_score_mean": float("nan"),
             "train_loss_mean": float("nan"),
             "pair_count": 0,
@@ -1055,6 +1069,103 @@ def _atomic_write_json(path: str, payload: Dict[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def _repo_root_dir() -> str:
+    # This file lives at PTP/ptp_discovery/free_loss_eoh_loop.py.
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _global_baseline_root_dir() -> str:
+    return os.path.join(_repo_root_dir(), "baseline")
+
+
+def _baseline_key_from_hf_cfg(cfg: HighFidelityConfig, *, early_eval_steps: int | None = None) -> str:
+    """Stable key for cross-run baseline reuse.
+
+    The key includes the main HF config knobs that affect training and
+    validation metrics, then appends a short SHA1 digest for uniqueness.
+    """
+
+    payload: Dict[str, Any] = {
+        "env_name": str(getattr(cfg, "env_name", "") or "").strip().lower(),
+        "problem": str(getattr(cfg, "problem", "") or "").strip().lower(),
+        "policy_name": str(getattr(cfg, "policy_name", "") or "").strip().lower(),
+        "rollout_strategy": str(getattr(cfg, "rollout_strategy", "") or "").strip().lower(),
+        "objective_sign": str(getattr(cfg, "objective_sign", "") or "").strip().lower(),
+        "train_problem_size": int(cfg.train_problem_size),
+        "valid_problem_sizes": [int(v) for v in getattr(cfg, "valid_problem_sizes", ())],
+        "hf_steps": int(getattr(cfg, "hf_steps", 0) or 0),
+        "hf_epochs": int(getattr(cfg, "hf_epochs", 0) or 0),
+        "hf_instances_per_epoch": int(getattr(cfg, "hf_instances_per_epoch", 0) or 0),
+        "train_batch_size": int(getattr(cfg, "train_batch_size", 0) or 0),
+        "pomo_size": getattr(cfg, "pomo_size", None),
+        "effective_pomo_size": int(resolve_pomo_size(getattr(cfg, "pomo_size", None), int(cfg.train_problem_size))),
+        "learning_rate": float(getattr(cfg, "learning_rate", 0.0) or 0.0),
+        "weight_decay": float(getattr(cfg, "weight_decay", 0.0) or 0.0),
+        "alpha": float(getattr(cfg, "alpha", 0.0) or 0.0),
+        "seed": int(getattr(cfg, "seed", 0) or 0),
+        "num_validation_episodes": int(getattr(cfg, "num_validation_episodes", 0) or 0),
+        "validation_batch_size": int(getattr(cfg, "validation_batch_size", 0) or 0),
+        "early_eval_steps": int(early_eval_steps) if early_eval_steps is not None else None,
+        "pool_version": str(getattr(cfg, "pool_version", "") or "").strip().lower(),
+        "env_kwargs": dict(getattr(cfg, "env_kwargs", {}) or {}),
+        "generator_params": dict(getattr(cfg, "generator_params", {}) or {}),
+        "policy_kwargs": dict(getattr(cfg, "policy_kwargs", {}) or {}),
+    }
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    digest = hashlib.sha1(blob).hexdigest()[:16]
+
+    env = payload["env_name"] or payload["problem"] or "unknown"
+    policy = payload["policy_name"] or "auto"
+    prefix = (
+        f"{env}__{policy}__n{payload['train_problem_size']}__epochs{payload['hf_epochs']}__"
+        f"inst{payload['hf_instances_per_epoch']}__pomo{payload['effective_pomo_size']}__"
+        f"seed{payload['seed']}__{payload['objective_sign'] or 'neg_reward'}"
+    )
+    safe_prefix = re.sub(r"[^a-zA-Z0-9._-]+", "_", prefix).strip("_")
+    return f"{safe_prefix}__{digest}"
+
+
+def _baseline_paths_for_key(key: str) -> Tuple[str, str]:
+    base_dir = os.path.join(_global_baseline_root_dir(), str(key))
+    return (
+        os.path.join(base_dir, "baseline.json"),
+        os.path.join(base_dir, "epoch_objectives.json"),
+    )
+
+
+def _load_json_if_exists(path: str) -> Dict[str, Any] | None:
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _load_epoch_objectives_if_exists(path: str) -> List[float] | None:
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, list):
+            return None
+        return [float(v) for v in data]
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _atomic_write_json_any(path: str, payload: Any) -> None:
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
 def _b64_pickle(obj: Any) -> str:
     return base64.b64encode(pickle.dumps(obj)).decode("ascii")
 
@@ -1181,6 +1292,10 @@ def run_free_loss_eoh(
         baseline_epoch_violation_weight=float(
             cfg_yaml.get("baseline_epoch_violation_weight", 1.0)
         ),
+        baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+        baseline_epoch_window_violation_weight=float(
+            cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+        ),
     )
     hf_cfg_dict: Dict[str, Any] = dict(hf_cfg.__dict__)
     free_cfg_dict: Dict[str, Any] = {
@@ -1188,6 +1303,8 @@ def run_free_loss_eoh(
         "f2_steps": free_cfg.f2_steps,
         "f3_enabled": free_cfg.f3_enabled,
         "baseline_epoch_violation_weight": free_cfg.baseline_epoch_violation_weight,
+        "baseline_epoch_window_k": free_cfg.baseline_epoch_window_k,
+        "baseline_epoch_window_violation_weight": free_cfg.baseline_epoch_window_violation_weight,
     }
 
     early_eval_steps = _compute_early_eval_steps(cfg_yaml, hf_cfg)
@@ -1219,39 +1336,77 @@ def run_free_loss_eoh(
     # free-form preference losses.
     baseline: Dict[str, Any] | None = None
     baseline_json_path = os.path.join(run_dir, "baseline.json")
-    if os.path.isfile(baseline_json_path):
-        try:
-            with open(baseline_json_path, "r", encoding="utf-8") as f:
-                baseline = json.load(f)
-        except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("Failed to load baseline.json (%s): %s", baseline_json_path, exc)
-            baseline = None
-    elif resume_state is not None:
-        cand = resume_state.get("baseline")
-        if isinstance(cand, dict):
-            baseline = dict(cand)
+    baseline_key = _baseline_key_from_hf_cfg(hf_cfg, early_eval_steps=early_eval_steps)
+    global_baseline_path, global_epoch_objectives_path = _baseline_paths_for_key(baseline_key)
+    global_loaded = _load_json_if_exists(global_baseline_path)
+    if global_loaded is not None:
+        baseline = global_loaded
+        LOGGER.info(
+            "Loaded baseline from global cache: key=%s path=%s", baseline_key, global_baseline_path
+        )
+        if not os.path.isfile(baseline_json_path):
+            try:
+                _atomic_write_json(baseline_json_path, dict(baseline))
+            except Exception:  # noqa: BLE001
+                pass
+    else:
+        if os.path.isfile(baseline_json_path):
+            try:
+                with open(baseline_json_path, "r", encoding="utf-8") as f:
+                    baseline = json.load(f)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("Failed to load baseline.json (%s): %s", baseline_json_path, exc)
+                baseline = None
+        elif resume_state is not None:
+            cand = resume_state.get("baseline")
+            if isinstance(cand, dict):
+                baseline = dict(cand)
 
-    if baseline is None:
+        if baseline is None:
+            try:
+                baseline_log_path = os.path.join(run_dir, "baseline_po_loss.log")
+                with _capture_logs_to_file(baseline_log_path):
+                    LOGGER.info(
+                        "Saving baseline training log to %s", os.path.abspath(baseline_log_path)
+                    )
+                    baseline = evaluate_po_baseline(hf_cfg, early_eval_steps=early_eval_steps)
+                _atomic_write_json(baseline_json_path, dict(baseline))
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("Failed to evaluate baseline po_loss: %s", exc)
+                baseline = None
+
+    # Backfill the global cache if missing.
+    if baseline is not None and global_loaded is None:
         try:
-            baseline_log_path = os.path.join(run_dir, "baseline_po_loss.log")
-            with _capture_logs_to_file(baseline_log_path):
-                LOGGER.info(
-                    "Saving baseline training log to %s", os.path.abspath(baseline_log_path)
+            os.makedirs(os.path.dirname(global_baseline_path), exist_ok=True)
+            _atomic_write_json(global_baseline_path, dict(baseline))
+            epoch_objectives = (
+                baseline.get("epoch_eval", {}).get("objectives")
+                if isinstance(baseline, dict)
+                else None
+            )
+            if isinstance(epoch_objectives, list) and epoch_objectives:
+                _atomic_write_json_any(
+                    global_epoch_objectives_path, [float(v) for v in epoch_objectives]
                 )
-                baseline = evaluate_po_baseline(hf_cfg, early_eval_steps=early_eval_steps)
-            _atomic_write_json(baseline_json_path, dict(baseline))
+            LOGGER.info(
+                "Wrote baseline to global cache: key=%s path=%s", baseline_key, global_baseline_path
+            )
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("Failed to evaluate baseline po_loss: %s", exc)
-            baseline = None
+            LOGGER.warning(
+                "Failed to write baseline to global cache (%s): %s", global_baseline_path, exc
+            )
 
     if baseline is not None:
         baseline_hf_score = float(baseline.get("fitness_score", baseline["hf_score"]))
         baseline_early_valid = float(
             baseline.get("early_validation_objective", baseline["validation_objective"])
         )
-        baseline_epoch_objectives = baseline.get("epoch_eval", {}).get("objectives")
-        if baseline_epoch_objectives:
-            baseline_epoch_objectives = [float(v) for v in baseline_epoch_objectives]
+        baseline_epoch_objectives = _load_epoch_objectives_if_exists(global_epoch_objectives_path)
+        if baseline_epoch_objectives is None:
+            baseline_epoch_objectives = baseline.get("epoch_eval", {}).get("objectives")
+            if baseline_epoch_objectives:
+                baseline_epoch_objectives = [float(v) for v in baseline_epoch_objectives]
         burn_in_objectives.append(
             {
                 "name": "po_loss_baseline",
@@ -1943,7 +2098,6 @@ def run_free_loss_eoh(
                         compiled,
                         batch=dummy_batch_vis,
                         model_output=dummy_out_vis,
-                        model=model,
                         grad_norm_max=float(cfg_yaml.get("grad_norm_max", 10.0)),
                         loss_soft_min=float(cfg_yaml.get("loss_soft_min", -5.0)),
                         loss_soft_max=float(cfg_yaml.get("loss_soft_max", 5.0)),
@@ -1955,7 +2109,6 @@ def run_free_loss_eoh(
                             compiled,
                             batch=dummy_batch_hid,
                             model_output=dummy_out_hid,
-                            model=model,
                             grad_norm_max=float(cfg_yaml.get("grad_norm_max", 10.0)),
                             loss_soft_min=float(cfg_yaml.get("loss_soft_min", -5.0)),
                             loss_soft_max=float(cfg_yaml.get("loss_soft_max", 5.0)),
@@ -2723,28 +2876,26 @@ def run_free_loss_eoh(
             hf_like_score = float(fitness["hf_like_score"])
             epoch_mean = fitness.get("epoch_objective_mean")
             epoch_mean_val = float(epoch_mean) if epoch_mean is not None else float("nan")
-            epoch_violations = fitness.get("epoch_baseline_violations")
+            window_violations = fitness.get("epoch_window_violations")
+            epoch_violations = (
+                window_violations
+                if window_violations is not None
+                else fitness.get("epoch_baseline_violations")
+            )
             early_eval = fitness.get("early_eval") or {}
             early_eval_steps = early_eval.get("steps")
             early_stopped = early_eval.get("early_stopped")
             better_than_baseline = None
             baseline_compare_value = float("nan")
             if baseline_epoch_objectives:
-                # When epoch-wise baselines exist, decide "better than baseline" by
-                # requiring that the latter half of epochs are all <= their baseline
-                # counterparts. This tolerates noisy early training as long as the
-                # model is consistently better in the later stage.
-                epoch_eval = fitness.get("epoch_eval") or {}
-                cand_epoch_objectives = epoch_eval.get("objectives") or []
-                compare_len = min(len(cand_epoch_objectives), len(baseline_epoch_objectives))
-                if compare_len > 0:
-                    base_last = float(baseline_epoch_objectives[compare_len - 1])
-                    baseline_compare_value = base_last
-                    start_idx = compare_len // 2
-                    better_than_baseline = all(
-                        float(cand_epoch_objectives[i]) <= float(baseline_epoch_objectives[i])
-                        for i in range(start_idx, compare_len)
-                    )
+                # Prefer the epoch-window comparison computed during HF evaluation.
+                window_better = fitness.get("epoch_window_better_than_baseline")
+                baseline_window = fitness.get("baseline_epoch_window_eval") or {}
+                baseline_late = baseline_window.get("late_mean")
+                if baseline_late is not None:
+                    baseline_compare_value = float(baseline_late)
+                if window_better is not None:
+                    better_than_baseline = bool(window_better)
                 elif baseline_hf_score is not None:
                     baseline_compare_value = float(baseline_hf_score)
                     # Lower score is better.
@@ -2791,6 +2942,10 @@ def run_free_loss_eoh(
                     "epoch_objective_mean": epoch_mean,
                     "epoch_baseline_violations": epoch_violations,
                     "epoch_better_than_baseline": fitness.get("epoch_better_than_baseline"),
+                    "epoch_window_violations": fitness.get("epoch_window_violations"),
+                    "epoch_window_better_than_baseline": fitness.get(
+                        "epoch_window_better_than_baseline"
+                    ),
                     "early_eval_steps": early_eval_steps,
                     "early_stopped": early_stopped,
                     "baseline_hf_score": baseline_hf_score,
@@ -2815,7 +2970,9 @@ def run_free_loss_eoh(
         def _elite_key(entry: Dict[str, Any]) -> Tuple[float, float, float]:
             score = float(entry["fitness"]["hf_like_score"])
             pair_count = float(entry["fitness"].get("pair_count", 0) or 0)
-            violations = entry["fitness"].get("epoch_baseline_violations")
+            violations = entry["fitness"].get("epoch_window_violations")
+            if violations is None:
+                violations = entry["fitness"].get("epoch_baseline_violations")
             if violations is not None:
                 return (float(violations), score, pair_count)
             if baseline_hf_score is None:
