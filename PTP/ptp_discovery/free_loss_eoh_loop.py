@@ -1384,6 +1384,18 @@ def run_free_loss_eoh(
         run_dir = _timestamp_dir(out_root)
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
 
+    # Configure run-level LLM cache and offline mode for EoH.
+    # Cache is stored under: <run_dir>/llm_cache.jsonl
+    try:
+        import ptp_discovery.free_loss_llm_ops as llm_ops
+
+        llm_ops.configure_llm_run(
+            run_dir=str(run_dir),
+            offline_mode=bool(cfg_yaml.get("offline_mode", False)),
+        )
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Failed to configure LLM run cache/offline mode: %s", exc)
+
     candidates_jsonl_path = os.path.join(run_dir, "candidates.jsonl")
     gates_jsonl_path = os.path.join(run_dir, "gate_reports.jsonl")
     fitness_jsonl_path = os.path.join(run_dir, "fitness_scores.jsonl")
@@ -3186,3 +3198,10 @@ def run_free_loss_eoh(
         )
     else:
         LOGGER.info("Search complete. No candidate passed dynamic gates; no elites selected.")
+
+    try:
+        import ptp_discovery.free_loss_llm_ops as llm_ops
+
+        LOGGER.info("LLM cache stats: %s", dict(llm_ops.llm_cache_stats()))
+    except Exception:  # noqa: BLE001
+        pass
