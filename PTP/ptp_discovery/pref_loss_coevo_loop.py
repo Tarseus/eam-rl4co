@@ -45,7 +45,11 @@ from ptp_discovery.free_loss_gates import (
     run_preference_semantic_gates,
     run_static_gates,
 )
-from ptp_discovery.free_loss_ir import FreeLossIR, ir_from_json as free_loss_ir_from_json
+from ptp_discovery.free_loss_ir import (
+    FreeLossIR,
+    FreeLossImplementationHint,
+    ir_from_json as free_loss_ir_from_json,
+)
 from ptp_discovery.pref_builder_compiler import (
     CompiledPreferenceBuilder,
     PreferenceBuilderCompileError,
@@ -895,7 +899,7 @@ def _ref_loss_ir() -> FreeLossIR:
         pseudocode="loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
         hyperparams={"alpha": 1.0},
         operators_used=["logsigmoid"],
-        implementation_hint=dict(  # type: ignore[arg-type]
+        implementation_hint=FreeLossImplementationHint(
             expects=["cost_a", "cost_b", "log_prob_w", "log_prob_l", "weight"],
             returns="scalar",
             mode="pairwise",
