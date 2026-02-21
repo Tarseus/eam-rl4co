@@ -187,54 +187,55 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
     )
     pool: List[PreferenceBuilderIR] = []
     for i in range(max(1, int(n))):
-        kind = "all_pairs"
+        # For n>1, include a stable baseline at i==0; for n==1, allow diversity.
+        if i == 0 and int(n) > 1:
+            choice = "all_pairs"
+        else:
+            choice = rng.choice(["all_pairs", "anchor_best", "gap_threshold", "sampled_pairs"])
+
+        kind = str(choice)
         code = base_code
-        if i > 0:
-            choice = rng.choice(["anchor_best", "gap_threshold", "sampled_pairs"])
-            if choice == "anchor_best":
-                kind = "anchor_best"
-                code = (
-                    "def generated_builder(feature_cache, extra):\n"
-                    "    objective = feature_cache['objective']\n"
-                    "    best = objective.argmin(dim=1, keepdim=True)\n"
-                    "    all_idx = torch.arange(objective.shape[1], device=objective.device)[None, :].expand_as(objective)\n"
-                    "    b_idx = torch.arange(objective.shape[0], device=objective.device)[:, None].expand_as(all_idx)\n"
-                    "    winner_idx = best.expand_as(all_idx)\n"
-                    "    loser_idx = all_idx\n"
-                    "    mask = winner_idx != loser_idx\n"
-                    "    b = b_idx[mask]\n"
-                    "    w = winner_idx[mask]\n"
-                    "    l = loser_idx[mask]\n"
-                    "    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta={'builder': 'anchor_best'})\n"
-                )
-            elif choice == "gap_threshold":
-                kind = "gap_threshold"
-                thr = float(rng.uniform(0.0, 1.0))
-                code = (
-                    "def generated_builder(feature_cache, extra):\n"
-                    "    objective = feature_cache['objective']\n"
-                    f"    thr = float(extra.get('gap_threshold', {thr}))\n"
-                    "    diff = objective[:, None, :] - objective[:, :, None]\n"
-                    "    mask = (diff > thr)\n"
-                    "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
-                    "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_threshold', 'thr': thr})\n"
-                )
-            else:
-                kind = "sampled_pairs"
-                max_pairs = int(rng.randint(64, 512))
-                code = (
-                    "def generated_builder(feature_cache, extra):\n"
-                    "    objective = feature_cache['objective']\n"
-                    "    mask = objective[:, :, None] < objective[:, None, :]\n"
-                    "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
-                    f"    max_pairs = int(extra.get('max_pairs', {max_pairs}))\n"
-                    "    if b_idx.numel() > max_pairs:\n"
-                    "        perm = torch.randperm(b_idx.numel(), device=b_idx.device)[:max_pairs]\n"
-                    "        b_idx = b_idx[perm]\n"
-                    "        winner_idx = winner_idx[perm]\n"
-                    "        loser_idx = loser_idx[perm]\n"
-                    "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'sampled_pairs', 'max_pairs': max_pairs})\n"
-                )
+        if choice == "anchor_best":
+            code = (
+                "def generated_builder(feature_cache, extra):\n"
+                "    objective = feature_cache['objective']\n"
+                "    best = objective.argmin(dim=1, keepdim=True)\n"
+                "    all_idx = torch.arange(objective.shape[1], device=objective.device)[None, :].expand_as(objective)\n"
+                "    b_idx = torch.arange(objective.shape[0], device=objective.device)[:, None].expand_as(all_idx)\n"
+                "    winner_idx = best.expand_as(all_idx)\n"
+                "    loser_idx = all_idx\n"
+                "    mask = winner_idx != loser_idx\n"
+                "    b = b_idx[mask]\n"
+                "    w = winner_idx[mask]\n"
+                "    l = loser_idx[mask]\n"
+                "    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta={'builder': 'anchor_best'})\n"
+            )
+        elif choice == "gap_threshold":
+            thr = float(rng.uniform(0.0, 1.0))
+            code = (
+                "def generated_builder(feature_cache, extra):\n"
+                "    objective = feature_cache['objective']\n"
+                f"    thr = float(extra.get('gap_threshold', {thr}))\n"
+                "    diff = objective[:, None, :] - objective[:, :, None]\n"
+                "    mask = (diff > thr)\n"
+                "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+                "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_threshold', 'thr': thr})\n"
+            )
+        elif choice == "sampled_pairs":
+            max_pairs = int(rng.randint(64, 512))
+            code = (
+                "def generated_builder(feature_cache, extra):\n"
+                "    objective = feature_cache['objective']\n"
+                "    mask = objective[:, :, None] < objective[:, None, :]\n"
+                "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+                f"    max_pairs = int(extra.get('max_pairs', {max_pairs}))\n"
+                "    if b_idx.numel() > max_pairs:\n"
+                "        perm = torch.randperm(b_idx.numel(), device=b_idx.device)[:max_pairs]\n"
+                "        b_idx = b_idx[perm]\n"
+                "        winner_idx = winner_idx[perm]\n"
+                "        loser_idx = loser_idx[perm]\n"
+                "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'sampled_pairs', 'max_pairs': max_pairs})\n"
+            )
 
         pool.append(
             PreferenceBuilderIR(

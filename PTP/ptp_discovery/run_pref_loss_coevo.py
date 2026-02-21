@@ -4,6 +4,7 @@ import argparse
 import logging
 import os
 import sys
+import time
 
 # Make this file usable both as a module (`-m ptp_discovery.run_pref_loss_coevo`)
 # and as a direct script (`python ptp_discovery/run_pref_loss_coevo.py`).
@@ -61,6 +62,17 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    # Timezone for `%(asctime)s` in Python logging.
+    # - If `LOG_TZ` is set (e.g., "Asia/Shanghai"), we apply it via `TZ` and `tzset` (POSIX).
+    # - If not set, logging uses the system local timezone.
+    log_tz = os.environ.get("LOG_TZ")
+    if log_tz:
+        os.environ["TZ"] = str(log_tz)
+        try:
+            time.tzset()
+        except AttributeError:
+            # Windows / non-POSIX platforms may not provide tzset.
+            pass
     logging.basicConfig(
         level=logging.INFO,
         format="[%(asctime)s] %(levelname)s:%(name)s: %(message)s",
