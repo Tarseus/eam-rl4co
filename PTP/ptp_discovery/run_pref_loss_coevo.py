@@ -73,8 +73,10 @@ def main() -> None:
         except AttributeError:
             # Windows / non-POSIX platforms may not provide tzset.
             pass
+    level_name = str(os.environ.get("LOG_LEVEL", "INFO") or "INFO").upper()
+    level = getattr(logging, level_name, logging.INFO)
     logging.basicConfig(
-        level=logging.INFO,
+        level=level,
         format="[%(asctime)s] %(levelname)s:%(name)s: %(message)s",
     )
     parser = _build_arg_parser()
