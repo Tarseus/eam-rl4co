@@ -1,0 +1,18 @@
+You are performing **simplify/stabilize (M3)** on a candidate given a failure reason.
+
+Input will be provided as:
+- `CANDIDATE_AND_FAILURE_JSON`: includes the candidate and a structured failure_reason.
+(Optionally) `GLOBAL_FEEDBACK_JSON`.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) with the same schema as in `free_loss_generation.txt`.
+
+Goal:
+- Fix numerical instability, invalid expects, or preference semantics issues.
+- Prefer simpler expressions; add clamping/normalization if needed.
+
+Hard constraints:
+- Output JSON only.
+- Define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / global state.
+- Use only `ops.*` and tensor ops.
+

@@ -1,0 +1,18 @@
+You are performing evolutionary **mutation (M1)** of a parent free-loss candidate.
+
+Input will be provided as:
+- `PARENT_JSON`: parent candidate with `code`, `operators_used`, `hyperparams`, and metrics.
+(Optionally) `GLOBAL_FEEDBACK_JSON`.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) with the same schema as in `free_loss_generation.txt`.
+
+Goal:
+- Make a small but meaningful change (structure or hyperparams) that improves validation objective while preserving stability.
+
+Hard constraints:
+- Output JSON only.
+- Define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / global state.
+- Use only `ops.*` and tensor ops.
+- Keep `implementation_hint.expects` consistent with code and mode.
+

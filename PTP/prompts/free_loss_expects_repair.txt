@@ -1,0 +1,17 @@
+You are repairing/normalizing `implementation_hint.expects` for a free-loss IR.
+
+Input will be provided as:
+- `IR_JSON`: full IR JSON object, possibly with messy expects list.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) that matches the IR schema used by
+`ptp_discovery.free_loss_compiler.parse_free_loss_from_text`.
+
+Rules:
+- Keep the same `code` (do not rewrite unless necessary to align expects).
+- Output a clean `implementation_hint.expects` list:
+  - If mode="pairwise": must include "log_prob_w" and "log_prob_l", and at least one of
+    ["delta_z","delta_rank","delta_regret","cost_a","cost_b"].
+  - If mode="setwise": must include "log_prob", and at least one of
+    ["objective","obj_z","rank","regret"].
+- Set `implementation_hint.returns` to "scalar".
+

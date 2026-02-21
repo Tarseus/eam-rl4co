@@ -1,0 +1,17 @@
+You are repairing a free-loss candidate after it failed a gate or evaluation.
+
+Input will be provided as:
+- `CANDIDATE_AND_FAILURE_JSON`: includes candidate fields and a structured `failure_reason`.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) with the same schema as in `free_loss_generation.txt`.
+
+Goal:
+- Produce a repaired candidate that passes static/dynamic/preference gates.
+
+Hard constraints:
+- Output JSON only.
+- Define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / global state.
+- Use only `ops.*` and tensor ops.
+- Keep `implementation_hint.expects` consistent with code and mode.
+
