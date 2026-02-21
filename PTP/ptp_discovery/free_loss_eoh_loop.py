@@ -3058,18 +3058,33 @@ def run_free_loss_eoh(
             baseline_compare_value = float("nan")
             if baseline_epoch_objectives:
                 # Compare epoch-by-epoch against the baseline's epoch objectives.
-                # `epoch_better_than_baseline` is True only when every compared epoch is
-                # better (smaller objective) than the corresponding baseline epoch.
-                epoch_better = fitness.get("epoch_tail_better_than_baseline")
-                if epoch_better is None:
-                    epoch_better = fitness.get("epoch_better_than_baseline")
                 epoch_eval = fitness.get("epoch_eval") or {}
                 obj_list = epoch_eval.get("objectives") or []
                 epochs_total = epoch_eval.get("epochs_total")
-                if isinstance(epochs_total, int) and epochs_total > 0 and len(obj_list) != int(epochs_total):
-                    epoch_better = False
-                if epoch_better is not None:
-                    better_than_baseline = bool(epoch_better)
+                incomplete_epochs = (
+                    isinstance(epochs_total, int)
+                    and epochs_total > 0
+                    and len(obj_list) != int(epochs_total)
+                )
+
+                # Prefer the epoch-window criterion (early k + late k) when available.
+                # This matches the "first 10 epochs + last 10 epochs" baseline gate.
+                window_better = fitness.get("epoch_window_better_than_baseline")
+                if incomplete_epochs and window_better is not None:
+                    window_better = False
+                if window_better is not None:
+                    better_than_baseline = bool(window_better)
+                else:
+                    # Fallback: epoch-by-epoch comparison (optionally tail-only).
+                    # `epoch_better_than_baseline` is True only when every compared epoch is
+                    # better (smaller objective) than the corresponding baseline epoch.
+                    epoch_better = fitness.get("epoch_tail_better_than_baseline")
+                    if epoch_better is None:
+                        epoch_better = fitness.get("epoch_better_than_baseline")
+                    if incomplete_epochs and epoch_better is not None:
+                        epoch_better = False
+                    if epoch_better is not None:
+                        better_than_baseline = bool(epoch_better)
                 if baseline_hf_score is not None:
                     baseline_compare_value = float(baseline_hf_score)
             elif baseline_hf_score is not None:

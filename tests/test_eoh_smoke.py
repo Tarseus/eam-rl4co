@@ -95,6 +95,7 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
     from ptp_discovery import free_loss_eoh_loop as eoh_loop
 
     def _fast_eval(*args, **kwargs):  # noqa: ARG001
+        objectives = [1.0] * 20
         return {
             "hf_like_score": 1.0,
             "validation_objective": 1.0,
@@ -102,14 +103,14 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
             "generalization_objectives": {},
             "epoch_objective_mean": None,
             "epoch_baseline_violations": None,
-            "epoch_better_than_baseline": None,
-            "epoch_tail_better_than_baseline": None,
-            "epoch_window_violations": None,
-            "epoch_window_eval": {"k": 0, "early_mean": None, "late_mean": None, "objectives": []},
+            "epoch_better_than_baseline": True,
+            "epoch_tail_better_than_baseline": True,
+            "epoch_eval": {"enabled": True, "epochs_total": len(objectives), "objectives": objectives},
+            "epoch_window_eval": {"k": 10, "early_mean": 1.0, "late_mean": 1.0, "objectives": objectives},
             "baseline_epoch_window_eval": {"early_mean": None, "late_mean": None},
             "epoch_window_margins": None,
-            "epoch_window_violations": None,
-            "epoch_window_better_than_baseline": None,
+            "epoch_window_violations": 1,
+            "epoch_window_better_than_baseline": False,
             "train_score_mean": 0.0,
             "train_loss_mean": 0.0,
             "pair_count": 1,
@@ -125,6 +126,12 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
         }
 
     monkeypatch.setattr(eoh_loop, "evaluate_free_loss_candidate", _fast_eval)
+
+    metrics_path = tmp_path / "baseline_metrics.csv"
+    metrics_lines = ["epoch,val/reward"]
+    for epoch in range(1, 21):
+        metrics_lines.append(f"{epoch},-1.0")
+    metrics_path.write_text("\n".join(metrics_lines) + "\n", encoding="utf-8")
 
     # Minimal config (generations=2 triggers gen=1 which must choose M1 when only mutation prompt exists).
     out_root = tmp_path / "runs"
@@ -146,9 +153,10 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
                 "valid_problem_sizes: [20]",
                 "train_batch_size: 64",
                 "pomo_size: 20",
-                "hf_epochs: 1",
+                "hf_epochs: 20",
                 "hf_instances_per_epoch: 64",
                 "f1_steps: 1",
+                "baseline_epoch_window_k: 10",
                 "device: cpu",
                 "eval_mp_enabled: false",
                 "num_validation_episodes: 16",
@@ -162,6 +170,10 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
                 "  mutation: PTP/prompts/free_loss_mutation.txt",
                 "  repair: PTP/prompts/free_loss_repair.txt",
                 "  expects_repair: PTP/prompts/free_loss_expects_repair.txt",
+                "baseline:",
+                f"  metrics_csv: {metrics_path.as_posix()}",
+                "  checkpoint_epoch: 0",
+                "  val_column: val/reward",
                 f"output_root: {out_root.as_posix()}",
             ]
         ),
@@ -190,3 +202,14 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
             found = True
             break
     assert found, "Expected at least one gate record with llm_op in {'E1','M1'}"
+
+    fitness_path = run_dir / "fitness_scores.jsonl"
+    assert fitness_path.is_file()
+    recs = [
+        json.loads(line)
+        for line in fitness_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert recs, "Expected at least one fitness record"
+    assert any(r.get("epoch_window_better_than_baseline") is False for r in recs)
+    assert any(r.get("better_than_baseline") is False for r in recs)
