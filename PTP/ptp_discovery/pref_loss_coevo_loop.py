@@ -9,6 +9,7 @@ import math
 import os
 import pickle
 import random
+import re
 import time
 from dataclasses import asdict
 from hashlib import sha1
@@ -21,6 +22,7 @@ from fitness.free_loss_fidelity import (
     FreeLossFidelityConfig,
     PrefBatch,
     PrefBuilder,
+    baseline_epoch_objectives_from_metrics_csv,
     extract_feature_cache,
     evaluate_free_loss_candidate,
 )
@@ -57,6 +59,30 @@ from ptp_discovery.pref_builder_ir import (
 
 
 LOGGER = logging.getLogger("ptp_discovery.pref_loss_coevo")
+
+
+def _repo_root_dir() -> str:
+    # This file lives at PTP/ptp_discovery/pref_loss_coevo_loop.py.
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _abs_from_repo_root(path: str) -> str:
+    if not path:
+        return path
+    if os.path.isabs(path):
+        return path
+    return os.path.abspath(os.path.join(_repo_root_dir(), path))
+
+
+def _infer_baseline_epoch_from_path(path: str) -> int | None:
+    name = os.path.basename(str(path))
+    m = re.search(r"(?:^|[._-])epoch_(\d+)(?:\D|$)", name)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
 
 
 def _timestamp_dir(root: str) -> str:
@@ -311,12 +337,30 @@ def _build_hf_cfg(cfg: Mapping[str, Any], *, seed: int, device_str: str) -> High
 
 
 def _build_free_cfg(cfg: Mapping[str, Any], *, hf_cfg: HighFidelityConfig) -> FreeLossFidelityConfig:
+    baseline_cfg = cfg.get("baseline", {}) or {}
+    ckpt = (
+        baseline_cfg.get("checkpoint")
+        or cfg.get("baseline_checkpoint")
+        or cfg.get("baseline_ckpt")
+        or cfg.get("init_checkpoint_path")
+    )
+    ckpt_epoch = baseline_cfg.get("checkpoint_epoch", cfg.get("baseline_checkpoint_epoch"))
+    if ckpt_epoch is None and ckpt:
+        ckpt_epoch = _infer_baseline_epoch_from_path(str(ckpt))
+
     return FreeLossFidelityConfig(
         hf=hf_cfg,
         f1_steps=int(cfg.get("f1_steps", 32) or 32),
         f2_steps=int(cfg.get("f2_steps", 0) or 0),
         f3_enabled=bool(cfg.get("f3_enabled", False)),
+        init_checkpoint_path=_abs_from_repo_root(str(ckpt)) if ckpt else None,
+        init_checkpoint_epoch=(int(ckpt_epoch) if ckpt_epoch is not None else None),
         baseline_epoch_violation_weight=float(cfg.get("baseline_epoch_violation_weight", 1.0)),
+        baseline_epoch_tail_frac=float(cfg.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+        baseline_epoch_window_k=int(cfg.get("baseline_epoch_window_k", 10) or 10),
+        baseline_epoch_window_violation_weight=float(
+            cfg.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+        ),
     )
 
 
@@ -1286,6 +1330,19 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     operator_whitelist = list(payload.get("operator_whitelist", []))
     cheap_gate_on = bool(payload.get("cheap_gate_on", True))
     high_fidelity_on = bool(payload.get("high_fidelity_on", True))
+    baseline_epoch_objectives = payload.get("baseline_epoch_objectives")
+    if not isinstance(baseline_epoch_objectives, list) or not baseline_epoch_objectives:
+        baseline_epoch_objectives = None
+    baseline_early_valid = payload.get("baseline_early_valid")
+    try:
+        baseline_early_valid_f = float(baseline_early_valid) if baseline_early_valid is not None else None
+    except (TypeError, ValueError):
+        baseline_early_valid_f = None
+    early_eval_steps = payload.get("early_eval_steps", 0)
+    try:
+        early_eval_steps_i = int(early_eval_steps or 0)
+    except (TypeError, ValueError):
+        early_eval_steps_i = 0
     eval_sig = str(payload.get("eval_budget_signature", ""))
     proxy_record = payload.get("proxy_record")
     if not isinstance(proxy_record, dict):
@@ -1437,7 +1494,14 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     free_cfg = _build_free_cfg(cfg, hf_cfg=hf_cfg)
     adapter = _CompiledBuilderAdapter(compiled_g)
     try:
-        fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+        fitness = evaluate_free_loss_candidate(
+            compiled_f,
+            free_cfg,
+            pref_builder=adapter,
+            baseline_early_valid=baseline_early_valid_f,
+            early_eval_steps=early_eval_steps_i,
+            baseline_epoch_objectives=baseline_epoch_objectives,
+        )
     except Exception as exc:  # noqa: BLE001
         record["pair_ok"] = False
         record["pair_reason"] = "high_fidelity_failed"
@@ -1449,8 +1513,21 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     record["pair_ok"] = True
     record["pair_reason"] = "ok"
     record["fitness"] = dict(fitness)
+    # If baseline epoch objectives are provided, `epoch_better_than_baseline` is
+    # True only when all HF epochs are better than the baseline (smaller objective).
+    if isinstance(fitness, dict):
+        tail_better = fitness.get("epoch_tail_better_than_baseline")
+        if tail_better is None:
+            tail_better = fitness.get("epoch_better_than_baseline")
+        if tail_better is not None:
+            record["better_than_baseline"] = bool(tail_better)
     try:
-        record["score"] = float(fitness.get("fitness_score", fitness.get("validation_objective", float("inf"))))
+        record["score"] = float(
+            fitness.get(
+                "hf_like_score",
+                fitness.get("fitness_score", fitness.get("validation_objective", float("inf"))),
+            )
+        )
     except (TypeError, ValueError):
         record["score"] = float("inf")
     record["elapsed_s"] = float(time.time() - t0)
@@ -1587,6 +1664,52 @@ def run_pref_loss_coevo(
         proxy_batches=proxy_batches,
         proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
     )
+
+    # Optional external baseline (metrics.csv) for epoch-by-epoch comparisons during HF.
+    baseline_epoch_objectives: List[float] | None = None
+    baseline_early_valid: float | None = None
+    early_eval_steps: int = 0
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    baseline_metrics_csv = (
+        baseline_cfg.get("metrics_csv")
+        or cfg_yaml.get("baseline_metrics_csv")
+        or cfg_yaml.get("baseline_metrics_path")
+    )
+    baseline_ckpt_epoch = baseline_cfg.get(
+        "checkpoint_epoch", cfg_yaml.get("baseline_checkpoint_epoch")
+    )
+    if baseline_ckpt_epoch is None:
+        ckpt = baseline_cfg.get("checkpoint") or cfg_yaml.get("baseline_checkpoint") or cfg_yaml.get("baseline_ckpt")
+        if ckpt:
+            baseline_ckpt_epoch = _infer_baseline_epoch_from_path(str(ckpt))
+    baseline_val_column = str(
+        baseline_cfg.get("val_column", cfg_yaml.get("baseline_val_column", "val/reward"))
+        or "val/reward"
+    )
+    if baseline_metrics_csv and baseline_ckpt_epoch is not None and int(getattr(sig_hf_cfg, "hf_epochs", 0) or 0) > 0:
+        metrics_path = _abs_from_repo_root(str(baseline_metrics_csv))
+        start_epoch = int(baseline_ckpt_epoch) + 1
+        try:
+            baseline_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                metrics_path,
+                value_col=baseline_val_column,
+                start_epoch=start_epoch,
+                num_epochs=int(sig_hf_cfg.hf_epochs),
+                objective_sign=str(sig_hf_cfg.objective_sign),
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Failed to load external baseline epoch objectives (%s): %s", metrics_path, exc)
+            baseline_epoch_objectives = None
+            baseline_early_valid = None
+            early_eval_steps = 0
+        else:
+            LOGGER.info(
+                "External baseline loaded for HF comparisons: metrics=%s epoch_start=%d epochs=%d val_column=%s",
+                os.path.abspath(metrics_path),
+                int(baseline_ckpt_epoch) + 1,
+                int(sig_hf_cfg.hf_epochs),
+                str(baseline_val_column),
+            )
     if resume_state is not None:
         loaded = load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=eval_sig)
         LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sig=%s)", loaded, eval_sig)
@@ -2094,6 +2217,11 @@ def run_pref_loss_coevo(
                         "high_fidelity_on": True,
                         "eval_budget_signature": str(eval_sig),
                         "proxy_record": dict(r),
+                        "baseline_epoch_objectives": list(baseline_epoch_objectives)
+                        if baseline_epoch_objectives
+                        else None,
+                        "baseline_early_valid": baseline_early_valid,
+                        "early_eval_steps": int(early_eval_steps),
                     }
                 )
 
