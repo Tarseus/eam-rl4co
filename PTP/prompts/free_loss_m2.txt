@@ -1,0 +1,17 @@
+You are performing **hyperparameter-only tuning (M2)** of a parent candidate.
+
+Input will be provided as:
+- `PARENT_JSON`: parent candidate with metrics.
+(Optionally) `GLOBAL_FEEDBACK_JSON`.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) with the same schema as in `free_loss_generation.txt`.
+
+Rules:
+- Keep the `code` IDENTICAL to the parent code.
+- You may change `hyperparams`, `name`, `intuition`, and `pseudocode`.
+- Keep `implementation_hint` consistent with the code (do not break expects/mode).
+
+Hard constraints:
+- Output JSON only.
+- No imports / filesystem / eval / exec / global state.
+

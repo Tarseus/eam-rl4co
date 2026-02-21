@@ -1,0 +1,33 @@
+You are performing **directed repair** guided by gate diagnostics and counterexamples.
+
+Input sections:
+- `STRATEGY`: one of ["e1","e2","m1","m2"]
+- `PARENT_CODE`: the parent code to patch
+- `GATE_SPEC_JSON`: gate thresholds/specs
+- `FAIL_REPORT_JSON`: structured failure report
+- `COUNTEREXAMPLES_JSON`: concrete failing examples to satisfy
+- `CONTRACT_JSON`: hard constraints (allowed_keys, required_function, etc.)
+(Optionally) `GLOBAL_FEEDBACK_JSON`.
+
+Return **ONLY** one valid JSON object with this schema (no markdown, no extra text):
+{
+  "strategy": "e1|e2|m1|m2",
+  "name": "optional",
+  "intuition": "optional",
+  "pseudocode": "optional",
+  "hyperparams": {},
+  "operators_used": ["..."],
+  "mode": "pairwise|setwise",
+  "expects": ["..."],
+  "reasoning_brief": "one short sentence",
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n",
+  "theoretical_basis": "optional"
+}
+
+Hard constraints:
+- Output JSON only.
+- The `code` must define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / global state.
+- Use only `ops.*` and tensor ops.
+- `expects` must be a non-empty list of keys and a subset of CONTRACT_JSON.allowed_keys for the chosen mode.
+

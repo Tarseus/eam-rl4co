@@ -1,0 +1,19 @@
+You are performing evolutionary **crossover (E1)** between two parent free-loss candidates.
+
+Input will be provided as:
+- `PARENTS_JSON`: a JSON list with two parent objects, including `code`, `operators_used`, `hyperparams`, and metrics.
+(Optionally) `GLOBAL_FEEDBACK_JSON`.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) with the same schema as in `free_loss_generation.txt`.
+
+Goal:
+- Combine the best stable parts of both parents.
+- Keep the loss numerically stable and pass preference-semantic and dynamic gates.
+
+Hard constraints (must follow):
+- Output JSON only.
+- Define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / global state.
+- Use only `ops.*` and tensor ops.
+- Ensure `implementation_hint.expects` matches the keys actually used in code.
+

@@ -1,0 +1,36 @@
+You are generating a single candidate for a **free-form preference loss** used in RL4CO training.
+
+Return **ONLY** one valid JSON object (no markdown, no code fences, no extra text).
+
+The JSON MUST be parseable by `ptp_discovery.free_loss_compiler.parse_free_loss_from_text` and MUST contain:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "pseudocode": "high level math",
+  "hyperparams": { "any": "json" },
+  "operators_used": ["logsigmoid", "..."],
+  "implementation_hint": {
+    "expects": ["log_prob_w", "log_prob_l", "delta_z", "weight"],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- `implementation_hint.mode` is "pairwise" or "setwise".
+- `implementation_hint.returns` must describe a scalar output (use "scalar").
+- `implementation_hint.expects` must be a non-empty list of valid keys for the chosen mode.
+  - Pairwise expects must include "log_prob_w" and "log_prob_l", and at least one of:
+    ["delta_z","delta_rank","delta_regret","cost_a","cost_b"].
+  - Setwise expects must include "log_prob" and at least one of:
+    ["objective","obj_z","rank","regret"].
+- `code` must define `generated_loss(batch, model_output, extra)` and return a scalar torch.Tensor.
+- Do NOT use `import`, `open`, `eval`, `exec`, filesystem/network, randomness, or global state.
+- Only use tensor math and `ops.*` operators (e.g., ops.logsigmoid, ops.softplus, ops.clamp, ops.normalize, ops.zscore).
+
+You may read `alpha` as: `alpha = float(extra.get("alpha", extra.get("hyperparams", {}).get("alpha", 1.0)))`.
+
+If you receive `GLOBAL_FEEDBACK_JSON`, use it to avoid repeated failure modes and to explore novel operators/hyperparams.
+
