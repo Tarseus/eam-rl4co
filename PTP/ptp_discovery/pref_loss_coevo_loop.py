@@ -3,6 +3,7 @@ from __future__ import annotations
 """Co-evolution loop for preference builders (g) and preference losses (f)."""
 
 import base64
+import collections
 import json
 import logging
 import math
@@ -26,7 +27,7 @@ from fitness.free_loss_fidelity import (
     extract_feature_cache,
     evaluate_free_loss_candidate,
 )
-from fitness.ptp_high_fidelity import HighFidelityConfig, _set_seed
+from fitness.ptp_high_fidelity import HighFidelityConfig, _set_seed, resolve_pomo_size
 from fitness.pref_loss_fidelity import (
     PrefLossEvalCaches,
     aggregate_proxy_metrics,
@@ -1036,6 +1037,9 @@ def _cheap_eval_pair_cached(
     builder_gate_first: Dict[str, Any] | None = None
     builder_ok = True
     joint_ok_all = True
+    first_joint_fail_reason: str | None = None
+    first_joint_fail_trace: Dict[str, Any] | None = None
+    joint_failure_kinds: collections.Counter[str] = collections.Counter()
 
     for local_batch_id, fc in enumerate(rollout_feature_caches):
         pref = build_or_get_pref_batch(
@@ -1075,6 +1079,18 @@ def _cheap_eval_pair_cached(
             joint_gate_kwargs=joint_gate_kwargs,
         )
         joint_ok_all = joint_ok_all and bool(m.get("joint_ok", False))
+        if not bool(m.get("joint_ok", False)):
+            jr = str(m.get("joint_reason", "") or "")
+            jt = m.get("joint_trace")
+            kind = None
+            if isinstance(jt, dict):
+                kind = str(jt.get("failure_kind") or jt.get("failed_gate") or "unknown")
+            if kind:
+                joint_failure_kinds[kind] += 1
+            if first_joint_fail_reason is None and jr:
+                first_joint_fail_reason = jr
+            if first_joint_fail_trace is None and isinstance(jt, dict):
+                first_joint_fail_trace = dict(jt)
         batch_metrics.append(m)
 
     proxy_score, proxy_agg = aggregate_proxy_metrics(batch_metrics, proxy_weights=dict(proxy_weights))
@@ -1085,11 +1101,19 @@ def _cheap_eval_pair_cached(
             "ess_ratio": float(m.get("ess_ratio", 0.0)),
             "pair_count": int(m.get("pair_count", 0)),
             "joint_ok": bool(m.get("joint_ok", False)),
+            "joint_reason": str(m.get("joint_reason", "") or ""),
+            "joint_failure_kind": (
+                str(m.get("joint_trace", {}).get("failure_kind"))
+                if isinstance(m.get("joint_trace"), dict) and m["joint_trace"].get("failure_kind") is not None
+                else None
+            ),
         }
         for m in batch_metrics
     ]
     proxy_metrics: Dict[str, Any] = dict(proxy_agg)
     proxy_metrics["batches"] = per_batch_summary
+    if joint_failure_kinds:
+        proxy_metrics["joint_failure_kinds"] = dict(joint_failure_kinds)
 
     descriptor = _build_pair_descriptor(
         builder_gate_trace=(builder_gate_first or {}).get("builder_gate_trace") if builder_gate_first else None,
@@ -1109,7 +1133,16 @@ def _cheap_eval_pair_cached(
             "builder_gate_reason": None if builder_gate_first is None else builder_gate_first.get("builder_gate_reason"),
             "builder_gate_trace": None if builder_gate_first is None else builder_gate_first.get("builder_gate_trace"),
             "joint_gate_ok": bool(joint_ok_all),
-            "joint_gate_reason": "ok" if joint_ok_all else "joint_failed_on_some_batch",
+            "joint_gate_reason": (
+                "ok"
+                if joint_ok_all
+                else (
+                    f"joint_failed:{joint_failure_kinds.most_common(1)[0][0]}"
+                    if joint_failure_kinds
+                    else (first_joint_fail_reason or "joint_failed_on_some_batch")
+                )
+            ),
+            "joint_gate_trace": None if joint_ok_all else first_joint_fail_trace,
         }
     )
 
@@ -1670,6 +1703,24 @@ def run_pref_loss_coevo(
         proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
     )
 
+    # Sanity: proxy rollouts (pomo_size) control per-instance pair count for all_pairs (~K*(K-1)/2).
+    # If this exceeds builder_max_pairs_per_instance, cheap gates will reject most/all builders,
+    # resulting in no `cheap` / `high_fidelity` stages.
+    try:
+        proxy_rollouts = resolve_pomo_size(sig_hf_cfg.pomo_size, int(proxy_problem_size))
+        max_pairs_per_instance = int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096)
+        expected_all_pairs = int(proxy_rollouts * (proxy_rollouts - 1) // 2)
+        if expected_all_pairs > max_pairs_per_instance:
+            LOGGER.warning(
+                "Proxy rollouts K=%d implies all_pairs has ~%d pairs/instance, which exceeds builder_max_pairs_per_instance=%d. "
+                "Fix by setting `pomo_size: null` (align to problem size) or increasing builder_max_pairs_per_instance.",
+                int(proxy_rollouts),
+                int(expected_all_pairs),
+                int(max_pairs_per_instance),
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
     # Optional external baseline (metrics.csv) for epoch-by-epoch comparisons during HF.
     baseline_epoch_objectives: List[float] | None = None
     baseline_early_valid: float | None = None
@@ -1804,6 +1855,17 @@ def run_pref_loss_coevo(
 
         proposed_g = _fill_unique_builders(proposed_g)
         proposed_f = _fill_unique_losses(proposed_f)
+        if len(proposed_g) < int(pop_g) or len(proposed_f) < int(pop_f):
+            LOGGER.warning(
+                "Population fill shortfall at gen=%d: proposed_g=%d/%d proposed_f=%d/%d (seen_g=%d seen_f=%d)",
+                int(gen),
+                int(len(proposed_g)),
+                int(pop_g),
+                int(len(proposed_f)),
+                int(pop_f),
+                int(len(seen_g)),
+                int(len(seen_f)),
+            )
 
         g_entries: List[Dict[str, Any]] = []
         for idx, proposal in enumerate(proposed_g):
@@ -2024,6 +2086,14 @@ def run_pref_loss_coevo(
         if eliminated_f:
             new_f_ids = [x for x in new_f_ids if x not in eliminated_f]
             f_pool = [e for e in f_pool if str(e.get("id")) not in eliminated_f]
+        if anchor_enabled:
+            LOGGER.info(
+                "Anchor filter gen=%d: eliminated_g=%d eliminated_f=%d (anchor_max_score=%.3f)",
+                int(gen),
+                int(len(eliminated_g)),
+                int(len(eliminated_f)),
+                float(anchor_max_score),
+            )
 
         # Rebuild candidate pools with HoF after anchor filtering.
         elite_g_ids = [str(e["id"]) for e in elites_g if isinstance(e, dict) and "id" in e]
@@ -2199,6 +2269,13 @@ def run_pref_loss_coevo(
             ]
             candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
             selected = candidates[: max(0, top_m)]
+            LOGGER.info(
+                "HF selection gen=%d: eligible=%d selected=%d (top_m=%d)",
+                int(gen),
+                int(len(candidates)),
+                int(len(selected)),
+                int(top_m),
+            )
 
             hf_tasks: List[Dict[str, Any]] = []
             for r in selected:
@@ -2232,6 +2309,13 @@ def run_pref_loss_coevo(
 
             hf_results: List[Dict[str, Any]] = []
             if hf_tasks:
+                LOGGER.info(
+                    "HF eval gen=%d: tasks=%d mp=%s procs=%d",
+                    int(gen),
+                    int(len(hf_tasks)),
+                    str(mp_enabled),
+                    int(mp_processes),
+                )
                 if mp_enabled and mp_processes > 0 and len(hf_tasks) > 1:
                     import multiprocessing as mp
 
@@ -2266,6 +2350,33 @@ def run_pref_loss_coevo(
                 pair_records_map[(gid, fid)] = merged
 
             pair_records = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+
+        # Per-generation summary for troubleshooting.
+        stage_ctr = collections.Counter(str(r.get("stage", "")) for r in pair_records)
+        ok_ctr = sum(1 for r in pair_records if bool(r.get("pair_ok")))
+        reason_ctr = collections.Counter(str(r.get("pair_reason", "")) for r in pair_records)
+        LOGGER.info(
+            "Gen %d summary: g_pool=%d f_pool=%d pairs=%d ok=%d stages=%s top_reasons=%s",
+            int(gen),
+            int(len(g_pool)),
+            int(len(f_pool)),
+            int(len(pair_records)),
+            int(ok_ctr),
+            dict(stage_ctr),
+            reason_ctr.most_common(3),
+        )
+        if "cheap" not in stage_ctr:
+            LOGGER.warning(
+                "Gen %d produced no core cheap evaluations (stage='cheap'). "
+                "This usually means candidate pools collapsed or pairing_budget_per_gen is too small after anchors.",
+                int(gen),
+            )
+        if high_fidelity_on and "high_fidelity" not in stage_ctr:
+            LOGGER.warning(
+                "Gen %d produced no high-fidelity evaluations (stage='high_fidelity'). "
+                "Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.",
+                int(gen),
+            )
 
         gate_records: List[Dict[str, Any]] = []
         for rec in pair_records:

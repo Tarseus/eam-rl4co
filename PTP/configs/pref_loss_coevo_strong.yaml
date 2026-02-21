@@ -76,7 +76,7 @@ anchor_ref_loss_path: null
 archive_bins: 8
 archive_per_cell: 2
 diverse_elites_from_archive_max: 64
-descriptor_pair_count_cap: 4096
+descriptor_pair_count_cap: 16636
 descriptor_loss_scale: 5.0
 
 # Low-variance evaluation: CRN + 2-seed recheck for best/boundary
@@ -135,7 +135,10 @@ hf_instances_per_epoch: 100000
 train_problem_size: 100
 valid_problem_sizes: [100]
 train_batch_size: 64
-pomo_size: 100
+# NOTE: set to null to align the number of rollouts to the current problem size.
+# This keeps HF at 100 for TSP100, while making proxy (problem_size=20) use 20 rollouts
+# to avoid exploding pair counts (all_pairs has ~K*(K-1)/2 pairs per instance).
+pomo_size: null
 learning_rate: 0.0003
 weight_decay: 0.000001
 alpha: 0.05

@@ -15,6 +15,10 @@ export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
 : "${LOG_TZ:=Asia/Shanghai}"
 export LOG_TZ
 
+# Logging verbosity for Python `logging` (DEBUG/INFO/WARNING/ERROR).
+: "${LOG_LEVEL:=INFO}"
+export LOG_LEVEL
+
 LOG_DIR="${ROOT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
