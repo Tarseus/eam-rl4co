@@ -7,17 +7,17 @@ import random
 import re
 import time
 from dataclasses import asdict
-from typing import Any, Mapping, Sequence
+from functools import lru_cache
+from hashlib import sha1
+from typing import Any, Mapping, Sequence, TYPE_CHECKING
 
-from dotenv import load_dotenv
-from openai import (
-    APIConnectionError,
-    APITimeoutError,
-    BadRequestError,
-    InternalServerError,
-    OpenAI,
-    RateLimitError,
-)
+try:
+    from dotenv import load_dotenv  # type: ignore
+except Exception:  # noqa: BLE001
+    load_dotenv = None  # type: ignore[assignment]
+
+if TYPE_CHECKING:  # pragma: no cover
+    from openai import OpenAI  # noqa: F401
 
 from .free_loss_compiler import (
     CompiledFreeLoss,
@@ -28,29 +28,97 @@ from .free_loss_ir import FreeLossIR
 
 
 LOGGER = logging.getLogger(__name__)
-_OPENAI_CLIENT: OpenAI | None = None
+_OPENAI_CLIENT: Any | None = None
 _ENV_LOADED = False
+_OFFLINE_MODE = False
+
+# Run-level LLM cache (prompt+inputs hash) to reduce repeated calls on resume/re-runs.
+_LLM_CACHE_PATH: str | None = None
+_LLM_CACHE_INDEX: dict[str, str] = {}
+_LLM_CACHE_HITS = 0
+_LLM_CACHE_MISSES = 0
+
+
+def configure_llm_run(*, run_dir: str | None = None, cache_path: str | None = None, offline_mode: bool | None = None) -> None:
+    """Configure run-scoped LLM settings (cache path + offline mode).
+
+    Intended to be called once from the EoH loop after `run_dir` is known.
+    """
+
+    global _LLM_CACHE_PATH, _LLM_CACHE_INDEX, _OFFLINE_MODE, _LLM_CACHE_HITS, _LLM_CACHE_MISSES
+
+    if offline_mode is not None:
+        _OFFLINE_MODE = bool(offline_mode)
+
+    if cache_path is None and run_dir:
+        cache_path = os.path.join(str(run_dir), "llm_cache.jsonl")
+    if cache_path:
+        _LLM_CACHE_PATH = str(cache_path)
+        _LLM_CACHE_INDEX = {}
+        _LLM_CACHE_HITS = 0
+        _LLM_CACHE_MISSES = 0
+        _load_llm_cache()
+
+
+def llm_cache_stats() -> Mapping[str, Any]:
+    return {
+        "offline_mode": bool(_OFFLINE_MODE),
+        "cache_path": _LLM_CACHE_PATH,
+        "cache_entries": int(len(_LLM_CACHE_INDEX)),
+        "cache_hits": int(_LLM_CACHE_HITS),
+        "cache_misses": int(_LLM_CACHE_MISSES),
+    }
 
 
 def _load_env() -> None:
     global _ENV_LOADED
     if _ENV_LOADED:
         return
-    load_dotenv()
+    if _OFFLINE_MODE:
+        _ENV_LOADED = True
+        return
+    if load_dotenv is not None:
+        load_dotenv()
     if not os.getenv("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY is required for free-loss discovery.")
+        raise RuntimeError(
+            "OPENAI_API_KEY is not set. Set it in the environment (or a .env at repo root), "
+            "or run in offline_mode=true. If you don't have the EoH deps installed, run: "
+            "pip install -e '.[eoh]'."
+        )
     _ENV_LOADED = True
 
 
-def _make_openai_client() -> OpenAI:
+@lru_cache(maxsize=1)
+def _openai_symbols() -> tuple[Any, tuple[type[BaseException], ...], type[BaseException] | None]:
+    """Import OpenAI SDK symbols lazily so normal RL4CO usage doesn't require them."""
+
+    try:
+        from openai import (  # type: ignore
+            APIConnectionError,
+            APITimeoutError,
+            BadRequestError,
+            InternalServerError,
+            OpenAI,
+            RateLimitError,
+        )
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise RuntimeError(
+            "openai package is not installed. Install EoH extras with: pip install -e '.[eoh]'."
+        ) from exc
+    retryable = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+    return OpenAI, retryable, BadRequestError
+
+
+def _make_openai_client() -> Any:
     timeout_s = float(os.getenv("OPENAI_TIMEOUT_S", "60") or 60)
     max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "2") or 2)
     api_key = os.environ["OPENAI_API_KEY"]
     base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    OpenAI, _, _ = _openai_symbols()
     return OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_s, max_retries=max_retries)
 
 
-def _get_openai_client() -> OpenAI:
+def _get_openai_client() -> Any:
     global _OPENAI_CLIENT
     _load_env()
     if _OPENAI_CLIENT is None:
@@ -61,10 +129,13 @@ def _get_openai_client() -> OpenAI:
 def _should_retry_llm_error(exc: Exception) -> bool:
     # Treat transient transport/service issues as retryable. Some providers/proxies
     # return "get_token_error" as a 500; this is usually transient as well.
-    retryable_types = (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError)
+    try:
+        _, retryable_types, bad_request = _openai_symbols()
+    except Exception:  # noqa: BLE001
+        return False
     if isinstance(exc, retryable_types):
         return True
-    if isinstance(exc, BadRequestError) and "get_token_error" in str(exc):
+    if bad_request is not None and isinstance(exc, bad_request) and "get_token_error" in str(exc):
         return True
     return False
 
@@ -184,9 +255,70 @@ def _extract_json_object(text: str) -> str:
     return _escape_control_chars_in_strings(sanitized)
 
 
-def _call_llm(prompt: str) -> str:
+def _load_llm_cache() -> None:
+    global _LLM_CACHE_INDEX
+    if not _LLM_CACHE_PATH:
+        return
+    path = str(_LLM_CACHE_PATH)
+    if not os.path.isfile(path):
+        return
+    loaded = 0
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:  # noqa: BLE001
+                    continue
+                if not isinstance(rec, dict):
+                    continue
+                key = rec.get("key")
+                content = rec.get("content")
+                if isinstance(key, str) and isinstance(content, str):
+                    _LLM_CACHE_INDEX[key] = content
+                    loaded += 1
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Failed to load LLM cache (%s): %s", path, exc)
+        return
+    if loaded:
+        LOGGER.info("Loaded LLM cache entries: %d (%s)", loaded, path)
+
+
+def _append_llm_cache_record(record: Mapping[str, Any]) -> None:
+    if not _LLM_CACHE_PATH:
+        return
+    path = str(_LLM_CACHE_PATH)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Failed to append LLM cache record (%s): %s", path, exc)
+
+
+def _cache_key(*, model: str, prompt: str) -> str:
+    blob = json.dumps({"model": str(model), "prompt": str(prompt)}, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return sha1(blob).hexdigest()
+
+
+def _call_llm(prompt: str, *, llm_op: str, prompt_path: str | None) -> str:
+    global _LLM_CACHE_HITS, _LLM_CACHE_MISSES
+
+    if _OFFLINE_MODE:
+        raise RuntimeError("offline_mode=true: LLM calls are disabled for this run.")
+
     client = _get_openai_client()
     model_name = os.getenv("OPENAI_MODEL", "gpt-4.1")
+
+    key = _cache_key(model=model_name, prompt=prompt)
+    if _LLM_CACHE_PATH and key in _LLM_CACHE_INDEX:
+        _LLM_CACHE_HITS += 1
+        return _LLM_CACHE_INDEX[key]
+
+    _LLM_CACHE_MISSES += 1
 
     max_attempts = int(os.getenv("OPENAI_CALL_MAX_ATTEMPTS", "6") or 6)
     base_backoff_s = float(os.getenv("OPENAI_CALL_BACKOFF_S", "1") or 1)
@@ -203,7 +335,21 @@ def _call_llm(prompt: str) -> str:
             content = resp.choices[0].message.content
             if not content:
                 raise RuntimeError("LLM returned empty content.")
-            return content.strip()
+            out = content.strip()
+            if _LLM_CACHE_PATH:
+                _LLM_CACHE_INDEX[key] = out
+                _append_llm_cache_record(
+                    {
+                        "key": key,
+                        "ts": float(time.time()),
+                        "model": str(model_name),
+                        "llm_op": str(llm_op),
+                        "prompt_path": str(prompt_path) if prompt_path else None,
+                        "prompt_sha1": sha1(prompt.encode("utf-8")).hexdigest(),
+                        "content": out,
+                    }
+                )
+            return out
         except Exception as exc:  # noqa: BLE001
             last_exc = exc
             if attempt >= max_attempts or not _should_retry_llm_error(exc):
@@ -237,7 +383,7 @@ def generate_free_loss_candidate(
     if global_feedback is not None:
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="E1_GENERATE", prompt_path=generation_prompt_path)
     json_str = _extract_json_object(raw)
     return parse_free_loss_from_text(json_str)
 
@@ -281,7 +427,7 @@ def crossover_free_loss(
     if global_feedback is not None:
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="E1", prompt_path=crossover_prompt_path)
     json_str = _extract_json_object(raw)
     return parse_free_loss_from_text(json_str)
 
@@ -317,7 +463,7 @@ def mutate_free_loss(
     if global_feedback is not None:
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="M1", prompt_path=mutation_prompt_path)
     json_str = _extract_json_object(raw)
     return parse_free_loss_from_text(json_str)
 
@@ -365,7 +511,7 @@ def e2_free_loss(
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
 
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="E2", prompt_path=e2_prompt_path)
     json_str = _extract_json_object(raw)
     return parse_free_loss_from_text(json_str)
 
@@ -404,7 +550,7 @@ def m2_tune_hparams(
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
 
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="M2", prompt_path=m2_prompt_path)
     json_str = _extract_json_object(raw)
     tuned = parse_free_loss_from_text(json_str)
 
@@ -458,7 +604,7 @@ def m3_simplify_loss(
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + feedback_blob
 
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="M3", prompt_path=m3_prompt_path)
     json_str = _extract_json_object(raw)
     simplified = parse_free_loss_from_text(json_str)
 
@@ -486,7 +632,7 @@ def repair_free_loss(
         "failure_reason": failure_reason,
     }
     prompt = prompt + "\n\nCANDIDATE_AND_FAILURE_JSON:\n" + json.dumps(payload, indent=2)
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="REPAIR", prompt_path=repair_prompt_path)
     json_str = _extract_json_object(raw)
     return parse_free_loss_from_text(json_str)
 
@@ -504,7 +650,7 @@ def repair_expects_with_prompt(
     prompt = _read_prompt(expects_repair_prompt_path)
     payload = asdict(ir)
     prompt = prompt + "\n\nIR_JSON:\n" + json.dumps(payload, indent=2)
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op="EXPECTS_REPAIR", prompt_path=expects_repair_prompt_path)
     json_str = _extract_json_object(raw)
     return parse_free_loss_from_text(json_str)
 
@@ -559,7 +705,7 @@ def repair_from_gate_failure(
     if global_feedback is not None:
         prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
-    raw = _call_llm(prompt)
+    raw = _call_llm(prompt, llm_op=f"DIR_REPAIR_{strategy}", prompt_path=directed_repair_prompt_path)
     obj = json.loads(_extract_json_object(raw))
 
     out_strategy = str(obj.get("strategy", strategy) or strategy).strip().lower()
