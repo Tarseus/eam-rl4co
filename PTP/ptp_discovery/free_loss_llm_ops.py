@@ -70,8 +70,57 @@ def _should_retry_llm_error(exc: Exception) -> bool:
 
 
 def _read_prompt(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as f:
-        return f.read()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        # The repo historically referenced `PTP/prompts/*.txt` from configs, but
+        # some distributions do not ship the prompt assets. To avoid a hard
+        # crash, fall back to a minimal built-in prompt that preserves the JSON
+        # contract required by the pipeline.
+        name = os.path.basename(path)
+        LOGGER.warning("Prompt file missing (%s); using built-in fallback prompt.", path)
+        return _fallback_prompt(name)
+
+
+def _fallback_prompt(name: str) -> str:
+    base = """You are generating a single JSON object for a free-form preference loss candidate.
+
+Return ONLY a JSON object. It must match this schema:
+{
+  "name": "...",
+  "intuition": "...",
+  "pseudocode": "...",
+  "hyperparams": {},
+  "operators_used": ["..."],
+  "implementation_hint": {
+    "expects": ["log_prob_w", "log_prob_l", "delta_z", "weight"],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n"
+}
+
+Constraints:
+- `generated_loss` must return a scalar torch.Tensor.
+- Do not use imports; do not access filesystem; no eval/exec/open.
+"""
+
+    n = str(name or "").strip().lower()
+    if "expects" in n:
+        return (
+            base
+            + "\nTask: Repair/normalize implementation_hint.expects so it is a non-empty list consistent with mode."
+        )
+    if "repair" in n:
+        return base + "\nTask: Repair the candidate to satisfy gates and keep the same output schema."
+    if "crossover" in n:
+        return base + "\nTask: Combine the best ideas from the provided parents to produce a new child candidate."
+    if "mutation" in n or n in {"m2", "m3"}:
+        return base + "\nTask: Mutate the provided parent candidate to produce a new child candidate."
+    if "e2" in n:
+        return base + "\nTask: Produce a novel candidate distinct from the parents while staying within the schema."
+    return base
 
 
 def _extract_json_object(text: str) -> str:

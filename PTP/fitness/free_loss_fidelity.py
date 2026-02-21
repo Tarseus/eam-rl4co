@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Any, Dict, List, Mapping, Sequence, Tuple
+from dataclasses import dataclass, asdict, field
+from typing import Any, Dict, List, Mapping, Protocol, Sequence, Tuple
 
 import logging
 import torch
@@ -20,6 +20,123 @@ from ptp_discovery.free_loss_compiler import CompiledFreeLoss
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PrefBatch:
+    """Intermediate preference batch built from a fixed feature_cache.
+
+    This keeps the training loop modular:
+        rollout -> feature_cache -> pref_builder -> PrefBatch -> compiled loss
+    """
+
+    mode: str  # "pairwise" | "setwise" | "listwise"
+    # Pairwise indices: (batch_idx, winner_idx, loser_idx), each (P,)
+    pair_idx: Tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None
+    # Optional listwise indices (e.g., sorted or selected solution ids), shape is builder-defined.
+    list_idx: torch.Tensor | None = None
+    # Optional per-example weights, shape depends on mode (pairwise: (P,))
+    weight: torch.Tensor | None = None
+    # Arbitrary metadata (non-tensor), e.g., builder name / sampling params.
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+    def num_examples(self) -> int:
+        if self.mode == "pairwise" and self.pair_idx is not None:
+            return int(self.pair_idx[0].numel())
+        if self.list_idx is not None:
+            return int(self.list_idx.numel())
+        return 0
+
+    def to_pairwise_loss_batch(
+        self, feature_cache: Mapping[str, torch.Tensor]
+    ) -> Dict[str, torch.Tensor]:
+        if self.mode != "pairwise":
+            raise ValueError(f"PrefBatch.to_pairwise_loss_batch called for mode={self.mode}")
+        if self.pair_idx is None:
+            raise ValueError("pair_idx is required for pairwise mode")
+
+        b_idx, winner_idx, loser_idx = self.pair_idx
+        objective = feature_cache["objective"]
+        log_prob = feature_cache["log_prob"]
+
+        cost_a_tensor = objective[b_idx, winner_idx]
+        cost_b_tensor = objective[b_idx, loser_idx]
+        logp_w_tensor = log_prob[b_idx, winner_idx]
+        logp_l_tensor = log_prob[b_idx, loser_idx]
+
+        features: Dict[str, torch.Tensor] = {}
+        for key in ("obj_z", "rank", "regret"):
+            value = feature_cache.get(key)
+            if isinstance(value, torch.Tensor):
+                features[key] = value
+        pairwise_deltas = gather_pairwise_deltas(
+            features, b_idx=b_idx, winner_idx=winner_idx, loser_idx=loser_idx
+        )
+
+        weight = self.weight
+        if weight is None:
+            weight = torch.ones_like(logp_w_tensor)
+
+        return {
+            "cost_a": cost_a_tensor,
+            "cost_b": cost_b_tensor,
+            "log_prob_w": logp_w_tensor,
+            "log_prob_l": logp_l_tensor,
+            **pairwise_deltas,
+            "weight": weight,
+        }
+
+
+class PrefBuilder(Protocol):
+    def build(
+        self,
+        feature_cache: Mapping[str, torch.Tensor],
+        *,
+        meta: Mapping[str, Any] | None = None,
+    ) -> PrefBatch: ...
+
+
+def extract_feature_cache(
+    objective: torch.Tensor,
+    log_prob: torch.Tensor,
+    *,
+    extra: Mapping[str, torch.Tensor] | None = None,
+) -> Dict[str, torch.Tensor]:
+    """Build the fixed feature cache used by preference builders and losses.
+
+    This function intentionally reuses `co_features.build_model_output` to keep
+    feature definitions in one place.
+    """
+
+    model_output, _ = build_model_output(objective=objective, log_prob=log_prob)
+    cache: Dict[str, torch.Tensor] = dict(model_output)
+    if extra:
+        for k, v in extra.items():
+            if isinstance(v, torch.Tensor):
+                cache[str(k)] = v
+    return cache
+
+
+class _AllPairsPrefBuilder:
+    """Default preference builder: equivalent to the previous all-pairs logic."""
+
+    def build(
+        self,
+        feature_cache: Mapping[str, torch.Tensor],
+        *,
+        meta: Mapping[str, Any] | None = None,
+    ) -> PrefBatch:
+        objective = feature_cache["objective"]
+        (b_idx, winner_idx, loser_idx), _ = _build_preference_pairs(objective)
+        out_meta: Dict[str, Any] = {"builder": "all_pairs"}
+        if meta:
+            out_meta.update(dict(meta))
+        return PrefBatch(
+            mode="pairwise",
+            pair_idx=(b_idx, winner_idx, loser_idx),
+            weight=None,
+            meta=out_meta,
+        )
 
 
 class AverageMeter:
@@ -48,6 +165,42 @@ class FreeLossFidelityConfig:
     f2_steps: int = 0
     f3_enabled: bool = False
     baseline_epoch_violation_weight: float = 1.0
+    # Windowed comparison against the baseline's epoch validation objectives.
+    # When baseline epoch objectives are available, we compare the mean objective
+    # in the first `k` epochs and the last `k` epochs (smaller is better).
+    baseline_epoch_window_k: int = 10
+    baseline_epoch_window_violation_weight: float = 1.0
+
+
+def _mean(xs: Sequence[float]) -> float:
+    values = [float(v) for v in xs]
+    if not values:
+        return float("nan")
+    return float(sum(values) / len(values))
+
+
+def _epoch_window_means(
+    objectives: Sequence[float],
+    *,
+    k: int,
+) -> Tuple[float | None, float | None]:
+    """Return (early_mean, late_mean) for the first/last k epochs.
+
+    If objectives is empty, both means are None. When k exceeds available epochs,
+    it is clamped to the sequence length.
+    """
+
+    values = [float(v) for v in objectives]
+    if not values:
+        return None, None
+    kk = max(int(k), 0)
+    if kk <= 0:
+        return None, None
+    early_k = min(kk, len(values))
+    late_k = min(kk, len(values))
+    early_mean = _mean(values[:early_k])
+    late_mean = _mean(values[-late_k:])
+    return float(early_mean), float(late_mean)
 
 
 def _build_preference_pairs(
@@ -220,6 +373,8 @@ def _train_one_batch_with_free_loss_rl4co(
     hf_cfg: HighFidelityConfig,
     rollout_strategy: str,
     device: torch.device,
+    *,
+    pref_builder: PrefBuilder | None = None,
 ) -> Tuple[float, float, int]:
     batch_size = hf_cfg.train_batch_size
     num_rollouts = resolve_pomo_size(hf_cfg.pomo_size, hf_cfg.train_problem_size)
@@ -238,8 +393,8 @@ def _train_one_batch_with_free_loss_rl4co(
     objective = _rl4co_objective_from_reward(reward, hf_cfg)
     log_prob = log_likelihood
 
-    model_output, co_features = build_model_output(objective=objective, log_prob=log_prob)
-    (b_idx, winner_idx, loser_idx), pair_count = _build_preference_pairs(objective)
+    feature_cache = extract_feature_cache(objective, log_prob)
+    pair_count = 0
 
     mode = getattr(compiled_loss.ir.implementation_hint, "mode", "pairwise")
     mode = str(mode or "pairwise").strip().lower()
@@ -247,34 +402,31 @@ def _train_one_batch_with_free_loss_rl4co(
     if mode == "setwise":
         loss = compiled_loss.loss_fn(
             batch={},
-            model_output=model_output,
+            model_output=feature_cache,
             extra={"alpha": hf_cfg.alpha},
         )
-    elif pair_count == 0:
-        advantage = reward - reward.mean(dim=1, keepdim=True)
-        loss = -(advantage * log_prob).mean()
     else:
-        cost_a_tensor = objective[b_idx, winner_idx]
-        cost_b_tensor = objective[b_idx, loser_idx]
-        logp_w_tensor = log_prob[b_idx, winner_idx]
-        logp_l_tensor = log_prob[b_idx, loser_idx]
-
-        pairwise_deltas = gather_pairwise_deltas(
-            co_features, b_idx=b_idx, winner_idx=winner_idx, loser_idx=loser_idx
+        builder = pref_builder or _AllPairsPrefBuilder()
+        pref = builder.build(
+            feature_cache,
+            meta={
+                "stage": "train",
+                "rollout_strategy": str(rollout_strategy),
+                "problem": str(getattr(hf_cfg, "problem", "")),
+                "problem_size": int(hf_cfg.train_problem_size),
+            },
         )
-        batch = {
-            "cost_a": cost_a_tensor,
-            "cost_b": cost_b_tensor,
-            "log_prob_w": logp_w_tensor,
-            "log_prob_l": logp_l_tensor,
-            **pairwise_deltas,
-            "weight": torch.ones_like(logp_w_tensor),
-        }
-        loss = compiled_loss.loss_fn(
-            batch=batch,
-            model_output=model_output,
-            extra={"alpha": hf_cfg.alpha},
-        )
+        pair_count = pref.num_examples()
+        if pair_count == 0:
+            advantage = reward - reward.mean(dim=1, keepdim=True)
+            loss = -(advantage * log_prob).mean()
+        else:
+            batch = pref.to_pairwise_loss_batch(feature_cache)
+            loss = compiled_loss.loss_fn(
+                batch=batch,
+                model_output=feature_cache,
+                extra={"alpha": hf_cfg.alpha},
+            )
 
     max_reward, _ = reward.max(dim=1)
     score_mean = _rl4co_objective_from_reward(max_reward, hf_cfg).float().mean()
@@ -333,6 +485,7 @@ def _evaluate_free_loss_candidate_rl4co(
     baseline_early_valid: float | None = None,
     early_eval_steps: int = 0,
     baseline_epoch_objectives: Sequence[float] | None = None,
+    pref_builder: PrefBuilder | None = None,
 ) -> Dict[str, Any]:
     _set_seed(cfg.hf.seed)
 
@@ -394,6 +547,7 @@ def _evaluate_free_loss_candidate_rl4co(
             hf_cfg=cfg.hf,
             rollout_strategy=rollout_strategy,
             device=device,
+            pref_builder=pref_builder,
         )
         score_meter.update(score)
         loss_meter.update(loss)
@@ -514,6 +668,44 @@ def _evaluate_free_loss_candidate_rl4co(
         epoch_baseline_violations = int(violations)
         epoch_better_than_baseline = epoch_baseline_violations == 0
 
+    # Epoch-window comparison (early k + late k) against baseline epoch objectives.
+    window_k = int(getattr(cfg, "baseline_epoch_window_k", 10) or 10)
+    cand_early_mean, cand_late_mean = _epoch_window_means(
+        epoch_validation_objectives, k=window_k
+    )
+    epoch_window_eval: Dict[str, Any] = {
+        "k": int(window_k),
+        "early_mean": cand_early_mean,
+        "late_mean": cand_late_mean,
+        "objectives": list(epoch_validation_objectives),
+    }
+
+    base_early_mean: float | None = None
+    base_late_mean: float | None = None
+    if baseline_epoch_objectives:
+        base_early_mean, base_late_mean = _epoch_window_means(
+            baseline_epoch_objectives, k=window_k
+        )
+    baseline_epoch_window_eval: Dict[str, Any] = {
+        "early_mean": base_early_mean,
+        "late_mean": base_late_mean,
+    }
+
+    epoch_window_margins: Dict[str, float] | None = None
+    epoch_window_violations: int | None = None
+    epoch_window_better_than_baseline: bool | None = None
+    if (
+        cand_early_mean is not None
+        and cand_late_mean is not None
+        and base_early_mean is not None
+        and base_late_mean is not None
+    ):
+        early_margin = float(cand_early_mean) - float(base_early_mean)
+        late_margin = float(cand_late_mean) - float(base_late_mean)
+        epoch_window_margins = {"early": early_margin, "late": late_margin}
+        epoch_window_violations = int(sum(1 for m in (early_margin, late_margin) if m > 0.0))
+        epoch_window_better_than_baseline = epoch_window_violations == 0
+
     agg_method = str(cfg.hf.size_aggregation or "legacy").strip().lower()
     base_objective = (
         epoch_objective_mean if epoch_objective_mean is not None else float(main_valid_obj)
@@ -528,6 +720,8 @@ def _evaluate_free_loss_candidate_rl4co(
         )
     if epoch_baseline_violations is not None:
         hf_like_score += cfg.baseline_epoch_violation_weight * float(epoch_baseline_violations)
+    if epoch_window_violations is not None:
+        hf_like_score += cfg.baseline_epoch_window_violation_weight * float(epoch_window_violations)
 
     return {
         "hf_like_score": hf_like_score,
@@ -540,6 +734,11 @@ def _evaluate_free_loss_candidate_rl4co(
         "epoch_objective_mean": epoch_objective_mean,
         "epoch_baseline_violations": epoch_baseline_violations,
         "epoch_better_than_baseline": epoch_better_than_baseline,
+        "epoch_window_eval": epoch_window_eval,
+        "baseline_epoch_window_eval": baseline_epoch_window_eval,
+        "epoch_window_margins": epoch_window_margins,
+        "epoch_window_violations": epoch_window_violations,
+        "epoch_window_better_than_baseline": epoch_window_better_than_baseline,
         "epoch_eval": {
             "enabled": bool(steps_per_epoch),
             "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
@@ -582,6 +781,8 @@ def _evaluate_free_loss_candidate_rl4co(
                 "f2_steps": cfg.f2_steps,
                 "f3_enabled": cfg.f3_enabled,
                 "baseline_epoch_violation_weight": cfg.baseline_epoch_violation_weight,
+                "baseline_epoch_window_k": cfg.baseline_epoch_window_k,
+                "baseline_epoch_window_violation_weight": cfg.baseline_epoch_window_violation_weight,
             },
         },
         "loss_ir": {
@@ -746,6 +947,15 @@ def evaluate_po_baseline_rl4co(
         )
         fitness_score = float(hf_score)
 
+    win_k = 10
+    early_mean, late_mean = _epoch_window_means(epoch_validation_objectives, k=win_k)
+    epoch_window_eval: Dict[str, Any] = {
+        "k": int(win_k),
+        "early_mean": early_mean,
+        "late_mean": late_mean,
+        "objectives": list(epoch_validation_objectives),
+    }
+
     return {
         "hf_score": hf_score,
         "fitness_score": fitness_score,
@@ -759,6 +969,7 @@ def evaluate_po_baseline_rl4co(
         "train_loss_mean": float(loss_meter.avg),
         "early_validation_objective": early_validation_objective,
         "early_eval_steps": early_eval_steps,
+        "epoch_window_eval": epoch_window_eval,
         "epoch_eval": {
             "enabled": bool(steps_per_epoch),
             "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
@@ -780,6 +991,7 @@ def evaluate_free_loss_candidate(
     baseline_early_valid: float | None = None,
     early_eval_steps: int = 0,
     baseline_epoch_objectives: Sequence[float] | None = None,
+    pref_builder: PrefBuilder | None = None,
 ) -> Dict[str, Any]:
     backend = str(getattr(cfg.hf, "backend", "rl4co") or "rl4co").strip().lower()
     if backend != "rl4co":
@@ -792,4 +1004,5 @@ def evaluate_free_loss_candidate(
         baseline_early_valid=baseline_early_valid,
         early_eval_steps=early_eval_steps,
         baseline_epoch_objectives=baseline_epoch_objectives,
+        pref_builder=pref_builder,
     )
