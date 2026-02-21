@@ -8,6 +8,9 @@ CONFIG_PATH="${1:-PTP/configs/pref_loss_coevo_strong.yaml}"
 MODE="${2:-start}" # start | resume-latest | resume-dir
 RESUME_DIR="${3:-}"
 
+# Ensure local `rl4co/` (repo root) and `PTP/` modules are importable.
+export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
+
 LOG_DIR="${ROOT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
@@ -40,4 +43,3 @@ echo "Running: ${CMD[*]}"
 echo "Log: $LOG_PATH"
 nohup "${CMD[@]}" >"$LOG_PATH" 2>&1 &
 echo "Started PID: $!"
-

@@ -8,9 +8,15 @@ import sys
 # Make this file usable both as a module (`-m ptp_discovery.run_pref_loss_coevo`)
 # and as a direct script (`python ptp_discovery/run_pref_loss_coevo.py`).
 if __package__ is None or __package__ == "":
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    if repo_root not in sys.path:
-        sys.path.insert(0, repo_root)
+    # This file lives at <repo_root>/PTP/ptp_discovery/run_pref_loss_coevo.py
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+    ptp_root = os.path.join(repo_root, "PTP")
+    # Ensure local packages (e.g. `rl4co/`) are importable even when the script is
+    # invoked as `python PTP/ptp_discovery/run_pref_loss_coevo.py` (which would
+    # otherwise only add `PTP/ptp_discovery` to sys.path).
+    for path in (repo_root, ptp_root):
+        if path not in sys.path:
+            sys.path.insert(0, path)
 
 from ptp_discovery.pref_loss_coevo_loop import run_pref_loss_coevo
 
@@ -76,4 +82,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
