@@ -1,0 +1,17 @@
+[2026-02-21 07:46:23,947] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_coevo_strong/20260221-074623
+[2026-02-21 07:46:23,947] WARNING:ptp_discovery.pref_loss_coevo: Failed to load external baseline epoch objectives (/data1/gushengda/eam-rl4co/baseline/metrics.csv): [Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/metrics.csv'
+[2026-02-21 07:46:23,948] INFO:ptp_discovery.pref_loss_coevo: === coevo generation 0/9 ===
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 85, in <module>
+    main()
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 81, in main
+    run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 1949, in run_pref_loss_coevo
+    _ensure_reference_compiled(compiled_g=compiled_g, compiled_f=compiled_f, operator_whitelist=operator_whitelist)
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 918, in _ensure_reference_compiled
+    static_ref = run_static_gates(ref_ir, operator_whitelist=operator_whitelist)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_gates.py", line 531, in run_static_gates
+    returns_str = (ir.implementation_hint.returns or "").strip().lower()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'returns'
