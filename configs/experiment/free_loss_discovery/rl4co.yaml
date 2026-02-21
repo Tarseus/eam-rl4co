@@ -5,15 +5,29 @@ backend: rl4co
 
 # Environment and policy selection.
 env_name: tsp  # tsp | cvrp | jssp | fjsp | ffsp
-policy_name: ""  # auto: pomo (tsp/cvrp), l2d (jssp/fjsp), matnet (ffsp)
-policy_kwargs: {}
+policy_name: pomo
+policy_kwargs:
+  # Match `configs/experiment/routing/pomo-po4cops-tsp100-po.yaml` (train_po.sh).
+  po4cops_compat: true
+  embed_dim: 128
+  num_encoder_layers: 6
+  decoder_layer_num: 1
+  qkv_dim: 16
+  num_heads: 8
+  feedforward_hidden: 512
+  tanh_clipping: 50
+  eval_type: argmax
+  train_decode_type: sampling
+  val_decode_type: greedy
+  test_decode_type: greedy
 env_kwargs: {}
 
 # Generator parameters (overrides per-size key automatically).
 # - tsp/cvrp: num_loc
 # - jssp/fjsp: num_jobs
 # - ffsp: num_job
-generator_params: {}
+generator_params:
+  num_loc: 100
 
 # Rollout strategy for multi-solution preference comparisons:
 # - policy_multistart: use policy's multistart decoding (pomo/matnet)
@@ -35,8 +49,8 @@ max_repair_rounds: 4
 # Multi-fidelity budget.
 f0_only: false
 f1_steps: 0
-hf_epochs: 10
-hf_instances_per_epoch: 20000
+hf_epochs: 20
+hf_instances_per_epoch: 100000
 f2_steps: 0
 f3_enabled: false
 
@@ -45,20 +59,34 @@ early_eval_epochs: 2
 early_eval_instances_per_epoch: 10000
 
 # HF training / evaluation config.
-train_problem_size: 20
-valid_problem_sizes: [20]
+train_problem_size: 100
+valid_problem_sizes: [100]
 train_batch_size: 64
-pomo_size: 20
+pomo_size: 100
 learning_rate: 0.0003
 weight_decay: 0.000001
 alpha: 0.05
 device: cuda
-num_validation_episodes: 2000
+num_validation_episodes: 10000
 validation_batch_size: 64
 generalization_penalty_weight: 1.0
 size_aggregation: cvar
 size_cvar_alpha: 0.2
 baseline_epoch_violation_weight: 0.0
+baseline_epoch_window_k: 10
+baseline_epoch_window_violation_weight: 1.0
+
+# Optional external baseline (metrics.csv + warm-start checkpoint).
+# When enabled, epoch-based baseline comparisons use the slice:
+#   start_epoch = checkpoint_epoch + 1
+#   num_epochs  = hf_epochs
+# This means "first/last window" refer to the first/last k epochs within that slice.
+# baseline:
+#   metrics_csv: baseline/metrics.csv
+#   checkpoint: baseline/epoch_409.ckpt
+#   # checkpoint_epoch is optional when checkpoint filename contains "epoch_<N>".
+#   checkpoint_epoch: 409
+#   val_column: val/reward
 
 # Gates (keep defaults from PTP).
 pref_semantic_gate_enabled: true

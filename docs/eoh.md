@@ -44,6 +44,23 @@ python scripts/run_free_loss_discovery_rl4co.py --config configs/experiment/free
 Outputs are written under:
 - `runs/free_loss_discovery/<timestamp>/`
 
+## Optional: External Baseline (metrics.csv + checkpoint)
+
+If you have a `baseline/` folder with RL4CO `metrics.csv` and an `epoch_*.ckpt`, you can enable epoch-based baseline comparisons.
+
+In `configs/experiment/free_loss_discovery/rl4co.yaml`:
+- Set `baseline.metrics_csv` to your `metrics.csv`
+- Set `baseline.checkpoint` / `baseline.checkpoint_epoch` to the checkpoint you resume from
+- Set `baseline.val_column` to the column name in `metrics.csv` (default: `val/reward`)
+
+When an external baseline is enabled, `better_than_baseline` prefers the **epoch-window** criterion:
+- early window: mean of the first `baseline_epoch_window_k` epochs
+- late window: mean of the last `baseline_epoch_window_k` epochs
+
+The baseline epoch slice is aligned to resumed training as:
+- `start_epoch = checkpoint_epoch + 1`
+- `num_epochs = hf_epochs`
+
 ### Resume
 
 ```bash
@@ -118,4 +135,3 @@ Common causes:
 - invalid `implementation_hint.expects`
 - loss not finite / unstable gradients
 - preference semantic violations
-
