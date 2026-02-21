@@ -91,6 +91,41 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
         lambda: _dummy_openai_client(responses=[gen_json, mut_json]),
     )
 
+    # Keep the smoke test fast: disable mp workers and stub the expensive fidelity eval.
+    from ptp_discovery import free_loss_eoh_loop as eoh_loop
+
+    def _fast_eval(*args, **kwargs):  # noqa: ARG001
+        return {
+            "hf_like_score": 1.0,
+            "validation_objective": 1.0,
+            "generalization_penalty": 0.0,
+            "generalization_objectives": {},
+            "epoch_objective_mean": None,
+            "epoch_baseline_violations": None,
+            "epoch_better_than_baseline": None,
+            "epoch_tail_better_than_baseline": None,
+            "epoch_window_violations": None,
+            "epoch_window_eval": {"k": 0, "early_mean": None, "late_mean": None, "objectives": []},
+            "baseline_epoch_window_eval": {"early_mean": None, "late_mean": None},
+            "epoch_window_margins": None,
+            "epoch_window_violations": None,
+            "epoch_window_better_than_baseline": None,
+            "train_score_mean": 0.0,
+            "train_loss_mean": 0.0,
+            "pair_count": 1,
+            "early_eval": {
+                "enabled": False,
+                "steps": 0,
+                "baseline_validation_objective": None,
+                "candidate_validation_objective": None,
+                "early_stopped": False,
+            },
+            "size_objectives": {},
+            "size_aggregation": "cvar",
+        }
+
+    monkeypatch.setattr(eoh_loop, "evaluate_free_loss_candidate", _fast_eval)
+
     # Minimal config (generations=2 triggers gen=1 which must choose M1 when only mutation prompt exists).
     out_root = tmp_path / "runs"
     config_path = tmp_path / "eoh_smoke.yaml"
@@ -115,12 +150,10 @@ def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
                 "hf_instances_per_epoch: 64",
                 "f1_steps: 1",
                 "device: cpu",
+                "eval_mp_enabled: false",
                 "num_validation_episodes: 16",
                 "validation_batch_size: 16",
-                "pref_semantic_gate_enabled: true",
-                "pref_semantic_trials: 2",
-                "pref_semantic_batch_size: 32",
-                "pref_semantic_min_pass_rate: 0.2",
+                "pref_semantic_gate_enabled: false",
                 "co_gate_enabled: false",
                 "hidden_dynamic_gates_enabled: false",
                 "operator_whitelist: [logsigmoid, clamp, softplus, sigmoid, exp, log, tanh, relu, normalize, zscore, rank_gap]",
