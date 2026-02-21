@@ -11,6 +11,10 @@ RESUME_DIR="${3:-}"
 # Ensure local `rl4co/` (repo root) and `PTP/` modules are importable.
 export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
 
+# Timezone for Python logging `%(asctime)s)`. Example: Asia/Shanghai, UTC.
+: "${LOG_TZ:=Asia/Shanghai}"
+export LOG_TZ
+
 LOG_DIR="${ROOT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
