@@ -2885,6 +2885,7 @@ def run_free_loss_eoh(
         # training state/cache.
         results: List[Tuple[int, Dict[str, Any]]] = []
         if eval_jobs:
+            eval_mp_enabled = bool(cfg_yaml.get("eval_mp_enabled", True))
             devices = _get_available_devices(hf_cfg.device)
             if not devices:
                 devices = [hf_cfg.device]
@@ -2903,93 +2904,106 @@ def run_free_loss_eoh(
                     )
                     devices = list(devices)[:max_parallel_int]
 
-            ctx = mp.get_context("spawn")
+            if not eval_mp_enabled:
+                # In-process evaluation (useful for CPU runs and unit tests).
+                for j_idx, job in enumerate(eval_jobs):
+                    dev = devices[j_idx % len(devices)]
+                    job_with_dev = list(job)
+                    job_with_dev[3] = dev
+                    idx, fitness = _worker_evaluate_candidate(tuple(job_with_dev))  # type: ignore[arg-type]
+                    results.append((idx, fitness))
+                # Skip multiprocessing path.
+                ctx = None
+            else:
+                ctx = mp.get_context("spawn")
 
-            # Partition jobs by device in a round-robin fashion.
-            jobs_by_device: Dict[str, List[
-                Tuple[
-                    Dict[str, Any],
-                    Dict[str, Any],
-                    Dict[str, Any],
-                    str,
-                    List[str],
-                    str,
-                    int,
-                    int,
-                    float | None,
-                    List[float] | None,
-                    int,
-                ]
-            ]] = {dev: [] for dev in devices}
-
-            for j_idx, job in enumerate(eval_jobs):
-                dev = devices[j_idx % len(devices)]
-                job_with_dev = list(job)
-                job_with_dev[3] = dev
-                jobs_by_device[dev].append(tuple(job_with_dev))  # type: ignore[arg-type]
-
-            result_queue: "mp.Queue[Tuple[int, Dict[str, Any]]]" = ctx.Queue()
-            processes: List[mp.Process] = []
-
-            total_jobs = 0
-            for dev, dev_jobs in jobs_by_device.items():
-                if not dev_jobs:
-                    continue
-                total_jobs += len(dev_jobs)
-                p = ctx.Process(target=_device_worker, args=(dev_jobs, result_queue))
-                p.start()
-                processes.append(p)
-
-            # Collect all results.
-            collected = 0
-            heartbeat_s = float(cfg_yaml.get("eval_heartbeat_seconds", 300) or 300)
-            heartbeat_s = max(5.0, heartbeat_s)
-            while collected < total_jobs:
-                try:
-                    idx, fitness = result_queue.get(timeout=heartbeat_s)
-                except queue.Empty:
-                    states = [
-                        f"pid={p.pid} {p.name} {('alive' if p.is_alive() else 'dead')} {_format_exitcode(p.exitcode)}"
-                        for p in processes
+            if eval_mp_enabled:
+                # Partition jobs by device in a round-robin fashion.
+                jobs_by_device: Dict[str, List[
+                    Tuple[
+                        Dict[str, Any],
+                        Dict[str, Any],
+                        Dict[str, Any],
+                        str,
+                        List[str],
+                        str,
+                        int,
+                        int,
+                        float | None,
+                        List[float] | None,
+                        int,
                     ]
-                    LOGGER.info(
-                        "Waiting for eval results: collected=%d/%d workers=[%s]",
-                        collected,
-                        total_jobs,
-                        "; ".join(states),
-                    )
-                    # If any worker has exited abnormally, fail fast with a clear error.
-                    crashed = [p for p in processes if p.exitcode not in (None, 0)]
-                    if crashed:
-                        LOGGER.error(
-                            "Evaluation worker crashed before producing all results: %s",
-                            "; ".join(
-                                f"pid={p.pid} exit={_format_exitcode(p.exitcode)}" for p in crashed
-                            ),
-                        )
-                        raise RuntimeError(
-                            "Evaluation worker crashed (see worker fatal logs under the run directory)."
-                        )
-                    # If all workers have exited but we still don't have all results,
-                    # the queue likely lost messages due to an abrupt termination.
-                    if all(p.exitcode is not None for p in processes) and collected < total_jobs:
-                        raise RuntimeError(
-                            "All evaluation workers exited but results are incomplete; "
-                            "this often indicates an external kill (e.g., OOM/SIGKILL)."
-                        )
-                    continue
+                ]] = {dev: [] for dev in devices}
 
-                results.append((idx, fitness))
-                collected += 1
+                for j_idx, job in enumerate(eval_jobs):
+                    dev = devices[j_idx % len(devices)]
+                    job_with_dev = list(job)
+                    job_with_dev[3] = dev
+                    jobs_by_device[dev].append(tuple(job_with_dev))  # type: ignore[arg-type]
 
-            for p in processes:
-                p.join()
-                if p.exitcode not in (None, 0):
-                    LOGGER.warning(
-                        "Evaluation worker exited non-zero after result collection: pid=%s exit=%s",
-                        str(p.pid),
-                        _format_exitcode(p.exitcode),
-                    )
+                assert ctx is not None
+                result_queue: "mp.Queue[Tuple[int, Dict[str, Any]]]" = ctx.Queue()
+                processes: List[mp.Process] = []
+
+                total_jobs = 0
+                for dev, dev_jobs in jobs_by_device.items():
+                    if not dev_jobs:
+                        continue
+                    total_jobs += len(dev_jobs)
+                    p = ctx.Process(target=_device_worker, args=(dev_jobs, result_queue))
+                    p.start()
+                    processes.append(p)
+
+                # Collect all results.
+                collected = 0
+                heartbeat_s = float(cfg_yaml.get("eval_heartbeat_seconds", 300) or 300)
+                heartbeat_s = max(5.0, heartbeat_s)
+                while collected < total_jobs:
+                    try:
+                        idx, fitness = result_queue.get(timeout=heartbeat_s)
+                    except queue.Empty:
+                        states = [
+                            f"pid={p.pid} {p.name} {('alive' if p.is_alive() else 'dead')} {_format_exitcode(p.exitcode)}"
+                            for p in processes
+                        ]
+                        LOGGER.info(
+                            "Waiting for eval results: collected=%d/%d workers=[%s]",
+                            collected,
+                            total_jobs,
+                            "; ".join(states),
+                        )
+                        # If any worker has exited abnormally, fail fast with a clear error.
+                        crashed = [p for p in processes if p.exitcode not in (None, 0)]
+                        if crashed:
+                            LOGGER.error(
+                                "Evaluation worker crashed before producing all results: %s",
+                                "; ".join(
+                                    f"pid={p.pid} exit={_format_exitcode(p.exitcode)}" for p in crashed
+                                ),
+                            )
+                            raise RuntimeError(
+                                "Evaluation worker crashed (see worker fatal logs under the run directory)."
+                            )
+                        # If all workers have exited but we still don't have all results,
+                        # the queue likely lost messages due to an abrupt termination.
+                        if all(p.exitcode is not None for p in processes) and collected < total_jobs:
+                            raise RuntimeError(
+                                "All evaluation workers exited but results are incomplete; "
+                                "this often indicates an external kill (e.g., OOM/SIGKILL)."
+                            )
+                        continue
+
+                    results.append((idx, fitness))
+                    collected += 1
+
+                for p in processes:
+                    p.join()
+                    if p.exitcode not in (None, 0):
+                        LOGGER.warning(
+                            "Evaluation worker exited non-zero after result collection: pid=%s exit=%s",
+                            str(p.pid),
+                            _format_exitcode(p.exitcode),
+                        )
 
         # Integrate evaluation results back into the evolutionary loop.
         for idx, fitness in sorted(results, key=lambda x: x[0]):
