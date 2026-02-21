@@ -52,17 +52,21 @@ def pl_loss(
 
     sorted_idx = reward.sort(dim=1, descending=True).indices
     logp = alpha * log_likelihood
-    logp_sorted = logp.gather(1, sorted_idx)
-    max_logp = logp_sorted.max(dim=1, keepdim=True).values
-    logp_sorted = logp_sorted - max_logp
-    exp_logp = torch.exp(logp_sorted)
+    # Match the historical PTP formulation exactly (see `tests/test_preference_losses.py::_ptp_pl_loss`):
+    # - Normalize logp by a per-row max in the *original* order
+    # - Build denominators as prefix sums over the reward-ranked permutation
+    # - Use the original-order numerator `log(exp_logp)` (even though denominators are rank-ordered)
+    max_logp = logp.max(dim=1, keepdim=True).values
+    logp = logp - max_logp
+    exp_logp = torch.exp(logp)
+    exp_logp_rank = exp_logp.gather(1, sorted_idx)
 
     if impl == "ptp":
         one_hot = F.one_hot(sorted_idx, num_classes=reward.size(1)).to(exp_logp.dtype)
         till_mat = torch.tril(torch.ones_like(one_hot))
         sum_exp = (till_mat @ one_hot @ exp_logp.unsqueeze(-1)).squeeze(-1)
     else:
-        sum_exp = exp_logp.cumsum(dim=1)
+        sum_exp = exp_logp_rank.cumsum(dim=1)
 
     loss = torch.mean(torch.log(exp_logp) - torch.log(sum_exp))
     return loss
