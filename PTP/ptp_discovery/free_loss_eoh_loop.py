@@ -24,6 +24,7 @@ import yaml
 
 from fitness.free_loss_fidelity import (
     FreeLossFidelityConfig,
+    baseline_epoch_objectives_from_metrics_csv,
     evaluate_free_loss_candidate,
     evaluate_po_baseline_rl4co,
 )
@@ -839,9 +840,20 @@ def _worker_evaluate_candidate(args: Tuple[
         f1_steps=int(free_cfg_dict.get("f1_steps", 32)),
         f2_steps=int(free_cfg_dict.get("f2_steps", 0)),
         f3_enabled=bool(free_cfg_dict.get("f3_enabled", False)),
+        init_checkpoint_path=(
+            str(free_cfg_dict.get("init_checkpoint_path"))
+            if free_cfg_dict.get("init_checkpoint_path")
+            else None
+        ),
+        init_checkpoint_epoch=(
+            int(free_cfg_dict.get("init_checkpoint_epoch"))
+            if free_cfg_dict.get("init_checkpoint_epoch") is not None
+            else None
+        ),
         baseline_epoch_violation_weight=float(
             free_cfg_dict.get("baseline_epoch_violation_weight", 1.0)
         ),
+        baseline_epoch_tail_frac=float(free_cfg_dict.get("baseline_epoch_tail_frac", 1.0) or 1.0),
         baseline_epoch_window_k=int(free_cfg_dict.get("baseline_epoch_window_k", 10) or 10),
         baseline_epoch_window_violation_weight=float(
             free_cfg_dict.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
@@ -1078,6 +1090,25 @@ def _global_baseline_root_dir() -> str:
     return os.path.join(_repo_root_dir(), "baseline")
 
 
+def _abs_from_repo_root(path: str) -> str:
+    if not path:
+        return path
+    if os.path.isabs(path):
+        return path
+    return os.path.abspath(os.path.join(_repo_root_dir(), path))
+
+
+def _infer_baseline_epoch_from_path(path: str) -> int | None:
+    name = os.path.basename(str(path))
+    m = re.search(r"(?:^|[._-])epoch_(\d+)(?:\D|$)", name)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
 def _baseline_key_from_hf_cfg(cfg: HighFidelityConfig, *, early_eval_steps: int | None = None) -> str:
     """Stable key for cross-run baseline reuse.
 
@@ -1284,14 +1315,43 @@ def run_free_loss_eoh(
         pool_version=str(cfg_yaml.get("pool_version", "v0")),
     )
 
+    # Optional external baseline (metrics.csv + warm-start checkpoint). When provided,
+    # candidate HF training is warm-started from `checkpoint`, and baseline epoch
+    # comparisons are computed against `metrics_csv` over `hf_epochs` epochs.
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    baseline_metrics_csv = (
+        baseline_cfg.get("metrics_csv")
+        or cfg_yaml.get("baseline_metrics_csv")
+        or cfg_yaml.get("baseline_metrics_path")
+    )
+    baseline_ckpt = (
+        baseline_cfg.get("checkpoint")
+        or cfg_yaml.get("baseline_checkpoint")
+        or cfg_yaml.get("baseline_ckpt")
+    )
+    baseline_ckpt_epoch = baseline_cfg.get(
+        "checkpoint_epoch", cfg_yaml.get("baseline_checkpoint_epoch")
+    )
+    if baseline_ckpt_epoch is None and baseline_ckpt:
+        baseline_ckpt_epoch = _infer_baseline_epoch_from_path(str(baseline_ckpt))
+    baseline_val_column = str(
+        baseline_cfg.get("val_column", cfg_yaml.get("baseline_val_column", "val/reward"))
+        or "val/reward"
+    )
+
     free_cfg = FreeLossFidelityConfig(
         hf=hf_cfg,
         f1_steps=int(cfg_yaml.get("f1_steps", 32)),
         f2_steps=int(cfg_yaml.get("f2_steps", 0)),
         f3_enabled=bool(cfg_yaml.get("f3_enabled", False)),
+        init_checkpoint_path=_abs_from_repo_root(str(baseline_ckpt)) if baseline_ckpt else None,
+        init_checkpoint_epoch=(
+            int(baseline_ckpt_epoch) if baseline_ckpt_epoch is not None else None
+        ),
         baseline_epoch_violation_weight=float(
             cfg_yaml.get("baseline_epoch_violation_weight", 1.0)
         ),
+        baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
         baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
         baseline_epoch_window_violation_weight=float(
             cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
@@ -1302,7 +1362,10 @@ def run_free_loss_eoh(
         "f1_steps": free_cfg.f1_steps,
         "f2_steps": free_cfg.f2_steps,
         "f3_enabled": free_cfg.f3_enabled,
+        "init_checkpoint_path": free_cfg.init_checkpoint_path,
+        "init_checkpoint_epoch": free_cfg.init_checkpoint_epoch,
         "baseline_epoch_violation_weight": free_cfg.baseline_epoch_violation_weight,
+        "baseline_epoch_tail_frac": float(free_cfg.baseline_epoch_tail_frac),
         "baseline_epoch_window_k": free_cfg.baseline_epoch_window_k,
         "baseline_epoch_window_violation_weight": free_cfg.baseline_epoch_window_violation_weight,
     }
@@ -1331,105 +1394,185 @@ def run_free_loss_eoh(
             with open(path, "w", encoding="utf-8"):
                 pass
 
-    # Baseline: evaluate the original POMO po_loss once, using the same HF
-    # configuration. This provides a reference score before searching over
-    # free-form preference losses.
+    # Baseline: either load an external baseline (metrics.csv + warm-start checkpoint)
+    # or evaluate the original POMO po_loss once, using the same HF configuration.
     baseline: Dict[str, Any] | None = None
     baseline_json_path = os.path.join(run_dir, "baseline.json")
-    baseline_key = _baseline_key_from_hf_cfg(hf_cfg, early_eval_steps=early_eval_steps)
-    global_baseline_path, global_epoch_objectives_path = _baseline_paths_for_key(baseline_key)
-    global_loaded = _load_json_if_exists(global_baseline_path)
-    if global_loaded is not None:
-        baseline = global_loaded
-        LOGGER.info(
-            "Loaded baseline from global cache: key=%s path=%s", baseline_key, global_baseline_path
-        )
-        if not os.path.isfile(baseline_json_path):
-            try:
-                _atomic_write_json(baseline_json_path, dict(baseline))
-            except Exception:  # noqa: BLE001
-                pass
-    else:
-        if os.path.isfile(baseline_json_path):
-            try:
-                with open(baseline_json_path, "r", encoding="utf-8") as f:
-                    baseline = json.load(f)
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.warning("Failed to load baseline.json (%s): %s", baseline_json_path, exc)
-                baseline = None
-        elif resume_state is not None:
-            cand = resume_state.get("baseline")
-            if isinstance(cand, dict):
-                baseline = dict(cand)
 
-        if baseline is None:
-            try:
-                baseline_log_path = os.path.join(run_dir, "baseline_po_loss.log")
-                with _capture_logs_to_file(baseline_log_path):
-                    LOGGER.info(
-                        "Saving baseline training log to %s", os.path.abspath(baseline_log_path)
-                    )
-                    baseline = evaluate_po_baseline(hf_cfg, early_eval_steps=early_eval_steps)
-                _atomic_write_json(baseline_json_path, dict(baseline))
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.warning("Failed to evaluate baseline po_loss: %s", exc)
-                baseline = None
-
-    # Backfill the global cache if missing.
-    if baseline is not None and global_loaded is None:
+    external_baseline_on = bool(baseline_metrics_csv) and (baseline_ckpt_epoch is not None) and hf_epochs > 0
+    if external_baseline_on:
+        metrics_path = _abs_from_repo_root(str(baseline_metrics_csv))
+        start_epoch = int(baseline_ckpt_epoch) + 1
         try:
-            os.makedirs(os.path.dirname(global_baseline_path), exist_ok=True)
-            _atomic_write_json(global_baseline_path, dict(baseline))
-            epoch_objectives = (
-                baseline.get("epoch_eval", {}).get("objectives")
-                if isinstance(baseline, dict)
-                else None
-            )
-            if isinstance(epoch_objectives, list) and epoch_objectives:
-                _atomic_write_json_any(
-                    global_epoch_objectives_path, [float(v) for v in epoch_objectives]
-                )
-            LOGGER.info(
-                "Wrote baseline to global cache: key=%s path=%s", baseline_key, global_baseline_path
+            baseline_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                metrics_path,
+                value_col=baseline_val_column,
+                start_epoch=start_epoch,
+                num_epochs=int(hf_epochs),
+                objective_sign=str(hf_cfg.objective_sign),
             )
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning(
-                "Failed to write baseline to global cache (%s): %s", global_baseline_path, exc
-            )
+            LOGGER.warning("Failed to load external baseline epoch objectives (%s): %s", metrics_path, exc)
+            baseline_epoch_objectives = None
+            external_baseline_on = False
 
-    if baseline is not None:
-        baseline_hf_score = float(baseline.get("fitness_score", baseline["hf_score"]))
-        baseline_early_valid = float(
-            baseline.get("early_validation_objective", baseline["validation_objective"])
-        )
-        baseline_epoch_objectives = _load_epoch_objectives_if_exists(global_epoch_objectives_path)
-        if baseline_epoch_objectives is None:
-            baseline_epoch_objectives = baseline.get("epoch_eval", {}).get("objectives")
-            if baseline_epoch_objectives:
-                baseline_epoch_objectives = [float(v) for v in baseline_epoch_objectives]
+    if external_baseline_on and baseline_epoch_objectives:
+        steps_per_epoch, epochs_total = get_hf_epoch_plan(hf_cfg)
+        baseline_hf_score = float(baseline_epoch_objectives[-1])
+        baseline_early_valid = None
+        if steps_per_epoch > 0 and early_eval_steps > 0 and early_eval_steps % steps_per_epoch == 0:
+            early_epochs = int(early_eval_steps // steps_per_epoch)
+            if 1 <= early_epochs <= len(baseline_epoch_objectives):
+                baseline_early_valid = float(baseline_epoch_objectives[early_epochs - 1])
+
+        baseline = {
+            "hf_score": float(baseline_hf_score),
+            "fitness_score": float(baseline_hf_score),
+            "validation_objective": float(baseline_hf_score),
+            "generalization_penalty": 0.0,
+            "generalization_objectives": {},
+            "size_objectives": {int(hf_cfg.train_problem_size): float(baseline_hf_score)},
+            "size_aggregation": str(hf_cfg.size_aggregation),
+            "epoch_eval": {
+                "enabled": True,
+                "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
+                "epochs_total": int(epochs_total),
+                "objectives": list(baseline_epoch_objectives),
+                "objective_mean": float(sum(baseline_epoch_objectives) / len(baseline_epoch_objectives)),
+            },
+            "early_validation_objective": baseline_early_valid,
+            "early_eval_steps": int(early_eval_steps),
+            "config": {
+                "hf": dict(hf_cfg.__dict__),
+                "baseline_type": "external_metrics_csv",
+                "metrics_csv": str(baseline_metrics_csv),
+                "val_column": str(baseline_val_column),
+                "checkpoint_epoch": int(baseline_ckpt_epoch),
+            },
+        }
+        try:
+            _atomic_write_json(baseline_json_path, dict(baseline))
+        except Exception:  # noqa: BLE001
+            pass
+
         burn_in_objectives.append(
             {
                 "name": "po_loss_baseline",
-                "type": "handcrafted_loss",
-                "description": "Original POMO policy optimization loss (po_loss).",
-                "hf_like_score": float(baseline.get("fitness_score", baseline["hf_score"])),
-                "fitness_score": float(baseline.get("fitness_score", baseline["hf_score"])),
-                "validation_objective": float(baseline["validation_objective"]),
-                "generalization_penalty": float(baseline["generalization_penalty"]),
-                "early_validation_objective": baseline.get("early_validation_objective"),
-                "early_eval_steps": baseline.get("early_eval_steps"),
-                "epoch_objective_mean": baseline.get("epoch_eval", {}).get("objective_mean"),
-                "epoch_validation_objectives": baseline.get("epoch_eval", {}).get("objectives"),
-                "epoch_steps_per_epoch": baseline.get("epoch_eval", {}).get("steps_per_epoch"),
+                "type": "external_baseline",
+                "description": f"External baseline from {baseline_metrics_csv} @ epoch_{baseline_ckpt_epoch}.",
+                "hf_like_score": float(baseline_hf_score),
+                "fitness_score": float(baseline_hf_score),
+                "validation_objective": float(baseline_hf_score),
+                "generalization_penalty": 0.0,
+                "early_validation_objective": baseline_early_valid,
+                "early_eval_steps": int(early_eval_steps),
+                "epoch_objective_mean": float(sum(baseline_epoch_objectives) / len(baseline_epoch_objectives)),
+                "epoch_validation_objectives": list(baseline_epoch_objectives),
+                "epoch_steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
             }
         )
         LOGGER.info(
-            "Baseline po_loss: hf_score=%.6f, fitness_score=%.6f, validation_objective=%.6f, gen_penalty=%.6f",
-            float(baseline["hf_score"]),
-            float(baseline.get("fitness_score", baseline["hf_score"])),
-            float(baseline["validation_objective"]),
-            float(baseline["generalization_penalty"]),
+            "External baseline loaded: metrics=%s epoch_start=%d epochs=%d val_column=%s",
+            os.path.abspath(metrics_path),
+            int(baseline_ckpt_epoch) + 1,
+            int(hf_epochs),
+            str(baseline_val_column),
         )
+    else:
+        baseline_key = _baseline_key_from_hf_cfg(hf_cfg, early_eval_steps=early_eval_steps)
+        global_baseline_path, global_epoch_objectives_path = _baseline_paths_for_key(baseline_key)
+        global_loaded = _load_json_if_exists(global_baseline_path)
+        if global_loaded is not None:
+            baseline = global_loaded
+            LOGGER.info(
+                "Loaded baseline from global cache: key=%s path=%s", baseline_key, global_baseline_path
+            )
+            if not os.path.isfile(baseline_json_path):
+                try:
+                    _atomic_write_json(baseline_json_path, dict(baseline))
+                except Exception:  # noqa: BLE001
+                    pass
+        else:
+            if os.path.isfile(baseline_json_path):
+                try:
+                    with open(baseline_json_path, "r", encoding="utf-8") as f:
+                        baseline = json.load(f)
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("Failed to load baseline.json (%s): %s", baseline_json_path, exc)
+                    baseline = None
+            elif resume_state is not None:
+                cand = resume_state.get("baseline")
+                if isinstance(cand, dict):
+                    baseline = dict(cand)
+
+            if baseline is None:
+                try:
+                    baseline_log_path = os.path.join(run_dir, "baseline_po_loss.log")
+                    with _capture_logs_to_file(baseline_log_path):
+                        LOGGER.info(
+                            "Saving baseline training log to %s", os.path.abspath(baseline_log_path)
+                        )
+                        baseline = evaluate_po_baseline(hf_cfg, early_eval_steps=early_eval_steps)
+                    _atomic_write_json(baseline_json_path, dict(baseline))
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("Failed to evaluate baseline po_loss: %s", exc)
+                    baseline = None
+
+        # Backfill the global cache if missing.
+        if baseline is not None and global_loaded is None:
+            try:
+                os.makedirs(os.path.dirname(global_baseline_path), exist_ok=True)
+                _atomic_write_json(global_baseline_path, dict(baseline))
+                epoch_objectives = (
+                    baseline.get("epoch_eval", {}).get("objectives")
+                    if isinstance(baseline, dict)
+                    else None
+                )
+                if isinstance(epoch_objectives, list) and epoch_objectives:
+                    _atomic_write_json_any(
+                        global_epoch_objectives_path, [float(v) for v in epoch_objectives]
+                    )
+                LOGGER.info(
+                    "Wrote baseline to global cache: key=%s path=%s", baseline_key, global_baseline_path
+                )
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning(
+                    "Failed to write baseline to global cache (%s): %s", global_baseline_path, exc
+                )
+
+        if baseline is not None:
+            baseline_hf_score = float(baseline.get("fitness_score", baseline["hf_score"]))
+            baseline_early_valid = float(
+                baseline.get("early_validation_objective", baseline["validation_objective"])
+            )
+            baseline_epoch_objectives = _load_epoch_objectives_if_exists(global_epoch_objectives_path)
+            if baseline_epoch_objectives is None:
+                baseline_epoch_objectives = baseline.get("epoch_eval", {}).get("objectives")
+                if baseline_epoch_objectives:
+                    baseline_epoch_objectives = [float(v) for v in baseline_epoch_objectives]
+            burn_in_objectives.append(
+                {
+                    "name": "po_loss_baseline",
+                    "type": "handcrafted_loss",
+                    "description": "Original POMO policy optimization loss (po_loss).",
+                    "hf_like_score": float(baseline.get("fitness_score", baseline["hf_score"])),
+                    "fitness_score": float(baseline.get("fitness_score", baseline["hf_score"])),
+                    "validation_objective": float(baseline["validation_objective"]),
+                    "generalization_penalty": float(baseline["generalization_penalty"]),
+                    "early_validation_objective": baseline.get("early_validation_objective"),
+                    "early_eval_steps": baseline.get("early_eval_steps"),
+                    "epoch_objective_mean": baseline.get("epoch_eval", {}).get("objective_mean"),
+                    "epoch_validation_objectives": baseline.get("epoch_eval", {}).get("objectives"),
+                    "epoch_steps_per_epoch": baseline.get("epoch_eval", {}).get("steps_per_epoch"),
+                }
+            )
+            LOGGER.info(
+                "Baseline po_loss: hf_score=%.6f, fitness_score=%.6f, validation_objective=%.6f, gen_penalty=%.6f",
+                float(baseline["hf_score"]),
+                float(baseline.get("fitness_score", baseline["hf_score"])),
+                float(baseline["validation_objective"]),
+                float(baseline["generalization_penalty"]),
+            )
 
     if resume_state is not None:
         burn_in_loaded = resume_state.get("burn_in_objectives")
@@ -2888,18 +3031,21 @@ def run_free_loss_eoh(
             better_than_baseline = None
             baseline_compare_value = float("nan")
             if baseline_epoch_objectives:
-                # Prefer the epoch-window comparison computed during HF evaluation.
-                window_better = fitness.get("epoch_window_better_than_baseline")
-                baseline_window = fitness.get("baseline_epoch_window_eval") or {}
-                baseline_late = baseline_window.get("late_mean")
-                if baseline_late is not None:
-                    baseline_compare_value = float(baseline_late)
-                if window_better is not None:
-                    better_than_baseline = bool(window_better)
-                elif baseline_hf_score is not None:
+                # Compare epoch-by-epoch against the baseline's epoch objectives.
+                # `epoch_better_than_baseline` is True only when every compared epoch is
+                # better (smaller objective) than the corresponding baseline epoch.
+                epoch_better = fitness.get("epoch_tail_better_than_baseline")
+                if epoch_better is None:
+                    epoch_better = fitness.get("epoch_better_than_baseline")
+                epoch_eval = fitness.get("epoch_eval") or {}
+                obj_list = epoch_eval.get("objectives") or []
+                epochs_total = epoch_eval.get("epochs_total")
+                if isinstance(epochs_total, int) and epochs_total > 0 and len(obj_list) != int(epochs_total):
+                    epoch_better = False
+                if epoch_better is not None:
+                    better_than_baseline = bool(epoch_better)
+                if baseline_hf_score is not None:
                     baseline_compare_value = float(baseline_hf_score)
-                    # Lower score is better.
-                    better_than_baseline = hf_like_score <= baseline_hf_score
             elif baseline_hf_score is not None:
                 baseline_compare_value = float(baseline_hf_score)
                 # Lower score is better.

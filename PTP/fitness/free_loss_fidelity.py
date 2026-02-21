@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass, asdict, field
+import math
+import os
+import re
 from typing import Any, Dict, List, Mapping, Protocol, Sequence, Tuple
 
 import logging
@@ -164,7 +168,15 @@ class FreeLossFidelityConfig:
     f1_steps: int = 32
     f2_steps: int = 0
     f3_enabled: bool = False
+    # Optional warm start for HF training. Intended for continuing from an existing
+    # RL4CO Lightning checkpoint (e.g., `baseline/epoch_409.ckpt`).
+    init_checkpoint_path: str | None = None
+    init_checkpoint_epoch: int | None = None
     baseline_epoch_violation_weight: float = 1.0
+    # Fraction of epochs (from the end) used for "better-than-baseline" checks.
+    # Example: 0.9 means the last 90% epochs must beat the baseline, ignoring the first 10%.
+    # Default 1.0 preserves the historical "all epochs must beat baseline" behavior.
+    baseline_epoch_tail_frac: float = 1.0
     # Windowed comparison against the baseline's epoch validation objectives.
     # When baseline epoch objectives are available, we compare the mean objective
     # in the first `k` epochs and the last `k` epochs (smaller is better).
@@ -201,6 +213,183 @@ def _epoch_window_means(
     early_mean = _mean(values[:early_k])
     late_mean = _mean(values[-late_k:])
     return float(early_mean), float(late_mean)
+
+
+def _infer_epoch_from_checkpoint_path(path: str) -> int | None:
+    name = os.path.basename(str(path))
+    m = re.search(r"(?:^|[._-])epoch_(\\d+)(?:\\D|$)", name)
+    if not m:
+        return None
+    try:
+        return int(m.group(1))
+    except ValueError:
+        return None
+
+
+def load_epoch_values_from_metrics_csv(
+    metrics_csv_path: str,
+    *,
+    epoch_col: str = "epoch",
+    value_col: str = "val/reward",
+) -> Dict[int, float]:
+    """Parse RL4CO CSV logger output into {epoch: value}.
+
+    RL4CO's `metrics.csv` may contain rows with blank `epoch` (step-level logs).
+    This loader keeps only rows with a valid `epoch` and a numeric `value_col`,
+    and uses the last observed value for each epoch.
+    """
+
+    out: Dict[int, float] = {}
+    with open(metrics_csv_path, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        if reader.fieldnames is None:
+            return out
+        if epoch_col not in reader.fieldnames:
+            raise KeyError(f"metrics.csv missing epoch column '{epoch_col}': {metrics_csv_path}")
+        if value_col not in reader.fieldnames:
+            raise KeyError(f"metrics.csv missing value column '{value_col}': {metrics_csv_path}")
+        for row in reader:
+            epoch_raw = row.get(epoch_col, "")
+            if epoch_raw is None or str(epoch_raw).strip() == "":
+                continue
+            try:
+                epoch = int(float(epoch_raw))
+            except (TypeError, ValueError):
+                continue
+            val_raw = row.get(value_col, "")
+            if val_raw is None or str(val_raw).strip() == "":
+                continue
+            try:
+                val = float(val_raw)
+            except (TypeError, ValueError):
+                continue
+            out[int(epoch)] = float(val)
+    return out
+
+
+def baseline_epoch_objectives_from_metrics_csv(
+    metrics_csv_path: str,
+    *,
+    value_col: str,
+    start_epoch: int,
+    num_epochs: int,
+    objective_sign: str = "neg_reward",
+) -> List[float]:
+    """Return a length-`num_epochs` list of baseline objectives from RL4CO `metrics.csv`.
+
+    The metrics file typically logs `val/reward` (higher is better, often negative tour length).
+    This function converts to the objective used by this repo:
+      - objective_sign == "reward": objective = reward
+      - objective_sign == "neg_reward": objective = -reward
+    """
+
+    epoch_to_val = load_epoch_values_from_metrics_csv(metrics_csv_path, value_col=value_col)
+    objectives: List[float] = []
+    sign = str(objective_sign or "neg_reward").strip().lower()
+    for epoch in range(int(start_epoch), int(start_epoch) + int(num_epochs)):
+        if epoch not in epoch_to_val:
+            raise KeyError(
+                f"metrics.csv missing epoch={epoch} for baseline slice "
+                f"(start_epoch={start_epoch}, num_epochs={num_epochs}) at {metrics_csv_path}"
+            )
+        reward = float(epoch_to_val[int(epoch)])
+        obj = reward if sign == "reward" else -reward
+        objectives.append(float(obj))
+    return objectives
+
+
+def _extract_state_dict_from_checkpoint(payload: object) -> Mapping[str, torch.Tensor] | None:
+    if isinstance(payload, dict):
+        sd = payload.get("state_dict")
+        if isinstance(sd, dict):
+            return sd  # Lightning-style
+        sd = payload.get("model_state_dict")
+        if isinstance(sd, dict):
+            return sd
+    return None
+
+
+def _load_policy_weights_from_checkpoint(policy, ckpt_path: str) -> None:
+    if not ckpt_path:
+        return
+    if not os.path.isfile(ckpt_path):
+        raise FileNotFoundError(f"init_checkpoint_path does not exist: {ckpt_path}")
+
+    # Prefer safe tensor-only loading where available. RL4CO Lightning checkpoints
+    # can include pickled non-tensor objects (e.g., env instances), which makes
+    # `weights_only=True` fail. In that case, fall back to a full load for a
+    # user-provided (trusted) checkpoint path.
+    ckpt: object
+    try:
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=True)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "weights_only checkpoint load failed (%s); retrying weights_only=False for %s",
+            type(exc).__name__,
+            os.path.abspath(ckpt_path),
+        )
+        ckpt = torch.load(ckpt_path, map_location="cpu")
+
+    state_dict = _extract_state_dict_from_checkpoint(ckpt)
+    if state_dict is None:
+        raise ValueError(f"Unsupported checkpoint format (missing state_dict): {ckpt_path}")
+
+    target_sd = policy.state_dict()
+
+    # Try common Lightning key prefixes to recover the underlying policy weights.
+    candidates: List[Tuple[str, Dict[str, torch.Tensor]]] = []
+    prefixes = [
+        "policy.",
+        "model.policy.",
+        "model.",
+        "net.",
+        "module.",
+        "",
+    ]
+    for prefix in prefixes:
+        if prefix:
+            sliced = {k[len(prefix) :]: v for k, v in state_dict.items() if isinstance(k, str) and k.startswith(prefix)}
+        else:
+            sliced = {k: v for k, v in state_dict.items() if isinstance(k, str)}
+        if not sliced:
+            continue
+        candidates.append((prefix, sliced))
+
+    def _score(sd: Mapping[str, torch.Tensor]) -> int:
+        score = 0
+        for k, v in sd.items():
+            if k not in target_sd:
+                continue
+            tv = target_sd[k]
+            if isinstance(v, torch.Tensor) and isinstance(tv, torch.Tensor) and tuple(v.shape) == tuple(tv.shape):
+                score += 1
+        return score
+
+    best_prefix = None
+    best_sd: Dict[str, torch.Tensor] | None = None
+    best_score = -1
+    for prefix, cand_sd in candidates:
+        s = _score(cand_sd)
+        if s > best_score:
+            best_score = s
+            best_prefix = prefix
+            best_sd = cand_sd
+
+    if best_sd is None or best_score <= 0:
+        raise ValueError(
+            f"Could not match checkpoint weights to policy state_dict (ckpt={ckpt_path}). "
+            f"state_dict_keys={len(state_dict)} policy_keys={len(target_sd)}"
+        )
+
+    missing, unexpected = policy.load_state_dict(best_sd, strict=False)
+    logger.info(
+        "Loaded init checkpoint into policy: path=%s prefix=%s matched=%d missing=%d unexpected=%d",
+        os.path.abspath(ckpt_path),
+        str(best_prefix),
+        int(best_score),
+        int(len(missing)),
+        int(len(unexpected)),
+    )
 
 
 def _build_preference_pairs(
@@ -302,12 +491,38 @@ def _rl4co_build_policy(cfg: HighFidelityConfig, env):
     from rl4co.models.zoo.am import AttentionModelPolicy
     from rl4co.models.zoo.l2d.policy import L2DPolicy
     from rl4co.models.zoo.matnet.model import select_matnet_policy
+    from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
 
     env_name = _rl4co_env_name(cfg)
     policy_name = _rl4co_policy_name(cfg, env_name)
     policy_kwargs = dict(getattr(cfg, "policy_kwargs", {}) or {})
 
-    if policy_name in {"pomo", "am"}:
+    if policy_name == "pomo":
+        use_po4cops_compat = bool(policy_kwargs.pop("po4cops_compat", False))
+        if use_po4cops_compat:
+            # Mirror `rl4co.models.zoo.pomo.model.POMO` policy construction.
+            policy_kwargs_with_defaults = {
+                "embedding_dim": policy_kwargs.pop("embed_dim", 128),
+                "encoder_layer_num": policy_kwargs.pop("num_encoder_layers", 6),
+                "decoder_layer_num": policy_kwargs.pop("decoder_layer_num", 1),
+                "qkv_dim": policy_kwargs.pop("qkv_dim", 16),
+                "head_num": policy_kwargs.pop("num_heads", 8),
+                "ff_hidden_dim": policy_kwargs.pop("feedforward_hidden", 512),
+                "logit_clipping": policy_kwargs.pop("tanh_clipping", 50),
+                "eval_type": policy_kwargs.pop("eval_type", "argmax"),
+                "env_name": env.name,
+            }
+            policy_kwargs_with_defaults.update(policy_kwargs)
+            policy = PO4COPsTSPPolicy(**policy_kwargs_with_defaults)
+        else:
+            policy_defaults = {
+                "num_encoder_layers": 6,
+                "normalization": "instance",
+                "use_graph_context": False,
+            }
+            policy_defaults.update(policy_kwargs)
+            policy = AttentionModelPolicy(env_name=env.name, **policy_defaults)
+    elif policy_name == "am":
         policy_defaults = {
             "num_encoder_layers": 6,
             "normalization": "instance",
@@ -497,6 +712,8 @@ def _evaluate_free_loss_candidate_rl4co(
     env = _rl4co_build_env(cfg.hf, cfg.hf.train_problem_size)
     env = env.to(device)
     policy, rollout_strategy = _rl4co_build_policy(cfg.hf, env)
+    if cfg.init_checkpoint_path:
+        _load_policy_weights_from_checkpoint(policy, str(cfg.init_checkpoint_path))
     policy = policy.to(device)
     optimizer = Adam(
         policy.parameters(),
@@ -656,6 +873,8 @@ def _evaluate_free_loss_candidate_rl4co(
 
     epoch_baseline_violations: int | None = None
     epoch_better_than_baseline: bool | None = None
+    epoch_tail_baseline_violations: int | None = None
+    epoch_tail_better_than_baseline: bool | None = None
     epoch_baseline_margins: List[float] | None = None
     if baseline_epoch_objectives:
         baseline_list = [float(v) for v in baseline_epoch_objectives]
@@ -666,7 +885,27 @@ def _evaluate_free_loss_candidate_rl4co(
             epoch_baseline_margins.append(margin)
         violations = sum(1 for m in epoch_baseline_margins if m > 0.0)
         epoch_baseline_violations = int(violations)
-        epoch_better_than_baseline = epoch_baseline_violations == 0
+        # Only mark "better" when we have a full epoch-by-epoch comparison for the
+        # candidate's evaluated epochs (i.e., no missing baseline epochs).
+        epoch_better_than_baseline = compare_len == len(epoch_validation_objectives) and epoch_baseline_violations == 0
+
+        # Tail-only comparison for `better_than_baseline` (default: all epochs).
+        try:
+            tail_frac = float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0)
+        except (TypeError, ValueError):
+            tail_frac = 1.0
+        tail_frac = min(max(tail_frac, 0.0), 1.0)
+        if compare_len == len(epoch_validation_objectives) and compare_len > 0 and tail_frac > 0.0:
+            tail_count = int(math.ceil(tail_frac * float(compare_len)))
+            tail_count = max(1, min(tail_count, compare_len))
+            tail_start = compare_len - tail_count
+            tail_margins = epoch_baseline_margins[tail_start:]
+            tail_violations = sum(1 for m in tail_margins if m > 0.0)
+            epoch_tail_baseline_violations = int(tail_violations)
+            epoch_tail_better_than_baseline = epoch_tail_baseline_violations == 0
+        else:
+            epoch_tail_baseline_violations = None
+            epoch_tail_better_than_baseline = None
 
     # Epoch-window comparison (early k + late k) against baseline epoch objectives.
     window_k = int(getattr(cfg, "baseline_epoch_window_k", 10) or 10)
@@ -734,6 +973,8 @@ def _evaluate_free_loss_candidate_rl4co(
         "epoch_objective_mean": epoch_objective_mean,
         "epoch_baseline_violations": epoch_baseline_violations,
         "epoch_better_than_baseline": epoch_better_than_baseline,
+        "epoch_tail_baseline_violations": epoch_tail_baseline_violations,
+        "epoch_tail_better_than_baseline": epoch_tail_better_than_baseline,
         "epoch_window_eval": epoch_window_eval,
         "baseline_epoch_window_eval": baseline_epoch_window_eval,
         "epoch_window_margins": epoch_window_margins,
@@ -748,6 +989,9 @@ def _evaluate_free_loss_candidate_rl4co(
             "baseline_margins": epoch_baseline_margins,
             "baseline_violations": epoch_baseline_violations,
             "better_than_baseline": epoch_better_than_baseline,
+            "tail_frac": float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0),
+            "tail_baseline_violations": epoch_tail_baseline_violations,
+            "tail_better_than_baseline": epoch_tail_better_than_baseline,
         },
         "train_score_mean": float(score_meter.avg),
         "train_loss_mean": float(loss_meter.avg),
@@ -778,9 +1022,18 @@ def _evaluate_free_loss_candidate_rl4co(
             "free_loss": {
                 "f1_steps": cfg.f1_steps,
                 "total_train_steps": steps,
+                "init_checkpoint_path": cfg.init_checkpoint_path,
+                "init_checkpoint_epoch": (
+                    int(cfg.init_checkpoint_epoch)
+                    if cfg.init_checkpoint_epoch is not None
+                    else _infer_epoch_from_checkpoint_path(str(cfg.init_checkpoint_path))
+                    if cfg.init_checkpoint_path
+                    else None
+                ),
                 "f2_steps": cfg.f2_steps,
                 "f3_enabled": cfg.f3_enabled,
                 "baseline_epoch_violation_weight": cfg.baseline_epoch_violation_weight,
+                "baseline_epoch_tail_frac": float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0),
                 "baseline_epoch_window_k": cfg.baseline_epoch_window_k,
                 "baseline_epoch_window_violation_weight": cfg.baseline_epoch_window_violation_weight,
             },
