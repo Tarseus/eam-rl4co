@@ -1108,6 +1108,25 @@ def _device_worker(
     if not jobs:
         return
 
+    # Optional thread caps (enabled when env vars are set by the launcher).
+    # This helps avoid extreme CPU thread oversubscription when running multiple
+    # long-lived worker processes concurrently.
+    try:
+        torch_threads = os.environ.get("TORCH_NUM_THREADS")
+        torch_interop = os.environ.get("TORCH_NUM_INTEROP_THREADS")
+        if torch_threads is not None:
+            try:
+                torch.set_num_threads(max(int(torch_threads), 1))
+            except Exception:  # noqa: BLE001
+                pass
+        if torch_interop is not None:
+            try:
+                torch.set_num_interop_threads(max(int(torch_interop), 1))
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        pass
+
     # Capture Python-level crash diagnostics (e.g., SIGSEGV, aborts) into a file
     # under the run directory. This does not catch SIGKILL/OOM, but helps with
     # native crashes that otherwise leave no traceback in the main log.

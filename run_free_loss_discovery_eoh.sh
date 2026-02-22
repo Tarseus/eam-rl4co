@@ -7,6 +7,21 @@ cd "$ROOT_DIR"
 : "${TZ:=Asia/Shanghai}"
 export TZ
 
+# ---- Stability knobs (override via env) ----
+# Multi-process + multi-GPU RL workloads can oversubscribe CPU threads and trigger
+# system instability (watchdogs/hard resets) even when GPUs pass standalone stress
+# tests. We default to conservative thread counts for this launcher, while still
+# letting users override from their shell environment.
+: "${OMP_NUM_THREADS:=8}"
+: "${MKL_NUM_THREADS:=${OMP_NUM_THREADS}}"
+: "${OPENBLAS_NUM_THREADS:=${OMP_NUM_THREADS}}"
+: "${NUMEXPR_NUM_THREADS:=${OMP_NUM_THREADS}}"
+: "${VECLIB_MAXIMUM_THREADS:=${OMP_NUM_THREADS}}"
+: "${TORCH_NUM_THREADS:=${OMP_NUM_THREADS}}"
+: "${TORCH_NUM_INTEROP_THREADS:=1}"
+export OMP_NUM_THREADS MKL_NUM_THREADS OPENBLAS_NUM_THREADS NUMEXPR_NUM_THREADS VECLIB_MAXIMUM_THREADS
+export TORCH_NUM_THREADS TORCH_NUM_INTEROP_THREADS
+
 CONFIG_PATH="${1:-configs/experiment/free_loss_discovery/rl4co.yaml}"
 DEVICE="${2:-cuda}"                  # cpu | cuda | cuda:0 ...
 MODE="${3:-start}"                   # start | resume-latest | resume-dir
