@@ -1,0 +1,98 @@
+{
+  "hf_score": 8.051264762878418,
+  "fitness_score": 8.051264762878418,
+  "validation_objective": 8.051264762878418,
+  "generalization_penalty": 0.0,
+  "generalization_objectives": {},
+  "size_objectives": {
+    "100": 8.051264762878418
+  },
+  "size_aggregation": "cvar",
+  "epoch_eval": {
+    "enabled": true,
+    "steps_per_epoch": 1563,
+    "epochs_total": 20,
+    "objectives": [
+      8.442469596862793,
+      8.368196487426758,
+      8.33885383605957,
+      8.305715560913086,
+      8.292405128479004,
+      8.274077415466309,
+      8.250690460205078,
+      8.231260299682617,
+      8.211482048034668,
+      8.207481384277344,
+      8.078700065612793,
+      8.081104278564453,
+      8.084817886352539,
+      8.06815242767334,
+      8.08619499206543,
+      8.065119743347168,
+      8.086061477661133,
+      8.056577682495117,
+      8.040085792541504,
+      8.051264762878418
+    ],
+    "objective_mean": 8.181035566329957
+  },
+  "early_validation_objective": null,
+  "early_eval_steps": 314,
+  "config": {
+    "hf": {
+      "problem": "tsp",
+      "backend": "rl4co",
+      "env_name": "tsp",
+      "env_kwargs": {},
+      "generator_params": {
+        "num_loc": 100
+      },
+      "policy_name": "pomo",
+      "policy_kwargs": {
+        "po4cops_compat": true,
+        "embed_dim": 128,
+        "num_encoder_layers": 6,
+        "decoder_layer_num": 1,
+        "qkv_dim": 16,
+        "num_heads": 8,
+        "feedforward_hidden": 512,
+        "tanh_clipping": 50,
+        "eval_type": "argmax",
+        "train_decode_type": "sampling",
+        "val_decode_type": "greedy",
+        "test_decode_type": "greedy"
+      },
+      "rollout_strategy": "auto",
+      "objective_sign": "neg_reward",
+      "hf_steps": 0,
+      "hf_epochs": 20,
+      "hf_instances_per_epoch": 100000,
+      "train_problem_size": 100,
+      "valid_problem_sizes": [
+        100
+      ],
+      "train_batch_size": 64,
+      "pomo_size": 100,
+      "learning_rate": 0.0003,
+      "weight_decay": 1e-06,
+      "alpha": 0.05,
+      "device": "cuda",
+      "seed": 1234,
+      "num_validation_episodes": 10000,
+      "validation_batch_size": 64,
+      "generalization_penalty_weight": 1.0,
+      "size_aggregation": "cvar",
+      "size_cvar_alpha": 0.2,
+      "pool_version": "v0"
+    },
+    "baseline_type": "external_metrics_csv",
+    "metrics_csv": "baseline/metrics.csv",
+    "val_column": "val/reward",
+    "checkpoint_epoch": 409,
+    "split_hf_epoch_eval": true,
+    "scratch_start_epoch": 0,
+    "scratch_hf_epochs": 10,
+    "warmstart_start_epoch": 410,
+    "warmstart_hf_epochs": 10
+  }
+}
