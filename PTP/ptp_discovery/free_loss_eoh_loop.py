@@ -972,6 +972,9 @@ def _worker_evaluate_candidate(args: Tuple[
             if free_cfg_dict.get("init_checkpoint_epoch") is not None
             else None
         ),
+        scratch_hf_epochs=int(free_cfg_dict.get("scratch_hf_epochs", 0) or 0),
+        warmstart_hf_epochs=int(free_cfg_dict.get("warmstart_hf_epochs", 0) or 0),
+        baseline_epoch_compare_offset=int(free_cfg_dict.get("baseline_epoch_compare_offset", 0) or 0),
         baseline_epoch_violation_weight=float(
             free_cfg_dict.get("baseline_epoch_violation_weight", 1.0)
         ),
@@ -1397,6 +1400,9 @@ def run_free_loss_eoh(
     hf_epochs = int(cfg_yaml.get("hf_epochs", 0) or 0)
     hf_instances_per_epoch = int(cfg_yaml.get("hf_instances_per_epoch", 0) or 0)
     pomo_size_yaml = cfg_yaml.get("pomo_size", None)
+    scratch_hf_epochs_cfg = int(cfg_yaml.get("scratch_hf_epochs", 0) or 0)
+    warmstart_hf_epochs_cfg = int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0)
+    split_hf_epoch_eval = bool(scratch_hf_epochs_cfg > 0 and warmstart_hf_epochs_cfg > 0)
 
     backend = str(cfg_yaml.get("backend", "ptp") or "ptp").strip().lower()
     env_name = cfg_yaml.get("env_name") or cfg_yaml.get("problem", "tsp")
@@ -1470,6 +1476,9 @@ def run_free_loss_eoh(
         init_checkpoint_epoch=(
             int(baseline_ckpt_epoch) if baseline_ckpt_epoch is not None else None
         ),
+        scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+        warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+        baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
         baseline_epoch_violation_weight=float(
             cfg_yaml.get("baseline_epoch_violation_weight", 1.0)
         ),
@@ -1486,6 +1495,9 @@ def run_free_loss_eoh(
         "f3_enabled": free_cfg.f3_enabled,
         "init_checkpoint_path": free_cfg.init_checkpoint_path,
         "init_checkpoint_epoch": free_cfg.init_checkpoint_epoch,
+        "scratch_hf_epochs": int(getattr(free_cfg, "scratch_hf_epochs", 0) or 0),
+        "warmstart_hf_epochs": int(getattr(free_cfg, "warmstart_hf_epochs", 0) or 0),
+        "baseline_epoch_compare_offset": int(getattr(free_cfg, "baseline_epoch_compare_offset", 0) or 0),
         "baseline_epoch_violation_weight": free_cfg.baseline_epoch_violation_weight,
         "baseline_epoch_tail_frac": float(free_cfg.baseline_epoch_tail_frac),
         "baseline_epoch_window_k": free_cfg.baseline_epoch_window_k,
@@ -1558,14 +1570,63 @@ def run_free_loss_eoh(
     if external_baseline_on:
         metrics_path = _abs_from_repo_root(str(baseline_metrics_csv))
         start_epoch = int(baseline_ckpt_epoch) + 1
+        baseline_scratch_epoch_objectives: List[float] | None = None
+        baseline_warmstart_epoch_objectives: List[float] | None = None
+        scratch_start_epoch_used: int | None = None
         try:
-            baseline_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
-                metrics_path,
-                value_col=baseline_val_column,
-                start_epoch=start_epoch,
-                num_epochs=int(hf_epochs),
-                objective_sign=str(hf_cfg.objective_sign),
-            )
+            if split_hf_epoch_eval:
+                scratch_start_epoch_cfg = (
+                    (baseline_cfg or {}).get("scratch_start_epoch")
+                    or cfg_yaml.get("baseline_scratch_start_epoch")
+                )
+                if scratch_start_epoch_cfg is None:
+                    try:
+                        baseline_scratch_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                            metrics_path,
+                            value_col=baseline_val_column,
+                            start_epoch=0,
+                            num_epochs=int(scratch_hf_epochs_cfg),
+                            objective_sign=str(hf_cfg.objective_sign),
+                        )
+                        scratch_start_epoch_used = 0
+                    except Exception:  # noqa: BLE001
+                        baseline_scratch_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                            metrics_path,
+                            value_col=baseline_val_column,
+                            start_epoch=1,
+                            num_epochs=int(scratch_hf_epochs_cfg),
+                            objective_sign=str(hf_cfg.objective_sign),
+                        )
+                        scratch_start_epoch_used = 1
+                else:
+                    scratch_start_epoch_used = int(scratch_start_epoch_cfg)
+                    baseline_scratch_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                        metrics_path,
+                        value_col=baseline_val_column,
+                        start_epoch=int(scratch_start_epoch_used),
+                        num_epochs=int(scratch_hf_epochs_cfg),
+                        objective_sign=str(hf_cfg.objective_sign),
+                    )
+
+                baseline_warmstart_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                    metrics_path,
+                    value_col=baseline_val_column,
+                    start_epoch=int(start_epoch),
+                    num_epochs=int(warmstart_hf_epochs_cfg),
+                    objective_sign=str(hf_cfg.objective_sign),
+                )
+
+                baseline_epoch_objectives = list(baseline_scratch_epoch_objectives or []) + list(
+                    baseline_warmstart_epoch_objectives or []
+                )
+            else:
+                baseline_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+                    metrics_path,
+                    value_col=baseline_val_column,
+                    start_epoch=start_epoch,
+                    num_epochs=int(hf_epochs),
+                    objective_sign=str(hf_cfg.objective_sign),
+                )
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Failed to load external baseline epoch objectives (%s): %s", metrics_path, exc)
             baseline_epoch_objectives = None
@@ -1577,8 +1638,15 @@ def run_free_loss_eoh(
         baseline_early_valid = None
         if steps_per_epoch > 0 and early_eval_steps > 0 and early_eval_steps % steps_per_epoch == 0:
             early_epochs = int(early_eval_steps // steps_per_epoch)
-            if 1 <= early_epochs <= len(baseline_epoch_objectives):
-                baseline_early_valid = float(baseline_epoch_objectives[early_epochs - 1])
+            # Early-eval is used only for candidate early-stopping during warm-start.
+            # When using split HF evaluation, align this to the warm-start baseline slice.
+            early_source = (
+                baseline_warmstart_epoch_objectives
+                if split_hf_epoch_eval and baseline_warmstart_epoch_objectives
+                else baseline_epoch_objectives
+            )
+            if early_source and 1 <= early_epochs <= len(early_source):
+                baseline_early_valid = float(early_source[early_epochs - 1])
 
         baseline = {
             "hf_score": float(baseline_hf_score),
@@ -1591,7 +1659,7 @@ def run_free_loss_eoh(
             "epoch_eval": {
                 "enabled": True,
                 "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
-                "epochs_total": int(epochs_total),
+                "epochs_total": int(len(baseline_epoch_objectives)),
                 "objectives": list(baseline_epoch_objectives),
                 "objective_mean": float(sum(baseline_epoch_objectives) / len(baseline_epoch_objectives)),
             },
@@ -1603,6 +1671,13 @@ def run_free_loss_eoh(
                 "metrics_csv": str(baseline_metrics_csv),
                 "val_column": str(baseline_val_column),
                 "checkpoint_epoch": int(baseline_ckpt_epoch),
+                "split_hf_epoch_eval": bool(split_hf_epoch_eval),
+                "scratch_start_epoch": int(scratch_start_epoch_used)
+                if scratch_start_epoch_used is not None
+                else None,
+                "scratch_hf_epochs": int(scratch_hf_epochs_cfg),
+                "warmstart_start_epoch": int(start_epoch),
+                "warmstart_hf_epochs": int(warmstart_hf_epochs_cfg),
             },
         }
         try:
@@ -1630,7 +1705,7 @@ def run_free_loss_eoh(
             "External baseline loaded: metrics=%s epoch_start=%d epochs=%d val_column=%s",
             os.path.abspath(metrics_path),
             int(baseline_ckpt_epoch) + 1,
-            int(hf_epochs),
+            int(len(baseline_epoch_objectives)),
             str(baseline_val_column),
         )
     else:
