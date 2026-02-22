@@ -184,3 +184,23 @@
 [2026-02-22 18:03:42,945] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/4 workers=[pid=16661 SpawnProcess-1 alive running; pid=16662 SpawnProcess-2 alive running; pid=16663 SpawnProcess-3 alive running; pid=16664 SpawnProcess-4 alive running]
 [2026-02-22 18:08:43,046] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/4 workers=[pid=16661 SpawnProcess-1 alive running; pid=16662 SpawnProcess-2 alive running; pid=16663 SpawnProcess-3 alive running; pid=16664 SpawnProcess-4 alive running]
 [2026-02-22 18:13:43,147] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/4 workers=[pid=16661 SpawnProcess-1 alive running; pid=16662 SpawnProcess-2 alive running; pid=16663 SpawnProcess-3 alive running; pid=16664 SpawnProcess-4 alive running]
+[2026-02-22 18:18:43,248] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/4 workers=[pid=16661 SpawnProcess-1 dead signal(9); pid=16662 SpawnProcess-2 dead signal(9); pid=16663 SpawnProcess-3 dead signal(9); pid=16664 SpawnProcess-4 dead signal(9)]
+[2026-02-22 18:18:43,249] ERROR:ptp_discovery.free_loss_eoh: Evaluation worker crashed before producing all results: pid=16661 exit=signal(9); pid=16662 exit=signal(9); pid=16663 exit=signal(9); pid=16664 exit=signal(9)
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_eoh_loop.py", line 3203, in run_free_loss_eoh
+    idx, fitness = result_queue.get(timeout=heartbeat_s)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/multiprocessing/queues.py", line 114, in get
+    raise Empty
+_queue.Empty
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/scripts/run_free_loss_discovery_rl4co.py", line 101, in <module>
+    main()
+  File "/data1/gushengda/eam-rl4co/scripts/run_free_loss_discovery_rl4co.py", line 97, in main
+    run_free_loss_eoh(args.config, resume_dir=resume_dir, **overrides)
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_eoh_loop.py", line 3224, in run_free_loss_eoh
+    raise RuntimeError(
+RuntimeError: Evaluation worker crashed (see worker fatal logs under the run directory).
