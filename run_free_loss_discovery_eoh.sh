@@ -20,7 +20,7 @@ RESUME_DIR="${4:-}"
 : "${BASELINE_METRICS_CSV:=}"
 : "${BASELINE_CKPT:=}"
 : "${BASELINE_CKPT_EPOCH:=}"
-: "${BASELINE_VAL_COLUMN:=val/reward}"
+: "${BASELINE_VAL_COLUMN:=val/max_reward}"
 
 # Optional: OpenAI settings (you can also put OPENAI_API_KEY=... in a .env at repo root).
 : "${OPENAI_MODEL:=gpt-5.2}"
