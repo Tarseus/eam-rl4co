@@ -46,6 +46,13 @@ elite_size: 4
 init_llm: 8
 max_repair_rounds: 4
 
+# Evaluation multiprocessing.
+# NOTE: If you observe worker SIGKILL(9) and/or machine instability under load,
+# reduce parallelism first. Setting this to 1 forces sequential evaluation even
+# when `device: cuda` exposes multiple GPUs.
+eval_mp_enabled: true
+max_parallel_devices: 4
+
 # Multi-fidelity budget.
 f0_only: false
 f1_steps: 0
