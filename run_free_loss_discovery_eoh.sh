@@ -4,8 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-: "${LOG_TZ:=Asia/Shanghai}"
-export LOG_TZ
+: "${TZ:=Asia/Shanghai}"
+export TZ
 
 CONFIG_PATH="${1:-configs/experiment/free_loss_discovery/rl4co.yaml}"
 DEVICE="${2:-cuda}"                  # cpu | cuda | cuda:0 ...
@@ -23,8 +23,8 @@ RESUME_DIR="${4:-}"
 : "${BASELINE_VAL_COLUMN:=val/reward}"
 
 # Optional: OpenAI settings (you can also put OPENAI_API_KEY=... in a .env at repo root).
-: "${OPENAI_MODEL:=gpt-4.1}"
-: "${OPENAI_BASE_URL:=https://api.openai.com/v1}"
+: "${OPENAI_MODEL:=gpt-5.2}"
+: "${OPENAI_BASE_URL:=https://api.bltcy.ai/v1}"
 : "${OPENAI_TIMEOUT_S:=60}"
 : "${OPENAI_MAX_RETRIES:=2}"
 

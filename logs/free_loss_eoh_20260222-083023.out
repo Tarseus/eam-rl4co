@@ -1,0 +1,173 @@
+[2026-02-22 08:30:29,330] INFO:ptp_discovery.free_loss_eoh: Starting free loss EoH search with config=/tmp/free_loss_eoh_cfg_kiSFyD.yaml
+[2026-02-22 08:30:29,603] INFO:ptp_discovery.free_loss_eoh: Run directory: /data1/gushengda/eam-rl4co/runs/free_loss_discovery/20260222-083029
+[2026-02-22 08:30:29,776] INFO:ptp_discovery.free_loss_eoh: External baseline loaded: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv epoch_start=410 epochs=20 val_column=val/reward
+[2026-02-22 08:30:29,776] INFO:ptp_discovery.free_loss_eoh: Gate retries: max_repair_rounds=4 (LLM repairs), max_resample_rounds=4 (drop+resample)
+[2026-02-22 08:30:29,777] INFO:ptp_discovery.free_loss_eoh: === Generation 0/9 ===
+[2026-02-22 08:30:29,777] INFO:ptp_discovery.free_loss_eoh: Generating initial population with 8 LLM candidates
+[2026-02-22 08:30:43,179] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:30:54,844] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:30:54,863] INFO:ptp_discovery.free_loss_eoh: Population size for generation 0: 8
+[2026-02-22 08:30:55,129] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=0, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:30:55,133] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=0, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:30:55,138] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=0, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:30:55,142] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=0, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:30:55,146] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=0, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:31:08,544] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:31:26,212] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:31:26,274] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=0, name=clamped_gap_temp_bt: reason=insensitive_to_objective; attempting repair (repair_round=3/4)
+[2026-02-22 08:31:39,121] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:31:39,133] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=0, name=clamped_gap_weight_bt: reason=insensitive_to_objective; attempting repair (repair_round=4/4)
+[2026-02-22 08:31:51,071] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:31:51,081] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=0, name=clamped_gap_additive_bt: reason=forward_error: abs, loss_value=None, grad_norm=None
+[2026-02-22 08:31:51,085] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=1, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:31:51,090] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=1, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:31:51,095] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=1, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:31:51,099] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=1, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:31:51,103] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=1, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:32:15,010] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:32:37,850] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:32:37,872] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=1, name=clamped_gap_temp_bt_v2: reason=insensitive_to_objective; attempting repair (repair_round=3/4)
+[2026-02-22 08:33:00,304] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:33:00,335] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=1, name=clamped_gap_temp_bt_v3_sensitive: reason=forward_error: softplus(): argument 'input' (position 1) must be Tensor, not float, loss_value=None, grad_norm=None; attempting repair (repair_round=4/4)
+[2026-02-22 08:33:24,799] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:33:24,824] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=2, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:33:24,829] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=2, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:33:24,833] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=2, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:33:24,838] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=2, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:33:24,842] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=2, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:33:37,835] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:33:51,306] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:33:51,315] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=2, name=clamped_gap_temp_bt_v2: reason=loss 6.7721 outside soft range [-5.0, 5.0], loss_value=6.772068977355957, grad_norm=0.0; attempting repair (repair_round=3/4)
+[2026-02-22 08:34:07,599] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:34:07,612] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=2, name=clamped_gap_temp_bt_v3_stable_range: reason=insensitive_to_objective; attempting repair (repair_round=4/4)
+[2026-02-22 08:34:22,630] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:34:22,671] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=3, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:34:22,675] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=3, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:34:22,679] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=3, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:34:22,684] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=3, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:34:22,688] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=3, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:34:35,773] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:34:35,777] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='pairwise_preference'
+[2026-02-22 08:34:46,813] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:34:46,827] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=3, name=clamped_gap_temp_bt: reason=insensitive_to_objective; attempting repair (repair_round=3/4)
+[2026-02-22 08:35:00,970] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:35:00,982] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=3, name=gap_weighted_bt_clamped: reason=insensitive_to_objective; attempting repair (repair_round=4/4)
+[2026-02-22 08:35:13,924] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:35:13,933] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=3, name=gap_weighted_bt_simple_nonz: reason=forward_error: abs, loss_value=None, grad_norm=None
+[2026-02-22 08:35:13,937] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:35:13,943] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:35:13,948] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:35:13,952] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:35:13,956] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:35:30,171] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:35:45,643] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:35:45,655] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=4, name=clamped_gap_temp_bt: reason=insensitive_to_objective; attempting repair (repair_round=3/4)
+[2026-02-22 08:36:01,474] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:36:01,484] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_weight_bt: reason=forward_error: maximum, loss_value=None, grad_norm=None; attempting repair (repair_round=4/4)
+[2026-02-22 08:36:20,050] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:36:20,060] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=4, name=clamped_gap_weight_bt_m3_stable: reason=forward_error: ones_like, loss_value=None, grad_norm=None
+[2026-02-22 08:36:20,064] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:36:20,069] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:36:20,073] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:36:20,077] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:36:20,082] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:36:35,955] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:36:50,399] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:37:05,592] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:37:05,606] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt: reason=loss 5.4396 outside soft range [-5.0, 5.0], loss_value=5.439641952514648, grad_norm=0.0; attempting repair (repair_round=4/4)
+[2026-02-22 08:37:22,733] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:37:22,858] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=5, name=clamped_gap_temp_bt_m3: reason=forward_error: maximum, loss_value=None, grad_norm=None
+[2026-02-22 08:37:22,861] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=6, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:37:22,865] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=6, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:37:22,868] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=6, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:37:22,871] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=6, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:37:22,874] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=6, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:37:40,902] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:37:40,911] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='pairwise_ranking'
+[2026-02-22 08:37:55,213] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:38:10,896] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:38:10,916] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=6, name=clamped_gap_temp_bt_v2: reason=insensitive_to_objective; attempting repair (repair_round=4/4)
+[2026-02-22 08:39:10,981] INFO:openai._base_client: Retrying request to /chat/completions in 0.379193 seconds
+[2026-02-22 08:39:25,567] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:39:25,579] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=6, name=objective_scaled_bt_stable_v3: reason=forward_error: abs, loss_value=None, grad_norm=None
+[2026-02-22 08:39:25,581] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=7, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=1/4)
+[2026-02-22 08:39:25,586] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=7, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=2/4)
+[2026-02-22 08:39:25,590] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=7, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=3/4)
+[2026-02-22 08:39:25,594] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=7, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w'; dropping candidate and resampling (resample_round=4/4)
+[2026-02-22 08:39:25,599] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=7, name=clamped_gap_temp_bt: reason=missing_batch_key: 'log_prob_w', loss_value=None, grad_norm=None; attempting repair (repair_round=1/4)
+[2026-02-22 08:39:40,883] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:39:53,215] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:39:53,218] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_logprobs'
+[2026-02-22 08:39:53,227] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=0, idx=7, name=clamped_gap_temp_bt: reason=insensitive_to_objective; attempting repair (repair_round=3/4)
+[2026-02-22 08:40:05,359] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:40:05,370] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=0, idx=7, name=objective_weighted_bt_clamp: reason=loss 5.9200 outside soft range [-5.0, 5.0], loss_value=5.919958114624023, grad_norm=0.0; attempting repair (repair_round=4/4)
+[2026-02-22 08:40:20,775] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 08:40:20,852] WARNING:ptp_discovery.free_loss_eoh: Preference gates failed for gen=0, idx=7, name=objective_weighted_bt_clamp_stable: reason=pref_semantic_violation
+[free_loss_eoh][device_worker] pid=7740 device=cuda:0 jobs=[(0, 2)]
+/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py:331: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  ckpt = torch.load(ckpt_path, map_location="cpu")
+[2026-02-22 08:45:21,008] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 08:50:21,109] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 08:55:21,209] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:00:21,310] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:05:21,411] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:10:21,422] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:15:21,426] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:20:21,430] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:25:21,434] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:30:21,534] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:35:21,635] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:40:21,736] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:45:21,836] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:50:21,937] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 09:55:22,037] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:00:22,138] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:05:22,239] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:10:22,339] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:15:22,440] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:20:22,541] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:25:22,641] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:30:22,742] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:35:22,843] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:40:22,943] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:45:23,044] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:50:23,145] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 10:55:23,245] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:00:23,346] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:05:23,447] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:10:23,510] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:15:23,611] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:20:23,711] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:25:23,812] INFO:ptp_discovery.free_loss_eoh: Waiting for eval results: collected=0/1 workers=[pid=7740 SpawnProcess-1 alive running]
+[2026-02-22 11:29:15,920] INFO:ptp_discovery.free_loss_eoh: Gen 0 cand 2: hf_like_score=7.795678, validation_objective=7.795678, epoch_mean=7.795350, epoch_violations=0, early_eval_steps=314, early_stopped=False, baseline=8.065894, better_than_baseline=True
+[2026-02-22 11:29:15,920] INFO:ptp_discovery.free_loss_eoh: Generation 0 summary: static_fail=0, dynamic_fail=7, evaluated=1, new_elites=1
+[2026-02-22 11:29:15,932] INFO:ptp_discovery.free_loss_eoh: === Generation 1/9 ===
+[2026-02-22 11:29:15,932] INFO:ptp_discovery.free_loss_eoh: Generating population via E1/E2/M1/M2/M3: size=8, elite_size=4, parent_pool=1
+[2026-02-22 11:29:37,186] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:29:56,750] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:29:56,790] INFO:ptp_discovery.free_loss_eoh: Population size for generation 1: 8
+[2026-02-22 11:30:19,499] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:30:19,508] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='pairwise_ranking'
+[2026-02-22 11:30:40,413] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:31:01,688] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:31:27,988] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:31:49,213] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:32:09,612] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:32:32,093] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:32:51,186] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:33:11,889] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:33:11,898] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 11:33:29,986] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:33:29,995] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='pairwise_pref'
+[2026-02-22 11:33:51,281] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:33:51,290] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_model_output'
+[2026-02-22 11:34:09,124] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:34:26,761] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:34:26,769] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='pairwise_preference_with_objective_gap'
+[2026-02-22 11:34:45,920] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:35:06,507] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:35:26,219] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:35:45,169] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:36:04,235] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 11:36:24,874] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+                                                                                                                                                                                                                                                                                                                                                                                     
