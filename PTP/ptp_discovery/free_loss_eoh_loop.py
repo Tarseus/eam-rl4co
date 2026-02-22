@@ -11,12 +11,16 @@ import os
 import pickle
 import queue
 import re
+import signal
+import subprocess
+import sys
+import threading
 import time
 import logging
 import multiprocessing as mp
 import random
 from dataclasses import asdict
-from typing import Any, Dict, Iterator, List, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Sequence, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -67,6 +71,124 @@ from torch.optim import Adam
 
 
 LOGGER = logging.getLogger("ptp_discovery.free_loss_eoh")
+
+
+def _safe_makedirs(path: str) -> None:
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _best_effort_enable_main_faulthandler(run_dir: str) -> None:
+    try:
+        import faulthandler
+
+        path = os.path.join(run_dir, "main.fatal.log")
+        # Keep the file handle alive for the lifetime of the process.
+        fh = open(path, "w", encoding="utf-8")  # noqa: SIM115
+        faulthandler.enable(file=fh, all_threads=True)
+        globals()["_FREE_LOSS_MAIN_FATAL_FH"] = fh
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _install_signal_dumps(
+    run_dir: str,
+    *,
+    progress_cb: Callable[..., None] | None = None,
+) -> None:
+    try:
+        import faulthandler
+
+        diag_dir = os.path.join(run_dir, "diagnostics")
+        _safe_makedirs(diag_dir)
+
+        def _handler(sig: int, _frame: Any) -> None:  # noqa: ANN401
+            try:
+                name = signal.Signals(sig).name
+            except Exception:  # noqa: BLE001
+                name = str(sig)
+            stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+            msg = f"[free_loss_eoh] received signal {name} ({sig}) at {stamp}; dumping stacks to {diag_dir}"
+            try:
+                sys.stderr.write(msg + "\n")
+                sys.stderr.flush()
+            except Exception:  # noqa: BLE001
+                pass
+
+            if progress_cb is not None:
+                try:
+                    progress_cb("signal", signal=name, signal_num=int(sig))
+                except Exception:  # noqa: BLE001
+                    pass
+
+            try:
+                txt_path = os.path.join(diag_dir, f"signal_{name}.log")
+                with open(txt_path, "a", encoding="utf-8") as f:
+                    f.write(msg + "\n")
+                    f.write("---- stacks ----\n")
+                    faulthandler.dump_traceback(file=f, all_threads=True)
+                    f.write("---- end ----\n")
+            except Exception:  # noqa: BLE001
+                pass
+
+        for sig in (
+            getattr(signal, "SIGTERM", None),
+            getattr(signal, "SIGINT", None),
+            getattr(signal, "SIGHUP", None),
+            getattr(signal, "SIGUSR1", None),
+        ):
+            if sig is None:
+                continue
+            try:
+                signal.signal(sig, _handler)
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _start_diagnostics_sidecar(run_dir: str, cfg_yaml: Dict[str, Any]) -> int | None:
+    """Launch a lightweight sidecar process that monitors this process.
+
+    This is most useful when the main process is killed abruptly (e.g., SIGKILL/OOM)
+    and cannot print a traceback or flush its logs.
+    """
+
+    enabled = bool(cfg_yaml.get("diagnostics_sidecar_enabled", True))
+    if not enabled:
+        return None
+
+    interval_s = float(cfg_yaml.get("diagnostics_sidecar_interval_s", 30) or 30)
+    interval_s = max(2.0, interval_s)
+
+    try:
+        repo_root = _repo_root_dir()
+        script_path = os.path.join(repo_root, "scripts", "diag_sidecar.py")
+        if not os.path.isfile(script_path):
+            return None
+
+        diag_dir = os.path.join(run_dir, "diagnostics")
+        _safe_makedirs(diag_dir)
+        launch_log = os.path.join(diag_dir, "sidecar.launch.log")
+        out_f = open(launch_log, "a", encoding="utf-8")  # noqa: SIM115
+        cmd = [
+            sys.executable,
+            "-u",
+            script_path,
+            "--parent-pid",
+            str(os.getpid()),
+            "--run-dir",
+            str(run_dir),
+            "--interval-s",
+            str(interval_s),
+        ]
+        p = subprocess.Popen(cmd, stdout=out_f, stderr=out_f, cwd=repo_root)  # noqa: S603
+        globals()["_FREE_LOSS_SIDECAR_LAUNCH_FH"] = out_f
+        return int(p.pid) if p.pid is not None else None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _classify_failure(stage: str, reason: str) -> str:
@@ -1384,6 +1506,27 @@ def run_free_loss_eoh(
         run_dir = _timestamp_dir(out_root)
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
 
+    progress_path = os.path.join(run_dir, "progress.json")
+    progress_lock = threading.Lock()
+
+    def _progress(stage: str, **fields: Any) -> None:
+        payload: Dict[str, Any] = {
+            "stage": str(stage),
+            "pid": int(os.getpid()),
+            "ts": float(time.time()),
+            "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        payload.update({k: v for k, v in fields.items() if v is not None})
+        with progress_lock:
+            _atomic_write_json_any(progress_path, payload)
+
+    _progress("init", config_path=os.path.abspath(config_path), resume_dir=run_dir if resume_dir else None)
+    _best_effort_enable_main_faulthandler(run_dir)
+    _install_signal_dumps(run_dir, progress_cb=_progress)
+    sidecar_pid = _start_diagnostics_sidecar(run_dir, cfg_yaml)
+    if sidecar_pid is not None:
+        _progress("sidecar_started", sidecar_pid=int(sidecar_pid))
+
     # Configure run-level LLM cache and offline mode for EoH.
     # Cache is stored under: <run_dir>/llm_cache.jsonl
     try:
@@ -2038,6 +2181,7 @@ def run_free_loss_eoh(
     # Ensure we always have a checkpoint on disk before long-running work.
     _save_checkpoint(run_dir, _checkpoint_state(gen_start))
     _write_best_candidate_snapshot()
+    _progress("checkpoint_saved", next_generation=int(gen_start))
 
     if gen_start >= generations:
         LOGGER.info(
@@ -2057,6 +2201,7 @@ def run_free_loss_eoh(
 
     for gen in range(gen_start, generations):
         LOGGER.info("=== Generation %d/%d ===", gen, generations - 1)
+        _progress("generation_start", generation=int(gen))
         global_feedback = _build_global_feedback(
             elites=elites,
             gates_log=list(gates_recent),
@@ -2885,6 +3030,7 @@ def run_free_loss_eoh(
         # training state/cache.
         results: List[Tuple[int, Dict[str, Any]]] = []
         if eval_jobs:
+            _progress("evaluation_prepare", generation=int(gen), jobs=int(len(eval_jobs)))
             eval_mp_enabled = bool(cfg_yaml.get("eval_mp_enabled", True))
             devices = _get_available_devices(hf_cfg.device)
             if not devices:
@@ -2904,14 +3050,23 @@ def run_free_loss_eoh(
                     )
                     devices = list(devices)[:max_parallel_int]
 
+            _progress(
+                "evaluation_devices",
+                generation=int(gen),
+                devices=list(devices),
+                eval_mp_enabled=bool(eval_mp_enabled),
+            )
+
             if not eval_mp_enabled:
                 # In-process evaluation (useful for CPU runs and unit tests).
+                _progress("evaluation_start", generation=int(gen), mode="in_process", jobs=int(len(eval_jobs)))
                 for j_idx, job in enumerate(eval_jobs):
                     dev = devices[j_idx % len(devices)]
                     job_with_dev = list(job)
                     job_with_dev[3] = dev
                     idx, fitness = _worker_evaluate_candidate(tuple(job_with_dev))  # type: ignore[arg-type]
                     results.append((idx, fitness))
+                _progress("evaluation_done", generation=int(gen), collected=int(len(results)), total=int(len(eval_jobs)))
                 # Skip multiprocessing path.
                 ctx = None
             else:
@@ -2953,6 +3108,16 @@ def run_free_loss_eoh(
                     p = ctx.Process(target=_device_worker, args=(dev_jobs, result_queue))
                     p.start()
                     processes.append(p)
+
+                _progress(
+                    "evaluation_workers_started",
+                    generation=int(gen),
+                    jobs_by_device={k: int(len(v)) for k, v in jobs_by_device.items() if v},
+                    workers=[
+                        {"pid": int(p.pid) if p.pid is not None else None, "name": str(p.name)}
+                        for p in processes
+                    ],
+                )
 
                 # Collect all results.
                 collected = 0
@@ -3004,6 +3169,8 @@ def run_free_loss_eoh(
                             str(p.pid),
                             _format_exitcode(p.exitcode),
                         )
+
+                _progress("evaluation_done", generation=int(gen), collected=int(collected), total=int(total_jobs))
 
         # Integrate evaluation results back into the evolutionary loop.
         for idx, fitness in sorted(results, key=lambda x: x[0]):
@@ -3205,8 +3372,10 @@ def run_free_loss_eoh(
         _flush_jsonl_logs()
         _save_checkpoint(run_dir, _checkpoint_state(gen + 1))
         _write_best_candidate_snapshot()
+        _progress("checkpoint_saved", next_generation=int(gen + 1), generation_completed=int(gen))
 
     _flush_jsonl_logs()
+    _progress("done")
     _write_run_analysis(
         run_dir,
         baseline_hf_score=baseline_hf_score,
