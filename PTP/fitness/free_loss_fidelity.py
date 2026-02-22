@@ -172,6 +172,16 @@ class FreeLossFidelityConfig:
     # RL4CO Lightning checkpoint (e.g., `baseline/epoch_409.ckpt`).
     init_checkpoint_path: str | None = None
     init_checkpoint_epoch: int | None = None
+    # Optional split evaluation:
+    # - scratch_hf_epochs: train/eval from random init for N epochs (no checkpoint load)
+    # - warmstart_hf_epochs: train/eval from init_checkpoint_path for N epochs
+    # When either is > 0, baseline comparisons and hf_like_score use the warm-start phase
+    # when present; scratch results are reported separately for diagnostics.
+    scratch_hf_epochs: int = 0
+    warmstart_hf_epochs: int = 0
+    # Optional offset into baseline_epoch_objectives when comparing against baseline.
+    # Useful when you want warmstart_hf_epochs to align to a later slice of a longer baseline.
+    baseline_epoch_compare_offset: int = 0
     baseline_epoch_violation_weight: float = 1.0
     # Fraction of epochs (from the end) used for "better-than-baseline" checks.
     # Example: 0.9 means the last 90% epochs must beat the baseline, ignoring the first 10%.
@@ -709,89 +719,112 @@ def _evaluate_free_loss_candidate_rl4co(
         device_str = "cpu"
     device = torch.device(device_str)
 
-    env = _rl4co_build_env(cfg.hf, cfg.hf.train_problem_size)
-    env = env.to(device)
-    policy, rollout_strategy = _rl4co_build_policy(cfg.hf, env)
-    if cfg.init_checkpoint_path:
-        _load_policy_weights_from_checkpoint(policy, str(cfg.init_checkpoint_path))
-    policy = policy.to(device)
-    optimizer = Adam(
-        policy.parameters(),
-        lr=float(cfg.hf.learning_rate),
-        weight_decay=float(cfg.hf.weight_decay),
-    )
-
-    score_meter = AverageMeter()
-    loss_meter = AverageMeter()
-    total_pairs = 0
-
-    steps_f1 = get_total_hf_train_steps(cfg.hf)
-    steps_f2 = max(int(cfg.f2_steps), 0)
-    steps = steps_f1 + steps_f2
-    steps_per_epoch, epochs_total = get_hf_epoch_plan(cfg.hf)
-    epoch_validation_objectives: List[float] = []
-
-    score_meter_f1 = AverageMeter()
-    loss_meter_f1 = AverageMeter()
-    total_pairs_f1 = 0
-
-    logger.info(
-        "RL4CO free-loss training: f1_steps=%d, f2_steps=%d, total_steps=%d, train_problem_size=%d, "
-        "rollouts=%d, batch_size=%d, device=%s, env=%s",
-        steps_f1,
-        steps_f2,
-        steps,
-        cfg.hf.train_problem_size,
-        resolve_pomo_size(cfg.hf.pomo_size, cfg.hf.train_problem_size),
-        cfg.hf.train_batch_size,
-        str(device),
-        _rl4co_env_name(cfg.hf),
-    )
-
-    log_interval = max(steps // 10, 1)
-
-    early_eval_steps = max(int(early_eval_steps or 0), 0)
-    early_eval_effective = min(early_eval_steps, steps) if early_eval_steps > 0 else 0
-    early_validation_objective: float | None = None
-    early_stopped = False
-
-    for step in range(steps):
-        score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(
-            env=env,
-            policy=policy,
-            optimizer=optimizer,
-            compiled_loss=compiled_loss,
-            hf_cfg=cfg.hf,
-            rollout_strategy=rollout_strategy,
-            device=device,
-            pref_builder=pref_builder,
-        )
-        score_meter.update(score)
-        loss_meter.update(loss)
-        total_pairs += int(pair_count)
-
-        if step < steps_f1:
-            score_meter_f1.update(score)
-            loss_meter_f1.update(loss)
-            total_pairs_f1 += int(pair_count)
-
-        if (step + 1) % log_interval == 0 or step == 0:
-            logger.info(
-                "RL4CO free-loss step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f), pairs_step=%d, pairs_total=%d",
-                step + 1,
-                steps,
-                score,
-                float(score_meter.avg),
-                loss,
-                float(loss_meter.avg),
-                int(pair_count),
-                total_pairs,
+    steps_per_epoch, epochs_total_cfg = get_hf_epoch_plan(cfg.hf)
+    scratch_epochs = max(int(getattr(cfg, "scratch_hf_epochs", 0) or 0), 0)
+    warm_epochs = max(int(getattr(cfg, "warmstart_hf_epochs", 0) or 0), 0)
+    split_enabled = bool(scratch_epochs or warm_epochs)
+    if steps_per_epoch <= 0 or epochs_total_cfg <= 0:
+        if split_enabled:
+            logger.warning(
+                "Ignoring scratch_hf_epochs/warmstart_hf_epochs because hf_epochs and hf_instances_per_epoch are not set (>0)."
             )
+        split_enabled = False
+    if split_enabled and cfg.hf.hf_epochs > 0 and (scratch_epochs + warm_epochs) != int(cfg.hf.hf_epochs):
+        logger.warning(
+            "scratch_hf_epochs + warmstart_hf_epochs != hf_epochs (%d + %d != %d); continuing anyway.",
+            scratch_epochs,
+            warm_epochs,
+            int(cfg.hf.hf_epochs),
+        )
 
-        if steps_per_epoch > 0 and (step + 1) % steps_per_epoch == 0:
-            epoch_idx = (step + 1) // steps_per_epoch
-            if epoch_idx <= epochs_total:
-                epoch_valid_obj = _evaluate_rl4co_model(
+    steps_f2_cfg = max(int(cfg.f2_steps), 0)
+
+    if steps_per_epoch <= 0 or epochs_total_cfg <= 0:
+        # Legacy fallback: step-based HF evaluation (hf_steps).
+        env = _rl4co_build_env(cfg.hf, cfg.hf.train_problem_size)
+        env = env.to(device)
+        policy, rollout_strategy = _rl4co_build_policy(cfg.hf, env)
+        if cfg.init_checkpoint_path:
+            _load_policy_weights_from_checkpoint(policy, str(cfg.init_checkpoint_path))
+        policy = policy.to(device)
+        optimizer = Adam(
+            policy.parameters(),
+            lr=float(cfg.hf.learning_rate),
+            weight_decay=float(cfg.hf.weight_decay),
+        )
+
+        score_meter = AverageMeter()
+        loss_meter = AverageMeter()
+        total_pairs = 0
+
+        steps_f1 = get_total_hf_train_steps(cfg.hf)
+        steps_f2 = steps_f2_cfg
+        steps = steps_f1 + steps_f2
+
+        score_meter_f1 = AverageMeter()
+        loss_meter_f1 = AverageMeter()
+        total_pairs_f1 = 0
+        score_meter_f2 = AverageMeter()
+        loss_meter_f2 = AverageMeter()
+        total_pairs_f2 = 0
+
+        logger.info(
+            "RL4CO free-loss (step-mode): f1_steps=%d, f2_steps=%d, total_steps=%d, train_problem_size=%d, "
+            "rollouts=%d, batch_size=%d, device=%s, env=%s",
+            steps_f1,
+            steps_f2,
+            steps,
+            cfg.hf.train_problem_size,
+            resolve_pomo_size(cfg.hf.pomo_size, cfg.hf.train_problem_size),
+            cfg.hf.train_batch_size,
+            str(device),
+            _rl4co_env_name(cfg.hf),
+        )
+
+        log_interval = max(steps // 10, 1)
+        early_eval_steps = max(int(early_eval_steps or 0), 0)
+        early_eval_effective = min(early_eval_steps, steps) if early_eval_steps > 0 else 0
+        early_validation_objective: float | None = None
+        early_stopped = False
+
+        for step in range(steps):
+            score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(
+                env=env,
+                policy=policy,
+                optimizer=optimizer,
+                compiled_loss=compiled_loss,
+                hf_cfg=cfg.hf,
+                rollout_strategy=rollout_strategy,
+                device=device,
+                pref_builder=pref_builder,
+            )
+            score_meter.update(score)
+            loss_meter.update(loss)
+            total_pairs += int(pair_count)
+            if step < steps_f1:
+                score_meter_f1.update(score)
+                loss_meter_f1.update(loss)
+                total_pairs_f1 += int(pair_count)
+            else:
+                score_meter_f2.update(score)
+                loss_meter_f2.update(loss)
+                total_pairs_f2 += int(pair_count)
+
+            if (step + 1) % log_interval == 0 or step == 0:
+                logger.info(
+                    "RL4CO free-loss step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f), pairs_step=%d, pairs_total=%d",
+                    step + 1,
+                    steps,
+                    score,
+                    float(score_meter.avg),
+                    loss,
+                    float(loss_meter.avg),
+                    int(pair_count),
+                    total_pairs,
+                )
+
+            if early_eval_effective > 0 and (step + 1) == early_eval_effective:
+                early_validation_objective = _evaluate_rl4co_model(
                     policy=policy,
                     cfg=cfg.hf,
                     problem_size=cfg.hf.train_problem_size,
@@ -800,49 +833,423 @@ def _evaluate_free_loss_candidate_rl4co(
                     batch_size=cfg.hf.validation_batch_size,
                     rollout_strategy=rollout_strategy,
                 )
-                epoch_validation_objectives.append(epoch_valid_obj)
-                logger.info(
-                    "RL4CO free-loss epoch %d/%d: validation_objective=%.6f",
-                    epoch_idx,
-                    epochs_total,
-                    epoch_valid_obj,
-                )
+                if baseline_early_valid is not None and early_validation_objective > baseline_early_valid:
+                    early_stopped = True
+                    logger.info(
+                        "RL4CO early stop at step %d: candidate early_valid=%.6f baseline_early=%.6f",
+                        step + 1,
+                        early_validation_objective,
+                        baseline_early_valid,
+                    )
+                    break
 
-        if early_eval_effective > 0 and (step + 1) == early_eval_effective:
-            early_validation_objective = _evaluate_rl4co_model(
-                policy=policy,
-                cfg=cfg.hf,
-                problem_size=cfg.hf.train_problem_size,
-                device=device,
-                num_episodes=cfg.hf.num_validation_episodes,
-                batch_size=cfg.hf.validation_batch_size,
-                rollout_strategy=rollout_strategy,
+        if early_stopped and early_validation_objective is not None:
+            main_valid_obj = float(early_validation_objective)
+        else:
+            main_valid_obj = float(
+                _evaluate_rl4co_model(
+                    policy=policy,
+                    cfg=cfg.hf,
+                    problem_size=cfg.hf.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.hf.num_validation_episodes,
+                    batch_size=cfg.hf.validation_batch_size,
+                    rollout_strategy=rollout_strategy,
+                )
             )
-            if (
-                baseline_early_valid is not None
-                and early_validation_objective > baseline_early_valid
-            ):
-                early_stopped = True
-                logger.info(
-                    "RL4CO early stop at step %d: candidate early_valid=%.6f baseline_early=%.6f",
-                    step + 1,
-                    early_validation_objective,
-                    baseline_early_valid,
-                )
-                break
 
-    if early_stopped and early_validation_objective is not None:
-        main_valid_obj = float(early_validation_objective)
-    else:
-        main_valid_obj = _evaluate_rl4co_model(
-            policy=policy,
-            cfg=cfg.hf,
-            problem_size=cfg.hf.train_problem_size,
-            device=device,
-            num_episodes=cfg.hf.num_validation_episodes,
-            batch_size=cfg.hf.validation_batch_size,
-            rollout_strategy=rollout_strategy,
+        primary_phase = "single_steps"
+        primary_epochs_total = 0
+        epoch_validation_objectives = []
+        early_eval = {
+            "enabled": bool(early_eval_effective),
+            "steps": int(early_eval_effective),
+            "baseline_validation_objective": baseline_early_valid,
+            "candidate_validation_objective": early_validation_objective,
+            "early_stopped": early_stopped,
+        }
+        scratch_epoch_eval = None
+        train_score_mean = float(score_meter.avg)
+        train_loss_mean = float(loss_meter.avg)
+        pair_count = int(total_pairs)
+        f1_train_score_mean = float(score_meter_f1.avg) if steps_f1 > 0 else None
+        f1_train_loss_mean = float(loss_meter_f1.avg) if steps_f1 > 0 else None
+        f2_train_score_mean = float(score_meter_f2.avg) if steps_f2 > 0 else None
+        f2_train_loss_mean = float(loss_meter_f2.avg) if steps_f2 > 0 else None
+        f1_pair_count = int(total_pairs_f1)
+        f2_pair_count = int(total_pairs_f2)
+    def _run_phase(
+        *,
+        phase: str,
+        phase_epochs: int,
+        init_ckpt: str | None,
+        use_early_stop: bool,
+        extra_steps_f2: int,
+        early_eval_steps_phase: int,
+        baseline_early_valid_phase: float | None,
+    ) -> Dict[str, Any]:
+        _set_seed(cfg.hf.seed)
+
+        env = _rl4co_build_env(cfg.hf, cfg.hf.train_problem_size)
+        env = env.to(device)
+        policy, rollout_strategy = _rl4co_build_policy(cfg.hf, env)
+        if init_ckpt:
+            _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
+        policy = policy.to(device)
+        optimizer = Adam(
+            policy.parameters(),
+            lr=float(cfg.hf.learning_rate),
+            weight_decay=float(cfg.hf.weight_decay),
         )
+
+        phase_epochs = max(int(phase_epochs), 0)
+        steps_f1_phase = int(phase_epochs) * int(steps_per_epoch)
+        steps_f2_phase = max(int(extra_steps_f2), 0)
+        steps_phase = steps_f1_phase + steps_f2_phase
+
+        score_meter = AverageMeter()
+        loss_meter = AverageMeter()
+        total_pairs = 0
+        score_meter_f1 = AverageMeter()
+        loss_meter_f1 = AverageMeter()
+        total_pairs_f1 = 0
+        score_meter_f2 = AverageMeter()
+        loss_meter_f2 = AverageMeter()
+        total_pairs_f2 = 0
+        epoch_objectives: List[float] = []
+
+        logger.info(
+            "RL4CO free-loss phase=%s: epochs=%d steps_f1=%d steps_f2=%d total_steps=%d "
+            "(ckpt=%s, device=%s, env=%s)",
+            phase,
+            phase_epochs,
+            steps_f1_phase,
+            steps_f2_phase,
+            steps_phase,
+            str(init_ckpt) if init_ckpt else "none",
+            str(device),
+            _rl4co_env_name(cfg.hf),
+        )
+
+        if steps_phase <= 0:
+            return {
+                "phase": phase,
+                "policy": policy,
+                "rollout_strategy": rollout_strategy,
+                "steps_f1": steps_f1_phase,
+                "steps_f2": steps_f2_phase,
+                "steps": steps_phase,
+                "epochs_total": phase_epochs,
+                "epoch_objectives": [],
+                "final_validation_objective": None,
+                "early_eval": {"enabled": False, "steps": 0, "early_stopped": False},
+                "train_score_mean": None,
+                "train_loss_mean": None,
+                "pair_count": 0,
+                "f1": {"train_score_mean": None, "train_loss_mean": None, "pair_count": 0},
+                "f2": {"train_score_mean": None, "train_loss_mean": None, "pair_count": 0},
+            }
+
+        log_interval = max(steps_phase // 10, 1)
+        early_eval_steps_phase = max(int(early_eval_steps_phase or 0), 0)
+        early_eval_effective = (
+            min(early_eval_steps_phase, steps_f1_phase) if early_eval_steps_phase > 0 else 0
+        )
+        early_validation_objective: float | None = None
+        early_stopped = False
+
+        for step in range(steps_phase):
+            score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(
+                env=env,
+                policy=policy,
+                optimizer=optimizer,
+                compiled_loss=compiled_loss,
+                hf_cfg=cfg.hf,
+                rollout_strategy=rollout_strategy,
+                device=device,
+                pref_builder=pref_builder,
+            )
+            score_meter.update(score)
+            loss_meter.update(loss)
+            total_pairs += int(pair_count)
+
+            if step < steps_f1_phase:
+                score_meter_f1.update(score)
+                loss_meter_f1.update(loss)
+                total_pairs_f1 += int(pair_count)
+            else:
+                score_meter_f2.update(score)
+                loss_meter_f2.update(loss)
+                total_pairs_f2 += int(pair_count)
+
+            if (step + 1) % log_interval == 0 or step == 0:
+                logger.info(
+                    "RL4CO free-loss[%s] step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f), pairs_step=%d, pairs_total=%d",
+                    phase,
+                    step + 1,
+                    steps_phase,
+                    score,
+                    float(score_meter.avg),
+                    loss,
+                    float(loss_meter.avg),
+                    int(pair_count),
+                    total_pairs,
+                )
+
+            if steps_f1_phase > 0 and (step + 1) % steps_per_epoch == 0:
+                epoch_idx = (step + 1) // steps_per_epoch
+                if epoch_idx <= phase_epochs:
+                    epoch_valid_obj = _evaluate_rl4co_model(
+                        policy=policy,
+                        cfg=cfg.hf,
+                        problem_size=cfg.hf.train_problem_size,
+                        device=device,
+                        num_episodes=cfg.hf.num_validation_episodes,
+                        batch_size=cfg.hf.validation_batch_size,
+                        rollout_strategy=rollout_strategy,
+                    )
+                    epoch_objectives.append(epoch_valid_obj)
+                    logger.info(
+                        "RL4CO free-loss[%s] epoch %d/%d: validation_objective=%.6f",
+                        phase,
+                        epoch_idx,
+                        phase_epochs,
+                        epoch_valid_obj,
+                    )
+
+            if use_early_stop and early_eval_effective > 0 and (step + 1) == early_eval_effective:
+                early_validation_objective = _evaluate_rl4co_model(
+                    policy=policy,
+                    cfg=cfg.hf,
+                    problem_size=cfg.hf.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.hf.num_validation_episodes,
+                    batch_size=cfg.hf.validation_batch_size,
+                    rollout_strategy=rollout_strategy,
+                )
+                if (
+                    baseline_early_valid_phase is not None
+                    and early_validation_objective > baseline_early_valid_phase
+                ):
+                    early_stopped = True
+                    logger.info(
+                        "RL4CO early stop[%s] at step %d: candidate early_valid=%.6f baseline_early=%.6f",
+                        phase,
+                        step + 1,
+                        early_validation_objective,
+                        baseline_early_valid_phase,
+                    )
+                    break
+
+        if early_stopped and early_validation_objective is not None:
+            final_valid_obj = float(early_validation_objective)
+        else:
+            final_valid_obj = float(
+                _evaluate_rl4co_model(
+                    policy=policy,
+                    cfg=cfg.hf,
+                    problem_size=cfg.hf.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.hf.num_validation_episodes,
+                    batch_size=cfg.hf.validation_batch_size,
+                    rollout_strategy=rollout_strategy,
+                )
+            )
+
+        try:
+            env = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:  # noqa: BLE001
+            pass
+
+        return {
+            "phase": phase,
+            "policy": policy,
+            "rollout_strategy": rollout_strategy,
+            "steps_f1": int(steps_f1_phase),
+            "steps_f2": int(steps_f2_phase),
+            "steps": int(steps_phase),
+            "epochs_total": int(phase_epochs),
+            "epoch_objectives": list(epoch_objectives),
+            "final_validation_objective": float(final_valid_obj),
+            "early_eval": {
+                "enabled": bool(early_eval_effective),
+                "steps": int(early_eval_effective),
+                "baseline_validation_objective": baseline_early_valid_phase,
+                "candidate_validation_objective": early_validation_objective,
+                "early_stopped": early_stopped,
+            },
+            "train_score_mean": float(score_meter.avg),
+            "train_loss_mean": float(loss_meter.avg),
+            "pair_count": int(total_pairs),
+            "f1": {
+                "train_score_mean": float(score_meter_f1.avg) if steps_f1_phase > 0 else None,
+                "train_loss_mean": float(loss_meter_f1.avg) if steps_f1_phase > 0 else None,
+                "pair_count": int(total_pairs_f1),
+            },
+            "f2": {
+                "train_score_mean": float(score_meter_f2.avg) if steps_f2_phase > 0 else None,
+                "train_loss_mean": float(loss_meter_f2.avg) if steps_f2_phase > 0 else None,
+                "pair_count": int(total_pairs_f2),
+            },
+        }
+
+    if steps_per_epoch > 0 and epochs_total_cfg > 0:
+        if split_enabled:
+            if warm_epochs > 0 and not cfg.init_checkpoint_path:
+                logger.warning(
+                    "warmstart_hf_epochs=%d but init_checkpoint_path is not set; warm-start phase will train from scratch.",
+                    warm_epochs,
+                )
+
+            scratch_res: Dict[str, Any] | None = None
+            warm_res: Dict[str, Any] | None = None
+
+            if scratch_epochs > 0:
+                scratch_res = _run_phase(
+                    phase="scratch",
+                    phase_epochs=scratch_epochs,
+                    init_ckpt=None,
+                    use_early_stop=False,
+                    extra_steps_f2=0,
+                    early_eval_steps_phase=0,
+                    baseline_early_valid_phase=None,
+                )
+            if warm_epochs > 0:
+                warm_res = _run_phase(
+                    phase="warmstart",
+                    phase_epochs=warm_epochs,
+                    init_ckpt=cfg.init_checkpoint_path,
+                    use_early_stop=True,
+                    extra_steps_f2=steps_f2_cfg,
+                    early_eval_steps_phase=int(early_eval_steps or 0),
+                    baseline_early_valid_phase=baseline_early_valid,
+                )
+
+            primary_res = warm_res if warm_res is not None else scratch_res
+            if primary_res is None:
+                raise RuntimeError("Split HF evaluation enabled but no phase was executed.")
+
+            # Fairness across stages: when both phases exist, compare the full 20-epoch
+            # horizon against the baseline (scratch slice + warm-start slice).
+            if scratch_res is not None and warm_res is not None:
+                primary_phase = "scratch+warmstart"
+                primary_epochs_total = int(scratch_epochs + warm_epochs)
+                epoch_validation_objectives = list(scratch_res["epoch_objectives"]) + list(
+                    warm_res["epoch_objectives"]
+                )
+                # Early-eval is meaningful only for the warm-start phase (used for early stopping).
+                early_eval = dict(warm_res.get("early_eval") or {})
+            else:
+                primary_phase = str(primary_res["phase"])
+                primary_epochs_total = int(primary_res["epochs_total"])
+                epoch_validation_objectives = list(primary_res["epoch_objectives"])
+                early_eval = dict(primary_res.get("early_eval") or {})
+
+            phase_list = [
+                r
+                for r in (scratch_res, warm_res)
+                if r is not None and int(r.get("steps", 0) or 0) > 0
+            ]
+            steps_f1 = sum(int(r.get("steps_f1", 0) or 0) for r in phase_list)
+            steps_f2 = sum(int(r.get("steps_f2", 0) or 0) for r in phase_list)
+            steps = steps_f1 + steps_f2
+            pair_count = sum(int(r.get("pair_count", 0) or 0) for r in phase_list)
+
+            train_score_mean = None
+            train_loss_mean = None
+            if steps > 0:
+                train_score_mean = sum(float(r["train_score_mean"]) * float(r["steps"]) for r in phase_list) / float(steps)
+                train_loss_mean = sum(float(r["train_loss_mean"]) * float(r["steps"]) for r in phase_list) / float(steps)
+
+            f1_steps_total = steps_f1
+            f2_steps_total = steps_f2
+            f1_pair_count = sum(int((r.get("f1") or {}).get("pair_count", 0) or 0) for r in phase_list)
+            f2_pair_count = sum(int((r.get("f2") or {}).get("pair_count", 0) or 0) for r in phase_list)
+
+            f1_train_score_mean = None
+            f1_train_loss_mean = None
+            if f1_steps_total > 0:
+                f1_train_score_mean = sum(
+                    float((r.get("f1") or {}).get("train_score_mean") or 0.0) * float(r.get("steps_f1") or 0)
+                    for r in phase_list
+                ) / float(f1_steps_total)
+                f1_train_loss_mean = sum(
+                    float((r.get("f1") or {}).get("train_loss_mean") or 0.0) * float(r.get("steps_f1") or 0)
+                    for r in phase_list
+                ) / float(f1_steps_total)
+
+            f2_train_score_mean = None
+            f2_train_loss_mean = None
+            if f2_steps_total > 0:
+                f2_train_score_mean = sum(
+                    float((r.get("f2") or {}).get("train_score_mean") or 0.0) * float(r.get("steps_f2") or 0)
+                    for r in phase_list
+                ) / float(f2_steps_total)
+                f2_train_loss_mean = sum(
+                    float((r.get("f2") or {}).get("train_loss_mean") or 0.0) * float(r.get("steps_f2") or 0)
+                    for r in phase_list
+                ) / float(f2_steps_total)
+
+            policy = primary_res["policy"]
+            rollout_strategy = primary_res["rollout_strategy"]
+            main_valid_obj = float(primary_res["final_validation_objective"])
+
+            scratch_epoch_eval = (
+                {
+                    "phase": "scratch",
+                    "epochs_total": int(scratch_res["epochs_total"]),
+                    "objectives": list(scratch_res["epoch_objectives"]),
+                    "final_validation_objective": scratch_res["final_validation_objective"],
+                }
+                if scratch_res is not None and scratch_epochs > 0
+                else None
+            )
+            warmstart_epoch_eval = (
+                {
+                    "phase": "warmstart",
+                    "epochs_total": int(warm_res["epochs_total"]),
+                    "objectives": list(warm_res["epoch_objectives"]),
+                    "final_validation_objective": warm_res["final_validation_objective"],
+                    "init_checkpoint_path": cfg.init_checkpoint_path,
+                    "init_checkpoint_epoch": cfg.init_checkpoint_epoch,
+                }
+                if warm_res is not None and warm_epochs > 0
+                else None
+            )
+        else:
+            primary_phase = "single"
+            primary_epochs_total = int(epochs_total_cfg)
+            warm_res = _run_phase(
+                phase="single",
+                phase_epochs=primary_epochs_total,
+                init_ckpt=cfg.init_checkpoint_path,
+                use_early_stop=True,
+                extra_steps_f2=steps_f2_cfg,
+                early_eval_steps_phase=int(early_eval_steps or 0),
+                baseline_early_valid_phase=baseline_early_valid,
+            )
+            epoch_validation_objectives = list(warm_res["epoch_objectives"])
+            early_eval = dict(warm_res.get("early_eval") or {})
+            policy = warm_res["policy"]
+            rollout_strategy = warm_res["rollout_strategy"]
+            main_valid_obj = float(warm_res["final_validation_objective"])
+
+            steps_f1 = int(warm_res["steps_f1"])
+            steps_f2 = int(warm_res["steps_f2"])
+            steps = int(warm_res["steps"])
+            train_score_mean = float(warm_res["train_score_mean"])
+            train_loss_mean = float(warm_res["train_loss_mean"])
+            pair_count = int(warm_res["pair_count"])
+            f1_train_score_mean = warm_res["f1"]["train_score_mean"]
+            f1_train_loss_mean = warm_res["f1"]["train_loss_mean"]
+            f2_train_score_mean = warm_res["f2"]["train_score_mean"]
+            f2_train_loss_mean = warm_res["f2"]["train_loss_mean"]
+            f1_pair_count = int(warm_res["f1"]["pair_count"])
+            f2_pair_count = int(warm_res["f2"]["pair_count"])
+            scratch_epoch_eval = None
+            warmstart_epoch_eval = None
 
     size_objectives: Dict[int, float] = {int(cfg.hf.train_problem_size): float(main_valid_obj)}
     for size in cfg.hf.valid_problem_sizes:
@@ -877,7 +1284,9 @@ def _evaluate_free_loss_candidate_rl4co(
     epoch_tail_better_than_baseline: bool | None = None
     epoch_baseline_margins: List[float] | None = None
     if baseline_epoch_objectives:
-        baseline_list = [float(v) for v in baseline_epoch_objectives]
+        offset = max(int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0), 0)
+        baseline_list_full = [float(v) for v in baseline_epoch_objectives]
+        baseline_list = baseline_list_full[offset : offset + int(primary_epochs_total)]
         compare_len = min(len(epoch_validation_objectives), len(baseline_list))
         epoch_baseline_margins = []
         for i in range(compare_len):
@@ -886,8 +1295,12 @@ def _evaluate_free_loss_candidate_rl4co(
         violations = sum(1 for m in epoch_baseline_margins if m > 0.0)
         epoch_baseline_violations = int(violations)
         # Only mark "better" when we have a full epoch-by-epoch comparison for the
-        # candidate's evaluated epochs (i.e., no missing baseline epochs).
-        epoch_better_than_baseline = compare_len == len(epoch_validation_objectives) and epoch_baseline_violations == 0
+        # configured evaluation horizon (i.e., no missing epochs).
+        epoch_better_than_baseline = (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and epoch_baseline_violations == 0
+        )
 
         # Tail-only comparison for `better_than_baseline` (default: all epochs).
         try:
@@ -895,7 +1308,12 @@ def _evaluate_free_loss_candidate_rl4co(
         except (TypeError, ValueError):
             tail_frac = 1.0
         tail_frac = min(max(tail_frac, 0.0), 1.0)
-        if compare_len == len(epoch_validation_objectives) and compare_len > 0 and tail_frac > 0.0:
+        if (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and compare_len > 0
+            and tail_frac > 0.0
+        ):
             tail_count = int(math.ceil(tail_frac * float(compare_len)))
             tail_count = max(1, min(tail_count, compare_len))
             tail_start = compare_len - tail_count
@@ -922,8 +1340,12 @@ def _evaluate_free_loss_candidate_rl4co(
     base_early_mean: float | None = None
     base_late_mean: float | None = None
     if baseline_epoch_objectives:
+        offset = max(int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0), 0)
+        baseline_slice = list(baseline_epoch_objectives)[
+            offset : offset + int(primary_epochs_total)
+        ]
         base_early_mean, base_late_mean = _epoch_window_means(
-            baseline_epoch_objectives, k=window_k
+            baseline_slice, k=window_k
         )
     baseline_epoch_window_eval: Dict[str, Any] = {
         "early_mean": base_early_mean,
@@ -983,38 +1405,42 @@ def _evaluate_free_loss_candidate_rl4co(
         "epoch_eval": {
             "enabled": bool(steps_per_epoch),
             "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
-            "epochs_total": int(epochs_total),
+            "epochs_total": int(primary_epochs_total),
             "objectives": epoch_validation_objectives,
             "objective_mean": epoch_objective_mean,
             "baseline_margins": epoch_baseline_margins,
             "baseline_violations": epoch_baseline_violations,
             "better_than_baseline": epoch_better_than_baseline,
+            "phase": primary_phase,
+            "baseline_compare_offset": int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0),
             "tail_frac": float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0),
             "tail_baseline_violations": epoch_tail_baseline_violations,
             "tail_better_than_baseline": epoch_tail_better_than_baseline,
         },
-        "train_score_mean": float(score_meter.avg),
-        "train_loss_mean": float(loss_meter.avg),
-        "pair_count": int(total_pairs),
+        "scratch_epoch_eval": scratch_epoch_eval,
+        "warmstart_epoch_eval": warmstart_epoch_eval,
+        "train_score_mean": float(train_score_mean) if train_score_mean is not None else None,
+        "train_loss_mean": float(train_loss_mean) if train_loss_mean is not None else None,
+        "pair_count": int(pair_count),
         "early_eval": {
-            "enabled": bool(early_eval_effective),
-            "steps": int(early_eval_effective),
-            "baseline_validation_objective": baseline_early_valid,
-            "candidate_validation_objective": early_validation_objective,
-            "early_stopped": early_stopped,
+            "enabled": bool(early_eval.get("enabled")),
+            "steps": int(early_eval.get("steps") or 0),
+            "baseline_validation_objective": early_eval.get("baseline_validation_objective"),
+            "candidate_validation_objective": early_eval.get("candidate_validation_objective"),
+            "early_stopped": bool(early_eval.get("early_stopped")),
         },
         "phases": {
             "f1": {
                 "steps": int(steps_f1),
-                "train_score_mean": float(score_meter_f1.avg) if steps_f1 > 0 else None,
-                "train_loss_mean": float(loss_meter_f1.avg) if steps_f1 > 0 else None,
-                "pair_count": int(total_pairs_f1),
+                "train_score_mean": float(f1_train_score_mean) if steps_f1 > 0 else None,
+                "train_loss_mean": float(f1_train_loss_mean) if steps_f1 > 0 else None,
+                "pair_count": int(f1_pair_count),
             },
             "f2": {
                 "steps": int(steps_f2),
-                "train_score_mean": float(score_meter.avg) if steps_f2 > 0 else None,
-                "train_loss_mean": float(loss_meter.avg) if steps_f2 > 0 else None,
-                "pair_count": int(total_pairs - total_pairs_f1),
+                "train_score_mean": float(f2_train_score_mean) if steps_f2 > 0 else None,
+                "train_loss_mean": float(f2_train_loss_mean) if steps_f2 > 0 else None,
+                "pair_count": int(f2_pair_count),
             },
         },
         "config": {
@@ -1030,6 +1456,9 @@ def _evaluate_free_loss_candidate_rl4co(
                     if cfg.init_checkpoint_path
                     else None
                 ),
+                "scratch_hf_epochs": int(getattr(cfg, "scratch_hf_epochs", 0) or 0),
+                "warmstart_hf_epochs": int(getattr(cfg, "warmstart_hf_epochs", 0) or 0),
+                "baseline_epoch_compare_offset": int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0),
                 "f2_steps": cfg.f2_steps,
                 "f3_enabled": cfg.f3_enabled,
                 "baseline_epoch_violation_weight": cfg.baseline_epoch_violation_weight,
