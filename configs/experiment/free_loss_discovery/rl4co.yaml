@@ -100,7 +100,8 @@ baseline_epoch_window_violation_weight: 1.0
 #   #   warm-start slice= [checkpoint_epoch + 1, checkpoint_epoch + 1 + warmstart_hf_epochs)
 #   # If omitted, we try scratch_start_epoch=0 then 1.
 #   scratch_start_epoch: 0
-#   val_column: val/reward
+#   # Use non-augmented metric for fairness across stages.
+#   val_column: val/max_reward
 
 # Gates (keep defaults from PTP).
 pref_semantic_gate_enabled: true

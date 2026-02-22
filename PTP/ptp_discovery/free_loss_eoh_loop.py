@@ -1463,8 +1463,8 @@ def run_free_loss_eoh(
     if baseline_ckpt_epoch is None and baseline_ckpt:
         baseline_ckpt_epoch = _infer_baseline_epoch_from_path(str(baseline_ckpt))
     baseline_val_column = str(
-        baseline_cfg.get("val_column", cfg_yaml.get("baseline_val_column", "val/reward"))
-        or "val/reward"
+        baseline_cfg.get("val_column", cfg_yaml.get("baseline_val_column", "val/max_reward"))
+        or "val/max_reward"
     )
 
     free_cfg = FreeLossFidelityConfig(
