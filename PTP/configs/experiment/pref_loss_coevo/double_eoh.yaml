@@ -21,6 +21,8 @@ builder_llm:
   enabled: true
   offline_mode: false
   parent_p: 5
+  # Always keep some slots for stable rule-based seeds to avoid collapse.
+  seed_reserve: 2
   # Per-generation counts (E1/E2/M1/M2). E1 chooses crossover when parents exist, otherwise generate.
   init_num_E1: 6
   init_num_E2: 4
@@ -39,6 +41,8 @@ loss_llm:
   enabled: true
   offline_mode: false
   parent_p: 5
+  # Always keep some slots for stable rule-based seeds to avoid collapse.
+  seed_reserve: 2
   init_num_E1: 6
   init_num_E2: 4
   init_num_M1: 4
@@ -105,6 +109,8 @@ proxy_weights:
   ess_ratio: 0.1
 proxy_joint_min_pass_rate: 0.8
 proxy_joint_swap_tolerance: 0.001
+proxy_joint_swap_check_mode: synthetic  # data | synthetic | none
+proxy_joint_swap_test_margin: 1.0
 proxy_joint_grad_eps: 1.0e-8
 proxy_joint_min_effective_grad_ratio: 0.1
 
