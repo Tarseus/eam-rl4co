@@ -62,6 +62,9 @@ from ptp_discovery.pref_builder_ir import (
     ir_from_json as pref_builder_ir_from_json,
 )
 
+import ptp_discovery.free_loss_llm_ops as loss_llm_ops
+import ptp_discovery.pref_builder_llm_ops as builder_llm_ops
+
 
 LOGGER = logging.getLogger("ptp_discovery.pref_loss_coevo")
 
@@ -249,6 +252,124 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
     return pool
 
 
+def _rank_weighted_sample_without_replacement(
+    rng: random.Random,
+    items: Sequence[Any],
+    *,
+    k: int,
+) -> List[Any]:
+    k = max(0, min(int(k), len(items)))
+    if k <= 0:
+        return []
+    if k >= len(items):
+        return list(items)
+    # Use rank weights 1/(rank+1) assuming items are already sorted by quality.
+    weights = [1.0 / (i + 1.0) for i in range(len(items))]
+    chosen: List[Any] = []
+    pool = list(items)
+    w = list(weights)
+    for _ in range(k):
+        s = float(sum(w))
+        if s <= 0:
+            # Fallback to uniform.
+            idx = rng.randrange(len(pool))
+        else:
+            r = rng.random() * s
+            acc = 0.0
+            idx = 0
+            for j, ww in enumerate(w):
+                acc += float(ww)
+                if acc >= r:
+                    idx = j
+                    break
+        chosen.append(pool.pop(idx))
+        w.pop(idx)
+    return chosen
+
+
+def _llm_op_choice(rng: random.Random, *, gen: int, parent_pool_size: int) -> str:
+    if parent_pool_size <= 0:
+        return "E1_GENERATE"
+    if gen <= 0:
+        return "E1_GENERATE" if rng.random() < 0.7 else "E2"
+    if parent_pool_size < 2:
+        return "M1"
+    r = rng.random()
+    if r < 0.22:
+        return "E2"
+    if r < 0.50:
+        return "M1"
+    if r < 0.70:
+        return "E1"
+    if r < 0.90:
+        return "M2"
+    return "E1_GENERATE"
+
+
+def _truncate_code(s: str, *, max_chars: int = 1600) -> str:
+    s2 = str(s or "")
+    if len(s2) <= max_chars:
+        return s2
+    return s2[: max_chars - 12] + "\n# ... truncated"
+
+
+def summarize_best_builder(
+    entry: Mapping[str, Any] | None,
+    *,
+    max_code_chars: int = 500,
+) -> Dict[str, Any] | None:
+    if not isinstance(entry, Mapping):
+        return None
+    ir = entry.get("ir")
+    if not isinstance(ir, Mapping):
+        return None
+    code = ir.get("code", "")
+    if isinstance(code, str):
+        code = _truncate_code(code, max_chars=int(max_code_chars))
+    impl = ir.get("implementation_hint") if isinstance(ir.get("implementation_hint"), Mapping) else {}
+    return {
+        "id": entry.get("id"),
+        "fitness": entry.get("fitness"),
+        "signature": entry.get("signature"),
+        "name": ir.get("name"),
+        "mode": (impl or {}).get("mode"),
+        "expects": (impl or {}).get("expects"),
+        "intuition": ir.get("intuition"),
+        "code": code,
+        "descriptor": entry.get("descriptor"),
+    }
+
+
+def summarize_best_loss(
+    entry: Mapping[str, Any] | None,
+    *,
+    max_code_chars: int = 500,
+) -> Dict[str, Any] | None:
+    if not isinstance(entry, Mapping):
+        return None
+    ir = entry.get("ir")
+    if not isinstance(ir, Mapping):
+        return None
+    code = ir.get("code", "")
+    if isinstance(code, str):
+        code = _truncate_code(code, max_chars=int(max_code_chars))
+    hint = ir.get("implementation_hint") if isinstance(ir.get("implementation_hint"), Mapping) else {}
+    return {
+        "id": entry.get("id"),
+        "fitness": entry.get("fitness"),
+        "signature": entry.get("signature"),
+        "name": ir.get("name"),
+        "operators_used": ir.get("operators_used"),
+        "hyperparams": ir.get("hyperparams"),
+        "mode": (hint or {}).get("mode"),
+        "expects": (hint or {}).get("expects"),
+        "intuition": ir.get("intuition"),
+        "pseudocode": ir.get("pseudocode"),
+        "code": code,
+        "descriptor": entry.get("descriptor"),
+    }
+
+
 def _make_builtin_loss_irs(rng: random.Random, n: int) -> List[FreeLossIR]:
     """Rule-based initial/mutated loss pool (no LLM dependency).
 
@@ -383,6 +504,270 @@ def _dummy_feature_cache(*, batch_size: int, k: int, variant: str) -> Dict[str, 
     return extract_feature_cache(objective, log_prob)
 
 
+def _builder_failure_report(
+    *,
+    stage: str,
+    reason: str,
+    trace: Mapping[str, Any] | None = None,
+    error: str | None = None,
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = {"stage": str(stage), "reason": str(reason)}
+    if error is not None:
+        out["error"] = str(error)
+    if trace is not None:
+        try:
+            out["trace"] = dict(trace)
+        except Exception:  # noqa: BLE001
+            out["trace"] = {"_unserializable_trace": True}
+    return out
+
+
+def _prompt_sha1(text: str) -> str:
+    return sha1(str(text).encode("utf-8")).hexdigest()
+
+
+def _read_prompt_best_effort(path: str) -> str:
+    # Match free_loss_llm_ops prompt reading (including its fallback) when possible.
+    try:
+        fn = getattr(loss_llm_ops, "_read_prompt", None)
+        if callable(fn):
+            return str(fn(path))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return ""
+
+
+def _append_global_feedback_block(prompt: str, global_feedback: Mapping[str, Any] | None) -> str:
+    if global_feedback is None:
+        return prompt
+    return prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+
+
+def _build_free_loss_generation_prompt(
+    prompt_path: str,
+    *,
+    global_feedback: Mapping[str, Any] | None,
+) -> Tuple[str, str]:
+    prompt = _read_prompt_best_effort(prompt_path)
+    prompt = _append_global_feedback_block(prompt, global_feedback)
+    return prompt, _prompt_sha1(prompt)
+
+
+def _build_free_loss_parents_prompt(
+    prompt_path: str,
+    *,
+    parents: Sequence[FreeLossIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None,
+    global_feedback: Mapping[str, Any] | None,
+    parent_block_name: str,
+) -> Tuple[str, str]:
+    prompt = _read_prompt_best_effort(prompt_path)
+    blobs = []
+    for idx, parent in enumerate(parents):
+        metrics: Mapping[str, Any] = {}
+        if parents_fitness is not None and idx < len(parents_fitness):
+            metrics = parents_fitness[idx]
+        blobs.append(
+            {
+                "index": idx,
+                "name": parent.name,
+                "intuition": parent.intuition,
+                "pseudocode": parent.pseudocode,
+                "hyperparams": parent.hyperparams,
+                "operators_used": parent.operators_used,
+                "code": parent.code,
+                "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+                "metrics": {
+                    "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+                    "validation_objective": float(metrics.get("validation_objective", float("inf")))
+                    if metrics
+                    else None,
+                    "generalization_penalty": float(metrics.get("generalization_penalty", 0.0))
+                    if metrics
+                    else None,
+                    "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+                    "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+                },
+            }
+        )
+    prompt = prompt + f"\n\n{str(parent_block_name)}:\n" + json.dumps(blobs, indent=2, ensure_ascii=False)
+    prompt = _append_global_feedback_block(prompt, global_feedback)
+    return prompt, _prompt_sha1(prompt)
+
+
+def _build_free_loss_parent_prompt(
+    prompt_path: str,
+    *,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None,
+    global_feedback: Mapping[str, Any] | None,
+    parent_block_name: str,
+) -> Tuple[str, str]:
+    prompt = _read_prompt_best_effort(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf"))) if metrics else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+        },
+    }
+    prompt = prompt + f"\n\n{str(parent_block_name)}:\n" + json.dumps(blob, indent=2, ensure_ascii=False)
+    prompt = _append_global_feedback_block(prompt, global_feedback)
+    return prompt, _prompt_sha1(prompt)
+
+
+def _build_free_loss_failure_prompt(
+    prompt_path: str,
+    *,
+    candidate: FreeLossIR,
+    failure_reason: Mapping[str, Any],
+    global_feedback: Mapping[str, Any] | None,
+    block_name: str,
+    ensure_ascii: bool,
+) -> Tuple[str, str]:
+    prompt = _read_prompt_best_effort(prompt_path)
+    payload = {
+        "candidate": asdict(candidate),
+        "failure_reason": dict(failure_reason),
+    }
+    prompt = prompt + f"\n\n{str(block_name)}:\n" + json.dumps(payload, indent=2, ensure_ascii=bool(ensure_ascii))
+    prompt = _append_global_feedback_block(prompt, global_feedback)
+    return prompt, _prompt_sha1(prompt)
+
+
+def validate_builder_candidate(
+    ir: PreferenceBuilderIR,
+    *,
+    operator_whitelist: Sequence[str],
+    gate_cfg: Mapping[str, Any],
+    dummy_variant: str = "visible",
+) -> Tuple[bool, Dict[str, Any]]:
+    """Compile + smoke-run + gate a builder on a synthetic feature_cache.
+
+    Returns:
+      (ok, failure_report). failure_report is JSON-serializable and suitable for LLM repair prompts.
+    """
+
+    try:
+        compiled = compile_preference_builder(ir, operator_whitelist=operator_whitelist)
+    except Exception as exc:  # noqa: BLE001
+        return False, _builder_failure_report(stage="compile", reason="compile_failed", error=str(exc))
+
+    try:
+        fc = _dummy_feature_cache(batch_size=8, k=16, variant=str(dummy_variant))
+        pb = compiled.build_fn(fc, {"stage": "builder_validate", "seed": 0})
+    except Exception as exc:  # noqa: BLE001
+        return False, _builder_failure_report(stage="runtime", reason="runtime_failed", error=str(exc))
+
+    try:
+        bg = run_preference_builder_gates(
+            pb,
+            feature_cache=fc,
+            min_pairs=int(gate_cfg.get("min_pairs", 1) or 1),
+            min_coverage=float(gate_cfg.get("min_coverage", 1.0) or 1.0),
+            max_pairs_per_instance=int(gate_cfg.get("max_pairs_per_instance", 4096) or 4096),
+            weight_nonneg=bool(gate_cfg.get("weight_nonneg", True)),
+            semantic_tolerance=float(gate_cfg.get("semantic_tolerance", 0.0) or 0.0),
+            semantic_min_pass_rate=float(gate_cfg.get("semantic_min_pass_rate", 1.0) or 1.0),
+        )
+    except Exception as exc:  # noqa: BLE001
+        return False, _builder_failure_report(stage="gate", reason="builder_gate_exception", error=str(exc))
+
+    if not bool(bg.ok):
+        return False, _builder_failure_report(
+            stage="gate",
+            reason=str(bg.reason),
+            trace=bg.trace,
+        )
+
+    return True, {}
+
+
+def _repair_builder_candidate_loop(
+    ir: PreferenceBuilderIR,
+    *,
+    failure_report: Mapping[str, Any],
+    operator_whitelist: Sequence[str],
+    gate_cfg: Mapping[str, Any],
+    llm_prompts: Mapping[str, str],
+    global_feedback: Mapping[str, Any] | None,
+    max_attempts: int,
+    simplify_first: bool = True,
+) -> Tuple[PreferenceBuilderIR | None, Dict[str, Any]]:
+    """Attempt to repair a failing builder candidate via LLM, re-validating each attempt.
+
+    Returns:
+      (repaired_ir or None, meta)
+    """
+
+    p_m3 = str(llm_prompts.get("builder_m3", "") or "")
+    p_rep = str(llm_prompts.get("builder_repair", "") or "")
+    if not p_rep:
+        return None, {"repair_skipped": True, "reason": "missing_builder_repair_prompt"}
+
+    last_fail = dict(failure_report)
+    attempts: List[Dict[str, Any]] = []
+    current = ir
+    for attempt in range(max(0, int(max_attempts))):
+        try:
+            fb = dict(global_feedback or {})
+            fb.update({"repair_attempt": int(attempt), "repair_stage": str(last_fail.get("stage", ""))})
+        except Exception:  # noqa: BLE001
+            fb = dict(global_feedback or {})
+
+        candidate = current
+        if simplify_first and attempt == 0 and p_m3:
+            try:
+                simplified, m3_meta = builder_llm_ops.m3_simplify_builder_with_meta(
+                    p_m3,
+                    candidate=candidate,
+                    failure_reason=last_fail,
+                    global_feedback=fb,
+                )
+                candidate = simplified
+                attempts.append({"attempt": int(attempt), "op": "M3", **dict(m3_meta)})
+            except Exception as exc:  # noqa: BLE001
+                attempts.append({"attempt": int(attempt), "op": "M3", "error": str(exc)})
+
+        try:
+            repaired, rep_meta = builder_llm_ops.repair_pref_builder_with_meta(
+                p_rep,
+                failed_ir=candidate,
+                failure_reason=last_fail,
+                global_feedback=fb,
+            )
+            attempts.append({"attempt": int(attempt), "op": "REPAIR", **dict(rep_meta)})
+        except Exception as exc:  # noqa: BLE001
+            attempts.append({"attempt": int(attempt), "op": "REPAIR", "error": str(exc)})
+            return None, {"attempts": attempts, "last_fail": last_fail}
+
+        ok, fail2 = validate_builder_candidate(
+            repaired,
+            operator_whitelist=operator_whitelist,
+            gate_cfg=gate_cfg,
+        )
+        if ok:
+            return repaired, {"attempts": attempts, "repaired": True}
+        last_fail = dict(fail2)
+        current = repaired
+
+    return None, {"attempts": attempts, "last_fail": last_fail}
+
+
 def _propose_builders_for_generation(
     *,
     generation: int,
@@ -390,6 +775,9 @@ def _propose_builders_for_generation(
     elites_g: Sequence[Mapping[str, Any]],
     diverse_elites_g: Sequence[Mapping[str, Any]],
     rng: random.Random,
+    llm_cfg: Mapping[str, Any] | None = None,
+    operator_whitelist: Sequence[str] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     """Propose builder candidates with elitism + mutation/crossover."""
 
@@ -408,14 +796,265 @@ def _propose_builders_for_generation(
         if not isinstance(item, dict) or not isinstance(item.get("ir"), dict):
             continue
         ir = pref_builder_ir_from_json(item["ir"])
-        out.append({"ir": ir, "origin": "elite_copy", "parents": [str(item.get("id", ""))]})
+        out.append(
+            {
+                "ir": ir,
+                "origin": "ELITE",
+                "op_type": "ELITE",
+                "parents": [str(item.get("id", ""))],
+                "attempt": 0,
+                "prompt_sha1": None,
+                "prompt_path": None,
+                "history": [],
+            }
+        )
+
+    # LLM candidates (Double-EoH: g-side).
+    llm_root: Mapping[str, Any] = llm_cfg or {}
+    builder_cfg: Mapping[str, Any] = llm_root
+    if isinstance(llm_root.get("builder"), Mapping):
+        builder_cfg = llm_root.get("builder")  # type: ignore[assignment]
+
+    llm_enabled = bool(builder_cfg and bool(builder_cfg.get("enabled", False)))
+    if llm_enabled:
+        if operator_whitelist is None:
+            operator_whitelist = []
+        parent_p = int(builder_cfg.get("parent_p", 5) or 5)
+        repair_cfg = builder_cfg.get("repair", {}) or {}
+        if not isinstance(repair_cfg, dict):
+            repair_cfg = {}
+        repair_on_fail = bool(repair_cfg.get("enabled", builder_cfg.get("repair_on_failure", True)))
+        repair_attempts = int(repair_cfg.get("max_attempts", builder_cfg.get("repair_attempts", 1)) or 1)
+
+        prompts = llm_root.get("prompts", builder_cfg.get("prompts", {})) or {}
+        if not isinstance(prompts, dict):
+            prompts = {}
+        p_gen = str(prompts.get("builder_generation", "") or "")
+        p_x = str(prompts.get("builder_crossover", "") or "")
+        p_m = str(prompts.get("builder_mutation", "") or "")
+        p_e2 = str(prompts.get("builder_e2", "") or "")
+        p_m2 = str(prompts.get("builder_m2", "") or "")
+        p_m3 = str(prompts.get("builder_m3", "") or "")
+        p_rep = str(prompts.get("builder_repair", "") or "")
+
+        gate_cfg = llm_root.get("builder_gate", builder_cfg.get("builder_gate", {})) or {}
+        if not isinstance(gate_cfg, dict):
+            gate_cfg = {}
+        min_pairs = int(gate_cfg.get("min_pairs", 1) or 1)
+        min_cov = float(gate_cfg.get("min_coverage", 1.0) or 1.0)
+        max_pairs_pi = int(gate_cfg.get("max_pairs_per_instance", 4096) or 4096)
+        weight_nonneg = bool(gate_cfg.get("weight_nonneg", True))
+        sem_tol = float(gate_cfg.get("semantic_tolerance", 0.0) or 0.0)
+        sem_min_pass = float(gate_cfg.get("semantic_min_pass_rate", 1.0) or 1.0)
+
+        # Build ranked parent pool for LLM operations.
+        ranked_parents: List[Tuple[float, str, PreferenceBuilderIR, Mapping[str, Any]]] = []
+        for item in parent_pool:
+            try:
+                ir = pref_builder_ir_from_json(item["ir"])
+            except Exception:  # noqa: BLE001
+                continue
+            try:
+                fit = float(item.get("fitness", float("inf")))
+            except (TypeError, ValueError):
+                fit = float("inf")
+            ranked_parents.append((fit, str(item.get("id", "")), ir, item))
+        ranked_parents.sort(key=lambda x: float(x[0]))
+        if not ranked_parents:
+            # Bootstrap parents so E2/M1/M2 are usable at gen0 (aligns with free_loss EoH behavior).
+            bootstrap = _make_builtin_builder_irs(rng, max(2, int(parent_p)))
+            for i, ir0 in enumerate(bootstrap):
+                ranked_parents.append((0.0, f"bootstrap_g_{i:03d}", ir0, {"id": f"bootstrap_g_{i:03d}", "fitness": 0.0, "ir": asdict(ir0)}))
+
+        # Operator plan: either explicit counts (preferred) or legacy budget+random choice.
+        def _op_plan() -> List[str]:
+            init = int(generation) <= 0
+            keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
+            if any(builder_cfg.get(k) is not None for k in keys):
+                nE1 = int(builder_cfg.get("init_num_E1" if init else "num_E1", builder_cfg.get("num_E1", 0)) or 0)
+                nE2 = int(builder_cfg.get("init_num_E2" if init else "num_E2", builder_cfg.get("num_E2", 0)) or 0)
+                nM1 = int(builder_cfg.get("init_num_M1" if init else "num_M1", builder_cfg.get("num_M1", 0)) or 0)
+                nM2 = int(builder_cfg.get("init_num_M2" if init else "num_M2", builder_cfg.get("num_M2", 0)) or 0)
+                plan = (["E1"] * max(0, nE1)) + (["E2"] * max(0, nE2)) + (["M1"] * max(0, nM1)) + (["M2"] * max(0, nM2))
+                rng.shuffle(plan)
+                return plan
+
+            llm_budget = int(builder_cfg.get("init_llm_g", 0) or 0) if init else int(builder_cfg.get("llm_per_gen_g", 0) or 0)
+            return [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
+
+        for op in _op_plan():
+            if len(out) >= pop_g:
+                break
+            parents_ir: List[PreferenceBuilderIR] = []
+            parents_fit: List[Mapping[str, Any]] = []
+            parents_ids: List[str] = []
+
+            # Map high-level EoH ops to concrete LLM ops.
+            llm_op = str(op).strip().upper()
+            if llm_op == "E1":
+                # E1 uses generation when parent pool is small; otherwise crossover or generation.
+                if len(ranked_parents) >= 2 and p_x:
+                    llm_op = "E1"
+                else:
+                    llm_op = "E1_GENERATE"
+            elif llm_op == "E2":
+                llm_op = "E2"
+            elif llm_op == "M2":
+                llm_op = "M2"
+            else:
+                llm_op = "M1"
+
+            if llm_op in {"E1", "E2"} and len(ranked_parents) >= 2:
+                chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=max(2, min(parent_p, len(ranked_parents))))
+                parents_ir = [c[2] for c in chosen]
+                parents_fit = [{"fitness": float(c[0])} for c in chosen]
+                parents_ids = [str(c[1]) for c in chosen]
+            elif llm_op in {"M1", "M2"} and len(ranked_parents) >= 1:
+                chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
+                parents_ir = [chosen1[2]]
+                parents_fit = [{"fitness": float(chosen1[0])}]
+                parents_ids = [str(chosen1[1])]
+            else:
+                llm_op = "E1_GENERATE"
+
+            llm_seed = int(rng.randint(0, 2**31 - 1))
+            call_feedback = dict(global_feedback or {})
+            call_feedback["llm_call"] = {"side": "builder", "op_type": str(llm_op), "seed": llm_seed}
+
+            history: List[Dict[str, Any]] = []
+            try:
+                if llm_op == "E1_GENERATE":
+                    ir, meta = builder_llm_ops.generate_pref_builder_candidate_with_meta(
+                        p_gen,
+                        operator_whitelist=operator_whitelist,
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "E1"
+                    op_type = "E1_GENERATE"
+                    parent_ids = []
+                elif llm_op == "E1":
+                    ir, meta = builder_llm_ops.crossover_pref_builder_with_meta(
+                        p_x,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "E1"
+                    op_type = "E1"
+                    parent_ids = parents_ids
+                elif llm_op == "E2":
+                    ir, meta = builder_llm_ops.e2_pref_builder_with_meta(
+                        p_e2,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "E2"
+                    op_type = "E2"
+                    parent_ids = parents_ids
+                elif llm_op == "M2":
+                    ir, meta = builder_llm_ops.m2_tune_builder_with_meta(
+                        p_m2,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "M2"
+                    op_type = "M2"
+                    parent_ids = parents_ids
+                else:
+                    ir, meta = builder_llm_ops.mutate_pref_builder_with_meta(
+                        p_m,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "M1"
+                    op_type = "M1"
+                    parent_ids = parents_ids
+                history.append({"attempt": 0, "side": "builder", **dict(meta)})
+            except Exception:  # noqa: BLE001
+                continue
+
+            ok, fail_reason = validate_builder_candidate(
+                ir,
+                operator_whitelist=operator_whitelist,
+                gate_cfg={
+                    "min_pairs": min_pairs,
+                    "min_coverage": min_cov,
+                    "max_pairs_per_instance": max_pairs_pi,
+                    "weight_nonneg": weight_nonneg,
+                    "semantic_tolerance": sem_tol,
+                    "semantic_min_pass_rate": sem_min_pass,
+                },
+            )
+
+            origin = base_origin
+            prompt_sha1 = dict(meta).get("prompt_sha1") if isinstance(meta, Mapping) else None
+            prompt_path = dict(meta).get("prompt_path") if isinstance(meta, Mapping) else None
+
+            if (not ok) and repair_on_fail:
+                repaired, rep_meta = _repair_builder_candidate_loop(
+                    ir,
+                    failure_report=fail_reason,
+                    operator_whitelist=operator_whitelist,
+                    gate_cfg={
+                        "min_pairs": min_pairs,
+                        "min_coverage": min_cov,
+                        "max_pairs_per_instance": max_pairs_pi,
+                        "weight_nonneg": weight_nonneg,
+                        "semantic_tolerance": sem_tol,
+                        "semantic_min_pass_rate": sem_min_pass,
+                    },
+                    llm_prompts={"builder_m3": p_m3, "builder_repair": p_rep},
+                    global_feedback=call_feedback,
+                    max_attempts=max(0, int(repair_attempts)),
+                    simplify_first=bool(repair_cfg.get("simplify_first", True)),
+                )
+                if repaired is not None:
+                    ir = repaired
+                    origin = "REPAIR"
+                    op_type = "REPAIR"
+                    ok = True
+                    if isinstance(rep_meta, dict) and isinstance(rep_meta.get("attempts"), list) and rep_meta["attempts"]:
+                        history.extend(list(rep_meta["attempts"]))
+                        last = rep_meta["attempts"][-1]
+                        prompt_sha1 = last.get("prompt_sha1", prompt_sha1)
+                        prompt_path = last.get("prompt_path", prompt_path)
+
+            if ok:
+                out.append(
+                    {
+                        "ir": ir,
+                        "origin": str(origin),
+                        "origin_base": str(base_origin),
+                        "op_type": str(op_type),
+                        "parents": list(parent_ids),
+                        "attempt": 0,
+                        "prompt_sha1": prompt_sha1,
+                        "prompt_path": prompt_path,
+                        "history": history,
+                        "llm_seed": llm_seed,
+                    }
+                )
 
     # Mutations/crossover and fresh seeds.
     while len(out) < pop_g:
         op = rng.choice(["mutate", "crossover", "seed"]) if parent_pool else "seed"
         if op == "seed":
             ir = _make_builtin_builder_irs(rng, 1)[0]
-            out.append({"ir": ir, "origin": "seed", "parents": []})
+            out.append(
+                {
+                    "ir": ir,
+                    "origin": "SEED",
+                    "op_type": "SEED",
+                    "parents": [],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            )
             continue
 
         if op == "mutate":
@@ -423,7 +1062,18 @@ def _propose_builders_for_generation(
             # Mutation: resample a rule-based variant; keep parent id as provenance.
             ir = _make_builtin_builder_irs(rng, 1)[0]
             ir.name = f"{ir.name}_m_from_{str(parent.get('id',''))[:12]}"
-            out.append({"ir": ir, "origin": "mutate", "parents": [str(parent.get("id", ""))]})
+            out.append(
+                {
+                    "ir": ir,
+                    "origin": "SEED",
+                    "op_type": "SEED_MUTATE",
+                    "parents": [str(parent.get("id", ""))],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            )
             continue
 
         # crossover
@@ -434,8 +1084,13 @@ def _propose_builders_for_generation(
         out.append(
             {
                 "ir": ir,
-                "origin": "crossover",
+                "origin": "SEED",
+                "op_type": "SEED_CROSSOVER",
                 "parents": [str(p1.get("id", "")), str(p2.get("id", ""))],
+                "attempt": 0,
+                "prompt_sha1": None,
+                "prompt_path": None,
+                "history": [],
             }
         )
 
@@ -449,6 +1104,9 @@ def _propose_losses_for_generation(
     elites_f: Sequence[Mapping[str, Any]],
     diverse_elites_f: Sequence[Mapping[str, Any]],
     rng: random.Random,
+    llm_cfg: Mapping[str, Any] | None = None,
+    operator_whitelist: Sequence[str] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     """Propose loss candidates with elitism + mutation/crossover."""
 
@@ -466,27 +1124,362 @@ def _propose_losses_for_generation(
         if not isinstance(item, dict) or not isinstance(item.get("ir"), dict):
             continue
         ir = free_loss_ir_from_json(item["ir"])
-        out.append({"ir": ir, "origin": "elite_copy", "parents": [str(item.get("id", ""))]})
+        out.append(
+            {
+                "ir": ir,
+                "origin": "ELITE",
+                "op_type": "ELITE",
+                "parents": [str(item.get("id", ""))],
+                "attempt": 0,
+                "prompt_sha1": None,
+                "prompt_path": None,
+                "history": [],
+            }
+        )
+
+    # LLM candidates (Double-EoH: f-side).
+    llm_root: Mapping[str, Any] = llm_cfg or {}
+    loss_cfg: Mapping[str, Any] = llm_root
+    if isinstance(llm_root.get("loss"), Mapping):
+        loss_cfg = llm_root.get("loss")  # type: ignore[assignment]
+
+    llm_enabled = bool(loss_cfg and bool(loss_cfg.get("enabled", False)))
+    if llm_enabled:
+        if operator_whitelist is None:
+            operator_whitelist = []
+        parent_p = int(loss_cfg.get("parent_p", 5) or 5)
+        repair_cfg = loss_cfg.get("repair", {}) or {}
+        if not isinstance(repair_cfg, dict):
+            repair_cfg = {}
+        repair_on_fail = bool(repair_cfg.get("enabled", loss_cfg.get("repair_on_failure", True)))
+        repair_attempts = int(repair_cfg.get("max_attempts", loss_cfg.get("repair_attempts", 1)) or 1)
+
+        prompts = llm_root.get("prompts", loss_cfg.get("prompts", {})) or {}
+        if not isinstance(prompts, dict):
+            prompts = {}
+        p_gen = str(prompts.get("loss_generation", "") or "")
+        p_x = str(prompts.get("loss_crossover", "") or "")
+        p_m = str(prompts.get("loss_mutation", "") or "")
+        p_e2 = str(prompts.get("loss_e2", "") or "")
+        p_m2 = str(prompts.get("loss_m2", "") or "")
+        p_m3 = str(prompts.get("loss_m3", "") or "")
+        p_rep = str(prompts.get("loss_repair", "") or "")
+
+        ranked_parents: List[Tuple[float, str, FreeLossIR, Mapping[str, Any]]] = []
+        for item in parent_pool:
+            try:
+                ir0 = free_loss_ir_from_json(item["ir"])
+            except Exception:  # noqa: BLE001
+                continue
+            try:
+                fit = float(item.get("fitness", float("inf")))
+            except (TypeError, ValueError):
+                fit = float("inf")
+            ranked_parents.append((fit, str(item.get("id", "")), ir0, item))
+        ranked_parents.sort(key=lambda x: float(x[0]))
+        if not ranked_parents:
+            bootstrap = _make_builtin_loss_irs(rng, max(2, int(parent_p)))
+            for i, ir0 in enumerate(bootstrap):
+                ranked_parents.append((0.0, f"bootstrap_f_{i:03d}", ir0, {"id": f"bootstrap_f_{i:03d}", "fitness": 0.0, "ir": asdict(ir0)}))
+
+        def _op_plan() -> List[str]:
+            init = int(generation) <= 0
+            keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
+            if any(loss_cfg.get(k) is not None for k in keys):
+                nE1 = int(loss_cfg.get("init_num_E1" if init else "num_E1", loss_cfg.get("num_E1", 0)) or 0)
+                nE2 = int(loss_cfg.get("init_num_E2" if init else "num_E2", loss_cfg.get("num_E2", 0)) or 0)
+                nM1 = int(loss_cfg.get("init_num_M1" if init else "num_M1", loss_cfg.get("num_M1", 0)) or 0)
+                nM2 = int(loss_cfg.get("init_num_M2" if init else "num_M2", loss_cfg.get("num_M2", 0)) or 0)
+                plan = (["E1"] * max(0, nE1)) + (["E2"] * max(0, nE2)) + (["M1"] * max(0, nM1)) + (["M2"] * max(0, nM2))
+                rng.shuffle(plan)
+                return plan
+
+            llm_budget = int(loss_cfg.get("init_llm_f", 0) or 0) if init else int(loss_cfg.get("llm_per_gen_f", 0) or 0)
+            return [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
+
+        for op in _op_plan():
+            if len(out) >= pop_f:
+                break
+            parents_ir: List[FreeLossIR] = []
+            parents_fit: List[Mapping[str, Any]] = []
+            parents_ids: List[str] = []
+
+            llm_op = str(op).strip().upper()
+            if llm_op == "E1":
+                if len(ranked_parents) >= 2 and p_x:
+                    llm_op = "E1"
+                else:
+                    llm_op = "E1_GENERATE"
+            elif llm_op == "E2":
+                llm_op = "E2"
+            elif llm_op == "M2":
+                llm_op = "M2"
+            else:
+                llm_op = "M1"
+
+            if llm_op in {"E1", "E2"} and len(ranked_parents) >= 2:
+                chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=max(2, min(parent_p, len(ranked_parents))))
+                parents_ir = [c[2] for c in chosen]
+                parents_fit = [{"fitness": float(c[0])} for c in chosen]
+                parents_ids = [str(c[1]) for c in chosen]
+            elif llm_op in {"M1", "M2"} and len(ranked_parents) >= 1:
+                chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
+                parents_ir = [chosen1[2]]
+                parents_fit = [{"fitness": float(chosen1[0])}]
+                parents_ids = [str(chosen1[1])]
+            else:
+                llm_op = "E1_GENERATE"
+
+            llm_seed = int(rng.randint(0, 2**31 - 1))
+            call_feedback = dict(global_feedback or {})
+            call_feedback["llm_call"] = {"side": "loss", "op_type": str(llm_op), "seed": llm_seed}
+
+            history: List[Dict[str, Any]] = []
+            base_origin = "E1"
+            op_type = str(op)
+            parent_ids = list(parents_ids)
+            prompt_sha1 = None
+            prompt_path = None
+
+            try:
+                if llm_op == "E1_GENERATE":
+                    _, sha = _build_free_loss_generation_prompt(p_gen, global_feedback=call_feedback)
+                    prompt_sha1 = sha
+                    prompt_path = str(p_gen)
+                    ir = loss_llm_ops.generate_free_loss_candidate(
+                        p_gen,
+                        operator_whitelist=operator_whitelist,
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "E1"
+                    op_type = "E1_GENERATE"
+                    parent_ids = []
+                elif llm_op == "E1":
+                    _, sha = _build_free_loss_parents_prompt(
+                        p_x,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENTS_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_x)
+                    ir = loss_llm_ops.crossover_free_loss(p_x, parents=parents_ir, parents_fitness=parents_fit, global_feedback=call_feedback)
+                    base_origin = "E1"
+                    op_type = "E1"
+                elif llm_op == "E2":
+                    _, sha = _build_free_loss_parents_prompt(
+                        p_e2,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENTS_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_e2)
+                    ir = loss_llm_ops.e2_free_loss(p_e2, parents=parents_ir, parents_fitness=parents_fit, global_feedback=call_feedback)
+                    base_origin = "E2"
+                    op_type = "E2"
+                elif llm_op == "M2":
+                    _, sha = _build_free_loss_parent_prompt(
+                        p_m2,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENT_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_m2)
+                    ir = loss_llm_ops.m2_tune_hparams(
+                        p_m2,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "M2"
+                    op_type = "M2"
+                else:
+                    _, sha = _build_free_loss_parent_prompt(
+                        p_m,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENT_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_m)
+                    ir = loss_llm_ops.mutate_free_loss(p_m, parent=parents_ir[0], parent_fitness=parents_fit[0], global_feedback=call_feedback)
+                    base_origin = "M1"
+                    op_type = "M1"
+                history.append(
+                    {
+                        "attempt": 0,
+                        "side": "loss",
+                        "llm_op": str(op_type),
+                        "prompt_path": str(prompt_path),
+                        "prompt_sha1": str(prompt_sha1),
+                    }
+                )
+            except Exception:  # noqa: BLE001
+                continue
+
+            ok = False
+            fail_reason: Dict[str, Any] = {}
+            try:
+                static_res = run_static_gates(ir, operator_whitelist=operator_whitelist)
+                if not bool(static_res.ok):
+                    ok = False
+                    fail_reason = {"stage": "static_gate", "reason": str(static_res.reason), "trace": static_res.trace}
+                else:
+                    _ = compile_free_loss(ir, operator_whitelist=operator_whitelist)
+                    ok = True
+            except Exception as exc:  # noqa: BLE001
+                ok = False
+                fail_reason = {"stage": "compile", "error": str(exc)}
+
+            if (not ok) and repair_on_fail and p_rep:
+                repaired = None
+                for _ra in range(max(0, repair_attempts)):
+                    # Inject call metadata into the failure payload so the cache key (prompt hash)
+                    # captures op_type + seed, even for prompts that do not accept GLOBAL_FEEDBACK_JSON.
+                    try:
+                        fail_reason = dict(fail_reason)
+                        fail_reason["llm_call"] = dict(call_feedback.get("llm_call") or {})
+                        fail_reason["repair_attempt"] = int(_ra)
+                    except Exception:  # noqa: BLE001
+                        pass
+                    try:
+                        if bool(repair_cfg.get("simplify_first", True)) and p_m3 and fail_reason.get("stage") in {"static_gate", "compile"}:
+                            history.append(
+                                {
+                                    "attempt": int(_ra),
+                                    "side": "loss",
+                                    "llm_op": "M3",
+                                    "prompt_path": str(p_m3),
+                                    "prompt_sha1": _build_free_loss_failure_prompt(
+                                        p_m3,
+                                        candidate=ir,
+                                        failure_reason=fail_reason,
+                                        global_feedback=call_feedback,
+                                        block_name="CANDIDATE_AND_FAILURE_JSON",
+                                        ensure_ascii=False,
+                                    )[1],
+                                }
+                            )
+                            repaired = loss_llm_ops.m3_simplify_loss(
+                                p_m3,
+                                candidate=ir,
+                                failure_reason=fail_reason,
+                                global_feedback=call_feedback,
+                            )
+                        else:
+                            repaired = None
+                    except Exception:  # noqa: BLE001
+                        repaired = None
+                    if repaired is None:
+                        try:
+                            history.append(
+                                {
+                                    "attempt": int(_ra),
+                                    "side": "loss",
+                                    "llm_op": "REPAIR",
+                                    "prompt_path": str(p_rep),
+                                    "prompt_sha1": _build_free_loss_failure_prompt(
+                                        p_rep,
+                                        candidate=ir,
+                                        failure_reason=fail_reason,
+                                        global_feedback=None,
+                                        block_name="CANDIDATE_AND_FAILURE_JSON",
+                                        ensure_ascii=True,
+                                    )[1],
+                                }
+                            )
+                            repaired = loss_llm_ops.repair_free_loss(p_rep, failed_ir=ir, failure_reason=fail_reason)
+                        except Exception:  # noqa: BLE001
+                            repaired = None
+                            break
+                    try:
+                        static_res = run_static_gates(repaired, operator_whitelist=operator_whitelist)
+                        if not bool(static_res.ok):
+                            fail_reason = {"stage": "static_gate", "reason": str(static_res.reason), "trace": static_res.trace}
+                            continue
+                        _ = compile_free_loss(repaired, operator_whitelist=operator_whitelist)
+                        ir = repaired
+                        ok = True
+                        op_type = "REPAIR"
+                        break
+                    except Exception as exc:  # noqa: BLE001
+                        fail_reason = {"stage": "compile", "error": str(exc)}
+                        continue
+
+            if ok:
+                out.append(
+                    {
+                        "ir": ir,
+                        "origin": "REPAIR" if str(op_type) == "REPAIR" else str(base_origin),
+                        "origin_base": str(base_origin),
+                        "op_type": str(op_type),
+                        "parents": list(parent_ids),
+                        "attempt": 0,
+                        "prompt_sha1": prompt_sha1,
+                        "prompt_path": prompt_path,
+                        "history": history,
+                        "llm_seed": llm_seed,
+                    }
+                )
 
     while len(out) < pop_f:
         op = rng.choice(["mutate", "crossover", "seed"]) if parent_pool else "seed"
         if op == "seed":
             ir = _make_builtin_loss_irs(rng, 1)[0]
-            out.append({"ir": ir, "origin": "seed", "parents": []})
+            out.append(
+                {
+                    "ir": ir,
+                    "origin": "SEED",
+                    "op_type": "SEED",
+                    "parents": [],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            )
             continue
 
         if op == "mutate":
             parent = rng.choice(parent_pool)
             ir = _make_builtin_loss_irs(rng, 1)[0]
             ir.name = f"{ir.name}_m_from_{str(parent.get('id',''))[:12]}"
-            out.append({"ir": ir, "origin": "mutate", "parents": [str(parent.get("id", ""))]})
+            out.append(
+                {
+                    "ir": ir,
+                    "origin": "SEED",
+                    "op_type": "SEED_MUTATE",
+                    "parents": [str(parent.get("id", ""))],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            )
             continue
 
         p1 = rng.choice(parent_pool)
         p2 = rng.choice(parent_pool)
         ir = _make_builtin_loss_irs(rng, 1)[0]
         ir.name = f"{ir.name}_x_{str(p1.get('id',''))[:8]}_{str(p2.get('id',''))[:8]}"
-        out.append({"ir": ir, "origin": "crossover", "parents": [str(p1.get("id", "")), str(p2.get("id", ""))]})
+        out.append(
+            {
+                "ir": ir,
+                "origin": "SEED",
+                "op_type": "SEED_CROSSOVER",
+                "parents": [str(p1.get("id", "")), str(p2.get("id", ""))],
+                "attempt": 0,
+                "prompt_sha1": None,
+                "prompt_path": None,
+                "history": [],
+            }
+        )
 
     return out[:pop_f]
 
@@ -1658,6 +2651,144 @@ def run_pref_loss_coevo(
 
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
 
+    # ----------------------
+    # Double-EoH LLM wiring
+    # ----------------------
+    legacy_llm_enabled = bool(cfg_yaml.get("llm_enabled", False))
+    legacy_llm_offline_mode = bool(cfg_yaml.get("llm_offline_mode", False))
+
+    builder_llm_raw = cfg_yaml.get("builder_llm", {}) or {}
+    loss_llm_raw = cfg_yaml.get("loss_llm", {}) or {}
+    if not isinstance(builder_llm_raw, dict):
+        builder_llm_raw = {}
+    if not isinstance(loss_llm_raw, dict):
+        loss_llm_raw = {}
+
+    builder_llm_enabled = bool(builder_llm_raw.get("enabled", legacy_llm_enabled))
+    loss_llm_enabled = bool(loss_llm_raw.get("enabled", legacy_llm_enabled))
+    llm_enabled = bool(builder_llm_enabled or loss_llm_enabled)
+
+    builder_offline = bool(builder_llm_raw.get("offline_mode", legacy_llm_offline_mode))
+    loss_offline = bool(loss_llm_raw.get("offline_mode", legacy_llm_offline_mode))
+    llm_offline_mode = bool(builder_offline or loss_offline or legacy_llm_offline_mode)
+
+    llm_prompts_raw: Dict[str, Any] = {}
+    legacy_prompts = cfg_yaml.get("llm_prompts", {}) or {}
+    if isinstance(legacy_prompts, dict):
+        llm_prompts_raw.update(dict(legacy_prompts))
+    if isinstance(builder_llm_raw.get("prompts"), dict):
+        llm_prompts_raw.update(dict(builder_llm_raw.get("prompts") or {}))
+    if isinstance(loss_llm_raw.get("prompts"), dict):
+        llm_prompts_raw.update(dict(loss_llm_raw.get("prompts") or {}))
+    llm_prompts_defaults = {
+        "builder_generation": "PTP/prompts/pref_builder_generation.txt",
+        "builder_crossover": "PTP/prompts/pref_builder_crossover.txt",
+        "builder_mutation": "PTP/prompts/pref_builder_mutation.txt",
+        "builder_e2": "PTP/prompts/pref_builder_e2.txt",
+        "builder_m2": "PTP/prompts/pref_builder_m2.txt",
+        "builder_m3": "PTP/prompts/pref_builder_m3.txt",
+        "builder_repair": "PTP/prompts/pref_builder_repair.txt",
+        "loss_generation": "PTP/prompts/free_loss_generation.txt",
+        "loss_crossover": "PTP/prompts/free_loss_crossover.txt",
+        "loss_mutation": "PTP/prompts/free_loss_mutation.txt",
+        "loss_e2": "PTP/prompts/free_loss_e2.txt",
+        "loss_m2": "PTP/prompts/free_loss_m2.txt",
+        "loss_m3": "PTP/prompts/free_loss_m3.txt",
+        "loss_repair": "PTP/prompts/free_loss_repair.txt",
+    }
+    llm_prompts: Dict[str, str] = {}
+    for k, v in llm_prompts_defaults.items():
+        val = llm_prompts_raw.get(k, v)
+        llm_prompts[k] = _abs_from_repo_root(str(val))
+
+    default_parent_p = int(cfg_yaml.get("llm_parent_p", 5) or 5)
+    default_repair_attempts = int(cfg_yaml.get("llm_repair_attempts", 1) or 1)
+    default_repair_enabled = bool(cfg_yaml.get("llm_repair_on_failure", True))
+
+    builder_repair_raw = builder_llm_raw.get("repair", {}) or {}
+    if not isinstance(builder_repair_raw, dict):
+        builder_repair_raw = {}
+    loss_repair_raw = loss_llm_raw.get("repair", {}) or {}
+    if not isinstance(loss_repair_raw, dict):
+        loss_repair_raw = {}
+
+    builder_cfg: Dict[str, Any] = {
+        "enabled": bool(builder_llm_enabled),
+        "parent_p": int(builder_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
+        # New-style per-op counts (optional).
+        "init_num_E1": builder_llm_raw.get("init_num_E1"),
+        "init_num_E2": builder_llm_raw.get("init_num_E2"),
+        "init_num_M1": builder_llm_raw.get("init_num_M1"),
+        "init_num_M2": builder_llm_raw.get("init_num_M2"),
+        "num_E1": builder_llm_raw.get("num_E1"),
+        "num_E2": builder_llm_raw.get("num_E2"),
+        "num_M1": builder_llm_raw.get("num_M1"),
+        "num_M2": builder_llm_raw.get("num_M2"),
+        # Legacy total budgets (fallback).
+        "init_llm_g": int(builder_llm_raw.get("init_llm_g", cfg_yaml.get("init_llm_g", 0)) or 0),
+        "llm_per_gen_g": int(builder_llm_raw.get("llm_per_gen_g", cfg_yaml.get("llm_per_gen_g", 0)) or 0),
+        "repair": {
+            "enabled": bool(builder_repair_raw.get("enabled", builder_llm_raw.get("repair_enabled", default_repair_enabled))),
+            "max_attempts": int(
+                builder_repair_raw.get(
+                    "max_attempts",
+                    builder_llm_raw.get("repair_max_attempts", default_repair_attempts),
+                )
+                or default_repair_attempts
+            ),
+            "simplify_first": bool(builder_repair_raw.get("simplify_first", True)),
+        },
+    }
+    loss_cfg: Dict[str, Any] = {
+        "enabled": bool(loss_llm_enabled),
+        "parent_p": int(loss_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
+        "init_num_E1": loss_llm_raw.get("init_num_E1"),
+        "init_num_E2": loss_llm_raw.get("init_num_E2"),
+        "init_num_M1": loss_llm_raw.get("init_num_M1"),
+        "init_num_M2": loss_llm_raw.get("init_num_M2"),
+        "num_E1": loss_llm_raw.get("num_E1"),
+        "num_E2": loss_llm_raw.get("num_E2"),
+        "num_M1": loss_llm_raw.get("num_M1"),
+        "num_M2": loss_llm_raw.get("num_M2"),
+        "init_llm_f": int(loss_llm_raw.get("init_llm_f", cfg_yaml.get("init_llm_f", 0)) or 0),
+        "llm_per_gen_f": int(loss_llm_raw.get("llm_per_gen_f", cfg_yaml.get("llm_per_gen_f", 0)) or 0),
+        "repair": {
+            "enabled": bool(loss_repair_raw.get("enabled", loss_llm_raw.get("repair_enabled", default_repair_enabled))),
+            "max_attempts": int(
+                loss_repair_raw.get(
+                    "max_attempts",
+                    loss_llm_raw.get("repair_max_attempts", default_repair_attempts),
+                )
+                or default_repair_attempts
+            ),
+            "simplify_first": bool(loss_repair_raw.get("simplify_first", True)),
+        },
+    }
+
+    llm_cfg: Dict[str, Any] = {
+        "enabled": bool(llm_enabled),
+        "offline_mode": bool(llm_offline_mode),
+        "prompts": dict(llm_prompts),
+        "builder_gate": {
+            "min_pairs": int(cfg_yaml.get("builder_min_pairs", 1) or 1),
+            "min_coverage": float(cfg_yaml.get("builder_min_coverage", 1.0) or 1.0),
+            "max_pairs_per_instance": int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
+            "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
+            "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
+            "semantic_min_pass_rate": float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+        },
+        "builder": builder_cfg,
+        "loss": loss_cfg,
+    }
+
+    if llm_enabled:
+        loss_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=llm_offline_mode)
+        builder_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=llm_offline_mode)
+        try:
+            LOGGER.info("LLM cache stats: %s", dict(loss_llm_ops.llm_cache_stats()))
+        except Exception:  # noqa: BLE001
+            pass
+
     builders_jsonl = os.path.join(run_dir, "builders.jsonl")
     losses_jsonl = os.path.join(run_dir, "losses.jsonl")
     pairs_jsonl = os.path.join(run_dir, "pairs.jsonl")
@@ -1790,8 +2921,52 @@ def run_pref_loss_coevo(
 
     _save_checkpoint(run_dir, _checkpoint_state(gen_start))
 
+    llm_feedback_state: Dict[str, Any] = {}
+
     for gen in range(gen_start, generations):
         LOGGER.info("=== coevo generation %d/%d ===", gen, generations - 1)
+
+        best_builder_ir = dict(elites_g[0].get("ir")) if elites_g else None
+        if isinstance(best_builder_ir, dict) and isinstance(best_builder_ir.get("code"), str):
+            best_builder_ir["code"] = _truncate_code(best_builder_ir.get("code", ""))
+        best_loss_ir = dict(elites_f[0].get("ir")) if elites_f else None
+        if isinstance(best_loss_ir, dict) and isinstance(best_loss_ir.get("code"), str):
+            best_loss_ir["code"] = _truncate_code(best_loss_ir.get("code", ""))
+
+        best_builder_summary = summarize_best_builder(elites_g[0]) if elites_g else None
+        best_loss_summary = summarize_best_loss(elites_f[0]) if elites_f else None
+        if llm_enabled:
+            try:
+                b_len = len(str((best_builder_summary or {}).get("code", "")))
+                f_len = len(str((best_loss_summary or {}).get("code", "")))
+            except Exception:  # noqa: BLE001
+                b_len = -1
+                f_len = -1
+            LOGGER.info(
+                "Gen %d prompt context sizes: best_builder_summary.code=%d chars best_loss_summary.code=%d chars",
+                int(gen),
+                int(b_len),
+                int(f_len),
+            )
+
+        global_feedback: Dict[str, Any] = dict(llm_feedback_state)
+        global_feedback.update(
+            {
+                "generation": int(gen),
+                "objective": "lower_is_better",
+                "proxy_problem_size": int(proxy_problem_size),
+                "proxy_batch_size": int(proxy_batch_size),
+                "proxy_batches": int(proxy_batches),
+                "pairing_budget_per_gen": int(pairing_budget),
+                "generations": int(generations),
+                "operator_whitelist": list(operator_whitelist),
+                "builder_gate": dict(llm_cfg.get("builder_gate", {})),
+                "best_builder": best_builder_ir,
+                "best_loss": best_loss_ir,
+                "best_builder_summary": best_builder_summary,
+                "best_loss_summary": best_loss_summary,
+            }
+        )
 
         proposed_g = _propose_builders_for_generation(
             generation=int(gen),
@@ -1799,6 +2974,9 @@ def run_pref_loss_coevo(
             elites_g=elites_g,
             diverse_elites_g=diverse_elites_g,
             rng=rng,
+            llm_cfg=llm_cfg if llm_enabled else None,
+            operator_whitelist=operator_whitelist,
+            global_feedback=global_feedback if llm_enabled else None,
         )
         proposed_f = _propose_losses_for_generation(
             generation=int(gen),
@@ -1806,6 +2984,9 @@ def run_pref_loss_coevo(
             elites_f=elites_f,
             diverse_elites_f=diverse_elites_f,
             rng=rng,
+            llm_cfg=llm_cfg if llm_enabled else None,
+            operator_whitelist=operator_whitelist,
+            global_feedback=global_feedback if llm_enabled else None,
         )
 
         # Dedupe for novelty across resume + prior generations.
@@ -1827,7 +3008,18 @@ def run_pref_loss_coevo(
                 sig = _sig_pref_builder(ir)
                 if sig in seen_g:
                     continue
-                unique.append({"ir": ir, "origin": "seed_fill", "parents": []})
+                unique.append(
+                    {
+                        "ir": ir,
+                        "origin": "SEED",
+                        "op_type": "SEED_FILL",
+                        "parents": [],
+                        "attempt": 0,
+                        "prompt_sha1": None,
+                        "prompt_path": None,
+                        "history": [],
+                    }
+                )
                 seen_g.add(sig)
             return unique[:pop_g]
 
@@ -1849,7 +3041,18 @@ def run_pref_loss_coevo(
                 sig = _sig_free_loss(ir)
                 if sig in seen_f:
                     continue
-                unique2.append({"ir": ir, "origin": "seed_fill", "parents": []})
+                unique2.append(
+                    {
+                        "ir": ir,
+                        "origin": "SEED",
+                        "op_type": "SEED_FILL",
+                        "parents": [],
+                        "attempt": 0,
+                        "prompt_sha1": None,
+                        "prompt_path": None,
+                        "history": [],
+                    }
+                )
                 seen_f.add(sig)
             return unique2[:pop_f]
 
@@ -1877,7 +3080,14 @@ def run_pref_loss_coevo(
                 "id": f"g{gen:03d}_{idx:03d}_{sig[:8]}",
                 "signature": sig,
                 "origin": str(proposal.get("origin", "unknown")),
+                "origin_base": proposal.get("origin_base"),
+                "op_type": proposal.get("op_type"),
                 "parents": list(proposal.get("parents", [])),
+                "attempt": proposal.get("attempt", 0),
+                "prompt_sha1": proposal.get("prompt_sha1"),
+                "prompt_path": proposal.get("prompt_path"),
+                "llm_seed": proposal.get("llm_seed"),
+                "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "ir": asdict(ir),
             }
             try:
@@ -1920,7 +3130,14 @@ def run_pref_loss_coevo(
                 "id": f"f{gen:03d}_{idx:03d}_{sig[:8]}",
                 "signature": sig,
                 "origin": str(proposal.get("origin", "unknown")),
+                "origin_base": proposal.get("origin_base"),
+                "op_type": proposal.get("op_type"),
                 "parents": list(proposal.get("parents", [])),
+                "attempt": proposal.get("attempt", 0),
+                "prompt_sha1": proposal.get("prompt_sha1"),
+                "prompt_path": proposal.get("prompt_path"),
+                "llm_seed": proposal.get("llm_seed"),
+                "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "ir": asdict(ir),
                 "static_ok": bool(static_res.ok),
                 "static_reason": str(static_res.reason),
@@ -1939,6 +3156,47 @@ def run_pref_loss_coevo(
                 entry["compile_reason"] = "static_gate_failed"
             f_entries.append(entry)
         _append_jsonl(losses_jsonl, f_entries)
+
+        if llm_enabled:
+            g_llm_ops = collections.Counter()
+            f_llm_ops = collections.Counter()
+            g_repairs = 0
+            f_repairs = 0
+            for e in g_entries:
+                if str(e.get("origin")) == "REPAIR":
+                    g_repairs += 1
+                hist = e.get("history")
+                if isinstance(hist, list):
+                    for h in hist:
+                        if not isinstance(h, dict):
+                            continue
+                        op = h.get("llm_op") or h.get("op")
+                        if op:
+                            g_llm_ops[str(op)] += 1
+            for e in f_entries:
+                if str(e.get("origin")) == "REPAIR":
+                    f_repairs += 1
+                hist = e.get("history")
+                if isinstance(hist, list):
+                    for h in hist:
+                        if not isinstance(h, dict):
+                            continue
+                        op = h.get("llm_op") or h.get("op")
+                        if op:
+                            f_llm_ops[str(op)] += 1
+            try:
+                cache_stats = dict(loss_llm_ops.llm_cache_stats())
+            except Exception:  # noqa: BLE001
+                cache_stats = {}
+            LOGGER.info(
+                "Gen %d LLM ops: builders=%s (repairs=%d) losses=%s (repairs=%d) cache=%s",
+                int(gen),
+                dict(g_llm_ops),
+                int(g_repairs),
+                dict(f_llm_ops),
+                int(f_repairs),
+                cache_stats,
+            )
 
         g_pool = [e for e in g_entries if bool(e.get("compile_ok")) and bool(e.get("builder_static_ok", True))]
         f_pool = [e for e in f_entries if bool(e.get("compile_ok"))]
@@ -2365,6 +3623,74 @@ def run_pref_loss_coevo(
             dict(stage_ctr),
             reason_ctr.most_common(3),
         )
+
+        # Candidate-level failures (useful for repair prompts).
+        g_fail_compile = sum(1 for e in g_entries if not bool(e.get("compile_ok")))
+        g_fail_gate = sum(1 for e in g_entries if bool(e.get("compile_ok")) and not bool(e.get("builder_static_ok", True)))
+        f_fail_static = sum(1 for e in f_entries if not bool(e.get("static_ok", True)))
+        f_fail_compile = sum(1 for e in f_entries if bool(e.get("static_ok", True)) and not bool(e.get("compile_ok", False)))
+
+        # Pair-level gate failure kinds.
+        gate_kind_ctr: collections.Counter[str] = collections.Counter()
+        for rec in pair_records:
+            for k in ("builder_gate_trace", "joint_gate_trace", "pref_semantic_trace"):
+                t = rec.get(k)
+                if not isinstance(t, dict):
+                    continue
+                kind = t.get("failure_kind") or t.get("failed_gate")
+                if kind is None:
+                    continue
+                gate_kind_ctr[str(kind)] += 1
+
+        # Best pair preview (for coevolution guidance).
+        best_pair_preview: Dict[str, Any] | None = None
+        best_score_preview = float("inf")
+        for rec in pair_records:
+            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID:
+                continue
+            if str(rec.get("stage")) == "anchor":
+                continue
+            if not bool(rec.get("pair_ok")):
+                continue
+            try:
+                score_f = float(rec.get("score", float("inf")))
+            except (TypeError, ValueError):
+                continue
+            if score_f < best_score_preview:
+                best_score_preview = score_f
+                best_pair_preview = {
+                    "g_id": rec.get("g_id"),
+                    "f_id": rec.get("f_id"),
+                    "score": score_f,
+                    "stage": rec.get("stage"),
+                    "proxy_score": rec.get("proxy_score"),
+                    "pair_reason": rec.get("pair_reason"),
+                    "builder_gate_reason": rec.get("builder_gate_reason"),
+                    "joint_gate_reason": rec.get("joint_gate_reason"),
+                }
+
+        # Feed back coarse failure modes to LLM in the next generation.
+        llm_feedback_state = {
+            "prev_gen_summary": {
+                "stage_counts": dict(stage_ctr),
+                "ok_pairs": int(ok_ctr),
+                "top_pair_reasons": list(reason_ctr.most_common(8)),
+                "top_gate_failure_kinds": list(gate_kind_ctr.most_common(8)),
+            }
+        }
+        llm_feedback_state["prev_gen_candidates"] = {
+            "g_fail_compile": int(g_fail_compile),
+            "g_fail_gate": int(g_fail_gate),
+            "f_fail_static": int(f_fail_static),
+            "f_fail_compile": int(f_fail_compile),
+            "pop_g": int(len(g_entries)),
+            "pop_f": int(len(f_entries)),
+        }
+        llm_feedback_state["prev_gen_best_pair_preview"] = best_pair_preview
+        try:
+            llm_feedback_state["prev_gen_llm_cache"] = dict(loss_llm_ops.llm_cache_stats())
+        except Exception:  # noqa: BLE001
+            pass
         if "cheap" not in stage_ctr:
             LOGGER.warning(
                 "Gen %d produced no core cheap evaluations (stage='cheap'). "

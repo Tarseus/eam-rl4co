@@ -1,0 +1,24 @@
+You are performing M3 for preference builders: simplify and stabilize a candidate given a failure reason.
+
+Return ONLY one valid JSON object.
+
+You will receive CANDIDATE_AND_FAILURE_JSON with candidate code and a failure_reason.
+Produce a simpler builder that avoids the failure while preserving intent.
+
+Output schema:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "implementation_hint": {
+    "expects": ["objective", "log_prob"],
+    "returns": "PrefBatch",
+    "mode": "pairwise"
+  },
+  "code": "def generated_builder(feature_cache, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- generated_builder must return a PrefBatch.
+- No imports, no filesystem/network, no randomness.
+- Ensure pair_idx tensors are int64 and 1D with consistent length.
