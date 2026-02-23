@@ -1,0 +1,38 @@
+[2026-02-22 22:43:29,393] INFO:ptp_discovery.free_loss_eoh: Starting free loss EoH search with config=/tmp/free_loss_eoh_cfg_FzBxPT.yaml
+[2026-02-22 22:43:29,393] INFO:ptp_discovery.free_loss_eoh: Resuming search from run directory: /data1/gushengda/eam-rl4co/runs/free_loss_discovery/20260222-181623
+[2026-02-22 22:43:29,588] INFO:ptp_discovery.free_loss_eoh: Run directory: /data1/gushengda/eam-rl4co/runs/free_loss_discovery/20260222-181623
+[2026-02-22 22:43:29,591] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 57 (/data1/gushengda/eam-rl4co/runs/free_loss_discovery/20260222-181623/llm_cache.jsonl)
+[2026-02-22 22:43:29,865] INFO:ptp_discovery.free_loss_eoh: External baseline loaded: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv epoch_start=410 epochs=20 val_column=val/max_reward
+[2026-02-22 22:43:29,865] INFO:ptp_discovery.free_loss_eoh: Gate retries: max_repair_rounds=4 (LLM repairs), max_resample_rounds=4 (drop+resample)
+[2026-02-22 22:43:29,867] INFO:ptp_discovery.free_loss_eoh: === Generation 1/9 ===
+[2026-02-22 22:43:29,867] INFO:ptp_discovery.free_loss_eoh: Generating population via E1/E2/M1/M2/M3: size=8, elite_size=4, parent_pool=1
+[2026-02-22 22:43:30,303] INFO:ptp_discovery.free_loss_eoh: Population size for generation 1: 8
+[2026-02-22 22:43:30,427] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_logprobs'
+[2026-02-22 22:43:30,430] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_model_output'
+[2026-02-22 22:43:30,457] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='scalar_loss'
+[2026-02-22 22:43:30,460] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,463] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_model_output_and_extra'
+[2026-02-22 22:43:30,490] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_extra'
+[2026-02-22 22:43:30,493] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_keys'
+[2026-02-22 22:43:30,495] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,521] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_keys'
+[2026-02-22 22:43:30,523] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_extra'
+[2026-02-22 22:43:30,525] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='scalar_loss'
+[2026-02-22 22:43:30,550] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_model_output'
+[2026-02-22 22:43:30,552] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,553] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,577] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_output'
+[2026-02-22 22:43:30,582] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,584] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,588] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch_and_model_output'
+[2026-02-22 22:43:30,590] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='batch'
+[2026-02-22 22:43:30,592] DEBUG:ptp_discovery.free_loss_ir: implementation_hint.mode invalid; raw='preference'
+[2026-02-22 22:43:30,596] WARNING:ptp_discovery.free_loss_eoh: CO gates failed for gen=1, idx=7, name=m3_stable_cost_shift_logsigmoid_v3: reason=affine_invariance_violation; attempting repair (repair_round=4/4)
+[2026-02-22 22:43:48,440] INFO:httpx: HTTP Request: POST https://api.bltcy.ai/v1/chat/completions "HTTP/1.1 200 OK"
+[2026-02-22 22:43:48,468] WARNING:ptp_discovery.free_loss_eoh: Dynamic gates failed for gen=1, idx=7, name=m3_affine_invariant_costnorm_logsigmoid: reason=forward_error: abs, loss_value=None, grad_norm=None
+[free_loss_eoh][device_worker] pid=17254 device=cuda:3 jobs=[(1, 3)]
+[free_loss_eoh][device_worker] pid=17252 device=cuda:1 jobs=[(1, 1)]
+[free_loss_eoh][device_worker] pid=17255 device=cuda:4 jobs=[(1, 4)]
+[free_loss_eoh][device_worker] pid=17256 device=cuda:5 jobs=[(1, 5)]
+[free_loss_eoh][device_worker] pid=17251 device=cuda:0 jobs=[(1, 0)]
+[free_loss_eoh][device_worker] pid=17253 device=cuda:2 jobs=[(1, 2)]

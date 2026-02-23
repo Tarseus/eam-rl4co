@@ -1,0 +1,84 @@
+{
+  "generation": 9,
+  "index": 2,
+  "id": "g009_002_14a4ec42",
+  "signature": "14a4ec42fb03552eeb54ac04ffc728b7cbf44011",
+  "origin": "E2",
+  "origin_base": "E2",
+  "op_type": "E2",
+  "parents": [
+    "g008_000_3d5a051b",
+    "g008_011_a6296614",
+    "g008_001_ae9542d0",
+    "g008_004_66644bbd",
+    "g004_006_b25b49e6"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "1e661ed30592a72ba784d7e22ec16081c0561463",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+  "llm_seed": 1003128137,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "E2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+      "prompt_sha1": "1e661ed30592a72ba784d7e22ec16081c0561463"
+    }
+  ],
+  "ir": {
+    "name": "stratified_rank_bands_001",
+    "intuition": "All parents succeed by using objective-sorted ranks to get deterministic, full per-instance coverage while avoiding noisy near-tie comparisons and spending extra budget only when the instance has clear spread. A shared weakness is over-reliance on adjacent ladders (highly local) plus a single extreme anchor, which can miss informative mid-vs-tail separations under tight budgets. This builder keeps rank-based determinism and optional spread-gated emphasis, but changes the mechanism to stratified rank-band pairings: always include one near-best adjacent pair for coverage, then add mid-band and tail-band comparisons (mid vs next, and mid vs tail) with tie/margin filtering, plus an optional best-vs-worst anchor only when the spread is clearly large.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    B, N = objective.shape\n\n    max_pairs = extra.get('max_pairs', 128)\n    max_pairs_per_instance = extra.get('max_pairs_per_instance', None)\n\n    # Drop comparisons that are too close in objective (except the first coverage pair).\n    objective_margin = extra.get('objective_margin', 0.0)\n\n    # Gate anchors / long-range pairs on clear spread.\n    anchor_min_gap = extra.get('anchor_min_gap', 0.0)\n    anchor_rel_min_gap = extra.get('anchor_rel_min_gap', 0.0)\n\n    # Cap how many stratified (non-anchor) pairs we try per instance.\n    max_stratified_pairs = extra.get('max_stratified_pairs', 3)\n\n    if B <= 0 or N < 2 or max_pairs is None or max_pairs <= 0:\n        empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(empty, empty, empty),\n            weight=None,\n            meta={\n                'builder': 'stratified_rank_bands',\n                'per_cap': 0,\n                'kept_pairs': 0,\n                'anchors_added': 0,\n            },\n        )\n\n    device = objective.device\n    dtype = objective.dtype\n\n    per_cap = max_pairs // B\n    if per_cap < 1:\n        per_cap = 1\n    if max_pairs_per_instance is not None and per_cap > max_pairs_per_instance:\n        per_cap = max_pairs_per_instance\n\n    # At most N pairs per instance is plenty: (<=3 stratified + optional anchor).\n    if per_cap > N:\n        per_cap = N\n\n    # Rank: best (lowest objective) first.\n    order = objective.argsort(dim=1)\n\n    # Compute per-instance spread for gating long-range comparisons.\n    spread_ok = objective.new_zeros((B,), dtype=torch.bool)\n    if N >= 3 and per_cap >= 2:\n        best_obj = objective.gather(1, order[:, :1]).squeeze(1)\n        worst_obj = objective.gather(1, order[:, -1:]).squeeze(1)\n        gap = worst_obj - best_obj\n        eps = torch.as_tensor(1e-6, device=device, dtype=dtype)\n        scale = best_obj.abs() + worst_obj.abs() + eps\n        rel_gap = gap / scale\n        gap_thr = torch.as_tensor(anchor_min_gap, device=device, dtype=dtype)\n        rel_thr = torch.as_tensor(anchor_rel_min_gap, device=device, dtype=dtype)\n        spread_ok = (gap > gap_thr) & (rel_gap > rel_thr)\n\n    # Decide whether we will add any anchor globally; reserve one slot if so.\n    will_add_any_anchor = (N >= 3) and (per_cap >= 2) and spread_ok.any().item()\n    strat_budget = per_cap - (1 if will_add_any_anchor else 0)\n    if strat_budget < 1:\n        strat_budget = 1\n        will_add_any_anchor = False\n\n    # How many stratified pairs to attempt per instance.\n    k = max_stratified_pairs\n    if k is None:\n        k = 3\n    if k < 1:\n        k = 1\n    if k > 3:\n        k = 3\n    if k > strat_budget:\n        k = strat_budget\n\n    # Rank positions for stratified pairing.\n    # p0: near-best adjacent for coverage\n    # p1: mid adjacent for mid-quality discrimination\n    # p2: mid vs tail (long-range) to connect bands (only if spread_ok)\n    p0 = 0\n    p1 = (N // 2) - 1\n    if p1 < 0:\n        p1 = 0\n    if p1 > (N - 2):\n        p1 = N - 2\n    mid = N // 2\n    if mid < 0:\n        mid = 0\n    if mid > (N - 1):\n        mid = N - 1\n\n    # Build candidate pairs (win_rank, lose_rank).\n    # Always include p0 vs p0+1.\n    win_r = torch.as_tensor([p0], device=device, dtype=torch.long)\n    lose_r = torch.as_tensor([p0 + 1], device=device, dtype=torch.long)\n\n    if k >= 2:\n        # Include a mid adjacent pair if it differs from p0.\n        if p1 != p0:\n            win_r = torch.cat([win_r, torch.as_tensor([p1], device=device, dtype=torch.long)], dim=0)\n            lose_r = torch.cat([lose_r, torch.as_tensor([p1 + 1], device=device, dtype=torch.long)], dim=0)\n        else:\n            # If duplicate, fall back to tail-adjacent.\n            tail_adj = N - 2\n            if tail_adj < 0:\n                tail_adj = 0\n            if tail_adj != p0:\n                win_r = torch.cat([win_r, torch.as_tensor([tail_adj], device=device, dtype=torch.long)], dim=0)\n                lose_r = torch.cat([lose_r, torch.as_tensor([tail_adj + 1], device=device, dtype=torch.long)], dim=0)\n\n    if k >= 3:\n        # Add a long-range mid vs worst to connect bands; we'll gate per instance.\n        if mid != (N - 1):\n            win_r = torch.cat([win_r, torch.as_tensor([mid], device=device, dtype=torch.long)], dim=0)\n            lose_r = torch.cat([lose_r, torch.as_tensor([N - 1], device=device, dtype=torch.long)], dim=0)\n\n    # Apply k after dedup/fallback.\n    if win_r.numel() > k:\n        win_r = win_r[:k]\n        lose_r = lose_r[:k]\n\n    # Gather indices.\n    b_grid = torch.arange(B, device=device, dtype=torch.long).unsqueeze(1).expand(B, win_r.numel())\n    win_rank_grid = win_r.unsqueeze(0).expand(B, win_r.numel())\n    lose_rank_grid = lose_r.unsqueeze(0).expand(B, lose_r.numel())\n\n    win_idx_full = order.gather(1, win_rank_grid)\n    lose_idx_full = order.gather(1, lose_rank_grid)\n\n    # Margin filtering: keep if lose_obj - win_obj > margin.\n    win_obj = objective.gather(1, win_idx_full)\n    lose_obj = objective.gather(1, lose_idx_full)\n    gap = lose_obj - win_obj\n    margin_t = torch.as_tensor(objective_margin, device=device, dtype=dtype)\n    keep = gap > margin_t\n    # Always keep the first (coverage) pair.\n    keep[:, 0] = True\n\n    # Additionally gate the long-range (third) pair on spread_ok.\n    if win_r.numel() >= 3:\n        keep[:, 2] = keep[:, 2] & spread_ok\n\n    b_kept = b_grid[keep].reshape(-1).to(dtype=torch.long)\n    w_kept = win_idx_full[keep].reshape(-1).to(dtype=torch.long)\n    l_kept = lose_idx_full[keep].reshape(-1).to(dtype=torch.long)\n\n    parts_b = [b_kept]\n    parts_w = [w_kept]\n    parts_l = [l_kept]\n\n    anchors_added = objective.new_zeros((), dtype=torch.long)\n    if will_add_any_anchor:\n        b_a = torch.arange(B, device=device, dtype=torch.long)[spread_ok]\n        if b_a.numel() > 0:\n            w_a = order[:, 0].to(dtype=torch.long)[spread_ok]\n            l_a = order[:, -1].to(dtype=torch.long)[spread_ok]\n            parts_b.append(b_a)\n            parts_w.append(w_a)\n            parts_l.append(l_a)\n            anchors_added = spread_ok.to(dtype=torch.long).sum()\n\n    b_idx = torch.cat(parts_b, dim=0).reshape(-1).to(dtype=torch.long)\n    winner_idx = torch.cat(parts_w, dim=0).reshape(-1).to(dtype=torch.long)\n    loser_idx = torch.cat(parts_l, dim=0).reshape(-1).to(dtype=torch.long)\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=None,\n        meta={\n            'builder': 'stratified_rank_bands',\n            'per_cap': torch.as_tensor(per_cap, device=device, dtype=torch.long),\n            'stratified_k': torch.as_tensor(win_r.numel(), device=device, dtype=torch.long),\n            'kept_pairs': torch.as_tensor(b_kept.numel(), device=device, dtype=torch.long),\n            'anchors_added': anchors_added,\n            'objective_margin': torch.as_tensor(0.0 if (objective_margin is None) else objective_margin, device=device, dtype=dtype),\n            'anchor_min_gap': torch.as_tensor(0.0 if (anchor_min_gap is None) else anchor_min_gap, device=device, dtype=dtype),\n            'anchor_rel_min_gap': torch.as_tensor(0.0 if (anchor_rel_min_gap is None) else anchor_rel_min_gap, device=device, dtype=dtype),\n        },\n    )"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 32,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 4,
+        "threshold": 4096,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 0.9323990573036077,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
