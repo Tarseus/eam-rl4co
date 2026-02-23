@@ -89,6 +89,10 @@ baseline:
   metrics_csv: baseline/metrics.csv
   checkpoint: baseline/epoch_409.ckpt
   checkpoint_epoch: 409
+  # When using `scratch_hf_epochs + warmstart_hf_epochs`, build a fair baseline by concatenating:
+  #   scratch slice   = [scratch_start_epoch, scratch_start_epoch + scratch_hf_epochs)
+  #   warm-start slice= [checkpoint_epoch + 1, checkpoint_epoch + 1 + warmstart_hf_epochs)
+  scratch_start_epoch: 0
   val_column: val/reward
 
 # Cheap proxy (multi-fidelity) settings
@@ -186,6 +190,16 @@ objective_sign: neg_reward
 
 hf_epochs: 20
 hf_instances_per_epoch: 100000
+
+# Candidate evaluation init split (total epochs = scratch + warmstart).
+# Aligns with `configs/experiment/free_loss_discovery/rl4co.yaml`.
+scratch_hf_epochs: 10
+warmstart_hf_epochs: 10
+baseline_epoch_compare_offset: 0
+
+# Early-eval horizon for warm-start early stopping (steps derived from epochs/instances).
+early_eval_epochs: 2
+early_eval_instances_per_epoch: 10000
 train_problem_size: 100
 valid_problem_sizes: [100]
 train_batch_size: 64
@@ -206,4 +220,3 @@ baseline_epoch_window_k: 10
 baseline_epoch_window_violation_weight: 0.0
 
 cache_persist_dir: null
-

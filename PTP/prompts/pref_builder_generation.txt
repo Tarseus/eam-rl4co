@@ -16,6 +16,7 @@ The JSON MUST be parseable by `ptp_discovery.pref_builder_ir.ir_from_json` and M
 
 Hard constraints:
 - Output JSON only.
+- `intuition` must be non-empty and specific to the constructed preferences.
 - `implementation_hint.mode` is one of: pairwise, setwise, listwise (prefer pairwise).
 - `implementation_hint.expects` must be a non-empty list and must include objective and log_prob when in pairwise.
 - `code` must define `generated_builder(feature_cache, extra)` and return a PrefBatch.
