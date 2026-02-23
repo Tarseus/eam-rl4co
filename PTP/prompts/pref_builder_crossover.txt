@@ -19,6 +19,7 @@ Output schema:
 
 Hard constraints:
 - Output JSON only.
+- `intuition` must be non-empty and specific to the constructed preferences.
 - generated_builder must return a PrefBatch.
 - No imports, no filesystem/network, no randomness.
 - Use torch/ops only.

@@ -19,6 +19,7 @@ The JSON MUST be parseable by `ptp_discovery.free_loss_compiler.parse_free_loss_
 
 Hard constraints:
 - Output JSON only.
+- `intuition` must be non-empty and specific (explain the signal and why it should work).
 - `implementation_hint.mode` is "pairwise" or "setwise".
 - `implementation_hint.returns` must describe a scalar output (use "scalar").
 - `implementation_hint.expects` must be a non-empty list of valid keys for the chosen mode.
@@ -33,4 +34,3 @@ Hard constraints:
 You may read `alpha` as: `alpha = float(extra.get("alpha", extra.get("hyperparams", {}).get("alpha", 1.0)))`.
 
 If you receive `GLOBAL_FEEDBACK_JSON`, use it to avoid repeated failure modes and to explore novel operators/hyperparams.
-

@@ -520,6 +520,15 @@ def run_static_gates(
 ) -> StaticGateResult:
     if not ir.name:
         return StaticGateResult(ok=False, reason="Missing name.")
+    if not (ir.intuition or "").strip():
+        return StaticGateResult(
+            ok=False,
+            reason="Missing intuition.",
+            trace={
+                "failed_gate": "Interpretability",
+                "failure_kind": "missing_intuition",
+            },
+        )
     if not ir.pseudocode:
         return StaticGateResult(ok=False, reason="Missing pseudocode.")
     # We keep operators_used as a descriptive field but no longer enforce
