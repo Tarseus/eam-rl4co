@@ -101,6 +101,21 @@ Train model with default configuration (AM on TSP environment):
 python run.py
 ```
 
+### PTP: Preference Builder/Loss Co-evolution (Double-EoH)
+
+Run the two-population coevolution loop with LLM EoH operators enabled (E1/E2/M1/M2 + repair):
+```bash
+./run_pref_loss_coevo_double_eoh.sh PTP/configs/experiment/pref_loss_coevo/double_eoh.yaml start
+```
+
+To run fully offline (no LLM calls), set:
+```yaml
+builder_llm:
+  enabled: false
+loss_llm:
+  enabled: false
+```
+
 > [!TIP]
 > You may check out [this notebook](examples/advanced/1-hydra-config.ipynb) to get started with Hydra!
 

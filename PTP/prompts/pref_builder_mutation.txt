@@ -1,0 +1,29 @@
+You are performing M1 mutation for a preference builder.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+You will receive PARENT_JSON with the parent builder and its metrics.
+Make a small but meaningful change that could improve training signal quality or generalization.
+
+Output schema:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "implementation_hint": {
+    "expects": ["objective", "log_prob"],
+    "returns": "PrefBatch",
+    "mode": "pairwise"
+  },
+  "code": "def generated_builder(feature_cache, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- generated_builder must return a PrefBatch.
+- No imports, no filesystem/network, no randomness.
+
+Allowed mutation ideas:
+- Replace all-pairs with sampled_pairs
+- Switch to anchor_best
+- Add a gap_threshold and make it configurable via extra
+- Add a simple nonnegative weight based on gap or rank distance

@@ -1,0 +1,28 @@
+You are performing E1 crossover for preference builders.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+You will receive PARENTS_JSON containing multiple parent builders and their metrics.
+Synthesize a new child builder that combines the best ideas while staying simple and robust.
+
+Output schema:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "implementation_hint": {
+    "expects": ["objective", "log_prob"],
+    "returns": "PrefBatch",
+    "mode": "pairwise"
+  },
+  "code": "def generated_builder(feature_cache, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- generated_builder must return a PrefBatch.
+- No imports, no filesystem/network, no randomness.
+- Use torch/ops only.
+
+Guidance:
+- Prefer controlling pair count via explicit downsampling or anchor constructions.
+- If parents disagree, keep the most stable pattern and add a single novelty element.
