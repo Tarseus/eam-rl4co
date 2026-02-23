@@ -279,6 +279,8 @@ def run_joint_preference_gates(
     feature_cache: Mapping[str, torch.Tensor],
     min_pass_rate: float = 0.8,
     swap_tolerance: float = 1e-3,
+    swap_check_mode: str = "data",
+    swap_test_margin: float = 1.0,
     grad_eps: float = 1e-8,
     min_effective_grad_ratio: float = 0.1,
     variant: str = "visible",
@@ -286,6 +288,7 @@ def run_joint_preference_gates(
     """Joint gate on (builder output, loss function) using one forward/backward pass."""
 
     variant = str(variant or "visible").strip().lower()
+    swap_check_mode = str(swap_check_mode or "data").strip().lower()
     mode = str(getattr(compiled.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
     if mode != "pairwise":
         return JointPreferenceGateResult(
@@ -409,22 +412,52 @@ def run_joint_preference_gates(
     effective = (grad_w.abs() > float(grad_eps)) | (grad_l.abs() > float(grad_eps))
     effective_ratio = float(effective.to(dtype=torch.float32).mean().item())
 
-    # Swap check: swap winner/loser signals and ensure loss increases.
-    swap_batch = dict(batch)
-    swap_batch["log_prob_w"], swap_batch["log_prob_l"] = batch["log_prob_l"].detach(), batch["log_prob_w"].detach()
-    if "cost_a" in swap_batch and "cost_b" in swap_batch:
-        swap_batch["cost_a"], swap_batch["cost_b"] = swap_batch["cost_b"], swap_batch["cost_a"]
-    for key in list(swap_batch.keys()):
-        if key.startswith("delta_") and isinstance(swap_batch[key], torch.Tensor):
-            swap_batch[key] = -swap_batch[key]
+    def _swap_signals(in_batch: Mapping[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        out = dict(in_batch)
+        out["log_prob_w"], out["log_prob_l"] = (
+            out["log_prob_l"].detach(),
+            out["log_prob_w"].detach(),
+        )
+        if "cost_a" in out and "cost_b" in out:
+            out["cost_a"], out["cost_b"] = out["cost_b"], out["cost_a"]
+        for key in list(out.keys()):
+            if key.startswith("delta_") and isinstance(out[key], torch.Tensor):
+                out[key] = -out[key]
+        return out
 
+    swap_ref_loss: float | None = None
     swap_ok: bool | None = None
     loss_swap_val: float | None = None
     try:
-        loss_swap = compiled.loss_fn(batch=swap_batch, model_output={}, extra={"alpha": 1.0})
-        if isinstance(loss_swap, torch.Tensor) and loss_swap.numel() == 1 and torch.isfinite(loss_swap).all().item():
-            loss_swap_val = float(loss_swap.item())
-            swap_ok = loss_swap_val >= float(loss.item()) + float(swap_tolerance)
+        if swap_check_mode == "none":
+            swap_ok = None
+        elif swap_check_mode == "synthetic":
+            lpw_ref = batch["log_prob_w"].detach()
+            lpl_ref = batch["log_prob_l"].detach()
+            mid = 0.5 * (lpw_ref + lpl_ref)
+            mag = (lpw_ref - lpl_ref).abs() + float(swap_test_margin)
+            swap_test_batch = dict(batch)
+            swap_test_batch["log_prob_w"] = (mid + 0.5 * mag).detach()
+            swap_test_batch["log_prob_l"] = (mid - 0.5 * mag).detach()
+            loss_test = compiled.loss_fn(batch=swap_test_batch, model_output={}, extra={"alpha": 1.0})
+            if isinstance(loss_test, torch.Tensor) and loss_test.numel() == 1 and torch.isfinite(loss_test).all().item():
+                swap_ref_loss = float(loss_test.item())
+                swap_batch = _swap_signals(swap_test_batch)
+                loss_swap = compiled.loss_fn(batch=swap_batch, model_output={}, extra={"alpha": 1.0})
+                if (
+                    isinstance(loss_swap, torch.Tensor)
+                    and loss_swap.numel() == 1
+                    and torch.isfinite(loss_swap).all().item()
+                ):
+                    loss_swap_val = float(loss_swap.item())
+                    swap_ok = loss_swap_val >= float(swap_ref_loss) + float(swap_tolerance)
+        else:
+            swap_ref_loss = float(loss.item())
+            swap_batch = _swap_signals(batch)
+            loss_swap = compiled.loss_fn(batch=swap_batch, model_output={}, extra={"alpha": 1.0})
+            if isinstance(loss_swap, torch.Tensor) and loss_swap.numel() == 1 and torch.isfinite(loss_swap).all().item():
+                loss_swap_val = float(loss_swap.item())
+                swap_ok = loss_swap_val >= float(swap_ref_loss) + float(swap_tolerance)
     except Exception:  # noqa: BLE001
         swap_ok = False
 
@@ -455,21 +488,24 @@ def run_joint_preference_gates(
             "failed_gate": None if ok else "JointPreference",
             "failure_kind": None if ok else "joint_preference_violation",
             "observed": {
-                "grad_w_pass_rate": w_pass,
-                "grad_l_pass_rate": l_pass,
-                "effective_grad_ratio": effective_ratio,
-                "loss": float(loss.item()),
-                "loss_swap": loss_swap_val,
-                "swap_ok": swap_ok,
-            },
-            "threshold": {
-                "min_pass_rate": float(min_pass_rate),
-                "swap_tolerance": float(swap_tolerance),
-                "min_effective_grad_ratio": float(min_effective_grad_ratio),
-                "grad_eps": float(grad_eps),
-            },
-            "where_failed": where_failed,
-            "variant": variant,
+            "grad_w_pass_rate": w_pass,
+            "grad_l_pass_rate": l_pass,
+            "effective_grad_ratio": effective_ratio,
+            "loss": float(loss.item()),
+            "loss_swap": loss_swap_val,
+            "swap_ok": swap_ok,
+            "swap_check_mode": swap_check_mode,
+            "swap_ref_loss": swap_ref_loss,
+        },
+        "threshold": {
+            "min_pass_rate": float(min_pass_rate),
+            "swap_tolerance": float(swap_tolerance),
+            "swap_test_margin": float(swap_test_margin),
+            "min_effective_grad_ratio": float(min_effective_grad_ratio),
+            "grad_eps": float(grad_eps),
+        },
+        "where_failed": where_failed,
+        "variant": variant,
         },
     )
 

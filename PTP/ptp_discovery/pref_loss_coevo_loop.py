@@ -397,6 +397,7 @@ def _make_builtin_loss_irs(rng: random.Random, n: int) -> List[FreeLossIR]:
             "    lpw = batch['log_prob_w']\n"
             "    lpl = batch['log_prob_l']\n"
             "    weight = batch.get('weight', None)\n"
+            "    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n"
             f"    scale = float(extra.get('hyperparams', {{}}).get('scale', {scale}))\n"
         )
         if use_cost:
@@ -404,11 +405,12 @@ def _make_builtin_loss_irs(rng: random.Random, n: int) -> List[FreeLossIR]:
                 "    cost_a = batch['cost_a']\n"
                 "    cost_b = batch['cost_b']\n"
                 "    gap = (cost_b - cost_a).detach()\n"
-                "    x = scale * (lpw - lpl) - 0.1 * gap\n"
+                "    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n"
             )
         else:
-            code += "    x = scale * (lpw - lpl)\n"
+            code += "    x = alpha * scale * (lpw - lpl)\n"
         code += (
+            "    x = ops.clamp(x, -20.0, 20.0)\n"
             "    loss = -ops.logsigmoid(x)\n"
             "    if weight is not None:\n"
             "        loss = loss * weight\n"
@@ -418,9 +420,9 @@ def _make_builtin_loss_irs(rng: random.Random, n: int) -> List[FreeLossIR]:
         ir_obj = {
             "name": name,
             "intuition": "rule_based: pairwise logsigmoid loss",
-            "pseudocode": "loss = -log(sigmoid(scale*(lpw-lpl)))",
+            "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
             "hyperparams": {"scale": scale},
-            "operators_used": ["logsigmoid"],
+            "operators_used": ["logsigmoid", "clamp"],
             "implementation_hint": {"expects": expects, "returns": "scalar", "mode": "pairwise"},
             "code": code,
         }
@@ -864,6 +866,14 @@ def _propose_builders_for_generation(
         builder_cfg = llm_root.get("builder")  # type: ignore[assignment]
 
     llm_enabled = bool(builder_cfg and bool(builder_cfg.get("enabled", False)))
+    seed_reserve_raw = None if not isinstance(builder_cfg, Mapping) else builder_cfg.get("seed_reserve")
+    if seed_reserve_raw is None:
+        seed_reserve_raw = 2 if llm_enabled else 0
+    try:
+        seed_reserve = max(0, min(int(seed_reserve_raw or 0), int(pop_g)))
+    except (TypeError, ValueError):
+        seed_reserve = 2 if llm_enabled else 0
+
     if llm_enabled:
         if operator_whitelist is None:
             operator_whitelist = []
@@ -931,7 +941,7 @@ def _propose_builders_for_generation(
             return [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
 
         for op in _op_plan():
-            if len(out) >= pop_g:
+            if len(out) >= max(0, int(pop_g) - int(seed_reserve)):
                 break
             parents_ir: List[PreferenceBuilderIR] = []
             parents_fit: List[Mapping[str, Any]] = []
@@ -1192,6 +1202,14 @@ def _propose_losses_for_generation(
         loss_cfg = llm_root.get("loss")  # type: ignore[assignment]
 
     llm_enabled = bool(loss_cfg and bool(loss_cfg.get("enabled", False)))
+    seed_reserve_raw = None if not isinstance(loss_cfg, Mapping) else loss_cfg.get("seed_reserve")
+    if seed_reserve_raw is None:
+        seed_reserve_raw = 2 if llm_enabled else 0
+    try:
+        seed_reserve = max(0, min(int(seed_reserve_raw or 0), int(pop_f)))
+    except (TypeError, ValueError):
+        seed_reserve = 2 if llm_enabled else 0
+
     if llm_enabled:
         if operator_whitelist is None:
             operator_whitelist = []
@@ -1246,7 +1264,7 @@ def _propose_losses_for_generation(
             return [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
 
         for op in _op_plan():
-            if len(out) >= pop_f:
+            if len(out) >= max(0, int(pop_f) - int(seed_reserve)):
                 break
             parents_ir: List[FreeLossIR] = []
             parents_fit: List[Mapping[str, Any]] = []
@@ -2763,6 +2781,7 @@ def run_pref_loss_coevo(
     builder_cfg: Dict[str, Any] = {
         "enabled": bool(builder_llm_enabled),
         "parent_p": int(builder_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
+        "seed_reserve": int(builder_llm_raw.get("seed_reserve", cfg_yaml.get("builder_seed_reserve", 2)) or 2),
         # New-style per-op counts (optional).
         "init_num_E1": builder_llm_raw.get("init_num_E1"),
         "init_num_E2": builder_llm_raw.get("init_num_E2"),
@@ -2790,6 +2809,7 @@ def run_pref_loss_coevo(
     loss_cfg: Dict[str, Any] = {
         "enabled": bool(loss_llm_enabled),
         "parent_p": int(loss_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
+        "seed_reserve": int(loss_llm_raw.get("seed_reserve", cfg_yaml.get("loss_seed_reserve", 2)) or 2),
         "init_num_E1": loss_llm_raw.get("init_num_E1"),
         "init_num_E2": loss_llm_raw.get("init_num_E2"),
         "init_num_M1": loss_llm_raw.get("init_num_M1"),
@@ -3382,6 +3402,8 @@ def run_pref_loss_coevo(
         joint_gate_kwargs = {
             "min_pass_rate": float(cfg_yaml.get("proxy_joint_min_pass_rate", 0.8) or 0.8),
             "swap_tolerance": float(cfg_yaml.get("proxy_joint_swap_tolerance", 1e-3) or 1e-3),
+            "swap_check_mode": str(cfg_yaml.get("proxy_joint_swap_check_mode", "data") or "data"),
+            "swap_test_margin": float(cfg_yaml.get("proxy_joint_swap_test_margin", 1.0) or 1.0),
             "grad_eps": float(cfg_yaml.get("proxy_joint_grad_eps", 1e-8) or 1e-8),
             "min_effective_grad_ratio": float(cfg_yaml.get("proxy_joint_min_effective_grad_ratio", 0.1) or 0.1),
             "variant": "visible",
@@ -3811,7 +3833,7 @@ def run_pref_loss_coevo(
             llm_feedback_state["prev_gen_llm_cache"] = dict(loss_llm_ops.llm_cache_stats())
         except Exception:  # noqa: BLE001
             pass
-        if "cheap" not in stage_ctr:
+        if "cheap" not in stage_ctr and "cheap_recheck" not in stage_ctr:
             LOGGER.warning(
                 "Gen %d produced no core cheap evaluations (stage='cheap'). "
                 "This usually means candidate pools collapsed or pairing_budget_per_gen is too small after anchors.",
