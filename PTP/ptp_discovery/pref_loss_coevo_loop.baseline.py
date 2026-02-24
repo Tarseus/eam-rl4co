@@ -865,12 +865,19 @@ def run_pref_loss_coevo(
     proxy_weights = cfg_yaml.get("proxy_weights", {"effective_grad_ratio": 1.0, "ess_ratio": 0.1}) or {}
     if not isinstance(proxy_weights, dict):
         proxy_weights = {"effective_grad_ratio": 1.0, "ess_ratio": 0.1}
+    micro_budget = {
+        "micro_unroll_enabled": bool(cfg_yaml.get("micro_unroll_enabled", False)),
+        "micro_unroll_top_k": int(cfg_yaml.get("micro_unroll_top_k", 0) or 0),
+        "micro_unroll_steps": int(cfg_yaml.get("micro_unroll_steps", 0) or 0),
+        "micro_unroll_lr": float(cfg_yaml.get("micro_unroll_lr", 0.0) or 0.0),
+    }
     eval_sig = eval_budget_signature(
         cfg=sig_hf_cfg,
         proxy_problem_size=proxy_problem_size,
         proxy_batch_size=proxy_batch_size,
         proxy_batches=proxy_batches,
         proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
+        extra_budget=micro_budget,
     )
     if resume_state is not None:
         loaded = load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=eval_sig)

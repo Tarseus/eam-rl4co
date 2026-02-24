@@ -41,6 +41,7 @@ from fitness.pref_loss_fidelity import (
     build_or_get_rollout_feature_cache,
     eval_budget_signature,
     load_pair_cache_from_pairs_jsonl,
+    micro_unroll_score_for_pair,
     proxy_metrics_for_pair_on_batch,
     seed_signature_for_proxy,
 )
@@ -2424,6 +2425,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     f_entry = dict(payload["f_entry"])
     cfg = dict(payload["cfg_yaml"])
     device_str = str(payload["device_str"])
+    run_dir = payload.get("run_dir")
+    run_dir_s = str(run_dir) if isinstance(run_dir, (str, os.PathLike)) and run_dir else None
     operator_whitelist = list(payload.get("operator_whitelist", []))
     cheap_gate_on = bool(payload.get("cheap_gate_on", True))
     high_fidelity_on = bool(payload.get("high_fidelity_on", True))
@@ -2591,6 +2594,55 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     free_cfg = _build_free_cfg(cfg, hf_cfg=hf_cfg)
     adapter = _CompiledBuilderAdapter(compiled_g)
     try:
+        # Route high-fidelity training logs to a per-pair file (like free_loss_discovery).
+        file_handler: logging.Handler | None = None
+        if run_dir_s:
+            safe_gid = str(record.get("g_id", "g")).replace(os.sep, "_").replace(":", "_")[:24]
+            safe_fid = str(record.get("f_id", "f")).replace(os.sep, "_").replace(":", "_")[:24]
+            safe_dev = str(device_str).replace(os.sep, "_").replace(":", "_")
+            log_path = os.path.join(
+                run_dir_s,
+                f"gen{generation:03d}_pair{pair_index:03d}_{safe_dev}_{safe_gid}_{safe_fid}.log",
+            )
+            fmt = logging.Formatter("[%(asctime)s] %(levelname)s:%(name)s: %(message)s")
+
+            root_logger = logging.getLogger()
+            for handler in list(root_logger.handlers):
+                root_logger.removeHandler(handler)
+            root_logger.setLevel(logging.INFO)
+
+            fl_logger = logging.getLogger("fitness.free_loss_fidelity")
+            for handler in list(fl_logger.handlers):
+                try:
+                    fl_logger.removeHandler(handler)
+                finally:
+                    try:
+                        handler.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+            fl_logger.setLevel(logging.INFO)
+
+            try:
+                file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
+                file_handler.setFormatter(fmt)
+                fl_logger.addHandler(file_handler)
+                root_logger.addHandler(file_handler)
+                record["hf_log_file"] = os.path.basename(log_path)
+                fl_logger.info(
+                    "HF start gen=%d pair_index=%d device=%s g_id=%s f_id=%s",
+                    int(generation),
+                    int(pair_index),
+                    str(device_str),
+                    str(record.get("g_id")),
+                    str(record.get("f_id")),
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    f"[pref_loss_coevo][worker] failed to open HF log file: {log_path}: {exc}",
+                    flush=True,
+                )
+                file_handler = None
+
         fitness = evaluate_free_loss_candidate(
             compiled_f,
             free_cfg,
@@ -2606,6 +2658,20 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         record["score"] = float("inf")
         record["elapsed_s"] = float(time.time() - t0)
         return record
+    finally:
+        if "file_handler" in locals() and file_handler is not None:
+            try:
+                logging.getLogger("fitness.free_loss_fidelity").removeHandler(file_handler)
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                logging.getLogger().removeHandler(file_handler)
+            except Exception:  # noqa: BLE001
+                pass
+            try:
+                file_handler.close()
+            except Exception:  # noqa: BLE001
+                pass
 
     record["pair_ok"] = True
     record["pair_reason"] = "ok"
@@ -2923,12 +2989,19 @@ def run_pref_loss_coevo(
     proxy_weights = cfg_yaml.get("proxy_weights", {"effective_grad_ratio": 1.0, "ess_ratio": 0.1}) or {}
     if not isinstance(proxy_weights, dict):
         proxy_weights = {"effective_grad_ratio": 1.0, "ess_ratio": 0.1}
+    micro_budget = {
+        "micro_unroll_enabled": bool(cfg_yaml.get("micro_unroll_enabled", False)),
+        "micro_unroll_top_k": int(cfg_yaml.get("micro_unroll_top_k", 0) or 0),
+        "micro_unroll_steps": int(cfg_yaml.get("micro_unroll_steps", 0) or 0),
+        "micro_unroll_lr": float(cfg_yaml.get("micro_unroll_lr", 0.0) or 0.0),
+    }
     eval_sig = eval_budget_signature(
         cfg=sig_hf_cfg,
         proxy_problem_size=proxy_problem_size,
         proxy_batch_size=proxy_batch_size,
         proxy_batches=proxy_batches,
         proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
+        extra_budget=micro_budget,
     )
 
     # Sanity: proxy rollouts (pomo_size) control per-instance pair count for all_pairs (~K*(K-1)/2).
@@ -3685,6 +3758,102 @@ def run_pref_loss_coevo(
 
         pair_records: List[Dict[str, Any]] = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
 
+        # Optional Stage B: offline micro-unroll on cached rollouts (no new rollouts).
+        # This improves selection signal at a fraction of HF cost by taking a few
+        # gradient steps on cached log_prob tensors.
+        micro_enabled = bool(cfg_yaml.get("micro_unroll_enabled", False))
+        if micro_enabled:
+            default_top_m = int(
+                cfg_yaml.get(
+                    "high_fidelity_top_m",
+                    max(1, min(len(pair_records), pairing_budget // 4)),
+                )
+                or 1
+            )
+            mu_candidates = [
+                r
+                for r in pair_records
+                if bool(r.get("pair_ok"))
+                and str(r.get("g_id")) != G_REF_ID
+                and str(r.get("f_id")) != F_REF_ID
+                and str(r.get("stage")) != "anchor"
+            ]
+            mu_candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
+            if mu_candidates:
+                micro_top_k = int(
+                    cfg_yaml.get(
+                        "micro_unroll_top_k",
+                        max(int(default_top_m), min(len(mu_candidates), int(default_top_m) * 2)),
+                    )
+                    or 0
+                )
+                micro_top_k = max(int(default_top_m), min(int(micro_top_k), int(len(mu_candidates))))
+                micro_steps = int(cfg_yaml.get("micro_unroll_steps", 3) or 3)
+                micro_lr = float(cfg_yaml.get("micro_unroll_lr", 5e-2) or 5e-2)
+                micro_alpha = float(cfg_yaml.get("micro_unroll_alpha", cfg_yaml.get("alpha", 0.05)) or 0.05)
+                micro_weight_decay = float(cfg_yaml.get("micro_unroll_weight_decay", 0.0) or 0.0)
+
+                mu_eval = mu_candidates[: int(micro_top_k)]
+                LOGGER.info(
+                    "Micro-unroll gen=%d: tasks=%d steps=%d lr=%.3g alpha=%.3g (proxy_batches=%d)",
+                    int(gen),
+                    int(len(mu_eval)),
+                    int(micro_steps),
+                    float(micro_lr),
+                    float(micro_alpha),
+                    int(len(rollout_feature_caches)),
+                )
+                for r in mu_eval:
+                    gid = str(r.get("g_id"))
+                    fid = str(r.get("f_id"))
+                    cache_key = (gid, fid, str(eval_sig))
+                    cached = caches.get_pair(cache_key)
+                    if isinstance(cached, dict) and str(cached.get("stage")) == "micro_unroll" and cached.get("micro_metrics"):
+                        continue
+                    g_comp = compiled_g.get(gid)
+                    f_comp = compiled_f.get(fid)
+                    if g_comp is None or f_comp is None:
+                        rec_mu = dict(pair_records_map.get((gid, fid), dict(r)))
+                        rec_mu["pair_ok"] = False
+                        rec_mu["pair_reason"] = "micro_unroll_compile_missing"
+                        rec_mu["stage"] = "micro_unroll"
+                        rec_mu["score"] = float("inf")
+                        caches.set_pair(cache_key, rec_mu)
+                        pair_records_map[(gid, fid)] = rec_mu
+                        continue
+
+                    try:
+                        mu_score, mu_metrics = micro_unroll_score_for_pair(
+                            g=g_comp,
+                            f=f_comp,
+                            rollout_feature_caches=rollout_feature_caches,
+                            steps=int(micro_steps),
+                            lr=float(micro_lr),
+                            alpha=float(micro_alpha),
+                            weight_decay=float(micro_weight_decay),
+                        )
+                        rec_mu = dict(pair_records_map.get((gid, fid), dict(r)))
+                        rec_mu["pair_ok"] = True
+                        rec_mu["pair_reason"] = "ok_micro_unroll"
+                        rec_mu["stage"] = "micro_unroll"
+                        rec_mu["micro_score"] = float(mu_score)
+                        rec_mu["micro_metrics"] = dict(mu_metrics)
+                        rec_mu["score"] = float(mu_score)
+                        caches.set_pair(cache_key, rec_mu)
+                        pair_records_map[(gid, fid)] = rec_mu
+                    except Exception as exc:  # noqa: BLE001
+                        rec_mu = dict(pair_records_map.get((gid, fid), dict(r)))
+                        rec_mu["pair_ok"] = False
+                        rec_mu["pair_reason"] = "micro_unroll_failed"
+                        rec_mu["micro_error"] = str(exc)
+                        rec_mu["stage"] = "micro_unroll"
+                        rec_mu["score"] = float("inf")
+                        caches.set_pair(cache_key, rec_mu)
+                        pair_records_map[(gid, fid)] = rec_mu
+
+                # Rebuild after micro-unroll overwrites `score` for some pairs.
+                pair_records = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+
         # High-fidelity stage: evaluate only top-m by cheap proxy `score`.
         if high_fidelity_on:
             top_m = int(cfg_yaml.get("high_fidelity_top_m", max(1, min(len(pair_records), pairing_budget // 4))) or 1)
@@ -3696,7 +3865,10 @@ def run_pref_loss_coevo(
                 and str(r.get("f_id")) != F_REF_ID
                 and str(r.get("stage")) != "anchor"
             ]
+            if micro_enabled:
+                candidates = [r for r in candidates if isinstance(r.get("micro_metrics"), dict)]
             candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
+
             selected = candidates[: max(0, top_m)]
             LOGGER.info(
                 "HF selection gen=%d: eligible=%d selected=%d (top_m=%d)",
@@ -3707,7 +3879,7 @@ def run_pref_loss_coevo(
             )
 
             hf_tasks: List[Dict[str, Any]] = []
-            for _task_idx, r in enumerate(selected):
+            for r in selected:
                 gid = str(r["g_id"])
                 fid = str(r["f_id"])
                 cache_key = (gid, fid, str(eval_sig))
@@ -3727,6 +3899,7 @@ def run_pref_loss_coevo(
                         "cfg_yaml": dict(cfg_yaml),
                         "device_str": device_str,
                         "operator_whitelist": list(operator_whitelist),
+                        "run_dir": str(run_dir),
                         # Proxy stage already computed joint metrics; do not re-block HF on dummy-gate mismatch.
                         "cheap_gate_on": False,
                         "high_fidelity_on": True,
