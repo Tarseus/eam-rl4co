@@ -24,7 +24,7 @@ llm_per_gen_g: 8
 llm_per_gen_f: 8
 llm_parent_p: 5
 llm_repair_on_failure: true
-llm_repair_attempts: 1
+llm_repair_attempts: 4
 
 # Keep some non-LLM seeds even when LLM budgets are high (anti-collapse).
 # (Used by the Double-EoH config; legacy config will read these defaults too.)
@@ -54,10 +54,10 @@ cheap_gate_on: true
 high_fidelity_on: true
 
 # Devices and multiprocessing
-devices: [cuda]
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
 mp:
-  enabled: false
-  processes: 1
+  enabled: true
+  processes: 4
   start_method: spawn
 
 # Safe operator whitelist (optional). Empty means allow full default ops table.
@@ -70,7 +70,7 @@ baseline:
   checkpoint_epoch: 409
   # See `scratch_hf_epochs/warmstart_hf_epochs` for fair concatenated baselines.
   scratch_start_epoch: 0
-  val_column: val/reward
+  val_column: val/max_reward
 
 # Cheap proxy (multi-fidelity) settings
 proxy_device: cuda
@@ -167,13 +167,13 @@ policy_kwargs:
 rollout_strategy: auto
 objective_sign: neg_reward
 
-hf_epochs: 20
+hf_epochs: 10
 hf_instances_per_epoch: 100000
 
 # Candidate evaluation init split (total epochs = scratch + warmstart).
 # Aligns with `configs/experiment/free_loss_discovery/rl4co.yaml`.
-scratch_hf_epochs: 10
-warmstart_hf_epochs: 10
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
 baseline_epoch_compare_offset: 0
 
 # Early-eval horizon for warm-start early stopping (steps derived from epochs/instances).
