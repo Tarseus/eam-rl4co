@@ -101,12 +101,22 @@ baseline:
 
 # Cheap proxy (multi-fidelity) settings
 proxy_device: cuda
-proxy_problem_size: 20
+proxy_problem_size: 100
 proxy_batch_size: 64
-proxy_batches: 2
+proxy_batches: 50
 proxy_weights:
   effective_grad_ratio: 1.0
   ess_ratio: 0.1
+
+# Optional Stage B: offline micro-unroll (no new rollouts).
+# Runs a few gradient steps on cached log_prob tensors to get a stronger ranking signal
+# than pure proxy_score, at much lower cost than full HF training.
+micro_unroll_enabled: true
+micro_unroll_top_k: 64
+micro_unroll_steps: 100
+micro_unroll_lr: 0.05
+micro_unroll_weight_decay: 0.0
+
 proxy_joint_min_pass_rate: 0.8
 proxy_joint_swap_tolerance: 0.001
 proxy_joint_swap_check_mode: synthetic  # data | synthetic | none
@@ -115,7 +125,7 @@ proxy_joint_grad_eps: 1.0e-8
 proxy_joint_min_effective_grad_ratio: 0.1
 
 # High-fidelity selection: only train+validate top-m pairs by proxy score
-high_fidelity_top_m: 16
+high_fidelity_top_m: 4
 
 # Pairing policy: coverage + bandit acquisition
 coverage_top_e_elites: 4

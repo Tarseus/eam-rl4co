@@ -264,6 +264,7 @@ def eval_budget_signature(
     proxy_batch_size: int,
     proxy_batches: int,
     proxy_weights: Mapping[str, float],
+    extra_budget: Mapping[str, Any] | None = None,
     version: str = "v1",
 ) -> str:
     """Return a stable signature describing evaluation budget/settings."""
@@ -288,6 +289,8 @@ def eval_budget_signature(
         "validation_batch_size": int(cfg.validation_batch_size),
         "valid_problem_sizes": [int(x) for x in cfg.valid_problem_sizes],
     }
+    if extra_budget:
+        payload["extra_budget"] = dict(extra_budget)
     blob = json.dumps(payload, sort_keys=True, ensure_ascii=False).encode("utf-8")
     return sha1(blob).hexdigest()[:16]
 
@@ -472,6 +475,105 @@ def aggregate_proxy_metrics(
         "proxy_weights": {str(k): float(v) for k, v in dict(proxy_weights).items()},
     }
     return proxy_score, agg
+
+
+def micro_unroll_score_for_pair(
+    *,
+    g: CompiledPreferenceBuilder,
+    f: CompiledFreeLoss,
+    rollout_feature_caches: Sequence[Mapping[str, torch.Tensor]],
+    steps: int,
+    lr: float,
+    alpha: float,
+    weight_decay: float = 0.0,
+) -> Tuple[float, Dict[str, Any]]:
+    """Offline micro-unroll on cached rollouts (no new rollouts).
+
+    We treat cached log_prob tensors as optimizable variables and take a few
+    gradient steps to estimate "trainability" / optimization dynamics without
+    running policy rollouts. Lower is better.
+    """
+
+    steps_i = max(int(steps), 0)
+    if steps_i <= 0:
+        return float("inf"), {"reason": "steps<=0"}
+    if not rollout_feature_caches:
+        return float("inf"), {"reason": "no_rollout_feature_caches"}
+
+    # We optimize one log_prob tensor per cached rollout batch.
+    objectives: list[torch.Tensor] = []
+    log_probs: list[torch.Tensor] = []
+    device: torch.device | None = None
+    for fc in rollout_feature_caches:
+        obj = fc.get("objective")
+        lp = fc.get("log_prob")
+        if not isinstance(obj, torch.Tensor) or not isinstance(lp, torch.Tensor):
+            return float("inf"), {"reason": "missing_objective_or_log_prob"}
+        if obj.shape != lp.shape:
+            return float("inf"), {"reason": f"shape_mismatch objective={tuple(obj.shape)} log_prob={tuple(lp.shape)}"}
+        if device is None:
+            device = obj.device
+        objectives.append(obj.detach())
+        log_probs.append(lp.detach().clone().requires_grad_(True))
+
+    import torch.optim  # local import to keep module load light
+
+    optimizer = torch.optim.Adam(log_probs, lr=float(lr), weight_decay=float(weight_decay))
+
+    mode = str(getattr(f.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
+    expects = [str(x) for x in (getattr(f.ir.implementation_hint, "expects", None) or [])]
+
+    def _forward_mean_loss() -> torch.Tensor:
+        losses: list[torch.Tensor] = []
+        for obj, lp in zip(objectives, log_probs, strict=True):
+            fc = extract_feature_cache(obj, lp)
+            if mode == "setwise":
+                loss_t = f.loss_fn(batch={}, model_output=fc, extra={"alpha": float(alpha)})
+            else:
+                pref = g.build_fn(fc, {"stage": "micro_unroll"})
+                batch = pref.to_pairwise_loss_batch(fc)
+                if expects:
+                    batch = {k: batch[k] for k in expects if k in batch}
+                loss_t = f.loss_fn(batch=batch, model_output={}, extra={"alpha": float(alpha)})
+            if not isinstance(loss_t, torch.Tensor):
+                raise TypeError(f"loss_fn returned non-tensor: {type(loss_t)}")
+            if loss_t.numel() != 1:
+                raise ValueError(f"loss_fn returned non-scalar tensor: shape={tuple(loss_t.shape)}")
+            losses.append(loss_t)
+        return torch.stack(losses).mean()
+
+    # Initial loss (before any update).
+    with torch.no_grad():
+        init_loss_t = _forward_mean_loss()
+        init_loss = float(init_loss_t.item())
+
+    last_loss = init_loss
+    for _ in range(int(steps_i)):
+        optimizer.zero_grad(set_to_none=True)
+        loss_t = _forward_mean_loss()
+        if not torch.isfinite(loss_t).all().item():
+            return float("inf"), {"reason": "loss_not_finite"}
+        loss_t.backward()
+        optimizer.step()
+        last_loss = float(loss_t.detach().item())
+
+    # Final loss (after updates).
+    with torch.no_grad():
+        final_loss_t = _forward_mean_loss()
+        final_loss = float(final_loss_t.item())
+
+    metrics = {
+        "micro_unroll_steps": int(steps_i),
+        "micro_unroll_lr": float(lr),
+        "micro_unroll_alpha": float(alpha),
+        "micro_unroll_init_loss": float(init_loss),
+        "micro_unroll_final_loss": float(final_loss),
+        "micro_unroll_delta_loss": float(final_loss - init_loss),
+        "mode": mode,
+        "batches": int(len(rollout_feature_caches)),
+        "device": str(device) if device is not None else None,
+    }
+    return float(final_loss), metrics
 
 
 def load_pair_cache_from_pairs_jsonl(
