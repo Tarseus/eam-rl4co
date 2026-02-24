@@ -204,13 +204,13 @@ policy_kwargs:
 rollout_strategy: auto
 objective_sign: neg_reward
 
-hf_epochs: 20
+hf_epochs: 10
 hf_instances_per_epoch: 100000
 
 # Candidate evaluation init split (total epochs = scratch + warmstart).
 # Aligns with `configs/experiment/free_loss_discovery/rl4co.yaml`.
-scratch_hf_epochs: 10
-warmstart_hf_epochs: 10
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
 baseline_epoch_compare_offset: 0
 
 # Early-eval horizon for warm-start early stopping (steps derived from epochs/instances).
