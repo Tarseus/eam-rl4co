@@ -516,8 +516,6 @@ def micro_unroll_score_for_pair(
         objectives.append(obj.detach())
         log_probs.append(lp.detach().clone().requires_grad_(True))
 
-    import torch.optim  # local import to keep module load light
-
     optimizer = torch.optim.Adam(log_probs, lr=float(lr), weight_decay=float(weight_decay))
 
     mode = str(getattr(f.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
