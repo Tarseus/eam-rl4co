@@ -209,6 +209,7 @@ def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
         "sigmoid": torch.sigmoid,
         "exp": torch.exp,
         "log": torch.log,
+        "abs": torch.abs,
         "tanh": torch.tanh,
         "relu": F.relu,
         "clamp": lambda x, min=-10.0, max=10.0: torch.clamp(x, min=min, max=max),
