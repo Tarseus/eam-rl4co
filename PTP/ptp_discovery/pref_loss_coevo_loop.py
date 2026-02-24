@@ -2631,6 +2631,35 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     return record
 
 
+def _hf_pinned_device_worker(  # noqa: PLR0912
+    device_str: str,
+    task_queue: Any,
+    result_queue: Any,
+) -> None:
+    """Run HF evaluations on a single pinned device.
+
+    This ensures we never oversubscribe a GPU with multiple concurrent HF trainings.
+    """
+
+    while True:
+        payload = task_queue.get()
+        if payload is None:
+            return
+        try:
+            fixed = dict(payload)
+            fixed["device_str"] = str(device_str)
+            rec = _evaluate_pair_worker(fixed)
+        except Exception as exc:  # noqa: BLE001
+            fixed = dict(payload) if isinstance(payload, dict) else {}
+            fixed["device"] = str(device_str)
+            fixed["pair_ok"] = False
+            fixed["pair_reason"] = "high_fidelity_failed"
+            fixed["high_fidelity_error"] = str(exc)
+            fixed["score"] = float("inf")
+            rec = fixed
+        result_queue.put(dict(rec))
+
+
 def run_pref_loss_coevo(
     config_path: str,
     *,
@@ -3678,13 +3707,17 @@ def run_pref_loss_coevo(
             )
 
             hf_tasks: List[Dict[str, Any]] = []
-            for r in selected:
+            for _task_idx, r in enumerate(selected):
                 gid = str(r["g_id"])
                 fid = str(r["f_id"])
                 cache_key = (gid, fid, str(eval_sig))
                 cached = caches.get_pair(cache_key)
                 if isinstance(cached, dict) and str(cached.get("stage")) == "high_fidelity" and cached.get("fitness"):
                     continue
+                # Distribute high-fidelity tasks round-robin across the configured devices.
+                # Do not use the global pair_index here because it includes anchors and
+                # other non-HF stages, which can skew GPU assignment and leave devices idle.
+                device_str = device_list[int(len(hf_tasks)) % len(device_list)]
                 hf_tasks.append(
                     {
                         "generation": int(gen),
@@ -3692,7 +3725,7 @@ def run_pref_loss_coevo(
                         "g_entry": g_map[gid],
                         "f_entry": f_map[fid],
                         "cfg_yaml": dict(cfg_yaml),
-                        "device_str": device_list[int(r.get("pair_index", 0)) % len(device_list)],
+                        "device_str": device_str,
                         "operator_whitelist": list(operator_whitelist),
                         # Proxy stage already computed joint metrics; do not re-block HF on dummy-gate mismatch.
                         "cheap_gate_on": False,
@@ -3710,6 +3743,11 @@ def run_pref_loss_coevo(
             hf_results: List[Dict[str, Any]] = []
             if hf_tasks:
                 LOGGER.info(
+                    "HF device assignment gen=%d: %s",
+                    int(gen),
+                    dict(collections.Counter(str(t.get("device_str", "")) for t in hf_tasks)),
+                )
+                LOGGER.info(
                     "HF eval gen=%d: tasks=%d mp=%s procs=%d",
                     int(gen),
                     int(len(hf_tasks)),
@@ -3720,16 +3758,39 @@ def run_pref_loss_coevo(
                     import multiprocessing as mp
 
                     ctx = mp.get_context(mp_start_method)
-                    procs = min(int(mp_processes), max(1, len(hf_tasks)))
+                    # Prefer one process per device to avoid oversubscribing GPUs.
+                    procs = min(int(mp_processes), max(1, len(hf_tasks)), max(1, len(device_list)))
                     LOGGER.info(
-                        "High-fidelity via mp: start_method=%s processes=%d tasks=%d",
+                        "High-fidelity via pinned mp: start_method=%s processes=%d tasks=%d",
                         mp_start_method,
                         procs,
                         len(hf_tasks),
                     )
-                    with ctx.Pool(processes=procs) as pool:
-                        for rec in pool.imap_unordered(_evaluate_pair_worker, hf_tasks):
-                            hf_results.append(dict(rec))
+
+                    task_queue: Any = ctx.Queue()
+                    result_queue: Any = ctx.Queue()
+                    workers: List[Any] = []
+                    try:
+                        for task in hf_tasks:
+                            task_queue.put(dict(task))
+                        for _ in range(int(procs)):
+                            task_queue.put(None)
+
+                        for w_idx in range(int(procs)):
+                            dev = device_list[int(w_idx) % len(device_list)]
+                            p = ctx.Process(
+                                target=_hf_pinned_device_worker,
+                                args=(str(dev), task_queue, result_queue),
+                            )
+                            p.daemon = False
+                            p.start()
+                            workers.append(p)
+
+                        for _ in range(int(len(hf_tasks))):
+                            hf_results.append(dict(result_queue.get()))
+                    finally:
+                        for p in workers:
+                            p.join()
                 else:
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))

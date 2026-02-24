@@ -79,10 +79,10 @@ cheap_gate_on: true
 high_fidelity_on: true
 
 # Devices and multiprocessing
-devices: [cuda]
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3", "cuda:4"]
 mp:
-  enabled: false
-  processes: 1
+  enabled: true
+  processes: 5
   start_method: spawn
 
 # Safe operator whitelist (optional). Empty means allow full default ops table.
