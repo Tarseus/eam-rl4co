@@ -1,0 +1,94 @@
+{
+  "generation": 1,
+  "index": 2,
+  "id": "g001_002_331be165",
+  "signature": "331be165398be8510dad6cef3741496c592c6354",
+  "origin": "REPAIR",
+  "origin_base": "M1",
+  "op_type": "REPAIR",
+  "parents": [
+    "g000_002_8124bb63"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "4b10293b5a1611d18bf9ad2825522294b6f29df6",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+  "llm_seed": 304522040,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "M1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+      "prompt_sha1": "0359db4db990c908b058fda67199b64d5858cd4e"
+    },
+    {
+      "attempt": 0,
+      "op": "M3",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+      "prompt_sha1": "439d95e15ee9aefd02f7e794a5e40b62f823187a"
+    },
+    {
+      "attempt": 0,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "4b10293b5a1611d18bf9ad2825522294b6f29df6"
+    }
+  ],
+  "ir": {
+    "name": "all_pairs_gap_clip_weight_003",
+    "intuition": "Construct all within-instance winner/loser pairs where the winner has strictly lower objective (lower-is-better), optionally filter out near-ties using a minimum objective gap, and weight each pair by the clipped nonnegative objective gap to emphasize clearer preferences while keeping weights nonnegative.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    B, N = objective.shape\n\n    # Read thresholds as python numbers without relying on builtins like `float`.\n    gap_threshold = extra.get('gap_threshold', 0.0)\n    max_weight = extra.get('max_weight', 1.0)\n\n    # winner has lower objective (lower_is_better)\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, w_idx, l_idx = mask.nonzero(as_tuple=True)\n\n    b_idx = b_idx.to(dtype=torch.long)\n    w_idx = w_idx.to(dtype=torch.long)\n    l_idx = l_idx.to(dtype=torch.long)\n\n    gap = objective[b_idx, l_idx] - objective[b_idx, w_idx]\n\n    if gap_threshold is not None and gap_threshold > 0:\n        keep = gap >= gap_threshold\n        b_idx = b_idx[keep]\n        w_idx = w_idx[keep]\n        l_idx = l_idx[keep]\n        gap = gap[keep]\n\n    # Nonnegative weights; optionally cap very large gaps.\n    if max_weight is not None and max_weight > 0:\n        weight = ops.clamp(gap, 0.0, max_weight)\n    else:\n        weight = ops.clamp(gap, 0.0)\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, w_idx, l_idx),\n        weight=weight,\n        meta={'builder': 'all_pairs_gap_clip_weight', 'gap_threshold': gap_threshold, 'max_weight': max_weight},\n    )"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 1.8354905247656337,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
