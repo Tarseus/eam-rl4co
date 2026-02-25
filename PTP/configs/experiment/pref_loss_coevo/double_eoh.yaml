@@ -116,6 +116,10 @@ micro_unroll_top_k: 64
 micro_unroll_steps: 100
 micro_unroll_lr: 0.05
 micro_unroll_weight_decay: 0.0
+# Safety valves for micro-unroll stalls (per (g,f) task).
+micro_unroll_timeout_s: 600
+# Cap the number of preference pairs used per rollout batch during micro-unroll.
+micro_unroll_max_pairs: 50000
 micro_unroll_reuse_pref_batch_when_safe: true
 
 proxy_joint_min_pass_rate: 0.8
