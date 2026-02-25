@@ -3713,34 +3713,6 @@ def run_pref_loss_coevo(
             if isinstance(e, dict) and e.get("id") and isinstance(e.get("ir"), dict):
                 f_map.setdefault(str(e["id"]), dict(e))
 
-        # Keep pref-cache bounded: retain only batches for currently active g_ids (elites + HoF + current pool).
-        # Without pruning, pref_cache can grow every generation and pin CUDA tensors, appearing as "VRAM leak".
-        # Note: recheck uses a separate batch_id offset (100000). We intentionally do *not* keep
-        # recheck pref batches across generations; they can be rebuilt when needed and otherwise
-        # inflate the cache (and VRAM) for long stretches of time.
-        keep_offsets = {0}
-        keep_batch_ids: list[int] = []
-        for off in sorted(keep_offsets):
-            keep_batch_ids.extend([int(off + i) for i in range(int(proxy_batches))])
-        dropped = caches.prune_pref_cache(keep_g_ids=g_id_pool + [G_REF_ID], keep_batch_ids=keep_batch_ids)
-        if dropped > 0:
-            LOGGER.info(
-                "Gen %d pref_cache pruned: dropped=%d kept=%d keep_g_ids=%d keep_batch_ids=%d %s %s",
-                int(gen),
-                int(dropped),
-                int(len(caches.pref_cache)),
-                int(len(set([str(x) for x in (g_id_pool + [G_REF_ID])]))),
-                int(len(set(keep_batch_ids))),
-                _cache_brief(caches),
-                _cuda_mem_brief([proxy_device_str]),
-            )
-            if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
-                try:
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
-                except Exception:  # noqa: BLE001
-                    pass
-
         # Core pairing budget excludes mandatory anchor pairs.
         core_budget = max(0, int(pairing_budget) - len(anchor_pairs))
         core_pairs, core_reasons = _build_coverage_plus_bandit_pairs(
@@ -3762,6 +3734,27 @@ def run_pref_loss_coevo(
         )
 
         pairs = list(anchor_pairs) + list(core_pairs)
+        active_g_ids = list(dict.fromkeys([str(gid) for gid, _ in pairs] + [G_REF_ID]))
+        keep_base_batch_ids = [int(i) for i in range(int(proxy_batches))]
+        dropped = caches.prune_pref_cache(keep_g_ids=active_g_ids, keep_batch_ids=keep_base_batch_ids)
+        if dropped > 0:
+            LOGGER.info(
+                "Gen %d pref_cache pruned: dropped=%d kept=%d keep_g_ids=%d keep_batch_ids=%d %s %s",
+                int(gen),
+                int(dropped),
+                int(len(caches.pref_cache)),
+                int(len(set(active_g_ids))),
+                int(len(set(keep_base_batch_ids))),
+                _cache_brief(caches),
+                _cuda_mem_brief([proxy_device_str]),
+            )
+            if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
+                try:
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:  # noqa: BLE001
+                    pass
+
         reasons_by_pair: Dict[Tuple[str, str], List[str]] = dict(core_reasons)
         for k, v in anchor_reasons.items():
             reasons_by_pair.setdefault(k, []).extend(list(v))
@@ -3936,8 +3929,10 @@ def run_pref_loss_coevo(
                 )
                 # Drop recheck-only pref batches (batch_id offset 100000) to keep VRAM stable during
                 # subsequent micro-unroll / HF stages and across generations.
-                keep_base_batch_ids = [int(i) for i in range(int(proxy_batches))]
-                dropped_recheck = caches.prune_pref_cache(keep_g_ids=g_id_pool + [G_REF_ID], keep_batch_ids=keep_base_batch_ids)
+                dropped_recheck = caches.prune_pref_cache(
+                    keep_g_ids=active_g_ids,
+                    keep_batch_ids=keep_base_batch_ids,
+                )
                 if dropped_recheck > 0:
                     LOGGER.info(
                         "Gen %d pref_cache drop recheck: dropped=%d kept=%d %s %s",
@@ -3955,6 +3950,24 @@ def run_pref_loss_coevo(
                             pass
 
         pair_records: List[Dict[str, Any]] = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+
+        if bool(cfg_yaml.get("drop_pref_cache_before_micro_unroll", True)):
+            dropped_pre_mu = caches.prune_pref_cache(keep_g_ids=[], keep_batch_ids=[])
+            if dropped_pre_mu > 0:
+                LOGGER.info(
+                    "Gen %d pref_cache drop before micro-unroll: dropped=%d kept=%d %s %s",
+                    int(gen),
+                    int(dropped_pre_mu),
+                    int(len(caches.pref_cache)),
+                    _cache_brief(caches),
+                    _cuda_mem_brief([proxy_device_str]),
+                )
+                if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
+                    try:
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except Exception:  # noqa: BLE001
+                        pass
 
         # Optional Stage B: offline micro-unroll on cached rollouts (no new rollouts).
         # This improves selection signal at a fraction of HF cost by taking a few
@@ -3990,6 +4003,7 @@ def run_pref_loss_coevo(
                 micro_lr = float(cfg_yaml.get("micro_unroll_lr", 5e-2) or 5e-2)
                 micro_alpha = float(cfg_yaml.get("micro_unroll_alpha", cfg_yaml.get("alpha", 0.05)) or 0.05)
                 micro_weight_decay = float(cfg_yaml.get("micro_unroll_weight_decay", 0.0) or 0.0)
+                micro_reuse_pref = bool(cfg_yaml.get("micro_unroll_reuse_pref_batch_when_safe", True))
 
                 mu_eval = mu_candidates[: int(micro_top_k)]
                 LOGGER.info(
@@ -4031,6 +4045,7 @@ def run_pref_loss_coevo(
                             lr=float(micro_lr),
                             alpha=float(micro_alpha),
                             weight_decay=float(micro_weight_decay),
+                            reuse_pref_batch_when_safe=bool(micro_reuse_pref),
                         )
                         rec_mu = dict(pair_records_map.get((gid, fid), dict(r)))
                         rec_mu["pair_ok"] = True

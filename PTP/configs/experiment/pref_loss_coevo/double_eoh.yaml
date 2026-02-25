@@ -116,6 +116,7 @@ micro_unroll_top_k: 64
 micro_unroll_steps: 100
 micro_unroll_lr: 0.05
 micro_unroll_weight_decay: 0.0
+micro_unroll_reuse_pref_batch_when_safe: true
 
 proxy_joint_min_pass_rate: 0.8
 proxy_joint_swap_tolerance: 0.001
@@ -180,7 +181,10 @@ pref_semantic_batch_size: 128
 pref_semantic_min_pass_rate: 0.8
 pref_semantic_swap_tolerance: 0.001
 pref_semantic_gap_min_ratio: 0.9
-pref_cache_enabled: false
+# Keep cheap-stage PrefBatch cache enabled for speed; cache is pruned to scheduled pairs
+# and dropped before micro-unroll to avoid cross-generation VRAM accumulation.
+pref_cache_enabled: true
+drop_pref_cache_before_micro_unroll: true
 cuda_empty_cache_on_pref_prune: true
 
 # -----------------------------
