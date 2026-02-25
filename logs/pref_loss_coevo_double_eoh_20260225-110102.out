@@ -1,0 +1,20 @@
+[2026-02-25 19:01:04,066] INFO:ptp_discovery.pref_loss_coevo: Resuming run_dir=/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817 next_generation=6
+[2026-02-25 19:01:04,066] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817
+[2026-02-25 19:01:04,075] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 670 (/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl)
+[2026-02-25 19:01:04,083] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 670 (/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl)
+[2026-02-25 19:01:04,083] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 670, 'cache_hits': 0, 'cache_misses': 0}
+[2026-02-25 19:01:04,317] INFO:ptp_discovery.pref_loss_coevo: External baseline loaded for HF comparisons: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv warmstart_epoch_start=410 epochs=10 val_column=val/max_reward split=True scratch_start_epoch=0 early_eval_steps=314
+[2026-02-25 19:01:04,542] INFO:ptp_discovery.pref_loss_coevo: Loaded 768 cached pair records from pairs.jsonl (eval_sig=2e0c434108e435b3)
+[2026-02-25 19:01:04,548] INFO:ptp_discovery.pref_loss_coevo: === coevo generation 6/9 ===
+[2026-02-25 19:01:04,548] INFO:ptp_discovery.pref_loss_coevo: Gen 6 start: caches(rollout=0 pref=0 pair=767) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-25 19:01:04,548] INFO:ptp_discovery.pref_loss_coevo: Gen 6 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=504 chars
+[2026-02-25 19:01:05,189] INFO:ptp_discovery.pref_loss_coevo: Gen 6 LLM ops: builders={'E2': 5, 'E1': 2, 'M2': 2, 'M1': 1} (repairs=0) losses={'E2': 5, 'E1': 3, 'M1': 2} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 670, 'cache_hits': 34, 'cache_misses': 0}
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 102, in <module>
+    main()
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 98, in main
+    run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 3513, in run_pref_loss_coevo
+    proxy_device = torch.device(proxy_device_str)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Expected one of cpu, cuda, ipu, xpu, mkldnn, opengl, opencl, ideep, hip, ve, fpga, maia, xla, lazy, vulkan, mps, meta, hpu, mtia, privateuseone device type at start of device string: gpu

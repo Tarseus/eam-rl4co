@@ -1,0 +1,48 @@
+[2026-02-25 19:01:15,549] INFO:ptp_discovery.pref_loss_coevo: Resuming run_dir=/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817 next_generation=6
+[2026-02-25 19:01:15,550] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817
+[2026-02-25 19:01:15,561] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 670 (/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl)
+[2026-02-25 19:01:15,569] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 670 (/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl)
+[2026-02-25 19:01:15,570] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 670, 'cache_hits': 0, 'cache_misses': 0}
+[2026-02-25 19:01:15,801] INFO:ptp_discovery.pref_loss_coevo: External baseline loaded for HF comparisons: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv warmstart_epoch_start=410 epochs=10 val_column=val/max_reward split=True scratch_start_epoch=0 early_eval_steps=314
+[2026-02-25 19:01:16,026] INFO:ptp_discovery.pref_loss_coevo: Loaded 768 cached pair records from pairs.jsonl (eval_sig=2e0c434108e435b3)
+[2026-02-25 19:01:16,031] INFO:ptp_discovery.pref_loss_coevo: === coevo generation 6/9 ===
+[2026-02-25 19:01:16,032] INFO:ptp_discovery.pref_loss_coevo: Gen 6 start: caches(rollout=0 pref=0 pair=767) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-25 19:01:16,032] INFO:ptp_discovery.pref_loss_coevo: Gen 6 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=504 chars
+[2026-02-25 19:01:16,672] INFO:ptp_discovery.pref_loss_coevo: Gen 6 LLM ops: builders={'E2': 5, 'E1': 2, 'M2': 2, 'M1': 1} (repairs=0) losses={'E2': 5, 'E1': 3, 'M1': 2} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 670, 'cache_hits': 34, 'cache_misses': 0}
+[2026-02-25 19:01:16,672] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts: device=cuda batches=50 batch_size=64 problem_size=100
+[2026-02-25 19:01:24,226] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 1/50 cache_hit=False caches(rollout=1 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.13G))
+[2026-02-25 19:01:25,561] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 10/50 cache_hit=False caches(rollout=10 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 19:01:27,034] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 20/50 cache_hit=False caches(rollout=20 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 19:01:28,504] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 30/50 cache_hit=False caches(rollout=30 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 19:01:29,979] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 40/50 cache_hit=False caches(rollout=40 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 19:01:31,448] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 50/50 cache_hit=False caches(rollout=50 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:01:31,448] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts done: elapsed_s=14.8 caches(rollout=50 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:01:32,605] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=6: 1/32 caches(rollout=50 pref=0 pair=768) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:07:33,219] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=6: 10/32 caches(rollout=50 pref=0 pair=777) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:07:35,021] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=6: 20/32 caches(rollout=50 pref=0 pair=787) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:07:36,664] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=6: 30/32 caches(rollout=50 pref=0 pair=797) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:07:37,064] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=6: 32/32 caches(rollout=50 pref=0 pair=799) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:07:37,064] INFO:ptp_discovery.pref_loss_coevo: Anchor eval done gen=6: pairs=32 elapsed_s=365.6 caches(rollout=50 pref=0 pair=799) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:07:37,064] INFO:ptp_discovery.pref_loss_coevo: Anchor filter gen=6: eliminated_g=4 eliminated_f=6 (anchor_max_score=10.000)
+[2026-02-25 19:07:44,342] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 40/128 caches(rollout=50 pref=0 pair=807) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:25:29,113] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 50/128 caches(rollout=50 pref=0 pair=817) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:25:42,482] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 60/128 caches(rollout=50 pref=0 pair=827) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:25:44,631] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 70/128 caches(rollout=50 pref=0 pair=837) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:25:50,399] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 80/128 caches(rollout=50 pref=0 pair=847) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:25:52,494] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 90/128 caches(rollout=50 pref=0 pair=857) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:25:57,534] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 100/128 caches(rollout=50 pref=0 pair=867) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:21,185] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 110/128 caches(rollout=50 pref=0 pair=877) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:27,408] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 120/128 caches(rollout=50 pref=0 pair=887) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:37,606] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=6: 128/128 caches(rollout=50 pref=0 pair=895) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:37,607] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=6: pairs=128 elapsed_s=1500.5 caches(rollout=50 pref=0 pair=895) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:37,609] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 gen=6: pairs=16 seed=11241 device=cuda proxy_batches=50
+[2026-02-25 19:32:37,815] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=6: 1/50 cache_hit=False caches(rollout=51 pref=0 pair=895) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:39,282] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=6: 10/50 cache_hit=False caches(rollout=60 pref=0 pair=895) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:40,749] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=6: 20/50 cache_hit=False caches(rollout=70 pref=0 pair=895) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 19:32:42,217] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=6: 30/50 cache_hit=False caches(rollout=80 pref=0 pair=895) cuda(cuda(alloc=0.04G,resv=0.17G))
+[2026-02-25 19:32:43,687] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=6: 40/50 cache_hit=False caches(rollout=90 pref=0 pair=895) cuda(cuda(alloc=0.04G,resv=0.17G))
+[2026-02-25 19:32:45,155] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=6: 50/50 cache_hit=False caches(rollout=100 pref=0 pair=895) cuda(cuda(alloc=0.04G,resv=0.17G))
+[2026-02-25 19:38:50,188] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 done gen=6: pairs=16 elapsed_s=372.6 caches(rollout=100 pref=0 pair=895) cuda(cuda(alloc=0.04G,resv=0.17G))
+[2026-02-25 19:38:50,189] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=6: tasks=64 steps=100 lr=0.05 alpha=0.05 (proxy_batches=50)
+[2026-02-25 19:38:58,800] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=6: 1/64 elapsed_s=8.6 caches(rollout=100 pref=0 pair=895) cuda(cuda(alloc=0.04G,resv=0.17G))
+[2026-02-25 19:50:47,769] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=6: 8/64 elapsed_s=717.6 caches(rollout=100 pref=0 pair=895) cuda(cuda(alloc=0.04G,resv=0.56G))

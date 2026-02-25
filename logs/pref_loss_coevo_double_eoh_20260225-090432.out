@@ -1,0 +1,36 @@
+[2026-02-25 17:04:34,251] INFO:ptp_discovery.pref_loss_coevo: Resuming run_dir=/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817 next_generation=6
+[2026-02-25 17:04:34,252] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817
+[2026-02-25 17:04:34,259] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 574 (/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl)
+[2026-02-25 17:04:34,266] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 574 (/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl)
+[2026-02-25 17:04:34,266] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 574, 'cache_hits': 0, 'cache_misses': 0}
+[2026-02-25 17:04:34,499] INFO:ptp_discovery.pref_loss_coevo: External baseline loaded for HF comparisons: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv warmstart_epoch_start=410 epochs=10 val_column=val/max_reward split=True scratch_start_epoch=0 early_eval_steps=314
+[2026-02-25 17:04:34,725] INFO:ptp_discovery.pref_loss_coevo: Loaded 768 cached pair records from pairs.jsonl (eval_sig=2e0c434108e435b3)
+[2026-02-25 17:04:34,730] INFO:ptp_discovery.pref_loss_coevo: === coevo generation 6/9 ===
+[2026-02-25 17:04:34,731] INFO:ptp_discovery.pref_loss_coevo: Gen 6 start: caches(rollout=0 pref=0 pair=767) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-25 17:04:34,731] INFO:ptp_discovery.pref_loss_coevo: Gen 6 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=504 chars
+[2026-02-25 17:26:53,294] INFO:ptp_discovery.pref_loss_coevo: Gen 6 LLM ops: builders={'E1': 4, 'M3': 3, 'REPAIR': 3, 'M1': 2, 'M2': 1} (repairs=3) losses={'E2': 2, 'E1': 4, 'M2': 3, 'M1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 656, 'cache_hits': 0, 'cache_misses': 82}
+[2026-02-25 17:26:53,294] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts: device=cuda batches=50 batch_size=64 problem_size=100
+[2026-02-25 17:27:01,279] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 1/50 cache_hit=False caches(rollout=1 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.13G))
+[2026-02-25 17:27:02,820] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 10/50 cache_hit=False caches(rollout=10 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 17:27:04,530] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 20/50 cache_hit=False caches(rollout=20 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 17:27:06,240] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 30/50 cache_hit=False caches(rollout=30 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 17:27:07,956] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 40/50 cache_hit=False caches(rollout=40 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.16G))
+[2026-02-25 17:27:09,670] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts progress: 50/50 cache_hit=False caches(rollout=50 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 17:27:09,671] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts done: elapsed_s=16.4 caches(rollout=50 pref=0 pair=767) cuda(cuda(alloc=0.03G,resv=0.17G))
+[2026-02-25 17:27:09,911] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=6: 1/24 caches(rollout=50 pref=0 pair=768) cuda(cuda(alloc=0.03G,resv=0.17G))
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 102, in <module>
+    main()
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 98, in main
+    run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 3635, in run_pref_loss_coevo
+    rec = _cheap_eval_pair_cached(
+          ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 2160, in _cheap_eval_pair_cached
+    pref = g_comp.build_fn(fc, {"stage": "proxy", "seed_signature": str(seed_sig)})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_builder_compiler.py", line 139, in build_fn
+    out = fn(feature_cache, merged_extra)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 44, in generated_builder
+NameError: name 'int' is not defined

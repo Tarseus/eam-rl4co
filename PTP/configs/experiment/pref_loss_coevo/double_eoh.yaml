@@ -100,7 +100,7 @@ baseline:
   val_column: val/max_reward
 
 # Cheap proxy (multi-fidelity) settings
-proxy_device: cpu
+proxy_device: cuda
 proxy_problem_size: 100
 proxy_batch_size: 64
 proxy_batches: 50
@@ -125,7 +125,7 @@ proxy_joint_grad_eps: 1.0e-8
 proxy_joint_min_effective_grad_ratio: 0.1
 
 # High-fidelity selection: only train+validate top-m pairs by proxy score
-high_fidelity_top_m: 4
+high_fidelity_top_m: 8
 
 # Pairing policy: coverage + bandit acquisition
 coverage_top_e_elites: 4
