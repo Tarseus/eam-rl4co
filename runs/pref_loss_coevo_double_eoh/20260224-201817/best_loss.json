@@ -1,0 +1,70 @@
+{
+  "generation": 2,
+  "index": 8,
+  "id": "f002_008_1eb77cac",
+  "signature": "1eb77cacc4c966fe1433be5ecb2fb66984237b9c",
+  "origin": "E1",
+  "origin_base": "E1",
+  "op_type": "E1",
+  "parents": [
+    "f001_008_597e9f7e",
+    "f000_002_8a43aaa7",
+    "f001_008_597e9f7e",
+    "f000_015_f9a0a5c7",
+    "f001_009_001e74b4"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "9a916840f74cfdc75a7ba437aa9c50f1acd05fea",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+  "llm_seed": 652571434,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "prompt_sha1": "9a916840f74cfdc75a7ba437aa9c50f1acd05fea"
+    }
+  ],
+  "ir": {
+    "name": "loss_logsigmoid_cost_margin_centered_blendscale",
+    "intuition": "Keep the stable RankNet/Bradley-Terry core: apply -logsigmoid to the log-probability margin so the loss directly optimizes winner-over-loser preference. Retain the detached cost-gap shaping but center it (subtract batch mean) to avoid introducing a constant logit bias that can drift and saturate logsigmoid. As a crossover blend, use a conservative scale between the parents (geometric-mean style midpoint) to balance gradient strength without changing the proven structure; keep hard clamping for numerical stability and gate robustness.",
+    "pseudocode": "gap = detach(cost_b - cost_a); gap = gap - mean(gap); scale_blend = sqrt(scale_a*scale_b); x = clamp(alpha*scale_blend*(lpw-lpl) - cost_coef*gap, cmin, cmax); loss = -logsigmoid(x); return mean(weight*loss)",
+    "hyperparams": {
+      "scale": 0.9288,
+      "cost_coef": 0.1,
+      "clamp_min": -20.0,
+      "clamp_max": 20.0
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "cost_a",
+        "cost_b"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hyper = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hyper.get('alpha', 1.0)))\n\n    # Blended midpoint between parent scales (close to geometric mean) for conservative gradients.\n    scale = float(hyper.get('scale', 0.9288))\n\n    cost_coef = float(hyper.get('cost_coef', 0.1))\n    cmin = float(hyper.get('clamp_min', -20.0))\n    cmax = float(hyper.get('clamp_max', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n\n    # Detached cost shaping, centered to avoid global bias in the logit.\n    gap = (cost_b - cost_a).detach()\n    gap = gap - gap.mean()\n\n    x = alpha * scale * (lpw - lpl) - cost_coef * gap\n    x = ops.clamp(x, cmin, cmax)\n    loss = -ops.logsigmoid(x)\n\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": "Pairwise logistic (Bradley-Terry / RankNet) loss on the log-probability margin encourages the model to assign higher likelihood to the preferred (winner) output. An additive detached cost-gap shaping term biases optimization toward cheaper winners without propagating gradients through the cost signal; centering this detached gap removes constant offsets in the effective logit, improving stability and reducing saturation drift. Hard clamping bounds logits to prevent numerical overflow/underflow in logsigmoid."
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.6095308065414429,
+  "descriptor": {
+    "x": 0.9064663600921631,
+    "y": 0.4021411771774292,
+    "cell": [
+      7,
+      3
+    ]
+  }
+}
