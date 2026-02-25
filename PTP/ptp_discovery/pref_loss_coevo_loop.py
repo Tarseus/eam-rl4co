@@ -76,6 +76,31 @@ import ptp_discovery.pref_builder_llm_ops as builder_llm_ops
 LOGGER = logging.getLogger("ptp_discovery.pref_loss_coevo")
 
 
+def _cache_brief(caches: PrefLossEvalCaches) -> str:
+    try:
+        return f"caches(rollout={len(caches.rollout_cache)} pref={len(caches.pref_cache)} pair={len(caches.pair_cache)})"
+    except Exception:  # noqa: BLE001
+        return "caches(?)"
+
+
+def _cuda_mem_brief(devices: Sequence[str]) -> str:
+    if not torch.cuda.is_available():
+        return "cuda=unavailable"
+    out: list[str] = []
+    for d in devices:
+        ds = str(d)
+        if not ds.startswith("cuda"):
+            continue
+        try:
+            dev = torch.device(ds)
+            alloc_gb = float(torch.cuda.memory_allocated(dev)) / (1024**3)
+            reserv_gb = float(torch.cuda.memory_reserved(dev)) / (1024**3)
+            out.append(f"{ds}(alloc={alloc_gb:.2f}G,resv={reserv_gb:.2f}G)")
+        except Exception:  # noqa: BLE001
+            continue
+    return "cuda(" + " ".join(out) + ")" if out else "cuda=ok"
+
+
 def _repo_root_dir() -> str:
     # This file lives at PTP/ptp_discovery/pref_loss_coevo_loop.py.
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -2101,7 +2126,25 @@ def _cheap_eval_pair_cached(
     first_joint_fail_trace: Dict[str, Any] | None = None
     joint_failure_kinds: collections.Counter[str] = collections.Counter()
 
+    total_batches = int(len(rollout_feature_caches))
+    progress_every_s = float(cfg_yaml.get("progress_log_every_s_proxy_batch", 0) or 0)
+    t_last_progress = time.time()
+
     for local_batch_id, fc in enumerate(rollout_feature_caches):
+        if progress_every_s > 0 and (time.time() - t_last_progress) >= progress_every_s and (local_batch_id + 1) < total_batches:
+            LOGGER.info(
+                "Proxy progress gen=%d stage=%s pair_index=%d g_id=%s f_id=%s batch=%d/%d %s",
+                int(generation),
+                str(stage),
+                int(pair_index),
+                str(gid),
+                str(fid),
+                int(local_batch_id + 1),
+                int(total_batches),
+                _cache_brief(caches),
+            )
+            t_last_progress = time.time()
+
         pref = build_or_get_pref_batch(
             caches=caches,
             g_id=str(gid),
@@ -3167,6 +3210,7 @@ def run_pref_loss_coevo(
 
     for gen in range(gen_start, generations):
         LOGGER.info("=== coevo generation %d/%d ===", gen, generations - 1)
+        LOGGER.info("Gen %d start: %s %s", int(gen), _cache_brief(caches), _cuda_mem_brief(device_list))
 
         best_builder_ir = dict(elites_g[0].get("ir")) if elites_g else None
         if isinstance(best_builder_ir, dict) and isinstance(best_builder_ir.get("code"), str):
@@ -3464,8 +3508,20 @@ def run_pref_loss_coevo(
         proxy_device = torch.device(proxy_device_str)
 
         # Pre-build (or reuse) rollout feature caches for the cheap stage.
+        t_rollouts0 = time.time()
+        LOGGER.info(
+            "Gen %d proxy rollouts: device=%s batches=%d batch_size=%d problem_size=%d",
+            int(gen),
+            str(proxy_device_str),
+            int(proxy_batches),
+            int(proxy_batch_size),
+            int(proxy_problem_size),
+        )
+        progress_every_proxy_batches = int(cfg_yaml.get("progress_log_every_proxy_batches", 10) or 10)
         rollout_feature_caches: List[Dict[str, torch.Tensor]] = []
         for batch_id in range(int(proxy_batches)):
+            key = (int(seed), int(proxy_problem_size), int(batch_id))
+            hit = caches.get_rollout(key) is not None
             fc = build_or_get_rollout_feature_cache(
                 caches=caches,
                 cfg=_build_hf_cfg(cfg_yaml, seed=seed, device_str=proxy_device_str),
@@ -3476,6 +3532,25 @@ def run_pref_loss_coevo(
                 device=proxy_device,
             )
             rollout_feature_caches.append(fc)
+            if (batch_id + 1) in (1, int(proxy_batches)) or (
+                progress_every_proxy_batches > 0 and ((batch_id + 1) % progress_every_proxy_batches == 0)
+            ):
+                LOGGER.info(
+                    "Gen %d proxy rollouts progress: %d/%d cache_hit=%s %s %s",
+                    int(gen),
+                    int(batch_id + 1),
+                    int(proxy_batches),
+                    str(hit),
+                    _cache_brief(caches),
+                    _cuda_mem_brief([proxy_device_str]),
+                )
+        LOGGER.info(
+            "Gen %d proxy rollouts done: elapsed_s=%.1f %s %s",
+            int(gen),
+            float(time.time() - t_rollouts0),
+            _cache_brief(caches),
+            _cuda_mem_brief([proxy_device_str]),
+        )
 
         # Compile pools locally for proxy evaluation (avoids mp pickling issues).
         compiled_g: Dict[str, CompiledPreferenceBuilder] = {}
@@ -3549,6 +3624,8 @@ def run_pref_loss_coevo(
                 anchor_reasons[(G_REF_ID, str(fid))] = ["anchor_loss_vs_g_ref"]
 
         anchor_records: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        t_anchor0 = time.time()
+        progress_every_pairs = int(cfg_yaml.get("progress_log_every_pairs", 10) or 10)
         for p_idx, (gid, fid) in enumerate(anchor_pairs):
             rec = _cheap_eval_pair_cached(
                 caches=caches,
@@ -3575,12 +3652,30 @@ def run_pref_loss_coevo(
                 cheap_gate_on=True,
             )
             anchor_records[(str(gid), str(fid))] = rec
+            if progress_every_pairs > 0 and ((p_idx + 1) in (1, int(len(anchor_pairs))) or ((p_idx + 1) % progress_every_pairs == 0)):
+                LOGGER.info(
+                    "Anchor eval progress gen=%d: %d/%d %s %s",
+                    int(gen),
+                    int(p_idx + 1),
+                    int(len(anchor_pairs)),
+                    _cache_brief(caches),
+                    _cuda_mem_brief([proxy_device_str]),
+                )
             if str(fid) == F_REF_ID and str(gid) in new_g_ids:
                 if (not bool(rec.get("pair_ok"))) or float(rec.get("score", float("inf"))) > anchor_max_score:
                     eliminated_g.add(str(gid))
             if str(gid) == G_REF_ID and str(fid) in new_f_ids:
                 if (not bool(rec.get("pair_ok"))) or float(rec.get("score", float("inf"))) > anchor_max_score:
                     eliminated_f.add(str(fid))
+        if anchor_pairs:
+            LOGGER.info(
+                "Anchor eval done gen=%d: pairs=%d elapsed_s=%.1f %s %s",
+                int(gen),
+                int(len(anchor_pairs)),
+                float(time.time() - t_anchor0),
+                _cache_brief(caches),
+                _cuda_mem_brief([proxy_device_str]),
+            )
 
         if eliminated_g:
             new_g_ids = [x for x in new_g_ids if x not in eliminated_g]
@@ -3613,6 +3708,39 @@ def run_pref_loss_coevo(
             if isinstance(e, dict) and e.get("id") and isinstance(e.get("ir"), dict):
                 f_map.setdefault(str(e["id"]), dict(e))
 
+        # Keep pref-cache bounded: retain only batches for currently active g_ids (elites + HoF + current pool).
+        # Without pruning, pref_cache can grow every generation and pin CUDA tensors, appearing as "VRAM leak".
+        keep_offsets = {0}
+        try:
+            recheck_enabled_cfg = bool(cfg_yaml.get("recheck_enabled", True))
+            recheck_num_seeds_cfg = int(cfg_yaml.get("recheck_num_seeds", 2) or 2)
+        except Exception:  # noqa: BLE001
+            recheck_enabled_cfg = True
+            recheck_num_seeds_cfg = 2
+        if recheck_enabled_cfg and recheck_num_seeds_cfg >= 2:
+            keep_offsets.add(100000)
+        keep_batch_ids: list[int] = []
+        for off in sorted(keep_offsets):
+            keep_batch_ids.extend([int(off + i) for i in range(int(proxy_batches))])
+        dropped = caches.prune_pref_cache(keep_g_ids=g_id_pool + [G_REF_ID], keep_batch_ids=keep_batch_ids)
+        if dropped > 0:
+            LOGGER.info(
+                "Gen %d pref_cache pruned: dropped=%d kept=%d keep_g_ids=%d keep_batch_ids=%d %s %s",
+                int(gen),
+                int(dropped),
+                int(len(caches.pref_cache)),
+                int(len(set([str(x) for x in (g_id_pool + [G_REF_ID])]))),
+                int(len(set(keep_batch_ids))),
+                _cache_brief(caches),
+                _cuda_mem_brief([proxy_device_str]),
+            )
+            if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
+                try:
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                except Exception:  # noqa: BLE001
+                    pass
+
         # Core pairing budget excludes mandatory anchor pairs.
         core_budget = max(0, int(pairing_budget) - len(anchor_pairs))
         core_pairs, core_reasons = _build_coverage_plus_bandit_pairs(
@@ -3643,6 +3771,7 @@ def run_pref_loss_coevo(
         pair_records_map.update(anchor_records)
 
         # Cheap stage evaluation for scheduled pairs using Common Random Numbers (base_seed).
+        t_cheap0 = time.time()
         for p_idx, (gid, fid) in enumerate(pairs):
             if (gid, fid) in pair_records_map and pair_records_map[(gid, fid)].get("stage") == "anchor":
                 continue
@@ -3671,6 +3800,24 @@ def run_pref_loss_coevo(
                 cheap_gate_on=bool(cheap_gate_on),
             )
             pair_records_map[(str(gid), str(fid))] = rec
+            if progress_every_pairs > 0 and ((p_idx + 1) in (1, int(len(pairs))) or ((p_idx + 1) % progress_every_pairs == 0)):
+                LOGGER.info(
+                    "Cheap eval progress gen=%d: %d/%d %s %s",
+                    int(gen),
+                    int(p_idx + 1),
+                    int(len(pairs)),
+                    _cache_brief(caches),
+                    _cuda_mem_brief([proxy_device_str]),
+                )
+        if pairs:
+            LOGGER.info(
+                "Cheap eval done gen=%d: pairs=%d elapsed_s=%.1f %s %s",
+                int(gen),
+                int(len(pairs)),
+                float(time.time() - t_cheap0),
+                _cache_brief(caches),
+                _cuda_mem_brief([proxy_device_str]),
+            )
 
         # 2-seed recheck: best_pair + elite-boundary pairs (cheap stage only).
         recheck_enabled = bool(cfg_yaml.get("recheck_enabled", True))
@@ -3709,6 +3856,7 @@ def run_pref_loss_coevo(
                 if gid in g_boundary or fid in f_boundary:
                     recheck_pairs.append((gid, fid))
 
+            t_recheck0 = time.time()
             seed2 = int(base_seed + recheck_offset)
             seed2_sig = seed_signature_for_proxy(
                 seed=seed2,
@@ -3716,8 +3864,18 @@ def run_pref_loss_coevo(
                 batch_ids=list(range(int(proxy_batches))),
                 batch_size=int(proxy_batch_size),
             )
+            LOGGER.info(
+                "Recheck seed2 gen=%d: pairs=%d seed=%d device=%s proxy_batches=%d",
+                int(gen),
+                int(len(recheck_pairs)),
+                int(seed2),
+                str(proxy_device_str),
+                int(proxy_batches),
+            )
             rollout_feature_caches_2: List[Dict[str, torch.Tensor]] = []
             for batch_id in range(int(proxy_batches)):
+                key = (int(seed2), int(proxy_problem_size), int(batch_id))
+                hit = caches.get_rollout(key) is not None
                 fc = build_or_get_rollout_feature_cache(
                     caches=caches,
                     cfg=_build_hf_cfg(cfg_yaml, seed=seed2, device_str=proxy_device_str),
@@ -3728,6 +3886,18 @@ def run_pref_loss_coevo(
                     device=proxy_device,
                 )
                 rollout_feature_caches_2.append(fc)
+                if (batch_id + 1) in (1, int(proxy_batches)) or (
+                    progress_every_proxy_batches > 0 and ((batch_id + 1) % progress_every_proxy_batches == 0)
+                ):
+                    LOGGER.info(
+                        "Recheck seed2 rollouts progress gen=%d: %d/%d cache_hit=%s %s %s",
+                        int(gen),
+                        int(batch_id + 1),
+                        int(proxy_batches),
+                        str(hit),
+                        _cache_brief(caches),
+                        _cuda_mem_brief([proxy_device_str]),
+                    )
 
             for gid, fid in recheck_pairs:
                 rec2 = _cheap_eval_pair_cached(
@@ -3755,6 +3925,15 @@ def run_pref_loss_coevo(
                     cheap_gate_on=bool(cheap_gate_on),
                 )
                 pair_records_map[(str(gid), str(fid))] = rec2
+            if recheck_pairs:
+                LOGGER.info(
+                    "Recheck seed2 done gen=%d: pairs=%d elapsed_s=%.1f %s %s",
+                    int(gen),
+                    int(len(recheck_pairs)),
+                    float(time.time() - t_recheck0),
+                    _cache_brief(caches),
+                    _cuda_mem_brief([proxy_device_str]),
+                )
 
         pair_records: List[Dict[str, Any]] = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
 
@@ -3803,7 +3982,9 @@ def run_pref_loss_coevo(
                     float(micro_alpha),
                     int(len(rollout_feature_caches)),
                 )
-                for r in mu_eval:
+                t_mu0 = time.time()
+                progress_every_mu = int(cfg_yaml.get("progress_log_every_micro_unroll_tasks", 8) or 8)
+                for mu_idx, r in enumerate(mu_eval):
                     gid = str(r.get("g_id"))
                     fid = str(r.get("f_id"))
                     cache_key = (gid, fid, str(eval_sig))
@@ -3850,6 +4031,16 @@ def run_pref_loss_coevo(
                         rec_mu["score"] = float("inf")
                         caches.set_pair(cache_key, rec_mu)
                         pair_records_map[(gid, fid)] = rec_mu
+                    if progress_every_mu > 0 and ((mu_idx + 1) in (1, int(len(mu_eval))) or ((mu_idx + 1) % progress_every_mu == 0)):
+                        LOGGER.info(
+                            "Micro-unroll progress gen=%d: %d/%d elapsed_s=%.1f %s %s",
+                            int(gen),
+                            int(mu_idx + 1),
+                            int(len(mu_eval)),
+                            float(time.time() - t_mu0),
+                            _cache_brief(caches),
+                            _cuda_mem_brief([proxy_device_str]),
+                        )
 
                 # Rebuild after micro-unroll overwrites `score` for some pairs.
                 pair_records = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
