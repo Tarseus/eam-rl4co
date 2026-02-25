@@ -1,30 +1,44 @@
 {
-  "generation": 1,
-  "index": 6,
-  "id": "g001_006_0ead4f6a",
-  "signature": "0ead4f6a930c739941209f8fab5e887491de4001",
-  "origin": "M1",
+  "generation": 0,
+  "index": 3,
+  "id": "g000_003_9ff412ee",
+  "signature": "9ff412ee9444e98b18ab6b74b197f2827ff5d9ff",
+  "origin": "REPAIR",
   "origin_base": "M1",
-  "op_type": "M1",
+  "op_type": "REPAIR",
   "parents": [
-    "g000_002_3351a086"
+    "bootstrap_g_000"
   ],
   "attempt": 0,
-  "prompt_sha1": "f5c97847310fe68d32be07768ef163d6ba3809cf",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
-  "llm_seed": 2096396629,
+  "prompt_sha1": "93028d0e285c307b907ce95027813cfc65b2ef29",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+  "llm_seed": 381946419,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
       "llm_op": "M1",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
-      "prompt_sha1": "f5c97847310fe68d32be07768ef163d6ba3809cf"
+      "prompt_sha1": "97f55b65502db742323290f05cd9d6b01e613e81"
+    },
+    {
+      "attempt": 0,
+      "op": "M3",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+      "prompt_sha1": "f97ee65e113c5d8c62834f91a754310d07ab3d03"
+    },
+    {
+      "attempt": 0,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "93028d0e285c307b907ce95027813cfc65b2ef29"
     }
   ],
   "ir": {
-    "name": "gap_pairs_weighted_002",
-    "intuition": "Keep the strict gap-threshold pairing (only clearly better solutions), but add a nonnegative weight that increases with the objective gap so larger, more reliable improvements contribute more to the training signal while still ignoring near-ties.",
+    "name": "gap_threshold_no_float_002",
+    "intuition": "Build pairwise preferences only for clear wins: for each batch element, create (winner, loser) pairs when the lower-is-better objective of the winner is at least `gap_threshold` smaller than the loser's objective, filtering near-ties.",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -33,7 +47,7 @@
       "returns": "PrefBatch",
       "mode": "pairwise"
     },
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # lower objective is better\n    gap_thr = extra.get('gap_threshold', 0)\n    weight_scale = extra.get('weight_scale', 1.0)\n\n    # diff[b,i,j] = obj[b,j] - obj[b,i]; positive means i is better than j by that gap.\n    diff = objective[:, None, :] - objective[:, :, None]\n    mask = diff > gap_thr\n\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n\n    if b_idx.numel() == 0:\n        empty = objective.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(empty, empty, empty),\n            weight=objective.new_zeros((0,)),\n            meta={\n                'builder': 'gap_pairs_weighted',\n                'gap_threshold': gap_thr,\n                'weight_scale': weight_scale,\n            },\n        )\n\n    b_idx = b_idx.to(dtype=torch.long).reshape(-1)\n    winner_idx = winner_idx.to(dtype=torch.long).reshape(-1)\n    loser_idx = loser_idx.to(dtype=torch.long).reshape(-1)\n\n    # Nonnegative weight based on (gap - threshold), optionally scaled.\n    gap = diff[b_idx, winner_idx, loser_idx] - gap_thr\n    weight = gap.clamp_min(0) * weight_scale\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={\n            'builder': 'gap_pairs_weighted',\n            'gap_threshold': gap_thr,\n            'weight_scale': weight_scale,\n        },\n    )"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Read threshold without using Python float(); keep as a plain value for meta.\n    gap_threshold = extra.get('gap_threshold', 0) if extra is not None else 0\n\n    # Pair (winner, loser) when winner objective is smaller by at least gap_threshold.\n    # objective: [B, K]\n    diff = objective[:, :, None] - objective[:, None, :]\n    mask = diff < (-gap_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n\n    # Ensure int64 1D tensors.\n    b_idx = b_idx.to(dtype=torch.long).view(-1)\n    winner_idx = winner_idx.to(dtype=torch.long).view(-1)\n    loser_idx = loser_idx.to(dtype=torch.long).view(-1)\n\n    meta = {'builder': 'gap_threshold', 'gap_threshold': gap_threshold}\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta=meta)"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -68,7 +82,7 @@
       }
     ]
   },
-  "fitness": 0.6094298958778381,
+  "fitness": 0.608948706941113,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
