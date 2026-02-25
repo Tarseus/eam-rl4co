@@ -101,6 +101,68 @@ def _cuda_mem_brief(devices: Sequence[str]) -> str:
     return "cuda(" + " ".join(out) + ")" if out else "cuda=ok"
 
 
+def _normalize_device_alias(device_str: str) -> str:
+    ds = str(device_str or "").strip()
+    if ds.lower() == "gpu":
+        return "cuda"
+    return ds
+
+
+def _maybe_auto_flush_pref_cache(
+    *,
+    caches: PrefLossEvalCaches,
+    cfg_yaml: Mapping[str, Any],
+    default_device_str: str,
+    generation: int,
+    scope: str,
+) -> int:
+    if not bool(cfg_yaml.get("pref_cache_auto_flush_enabled", False)):
+        return 0
+    thr_gb = float(cfg_yaml.get("pref_cache_auto_flush_reserved_gb", 0.0) or 0.0)
+    if thr_gb <= 0:
+        return 0
+    dev_s = _normalize_device_alias(str(cfg_yaml.get("pref_cache_auto_flush_device", default_device_str)))
+    if not dev_s.startswith("cuda") or not torch.cuda.is_available():
+        return 0
+
+    try:
+        dev = torch.device(dev_s)
+        alloc_gb = float(torch.cuda.memory_allocated(dev)) / (1024**3)
+        reserv_gb = float(torch.cuda.memory_reserved(dev)) / (1024**3)
+        used_gb = max(alloc_gb, reserv_gb)
+    except Exception:  # noqa: BLE001
+        return 0
+
+    if used_gb < float(thr_gb):
+        return 0
+
+    dropped_pref = caches.prune_pref_cache(keep_g_ids=[], keep_batch_ids=[])
+    dropped_rollout = 0
+    if bool(cfg_yaml.get("pref_cache_auto_flush_drop_rollout", False)):
+        dropped_rollout = int(len(caches.rollout_cache))
+        caches.rollout_cache.clear()
+
+    try:
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+
+    LOGGER.warning(
+        "Auto-flush pref cache gen=%d scope=%s device=%s used=%.2fG threshold=%.2fG dropped(pref=%d rollout=%d) %s %s",
+        int(generation),
+        str(scope),
+        str(dev_s),
+        float(used_gb),
+        float(thr_gb),
+        int(dropped_pref),
+        int(dropped_rollout),
+        _cache_brief(caches),
+        _cuda_mem_brief([dev_s]),
+    )
+    return int(dropped_pref + dropped_rollout)
+
+
 def _repo_root_dir() -> str:
     # This file lives at PTP/ptp_discovery/pref_loss_coevo_loop.py.
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -2823,9 +2885,9 @@ def run_pref_loss_coevo(
 
     devices = cfg_yaml.get("devices")
     if isinstance(devices, (list, tuple)) and devices:
-        device_list = [str(d) for d in devices]
+        device_list = [_normalize_device_alias(str(d)) for d in devices]
     else:
-        device_list = [str(cfg_yaml.get("device", "cuda"))]
+        device_list = [_normalize_device_alias(str(cfg_yaml.get("device", "cuda")))]
 
     mp_cfg = cfg_yaml.get("mp", {}) or {}
     if not isinstance(mp_cfg, dict):
@@ -3507,7 +3569,7 @@ def run_pref_loss_coevo(
 
         # === Multi-fidelity evaluation with caching ===
         # Cheap stage: reuse cached rollout feature_cache across all pairs; build PrefBatch once per (g_id, batch_id).
-        proxy_device_str = str(cfg_yaml.get("proxy_device", device_list[0]))
+        proxy_device_str = _normalize_device_alias(str(cfg_yaml.get("proxy_device", device_list[0])))
         if proxy_device_str == "cuda" and not torch.cuda.is_available():
             proxy_device_str = "cpu"
         proxy_device = torch.device(proxy_device_str)
@@ -3555,6 +3617,13 @@ def run_pref_loss_coevo(
             float(time.time() - t_rollouts0),
             _cache_brief(caches),
             _cuda_mem_brief([proxy_device_str]),
+        )
+        _maybe_auto_flush_pref_cache(
+            caches=caches,
+            cfg_yaml=cfg_yaml,
+            default_device_str=proxy_device_str,
+            generation=int(gen),
+            scope="after_proxy_rollouts",
         )
 
         # Compile pools locally for proxy evaluation (avoids mp pickling issues).
@@ -3680,6 +3749,13 @@ def run_pref_loss_coevo(
                 float(time.time() - t_anchor0),
                 _cache_brief(caches),
                 _cuda_mem_brief([proxy_device_str]),
+            )
+            _maybe_auto_flush_pref_cache(
+                caches=caches,
+                cfg_yaml=cfg_yaml,
+                default_device_str=proxy_device_str,
+                generation=int(gen),
+                scope="after_anchor",
             )
 
         if eliminated_g:
@@ -3811,6 +3887,13 @@ def run_pref_loss_coevo(
                 _cache_brief(caches),
                 _cuda_mem_brief([proxy_device_str]),
             )
+            _maybe_auto_flush_pref_cache(
+                caches=caches,
+                cfg_yaml=cfg_yaml,
+                default_device_str=proxy_device_str,
+                generation=int(gen),
+                scope="after_cheap",
+            )
 
         # 2-seed recheck: best_pair + elite-boundary pairs (cheap stage only).
         recheck_enabled = bool(cfg_yaml.get("recheck_enabled", True))
@@ -3926,6 +4009,13 @@ def run_pref_loss_coevo(
                     float(time.time() - t_recheck0),
                     _cache_brief(caches),
                     _cuda_mem_brief([proxy_device_str]),
+                )
+                _maybe_auto_flush_pref_cache(
+                    caches=caches,
+                    cfg_yaml=cfg_yaml,
+                    default_device_str=proxy_device_str,
+                    generation=int(gen),
+                    scope="after_recheck",
                 )
                 # Drop recheck-only pref batches (batch_id offset 100000) to keep VRAM stable during
                 # subsequent micro-unroll / HF stages and across generations.
@@ -4074,6 +4164,13 @@ def run_pref_loss_coevo(
                             float(time.time() - t_mu0),
                             _cache_brief(caches),
                             _cuda_mem_brief([proxy_device_str]),
+                        )
+                        _maybe_auto_flush_pref_cache(
+                            caches=caches,
+                            cfg_yaml=cfg_yaml,
+                            default_device_str=proxy_device_str,
+                            generation=int(gen),
+                            scope="micro_unroll_progress",
                         )
 
                 # Rebuild after micro-unroll overwrites `score` for some pairs.
@@ -4467,6 +4564,24 @@ def run_pref_loss_coevo(
                 best_pair = dict(rec)
         if best_pair is not None:
             _atomic_write_json(os.path.join(run_dir, "best_pair.json"), best_pair)
+
+        if bool(cfg_yaml.get("drop_pref_cache_after_generation", False)):
+            dropped_end = caches.prune_pref_cache(keep_g_ids=[], keep_batch_ids=[])
+            if dropped_end > 0:
+                LOGGER.info(
+                    "Gen %d pref_cache drop after generation: dropped=%d kept=%d %s %s",
+                    int(gen),
+                    int(dropped_end),
+                    int(len(caches.pref_cache)),
+                    _cache_brief(caches),
+                    _cuda_mem_brief([proxy_device_str]),
+                )
+                if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
+                    try:
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except Exception:  # noqa: BLE001
+                        pass
 
         _save_checkpoint(run_dir, _checkpoint_state(gen + 1))
 

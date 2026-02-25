@@ -100,7 +100,7 @@ baseline:
   val_column: val/max_reward
 
 # Cheap proxy (multi-fidelity) settings
-proxy_device: cuda
+proxy_device: cuda:4
 proxy_problem_size: 100
 proxy_batch_size: 64
 proxy_batches: 50
@@ -185,6 +185,14 @@ pref_semantic_gap_min_ratio: 0.9
 # and dropped before micro-unroll to avoid cross-generation VRAM accumulation.
 pref_cache_enabled: true
 drop_pref_cache_before_micro_unroll: true
+# Optional hard cleanup at generation boundary (more stable VRAM, slight recompute risk next gen).
+drop_pref_cache_after_generation: true
+# Auto-flush when monitored device VRAM exceeds threshold.
+# Useful when using a dedicated proxy/cache GPU (set proxy_device to that GPU).
+pref_cache_auto_flush_enabled: true
+pref_cache_auto_flush_reserved_gb: 20.0
+pref_cache_auto_flush_device: cuda:4
+pref_cache_auto_flush_drop_rollout: false
 cuda_empty_cache_on_pref_prune: true
 
 # -----------------------------
