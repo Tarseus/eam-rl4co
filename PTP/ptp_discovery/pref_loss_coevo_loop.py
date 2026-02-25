@@ -2129,6 +2129,7 @@ def _cheap_eval_pair_cached(
     total_batches = int(len(rollout_feature_caches))
     progress_every_s = float(cfg_yaml.get("progress_log_every_s_proxy_batch", 0) or 0)
     t_last_progress = time.time()
+    pref_cache_enabled = bool(cfg_yaml.get("pref_cache_enabled", True))
 
     for local_batch_id, fc in enumerate(rollout_feature_caches):
         if progress_every_s > 0 and (time.time() - t_last_progress) >= progress_every_s and (local_batch_id + 1) < total_batches:
@@ -2145,14 +2146,18 @@ def _cheap_eval_pair_cached(
             )
             t_last_progress = time.time()
 
-        pref = build_or_get_pref_batch(
-            caches=caches,
-            g_id=str(gid),
-            batch_id=int(pref_batch_id_offset + local_batch_id),
-            builder=g_comp,
-            feature_cache=fc,
-            extra={"stage": "proxy", "seed_signature": str(seed_sig)},
-        )
+        if pref_cache_enabled:
+            pref = build_or_get_pref_batch(
+                caches=caches,
+                g_id=str(gid),
+                batch_id=int(pref_batch_id_offset + local_batch_id),
+                builder=g_comp,
+                feature_cache=fc,
+                extra={"stage": "proxy", "seed_signature": str(seed_sig)},
+            )
+        else:
+            # For VRAM stability: avoid storing PrefBatch tensors in a long-lived cache.
+            pref = g_comp.build_fn(fc, {"stage": "proxy", "seed_signature": str(seed_sig)})
         if builder_gate_first is None:
             bg = run_preference_builder_gates(
                 pref,
@@ -3710,15 +3715,10 @@ def run_pref_loss_coevo(
 
         # Keep pref-cache bounded: retain only batches for currently active g_ids (elites + HoF + current pool).
         # Without pruning, pref_cache can grow every generation and pin CUDA tensors, appearing as "VRAM leak".
+        # Note: recheck uses a separate batch_id offset (100000). We intentionally do *not* keep
+        # recheck pref batches across generations; they can be rebuilt when needed and otherwise
+        # inflate the cache (and VRAM) for long stretches of time.
         keep_offsets = {0}
-        try:
-            recheck_enabled_cfg = bool(cfg_yaml.get("recheck_enabled", True))
-            recheck_num_seeds_cfg = int(cfg_yaml.get("recheck_num_seeds", 2) or 2)
-        except Exception:  # noqa: BLE001
-            recheck_enabled_cfg = True
-            recheck_num_seeds_cfg = 2
-        if recheck_enabled_cfg and recheck_num_seeds_cfg >= 2:
-            keep_offsets.add(100000)
         keep_batch_ids: list[int] = []
         for off in sorted(keep_offsets):
             keep_batch_ids.extend([int(off + i) for i in range(int(proxy_batches))])
@@ -3934,6 +3934,25 @@ def run_pref_loss_coevo(
                     _cache_brief(caches),
                     _cuda_mem_brief([proxy_device_str]),
                 )
+                # Drop recheck-only pref batches (batch_id offset 100000) to keep VRAM stable during
+                # subsequent micro-unroll / HF stages and across generations.
+                keep_base_batch_ids = [int(i) for i in range(int(proxy_batches))]
+                dropped_recheck = caches.prune_pref_cache(keep_g_ids=g_id_pool + [G_REF_ID], keep_batch_ids=keep_base_batch_ids)
+                if dropped_recheck > 0:
+                    LOGGER.info(
+                        "Gen %d pref_cache drop recheck: dropped=%d kept=%d %s %s",
+                        int(gen),
+                        int(dropped_recheck),
+                        int(len(caches.pref_cache)),
+                        _cache_brief(caches),
+                        _cuda_mem_brief([proxy_device_str]),
+                    )
+                    if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
+                        try:
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                        except Exception:  # noqa: BLE001
+                            pass
 
         pair_records: List[Dict[str, Any]] = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
 
