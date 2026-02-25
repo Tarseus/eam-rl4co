@@ -66,6 +66,40 @@ class PrefLossEvalCaches:
     def set_pref(self, key: PrefKey, pref_batch: PrefBatch) -> None:
         self.pref_cache[key] = pref_batch
 
+    def prune_pref_cache(
+        self,
+        *,
+        keep_g_ids: Sequence[str] | None = None,
+        keep_batch_ids: Sequence[int] | None = None,
+    ) -> int:
+        """Drop pref_cache entries outside the provided keep-sets.
+
+        This cache can grow unbounded in long runs because new builder ids are
+        created every generation. Pruning keeps memory bounded while preserving
+        the main speedups for active candidates (elites/HoF/current pools).
+        """
+
+        keep_g = set(str(x) for x in keep_g_ids) if keep_g_ids is not None else None
+        keep_b = set(int(x) for x in keep_batch_ids) if keep_batch_ids is not None else None
+        if keep_g is None and keep_b is None:
+            return 0
+
+        to_delete: list[PrefKey] = []
+        for (g_id, batch_id) in self.pref_cache.keys():
+            if keep_g is not None and str(g_id) not in keep_g:
+                to_delete.append((g_id, batch_id))
+                continue
+            if keep_b is not None and int(batch_id) not in keep_b:
+                to_delete.append((g_id, batch_id))
+                continue
+
+        for k in to_delete:
+            try:
+                del self.pref_cache[k]
+            except KeyError:
+                pass
+        return int(len(to_delete))
+
     def get_pair(self, key: PairKey) -> Dict[str, Any] | None:
         return self.pair_cache.get(key)
 

@@ -79,6 +79,9 @@ def main() -> None:
         level=level,
         format="[%(asctime)s] %(levelname)s:%(name)s: %(message)s",
     )
+    # Reduce noisy per-request logs from LLM HTTP clients so progress logs are visible in *.out.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     parser = _build_arg_parser()
     args = parser.parse_args()
 
