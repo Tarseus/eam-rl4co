@@ -100,7 +100,7 @@ baseline:
   val_column: val/max_reward
 
 # Cheap proxy (multi-fidelity) settings
-proxy_device: cuda
+proxy_device: cpu
 proxy_problem_size: 100
 proxy_batch_size: 64
 proxy_batches: 50
@@ -181,6 +181,7 @@ pref_semantic_min_pass_rate: 0.8
 pref_semantic_swap_tolerance: 0.001
 pref_semantic_gap_min_ratio: 0.9
 pref_cache_enabled: false
+cuda_empty_cache_on_pref_prune: true
 
 # -----------------------------
 # High-fidelity training config

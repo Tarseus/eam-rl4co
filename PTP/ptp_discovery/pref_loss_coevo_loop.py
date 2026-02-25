@@ -4177,6 +4177,23 @@ def run_pref_loss_coevo(
                 else:
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))
+                try:
+                    ok = sum(1 for r in hf_results if bool(r.get("pair_ok")))
+                    failed = int(len(hf_results) - ok)
+                    better = sum(1 for r in hf_results if r.get("better_than_baseline") is True)
+                    worse = sum(1 for r in hf_results if r.get("better_than_baseline") is False)
+                    unknown = int(len(hf_results) - better - worse)
+                    LOGGER.info(
+                        "HF vs baseline gen=%d: better=%d worse=%d unknown=%d (ok=%d failed=%d)",
+                        int(gen),
+                        int(better),
+                        int(worse),
+                        int(unknown),
+                        int(ok),
+                        int(failed),
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
 
             # Merge high-fidelity results back into cached records.
             for hf_rec in hf_results:

@@ -19,6 +19,30 @@ class PreferenceBuilderCompileError(Exception):
     pass
 
 
+_REAL_IMPORT = __import__
+
+
+def _restricted_import(
+    name: str,
+    globals: Mapping[str, Any] | None = None,  # noqa: A002
+    locals: Mapping[str, Any] | None = None,  # noqa: A002
+    fromlist: tuple[str, ...] = (),
+    level: int = 0,
+) -> Any:
+    """Restrict imports during exec() of user/LLM-provided builder code.
+
+    Some PyTorch APIs (e.g., Tensor.nonzero(as_tuple=True) in certain versions)
+    consult the active frame's builtins for `__import__`. We provide a minimal
+    importer so those operations can function, while keeping arbitrary imports
+    disabled for sandboxed builder code.
+    """
+
+    mod = str(name or "")
+    if mod == "torch" or mod.startswith("torch."):
+        return _REAL_IMPORT(mod, globals, locals, fromlist, level)
+    raise ImportError(f"Imports are disabled in preference builder sandbox (attempted: {mod!r})")
+
+
 @dataclass
 class CompiledPreferenceBuilder:
     ir: PreferenceBuilderIR
@@ -104,8 +128,33 @@ def compile_preference_builder(
         ops_table = {k: v for k, v in ops_table.items() if k in operator_whitelist}
     ops_accessor = _OpsAccessor(ops_table)
 
+    # Execute in a tightly restricted namespace. We deliberately strip most
+    # builtins to avoid access to filesystem, subprocesses, etc.
+    #
+    # NOTE: We keep a tiny allowlist of safe builtins to make LLM/codegen
+    # builders ergonomic (e.g., `float(...)`, `int(...)`, simple loops). Dangerous
+    # builtins like `open`, `eval`, `exec`, `__import__`, etc. remain absent,
+    # and additional safety is enforced by the AST validator above.
     safe_globals: Dict[str, Any] = {
-        "__builtins__": {},
+        "__builtins__": {
+            "__import__": _restricted_import,
+            "float": float,
+            "int": int,
+            "bool": bool,
+            "dict": dict,
+            "list": list,
+            "tuple": tuple,
+            "set": set,
+            "min": min,
+            "max": max,
+            "abs": abs,
+            "len": len,
+            "sum": sum,
+            "range": range,
+            "enumerate": enumerate,
+            "zip": zip,
+            "isinstance": isinstance,
+        },
         "torch": torch,
         "F": F,
         "ops": ops_accessor,
@@ -141,4 +190,3 @@ def compile_preference_builder(
         return out
 
     return CompiledPreferenceBuilder(ir=ir, build_fn=build_fn)
-
