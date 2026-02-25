@@ -520,6 +520,7 @@ def micro_unroll_score_for_pair(
     lr: float,
     alpha: float,
     weight_decay: float = 0.0,
+    reuse_pref_batch_when_safe: bool = True,
 ) -> Tuple[float, Dict[str, Any]]:
     """Offline micro-unroll on cached rollouts (no new rollouts).
 
@@ -554,15 +555,41 @@ def micro_unroll_score_for_pair(
 
     mode = str(getattr(f.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
     expects = [str(x) for x in (getattr(f.ir.implementation_hint, "expects", None) or [])]
+    builder_expects = [str(x).strip().lower() for x in (getattr(g.ir.implementation_hint, "expects", None) or [])]
+    reuse_pref_templates = bool(reuse_pref_batch_when_safe) and mode != "setwise" and ("log_prob" not in builder_expects)
+
+    def _detach_pref(pref: PrefBatch) -> PrefBatch:
+        pair_idx = pref.pair_idx
+        if isinstance(pair_idx, tuple) and len(pair_idx) == 3:
+            pair_idx = tuple(t.detach() for t in pair_idx)  # type: ignore[assignment]
+        weight = pref.weight.detach() if isinstance(pref.weight, torch.Tensor) else pref.weight
+        return PrefBatch(
+            mode=str(pref.mode),
+            pair_idx=pair_idx,
+            list_idx=pref.list_idx.detach() if isinstance(pref.list_idx, torch.Tensor) else pref.list_idx,
+            weight=weight,
+            meta=dict(pref.meta or {}),
+        )
+
+    pref_templates: list[PrefBatch] | None = None
+    if reuse_pref_templates:
+        pref_templates = []
+        with torch.no_grad():
+            for obj, lp in zip(objectives, log_probs, strict=True):
+                fc0 = extract_feature_cache(obj, lp)
+                pref_templates.append(_detach_pref(g.build_fn(fc0, {"stage": "micro_unroll_pref_template"})))
 
     def _forward_mean_loss() -> torch.Tensor:
         losses: list[torch.Tensor] = []
-        for obj, lp in zip(objectives, log_probs, strict=True):
+        for i, (obj, lp) in enumerate(zip(objectives, log_probs, strict=True)):
             fc = extract_feature_cache(obj, lp)
             if mode == "setwise":
                 loss_t = f.loss_fn(batch={}, model_output=fc, extra={"alpha": float(alpha)})
             else:
-                pref = g.build_fn(fc, {"stage": "micro_unroll"})
+                if pref_templates is not None:
+                    pref = pref_templates[int(i)]
+                else:
+                    pref = g.build_fn(fc, {"stage": "micro_unroll"})
                 batch = pref.to_pairwise_loss_batch(fc)
                 if expects:
                     batch = {k: batch[k] for k in expects if k in batch}
@@ -601,6 +628,7 @@ def micro_unroll_score_for_pair(
         "micro_unroll_init_loss": float(init_loss),
         "micro_unroll_final_loss": float(final_loss),
         "micro_unroll_delta_loss": float(final_loss - init_loss),
+        "micro_unroll_reuse_pref_batch": bool(pref_templates is not None),
         "mode": mode,
         "batches": int(len(rollout_feature_caches)),
         "device": str(device) if device is not None else None,
