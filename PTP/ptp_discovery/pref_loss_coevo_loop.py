@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import collections
+import gc
 import json
 import logging
 import math
@@ -4034,6 +4035,7 @@ def run_pref_loss_coevo(
                     )
                     if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
                         try:
+                            gc.collect()
                             if torch.cuda.is_available():
                                 torch.cuda.empty_cache()
                         except Exception:  # noqa: BLE001
@@ -4054,6 +4056,7 @@ def run_pref_loss_coevo(
                 )
                 if bool(cfg_yaml.get("cuda_empty_cache_on_pref_prune", False)):
                     try:
+                        gc.collect()
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
                     except Exception:  # noqa: BLE001
@@ -4094,6 +4097,16 @@ def run_pref_loss_coevo(
                 micro_alpha = float(cfg_yaml.get("micro_unroll_alpha", cfg_yaml.get("alpha", 0.05)) or 0.05)
                 micro_weight_decay = float(cfg_yaml.get("micro_unroll_weight_decay", 0.0) or 0.0)
                 micro_reuse_pref = bool(cfg_yaml.get("micro_unroll_reuse_pref_batch_when_safe", True))
+                micro_max_pairs = cfg_yaml.get("micro_unroll_max_pairs", None)
+                try:
+                    micro_max_pairs_i = int(micro_max_pairs) if micro_max_pairs is not None else None
+                except (TypeError, ValueError):
+                    micro_max_pairs_i = None
+                micro_timeout_s = cfg_yaml.get("micro_unroll_timeout_s", None)
+                try:
+                    micro_timeout_s_f = float(micro_timeout_s) if micro_timeout_s is not None else None
+                except (TypeError, ValueError):
+                    micro_timeout_s_f = None
 
                 mu_eval = mu_candidates[: int(micro_top_k)]
                 LOGGER.info(
@@ -4127,6 +4140,16 @@ def run_pref_loss_coevo(
                         continue
 
                     try:
+                        t_pair0 = time.time()
+                        LOGGER.info(
+                            "Micro-unroll start gen=%d: %d/%d g_id=%s f_id=%s proxy_score=%.4g",
+                            int(gen),
+                            int(mu_idx + 1),
+                            int(len(mu_eval)),
+                            str(gid),
+                            str(fid),
+                            float(r.get("proxy_score", r.get("score", float("inf")))),
+                        )
                         mu_score, mu_metrics = micro_unroll_score_for_pair(
                             g=g_comp,
                             f=f_comp,
@@ -4136,6 +4159,8 @@ def run_pref_loss_coevo(
                             alpha=float(micro_alpha),
                             weight_decay=float(micro_weight_decay),
                             reuse_pref_batch_when_safe=bool(micro_reuse_pref),
+                            max_pairs=micro_max_pairs_i,
+                            timeout_s=micro_timeout_s_f,
                         )
                         rec_mu = dict(pair_records_map.get((gid, fid), dict(r)))
                         rec_mu["pair_ok"] = True
@@ -4146,6 +4171,16 @@ def run_pref_loss_coevo(
                         rec_mu["score"] = float(mu_score)
                         caches.set_pair(cache_key, rec_mu)
                         pair_records_map[(gid, fid)] = rec_mu
+                        LOGGER.info(
+                            "Micro-unroll done gen=%d: %d/%d g_id=%s f_id=%s score=%.4g elapsed_s=%.1f",
+                            int(gen),
+                            int(mu_idx + 1),
+                            int(len(mu_eval)),
+                            str(gid),
+                            str(fid),
+                            float(mu_score),
+                            float(time.time() - t_pair0),
+                        )
                     except Exception as exc:  # noqa: BLE001
                         rec_mu = dict(pair_records_map.get((gid, fid), dict(r)))
                         rec_mu["pair_ok"] = False
@@ -4155,6 +4190,14 @@ def run_pref_loss_coevo(
                         rec_mu["score"] = float("inf")
                         caches.set_pair(cache_key, rec_mu)
                         pair_records_map[(gid, fid)] = rec_mu
+                        LOGGER.exception(
+                            "Micro-unroll failed gen=%d: %d/%d g_id=%s f_id=%s",
+                            int(gen),
+                            int(mu_idx + 1),
+                            int(len(mu_eval)),
+                            str(gid),
+                            str(fid),
+                        )
                     if progress_every_mu > 0 and ((mu_idx + 1) in (1, int(len(mu_eval))) or ((mu_idx + 1) % progress_every_mu == 0)):
                         LOGGER.info(
                             "Micro-unroll progress gen=%d: %d/%d elapsed_s=%.1f %s %s",

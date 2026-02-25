@@ -13,6 +13,7 @@ backend can be extended to on-disk caching without changing call sites.
 
 import json
 import os
+import time
 from dataclasses import dataclass, field
 from hashlib import sha1
 from typing import Any, Dict, Mapping, MutableMapping, Sequence, Tuple
@@ -521,6 +522,8 @@ def micro_unroll_score_for_pair(
     alpha: float,
     weight_decay: float = 0.0,
     reuse_pref_batch_when_safe: bool = True,
+    max_pairs: int | None = None,
+    timeout_s: float | None = None,
 ) -> Tuple[float, Dict[str, Any]]:
     """Offline micro-unroll on cached rollouts (no new rollouts).
 
@@ -534,6 +537,14 @@ def micro_unroll_score_for_pair(
         return float("inf"), {"reason": "steps<=0"}
     if not rollout_feature_caches:
         return float("inf"), {"reason": "no_rollout_feature_caches"}
+
+    t0 = time.time()
+    timeout_s_f = float(timeout_s) if timeout_s is not None else None
+    if timeout_s_f is not None and timeout_s_f <= 0:
+        timeout_s_f = None
+    max_pairs_i = int(max_pairs) if max_pairs is not None else None
+    if max_pairs_i is not None and max_pairs_i <= 0:
+        max_pairs_i = None
 
     # We optimize one log_prob tensor per cached rollout batch.
     objectives: list[torch.Tensor] = []
@@ -555,8 +566,30 @@ def micro_unroll_score_for_pair(
 
     mode = str(getattr(f.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
     expects = [str(x) for x in (getattr(f.ir.implementation_hint, "expects", None) or [])]
-    builder_expects = [str(x).strip().lower() for x in (getattr(g.ir.implementation_hint, "expects", None) or [])]
-    reuse_pref_templates = bool(reuse_pref_batch_when_safe) and mode != "setwise" and ("log_prob" not in builder_expects)
+    # Builder outputs are used as non-differentiable templates for selecting pairs.
+    # In micro-unroll, we optimize log_prob tensors; recomputing pair selection every step
+    # is extremely expensive (e.g., mask.nonzero over BxKxK) and usually unnecessary.
+    # When enabled, we reuse a fixed PrefBatch per rollout batch for the entire unroll.
+    reuse_pref_templates = bool(reuse_pref_batch_when_safe) and mode != "setwise"
+
+    def _truncate_pref(pref: PrefBatch) -> PrefBatch:
+        if max_pairs_i is None or pref.mode != "pairwise" or pref.pair_idx is None:
+            return pref
+        b_idx, w_idx, l_idx = pref.pair_idx
+        n = int(b_idx.numel())
+        if n <= max_pairs_i:
+            return pref
+        sl = slice(0, int(max_pairs_i))
+        weight = pref.weight
+        if isinstance(weight, torch.Tensor) and weight.ndim == 1 and int(weight.numel()) == n:
+            weight = weight[sl]
+        return PrefBatch(
+            mode=str(pref.mode),
+            pair_idx=(b_idx[sl], w_idx[sl], l_idx[sl]),
+            list_idx=pref.list_idx,
+            weight=weight,
+            meta=dict(pref.meta or {}),
+        )
 
     def _detach_pref(pref: PrefBatch) -> PrefBatch:
         pair_idx = pref.pair_idx
@@ -577,7 +610,8 @@ def micro_unroll_score_for_pair(
         with torch.no_grad():
             for obj, lp in zip(objectives, log_probs, strict=True):
                 fc0 = extract_feature_cache(obj, lp)
-                pref_templates.append(_detach_pref(g.build_fn(fc0, {"stage": "micro_unroll_pref_template"})))
+                pref0 = _detach_pref(g.build_fn(fc0, {"stage": "micro_unroll_pref_template"}))
+                pref_templates.append(_truncate_pref(pref0))
 
     def _forward_mean_loss() -> torch.Tensor:
         losses: list[torch.Tensor] = []
@@ -589,7 +623,7 @@ def micro_unroll_score_for_pair(
                 if pref_templates is not None:
                     pref = pref_templates[int(i)]
                 else:
-                    pref = g.build_fn(fc, {"stage": "micro_unroll"})
+                    pref = _truncate_pref(g.build_fn(fc, {"stage": "micro_unroll"}))
                 batch = pref.to_pairwise_loss_batch(fc)
                 if expects:
                     batch = {k: batch[k] for k in expects if k in batch}
@@ -607,7 +641,14 @@ def micro_unroll_score_for_pair(
         init_loss = float(init_loss_t.item())
 
     last_loss = init_loss
-    for _ in range(int(steps_i)):
+    for step in range(int(steps_i)):
+        if timeout_s_f is not None and (time.time() - t0) > timeout_s_f:
+            return float("inf"), {
+                "reason": "timeout",
+                "timeout_s": float(timeout_s_f),
+                "elapsed_s": float(time.time() - t0),
+                "steps_completed": int(step),
+            }
         optimizer.zero_grad(set_to_none=True)
         loss_t = _forward_mean_loss()
         if not torch.isfinite(loss_t).all().item():
@@ -629,6 +670,8 @@ def micro_unroll_score_for_pair(
         "micro_unroll_final_loss": float(final_loss),
         "micro_unroll_delta_loss": float(final_loss - init_loss),
         "micro_unroll_reuse_pref_batch": bool(pref_templates is not None),
+        "micro_unroll_max_pairs": int(max_pairs_i) if max_pairs_i is not None else None,
+        "micro_unroll_timeout_s": float(timeout_s_f) if timeout_s_f is not None else None,
         "mode": mode,
         "batches": int(len(rollout_feature_caches)),
         "device": str(device) if device is not None else None,
