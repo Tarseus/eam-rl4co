@@ -3280,6 +3280,29 @@ def run_pref_loss_coevo(
         pairing_budget_loss = int(pairing_budget // 2)
         pairing_budget_builder = int(pairing_budget - pairing_budget_loss)
 
+    alternating_schedule_raw = cfg_yaml.get("alternating_schedule", {}) or {}
+    if not isinstance(alternating_schedule_raw, dict):
+        alternating_schedule_raw = {}
+    alternating_loss_generations = max(
+        0,
+        _safe_int(
+            alternating_schedule_raw.get("loss_generations", alternating_schedule_raw.get("loss_phase_generations", 0)),
+            0,
+        ),
+    )
+    alternating_builder_generations = max(
+        0,
+        _safe_int(
+            alternating_schedule_raw.get(
+                "builder_generations",
+                alternating_schedule_raw.get("pair_generations", alternating_schedule_raw.get("builder_phase_generations", 0)),
+            ),
+            0,
+        ),
+    )
+    alternating_rounds = max(0, _safe_int(alternating_schedule_raw.get("rounds", 0), 0))
+    alternating_schedule_enabled = bool(alternating_loss_generations > 0 and alternating_builder_generations > 0)
+
     preset = str(cfg_yaml.get("preset", "advanced") or "advanced").strip().lower()
     search_mode = str(cfg_yaml.get("search_mode", "coevo") or "coevo").strip().lower()
     metric_mode = _normalize_metric_mode(cfg_yaml.get("metric_mode", "minimize"))
@@ -3377,6 +3400,21 @@ def run_pref_loss_coevo(
             LOGGER.warning("preset=simple: advanced keys are ignored: %s", ignored_keys)
     if search_mode == "coevo":
         LOGGER.warning("search_mode=coevo is supported but not encouraged; prefer search_mode=alternating.")
+    if search_mode == "alternating" and alternating_schedule_enabled:
+        LOGGER.info(
+            "Alternating schedule enabled: loss_generations=%d builder_generations=%d rounds=%s",
+            int(alternating_loss_generations),
+            int(alternating_builder_generations),
+            (int(alternating_rounds) if alternating_rounds > 0 else "unbounded"),
+        )
+        if alternating_rounds > 0:
+            planned = int(alternating_rounds) * int(alternating_loss_generations + alternating_builder_generations)
+            if int(generations) != int(planned):
+                LOGGER.warning(
+                    "alternating_schedule rounds imply %d generations, but configured generations=%d.",
+                    int(planned),
+                    int(generations),
+                )
 
     # ----------------------
     # Double-EoH LLM wiring
@@ -3598,6 +3636,12 @@ def run_pref_loss_coevo(
     eval_protocol_payload = {
         "preset": str(preset),
         "search_mode": str(search_mode),
+        "alternating_schedule": {
+            "enabled": bool(alternating_schedule_enabled),
+            "loss_generations": int(alternating_loss_generations),
+            "builder_generations": int(alternating_builder_generations),
+            "rounds": int(alternating_rounds),
+        },
         "metric_mode": str(metric_mode),
         "improve_eps": float(improve_eps),
         "eval_stages": dict(eval_stages),
@@ -3767,6 +3811,12 @@ def run_pref_loss_coevo(
             "run_dir": os.path.abspath(run_dir),
             "preset": str(preset),
             "search_mode": str(search_mode),
+            "alternating_schedule": {
+                "enabled": bool(alternating_schedule_enabled),
+                "loss_generations": int(alternating_loss_generations),
+                "builder_generations": int(alternating_builder_generations),
+                "rounds": int(alternating_rounds),
+            },
             "metric_mode": str(metric_mode),
             "improve_eps": float(improve_eps),
             "eval_stages": dict(eval_stages),
@@ -3793,6 +3843,12 @@ def run_pref_loss_coevo(
             "next_generation": int(next_generation),
             "preset": str(preset),
             "search_mode": str(search_mode),
+            "alternating_schedule": {
+                "enabled": bool(alternating_schedule_enabled),
+                "loss_generations": int(alternating_loss_generations),
+                "builder_generations": int(alternating_builder_generations),
+                "rounds": int(alternating_rounds),
+            },
             "metric_mode": str(metric_mode),
             "improve_eps": float(improve_eps),
             "eval_stages": dict(eval_stages),
@@ -4374,6 +4430,30 @@ def run_pref_loss_coevo(
         pairs: List[Tuple[str, str]] = []
         reasons_by_pair: Dict[Tuple[str, str], List[str]] = {}
         if str(search_mode) == "alternating":
+            loss_budget_now = int(pairing_budget_loss)
+            builder_budget_now = int(pairing_budget_builder)
+            if alternating_schedule_enabled:
+                cycle_len = int(alternating_loss_generations + alternating_builder_generations)
+                cycle_pos = int(gen % max(cycle_len, 1))
+                round_idx = int(gen // max(cycle_len, 1))
+                if alternating_rounds > 0 and round_idx >= int(alternating_rounds):
+                    loss_budget_now = 0
+                    builder_budget_now = 0
+                elif cycle_pos < int(alternating_loss_generations):
+                    loss_budget_now = int(pairing_budget)
+                    builder_budget_now = 0
+                else:
+                    loss_budget_now = 0
+                    builder_budget_now = int(pairing_budget)
+                LOGGER.info(
+                    "Alternating block status: round=%d cycle_pos=%d/%d budgets(loss=%d,builder=%d)",
+                    int(round_idx),
+                    int(cycle_pos),
+                    int(cycle_len),
+                    int(loss_budget_now),
+                    int(builder_budget_now),
+                )
+
             fixed_builder_id = None
             fixed_loss_id = None
             if isinstance(best_so_far, dict):
@@ -4388,13 +4468,13 @@ def run_pref_loss_coevo(
                 LOGGER.info(
                     "Alternating phase=loss fixed_g=%s budget=%d",
                     str(fixed_builder_id),
-                    int(pairing_budget_loss),
+                    int(loss_budget_now),
                 )
                 LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
                 LOGGER.info(
                     "Alternating phase=builder fixed_f=%s budget=%d",
                     str(fixed_loss_id),
-                    int(pairing_budget_builder),
+                    int(builder_budget_now),
                 )
                 LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
                 pairs, reasons_by_pair, pair_phase_by_pair = _build_alternating_pairs(
@@ -4403,8 +4483,8 @@ def run_pref_loss_coevo(
                     f_id_pool=list(f_id_pool),
                     fixed_builder_id=str(fixed_builder_id),
                     fixed_loss_id=str(fixed_loss_id),
-                    budget_loss=int(pairing_budget_loss),
-                    budget_builder=int(pairing_budget_builder),
+                    budget_loss=int(loss_budget_now),
+                    budget_builder=int(builder_budget_now),
                 )
             else:
                 LOGGER.warning(
