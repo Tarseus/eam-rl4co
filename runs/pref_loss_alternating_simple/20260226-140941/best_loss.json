@@ -1,0 +1,105 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "f000_000_dfe07c97",
+  "signature": "d3f3e17a96bf002c48afb289b0f49b85508e62ee",
+  "origin": "REPAIR_GATE",
+  "origin_base": null,
+  "op_type": "SEED_PO4COPS_DEFAULT",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": null,
+  "prompt_path": null,
+  "llm_seed": null,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "456b19b79fac2ae26b26c1567dd0bb1e9e37eed7"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "028a737b1067aacc697c5e453f08d90531beb430"
+    },
+    {
+      "attempt": 1,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "225d0599800ade12de6c949dc1ffe58d73664934"
+    },
+    {
+      "attempt": 1,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "512114d87cb142c1e848bd8cc226253021dd141f"
+    },
+    {
+      "attempt": 2,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "01f2dffc887c5e049a77dc613fa899cfc99bc711"
+    },
+    {
+      "attempt": 2,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "899cef6f6d653ade43c6f3e549c6abfc00a3dc83"
+    },
+    {
+      "attempt": 3,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "6838a0b7a1e68984e9df0a45c4ac326223145a89"
+    }
+  ],
+  "ir": {
+    "name": "m3_delta_rank_logsigmoid_margin_stable_v4_lp_lw_expects_fix",
+    "intuition": "The static gate failure was because `implementation_hint.expects` did not explicitly include the required batch keys `log_prob_l` and `log_prob_w`. I fixed this by adding those keys (and `delta_rank`) to `implementation_hint.expects` and keeping the code consistent: the loss uses only `batch['log_prob_l']`, `batch['log_prob_w']`, and `batch['delta_rank']` (optionally `batch['weight']`). The objective remains a numerically-stable, vectorized pairwise logistic loss with clamped margins, and weights are clamped non-negative to avoid invalid scaling.",
+    "pseudocode": "lpl = batch['log_prob_l']\nlpw = batch['log_prob_w']\ndr = batch['delta_rank']\nmargin = clamp(lpw - lpl, -max_margin, max_margin)\nt = where(dr>0, +1, where(dr<0, -1, 0))\nloss = -logsigmoid(beta * t * margin)\nif 'weight' in batch: loss *= clamp(weight, 0, +inf)\nreturn mean(loss)",
+    "hyperparams": {
+      "beta": 1.0,
+      "max_margin": 50.0
+    },
+    "operators_used": [
+      "clamp",
+      "logsigmoid",
+      "mean",
+      "where"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_l",
+        "log_prob_w",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    beta = extra.get('beta', 1.0)\n    max_margin = extra.get('max_margin', 50.0)\n\n    lpl = batch['log_prob_l']\n    lpw = batch['log_prob_w']\n    dr = batch['delta_rank']\n\n    # Positive margin means w is preferred over l.\n    margin = ops.clamp(lpw - lpl, -max_margin, max_margin)\n\n    # Target in {-1, 0, +1}; dr==0 yields constant loss (log 2) and zero gradient.\n    one = dr * 0.0 + 1.0\n    neg_one = dr * 0.0 - 1.0\n    zero = dr * 0.0\n    t = ops.where(dr > 0, one, ops.where(dr < 0, neg_one, zero))\n\n    loss = -ops.logsigmoid(beta * t * margin)\n\n    w = batch.get('weight', None)\n    if w is not None:\n        loss = loss * ops.clamp(w, 0.0, 1.0e9)\n\n    return loss.mean()",
+    "theoretical_basis": "RankNet / Bradley-Terry pairwise logistic objective. With pairwise scores s_w=log_prob_w and s_l=log_prob_l and preference sign t from delta_rank, minimize E[-log σ(t·(s_w-s_l))]. Clamping (s_w-s_l) bounds logits for numerical stability; clamping optional weights to non-negative preserves the intended scaling without flipping gradients."
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 1.0,
+    "cell": [
+      0,
+      7
+    ]
+  }
+}
