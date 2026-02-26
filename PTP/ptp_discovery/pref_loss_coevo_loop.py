@@ -5503,6 +5503,23 @@ def run_pref_loss_coevo(
                 cached = caches.get_pair(cache_key)
                 if isinstance(cached, dict) and str(cached.get("stage")) == "high_fidelity" and cached.get("fitness"):
                     continue
+                g_entry = g_map.get(gid)
+                if not isinstance(g_entry, dict) and gid == G_REF_ID:
+                    g_entry = {"id": str(G_REF_ID), "ir": asdict(_ref_builder_ir())}
+                f_entry = f_map.get(fid)
+                if not isinstance(f_entry, dict) and fid == F_REF_ID:
+                    f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
+                if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
+                    LOGGER.warning(
+                        "HF skip gen=%d pair_index=%s missing entry for pair (%s,%s): g_entry=%s f_entry=%s",
+                        int(gen),
+                        str(r.get("pair_index", -1)),
+                        str(gid),
+                        str(fid),
+                        str(isinstance(g_entry, dict)),
+                        str(isinstance(f_entry, dict)),
+                    )
+                    continue
                 # Distribute high-fidelity tasks round-robin across the configured devices.
                 # Do not use the global pair_index here because it includes anchors and
                 # other non-HF stages, which can skew GPU assignment and leave devices idle.
@@ -5511,8 +5528,8 @@ def run_pref_loss_coevo(
                     {
                         "generation": int(gen),
                         "pair_index": _safe_int(r.get("pair_index", -1), -1),
-                        "g_entry": g_map[gid],
-                        "f_entry": f_map[fid],
+                        "g_entry": dict(g_entry),
+                        "f_entry": dict(f_entry),
                         "cfg_yaml": dict(cfg_yaml),
                         "device_str": device_str,
                         "operator_whitelist": list(operator_whitelist),
