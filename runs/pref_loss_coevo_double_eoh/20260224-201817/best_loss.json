@@ -1,35 +1,35 @@
 {
-  "generation": 3,
-  "index": 6,
-  "id": "f003_006_108914af",
-  "signature": "108914affbdbf880e4a90f735684e81cd7daf1b5",
+  "generation": 2,
+  "index": 0,
+  "id": "f002_000_59029fd5",
+  "signature": "59029fd5160fc356e84549d9ac7fdace21196473",
   "origin": "E2",
   "origin_base": "E2",
   "op_type": "E2",
   "parents": [
-    "f001_008_597e9f7e",
-    "f001_008_597e9f7e",
-    "f001_008_597e9f7e",
-    "f002_008_1eb77cac",
-    "f002_011_a5bc8e70"
+    "f000_015_f9a0a5c7",
+    "f001_004_36cf901e",
+    "f000_001_cc609e43",
+    "f001_009_001e74b4",
+    "f000_002_8a43aaa7"
   ],
   "attempt": 0,
-  "prompt_sha1": "04db9260152be6a427c578a9693bb838bfe5dc0f",
+  "prompt_sha1": "b544a718a950ac3a4c6f7e9278f4f7b310db01ef",
   "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_e2.txt",
-  "llm_seed": 213623212,
+  "llm_seed": 844968852,
   "history": [
     {
       "attempt": 0,
       "side": "loss",
       "llm_op": "E2",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_e2.txt",
-      "prompt_sha1": "04db9260152be6a427c578a9693bb838bfe5dc0f"
+      "prompt_sha1": "b544a718a950ac3a4c6f7e9278f4f7b310db01ef"
     }
   ],
   "ir": {
-    "name": "loss_logsigmoid_cost_margin_centered_softnorm",
-    "intuition": "Stable consensus across parents is a pairwise RankNet/Bradley-Terry objective: apply -logsigmoid to the (log_prob_w - log_prob_l) margin, clamp for numerical stability, and (optionally) add a detached cost-gap shaping term that biases toward cheaper winners without sending gradients through costs. The most robust variant centers the detached cost gap to remove constant logit offsets that can drift and saturate logsigmoid. A small, safe novelty is to also softly normalize the centered detached gap by its detached mean absolute deviation (plus epsilon), making the cost shaping scale less sensitive to batch-to-batch cost magnitude while preserving directionality and keeping gradients focused on the log-probability margin.",
-    "pseudocode": "gap = detach(cost_b - cost_a); gap = gap - mean(gap); gap = gap / (mean(abs(gap)) + eps); x = clamp(alpha*scale*(lpw-lpl) - cost_coef*gap, cmin, cmax); loss = -logsigmoid(x); return mean(weight*loss)",
+    "name": "loss_logsigmoid_cost_center_norm_clamp",
+    "intuition": "Stable consensus across parents is a pairwise RankNet/Bradley-Terry objective: use the log-prob margin (log_prob_w - log_prob_l) inside -logsigmoid, keep numerical stability via bounding (clamp/softclip), and optionally shape with a detached cost gap so gradients stay focused on model scores. A common failure mode is batch-to-batch drift in the magnitude and offset of the cost gap, which can over- or under-dominate the preference margin and push logits into saturation (hurting gradients and triggering joint preference violations). The consensus-safe novelty is to (1) center the detached cost gap to remove global bias and (2) normalize it by its mean absolute magnitude to make the shaping strength more invariant across batches, while retaining the standard hard clamp for simple, reliable stability.",
+    "pseudocode": "m = lpw - lpl; gap = detach(cost_b - cost_a); gap = gap - mean(gap); denom = detach(mean(abs(gap))) + eps; x = clamp(alpha*scale*m - cost_coef*(gap/denom), cmin, cmax); loss = -logsigmoid(x); return mean(weight*loss)",
     "hyperparams": {
       "scale": 0.94,
       "cost_coef": 0.1,
@@ -39,7 +39,9 @@
     },
     "operators_used": [
       "logsigmoid",
-      "clamp"
+      "clamp",
+      "abs",
+      "mean"
     ],
     "implementation_hint": {
       "expects": [
@@ -51,18 +53,18 @@
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hyper = extra.get('hyperparams', {}) if extra is not None else {}\n    alpha = float((extra.get('alpha', None) if extra is not None else None) or hyper.get('alpha', 1.0))\n    scale = float(hyper.get('scale', 0.94))\n    cost_coef = float(hyper.get('cost_coef', 0.1))\n    eps = float(hyper.get('eps', 1e-6))\n    cmin = float(hyper.get('clamp_min', -20.0))\n    cmax = float(hyper.get('clamp_max', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n\n    # Detached cost shaping: center to remove global bias, then soft-normalize for scale robustness.\n    gap = (cost_b - cost_a).detach()\n    gap = gap - gap.mean()\n    denom = ops.abs(gap).mean() + eps\n    gap = gap / denom\n\n    x = alpha * scale * (lpw - lpl) - cost_coef * gap\n    x = ops.clamp(x, cmin, cmax)\n    loss = -ops.logsigmoid(x)\n\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
-    "theoretical_basis": "Pairwise logistic (Bradley-Terry / RankNet) loss on the log-probability margin optimizes preference for the winner over the loser. Adding a detached cost-gap term injects an auxiliary preference signal without propagating gradients through costs. Centering the detached gap removes constant offsets in the logit that can cause saturation drift. Soft normalization by detached mean absolute deviation makes the cost shaping less sensitive to the absolute scale of costs across batches, improving stability while preserving the core objective; clamping bounds logits for numerical stability."
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hyper = extra.get('hyperparams', {}) if extra is not None else {}\n    alpha = float(extra.get('alpha', hyper.get('alpha', 1.0))) if extra is not None else float(hyper.get('alpha', 1.0))\n    scale = float(hyper.get('scale', 0.94))\n    cost_coef = float(hyper.get('cost_coef', 0.1))\n    eps = float(hyper.get('eps', 1e-6))\n    cmin = float(hyper.get('clamp_min', -20.0))\n    cmax = float(hyper.get('clamp_max', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n\n    # Detached cost shaping: center (remove bias) and normalize (reduce scale drift).\n    gap = (cost_b - cost_a).detach()\n    gap = gap - gap.mean()\n    denom = ops.abs(gap).mean().detach() + eps\n    gap_norm = gap / denom\n\n    x = alpha * scale * (lpw - lpl) - cost_coef * gap_norm\n    x = ops.clamp(x, cmin, cmax)\n    loss = -ops.logsigmoid(x)\n\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": "Pairwise logistic ranking loss (Bradley-Terry/RankNet) on log-probability margins. An additive detached cost-gap term injects auxiliary shaping without backpropagating through costs. Centering the detached gap removes constant logit offsets; normalizing by mean absolute gap makes the shaping coefficient more invariant to batch/dataset scaling. Clamping bounds logits for numerical stability in logsigmoid."
   },
   "static_ok": true,
   "static_reason": "",
   "static_trace": null,
   "compile_ok": true,
   "compile_reason": "ok",
-  "fitness": 0.6081865429878235,
+  "fitness": 0.5141952633857727,
   "descriptor": {
-    "x": 0.9045478582382203,
-    "y": 0.40628624010086056,
+    "x": 0.9904038226604461,
+    "y": 0.40966216850280757,
     "cell": [
       7,
       3

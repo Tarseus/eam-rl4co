@@ -1,44 +1,30 @@
 {
   "generation": 0,
-  "index": 3,
-  "id": "g000_003_9ff412ee",
-  "signature": "9ff412ee9444e98b18ab6b74b197f2827ff5d9ff",
-  "origin": "REPAIR",
+  "index": 6,
+  "id": "g000_006_a0557e76",
+  "signature": "a0557e761e06fe0a2703c417073e0210cd3c5939",
+  "origin": "M1",
   "origin_base": "M1",
-  "op_type": "REPAIR",
+  "op_type": "M1",
   "parents": [
-    "bootstrap_g_000"
+    "bootstrap_g_002"
   ],
   "attempt": 0,
-  "prompt_sha1": "93028d0e285c307b907ce95027813cfc65b2ef29",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-  "llm_seed": 381946419,
+  "prompt_sha1": "05fada8d8d34ef902ede550c234cec79e691fcb8",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+  "llm_seed": 1620694933,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
       "llm_op": "M1",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
-      "prompt_sha1": "97f55b65502db742323290f05cd9d6b01e613e81"
-    },
-    {
-      "attempt": 0,
-      "op": "M3",
-      "llm_op": "M3",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
-      "prompt_sha1": "f97ee65e113c5d8c62834f91a754310d07ab3d03"
-    },
-    {
-      "attempt": 0,
-      "op": "REPAIR",
-      "llm_op": "REPAIR",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-      "prompt_sha1": "93028d0e285c307b907ce95027813cfc65b2ef29"
+      "prompt_sha1": "05fada8d8d34ef902ede550c234cec79e691fcb8"
     }
   ],
   "ir": {
-    "name": "gap_threshold_no_float_002",
-    "intuition": "Build pairwise preferences only for clear wins: for each batch element, create (winner, loser) pairs when the lower-is-better objective of the winner is at least `gap_threshold` smaller than the loser's objective, filtering near-ties.",
+    "name": "builder_gap_threshold_pairs_003",
+    "intuition": "Filter out near-ties by requiring a minimum objective gap, reducing noisy/ambiguous comparisons while keeping clear winner/loser signal; threshold is configurable via extra['gap_threshold'].",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -47,7 +33,7 @@
       "returns": "PrefBatch",
       "mode": "pairwise"
     },
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Read threshold without using Python float(); keep as a plain value for meta.\n    gap_threshold = extra.get('gap_threshold', 0) if extra is not None else 0\n\n    # Pair (winner, loser) when winner objective is smaller by at least gap_threshold.\n    # objective: [B, K]\n    diff = objective[:, :, None] - objective[:, None, :]\n    mask = diff < (-gap_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n\n    # Ensure int64 1D tensors.\n    b_idx = b_idx.to(dtype=torch.long).view(-1)\n    winner_idx = winner_idx.to(dtype=torch.long).view(-1)\n    loser_idx = loser_idx.to(dtype=torch.long).view(-1)\n\n    meta = {'builder': 'gap_threshold', 'gap_threshold': gap_threshold}\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta=meta)"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # lower objective is better; only keep pairs with a clear margin to reduce noisy supervision\n    gap_threshold = 0.0\n    if extra is not None and 'gap_threshold' in extra and extra['gap_threshold'] is not None:\n        gap_threshold = extra['gap_threshold']\n    gap = objective[:, :, None] - objective[:, None, :]\n    # winner i vs loser j when objective[i] < objective[j] - gap_threshold\n    mask = gap < (-gap_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_threshold_pairs', 'gap_threshold': gap_threshold})"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -82,7 +68,7 @@
       }
     ]
   },
-  "fitness": 0.608948706941113,
+  "fitness": 0.598240303993225,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
