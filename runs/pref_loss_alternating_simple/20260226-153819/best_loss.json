@@ -1,0 +1,53 @@
+{
+  "generation": 0,
+  "index": 11,
+  "id": "f000_011_8b29e417",
+  "signature": "8b29e417ae4e39b3f588382fe94d449fd4598408",
+  "origin": "SEED",
+  "origin_base": null,
+  "op_type": "SEED",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": null,
+  "prompt_path": null,
+  "llm_seed": null,
+  "history": [],
+  "ir": {
+    "name": "loss_logsigmoid_000",
+    "intuition": "rule_based: pairwise logsigmoid loss",
+    "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+    "hyperparams": {
+      "scale": 1.0580902896216098
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "delta_z",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0580902896216098))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 2.031557630331256,
+  "descriptor": {
+    "x": 0.9113641798496246,
+    "y": 0.36861947059631345,
+    "cell": [
+      7,
+      2
+    ]
+  }
+}

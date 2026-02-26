@@ -1,0 +1,37 @@
+[2026-02-26 15:12:06,009] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260226-151206
+[2026-02-26 15:12:06,009] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 15:12:06,009] INFO:ptp_discovery.pref_loss_coevo: Alternating schedule enabled: loss_generations=10 builder_generations=10 rounds=1
+[2026-02-26 15:12:06,009] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-151206/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-02-26 15:12:06,242] INFO:ptp_discovery.pref_loss_coevo: External baseline loaded for HF comparisons: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv warmstart_epoch_start=410 epochs=10 val_column=val/max_reward split=True scratch_start_epoch=0 early_eval_steps=100
+[2026-02-26 15:12:06,242] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 0/19 ===
+[2026-02-26 15:12:06,242] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 15:12:06,243] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=None best_pair=(None,None) best_stage=none metric_mode=minimize improve_eps=0.0
+[2026-02-26 15:12:06,243] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 15:12:06,243] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-02-26 15:22:28,352] INFO:ptp_discovery.pref_loss_coevo: Gen 0 injected PO4COPs-compatible default builder/loss seeds.
+[2026-02-26 15:22:28,403] INFO:ptp_discovery.pref_loss_coevo: Gen 0 LLM ops: builders={'M2': 2, 'E1': 3, 'M1': 3, 'E2': 2, 'M3': 1, 'REPAIR': 1} (repairs=1) losses={'M2': 4} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-151206/llm_cache.jsonl', 'cache_entries': 44, 'cache_hits': 0, 'cache_misses': 44}
+[2026-02-26 15:22:28,403] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-26 15:22:35,990] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts progress: 1/10 cache_hit=False caches(rollout=1 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.13G))
+[2026-02-26 15:22:37,306] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts progress: 10/10 cache_hit=False caches(rollout=10 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 15:22:37,306] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts done: elapsed_s=8.9 caches(rollout=10 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 15:22:37,322] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=True loss_on_fail=True
+[2026-02-26 15:22:37,322] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=0/20 budgets(loss=128,builder=0)
+[2026-02-26 15:22:37,323] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-02-26 15:22:37,323] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-26 15:22:37,323] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 15:22:37,324] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-02-26 15:22:37,324] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 15:22:37,364] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 1/12 caches(rollout=10 pref=10 pair=1) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-26 15:22:37,674] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 10/12 caches(rollout=10 pref=10 pair=10) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-26 15:22:37,748] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 12/12 caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-26 15:22:37,748] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=0: pairs=12 elapsed_s=0.4 caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-26 15:22:37,749] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=0: eligible=12 selected=8 (top_m=8)
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 102, in <module>
+    main()
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/run_pref_loss_coevo.py", line 98, in main
+    run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 5514, in run_pref_loss_coevo
+    "g_entry": g_map[gid],
+               ~~~~~^^^^^
+KeyError: 'g_ref'
