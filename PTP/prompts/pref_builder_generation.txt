@@ -22,6 +22,8 @@ Hard constraints:
 - `code` must define `generated_builder(feature_cache, extra)` and return a PrefBatch.
 - Do NOT use import, open, eval, exec, filesystem/network, randomness, or global state.
 - You may use torch, F, ops, and PrefBatch (already provided in the sandbox).
+- Use vectorized tensor ops only; do NOT use Python loops/comprehensions over pair tensors.
+- Do NOT implement O(num_pairs) Python loops for filtering/capping pairs; use mask/topk/slicing.
 
 Pairwise builder contract reminders:
 - feature_cache["objective"] has shape (B,K), lower is better

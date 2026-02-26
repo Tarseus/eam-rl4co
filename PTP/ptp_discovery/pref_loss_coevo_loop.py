@@ -250,6 +250,371 @@ def _sig_pref_builder(ir: PreferenceBuilderIR) -> str:
     return _sig(asdict(ir))
 
 
+def _safe_int(value: Any, default: int) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _safe_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def _safe_bool(value: Any, default: bool) -> bool:
+    if value is None:
+        return bool(default)
+    if isinstance(value, bool):
+        return bool(value)
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in {"1", "true", "yes", "y", "on"}:
+            return True
+        if v in {"0", "false", "no", "n", "off"}:
+            return False
+    return bool(value)
+
+
+def _normalize_metric_mode(value: Any) -> str:
+    mode = str(value or "minimize").strip().lower()
+    if mode not in {"minimize", "maximize"}:
+        return "minimize"
+    return mode
+
+
+def _normalize_search_mode(value: Any, *, default_mode: str) -> str:
+    mode = str(value or default_mode).strip().lower()
+    if mode not in {"alternating", "coevo"}:
+        return str(default_mode)
+    return mode
+
+
+def _normalize_eval_stages(cfg: Mapping[str, Any]) -> Dict[str, bool]:
+    raw = cfg.get("eval_stages", {}) or {}
+    if not isinstance(raw, dict):
+        raw = {}
+    stage0_gate = _safe_bool(raw.get("stage0_gate", cfg.get("cheap_gate_on", True)), True)
+    stage1_proxy = _safe_bool(raw.get("stage1_proxy", True), True)
+    stage2_micro = _safe_bool(raw.get("stage2_micro_unroll", cfg.get("micro_unroll_enabled", False)), False)
+    stage3_hf = _safe_bool(raw.get("stage3_high_fidelity", cfg.get("high_fidelity_on", True)), True)
+    return {
+        "stage0_gate": bool(stage0_gate),
+        "stage1_proxy": bool(stage1_proxy),
+        "stage2_micro_unroll": bool(stage2_micro),
+        "stage3_high_fidelity": bool(stage3_hf),
+    }
+
+
+def _format_eval_stages_for_log(eval_stages: Mapping[str, bool]) -> str:
+    return (
+        f"stage0_gate={1 if bool(eval_stages.get('stage0_gate', False)) else 0} "
+        f"stage1_proxy={1 if bool(eval_stages.get('stage1_proxy', False)) else 0} "
+        f"stage2_micro_unroll={1 if bool(eval_stages.get('stage2_micro_unroll', False)) else 0} "
+        f"stage3_high_fidelity={1 if bool(eval_stages.get('stage3_high_fidelity', False)) else 0}"
+    )
+
+
+def _score_delta(*, cand_score: float, ref_score: float | None, metric_mode: str) -> float | None:
+    if ref_score is None:
+        return None
+    if str(metric_mode) == "maximize":
+        return float(cand_score - ref_score)
+    return float(ref_score - cand_score)
+
+
+def _is_better_than_reference(
+    *,
+    cand_score: float,
+    reference_score: float | None,
+    metric_mode: str,
+    improve_eps: float,
+) -> bool:
+    if reference_score is None:
+        return True
+    if str(metric_mode) == "maximize":
+        return bool(cand_score > (float(reference_score) + float(improve_eps)))
+    return bool(cand_score < (float(reference_score) - float(improve_eps)))
+
+
+def _score_threshold(*, reference_score: float | None, metric_mode: str, improve_eps: float) -> float | None:
+    if reference_score is None:
+        return None
+    if str(metric_mode) == "maximize":
+        return float(reference_score) + float(improve_eps)
+    return float(reference_score) - float(improve_eps)
+
+
+def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    cfg = dict(cfg_yaml)
+    preset = str(cfg.get("preset", "advanced") or "advanced").strip().lower()
+    if preset not in {"simple", "advanced"}:
+        preset = "advanced"
+
+    default_search_mode = "alternating" if preset == "simple" else "coevo"
+    search_mode = _normalize_search_mode(cfg.get("search_mode"), default_mode=default_search_mode)
+    metric_mode = _normalize_metric_mode(cfg.get("metric_mode", "minimize"))
+    improve_eps = _safe_float(cfg.get("improve_eps", 0.0), 0.0)
+    eval_stages = _normalize_eval_stages(cfg)
+
+    ignored_advanced_keys: List[str] = []
+    simple_forced_defaults: Dict[str, Any] = {}
+
+    if preset == "simple":
+        budgets = cfg.get("budgets", {}) or {}
+        if not isinstance(budgets, dict):
+            budgets = {}
+        population = cfg.get("population", {}) or {}
+        if not isinstance(population, dict):
+            population = {}
+        builder_pair_budget = cfg.get("builder_pair_budget", {}) or {}
+        if not isinstance(builder_pair_budget, dict):
+            builder_pair_budget = {}
+        eval_stages_raw = cfg.get("eval_stages", {}) or {}
+        if not isinstance(eval_stages_raw, dict):
+            eval_stages_raw = {}
+        eval_stages = {
+            "stage0_gate": _safe_bool(eval_stages_raw.get("stage0_gate", True), True),
+            "stage1_proxy": _safe_bool(eval_stages_raw.get("stage1_proxy", True), True),
+            "stage2_micro_unroll": _safe_bool(eval_stages_raw.get("stage2_micro_unroll", False), False),
+            "stage3_high_fidelity": _safe_bool(eval_stages_raw.get("stage3_high_fidelity", True), True),
+        }
+
+        keep_top_k = _safe_int(population.get("keep_top_k", cfg.get("elite_g", 8)), 8)
+        keep_top_k = max(1, int(keep_top_k))
+        pairing_budget_per_gen = _safe_int(
+            budgets.get("pairing_budget_per_gen", cfg.get("pairing_budget_per_gen", 128)),
+            128,
+        )
+        pairing_budget_per_gen = max(1, int(pairing_budget_per_gen))
+        pairing_budget_loss = _safe_int(
+            budgets.get("pairing_budget_loss", cfg.get("pairing_budget_loss", pairing_budget_per_gen // 2)),
+            pairing_budget_per_gen // 2,
+        )
+        pairing_budget_loss = max(0, min(int(pairing_budget_loss), int(pairing_budget_per_gen)))
+        pairing_budget_builder = int(pairing_budget_per_gen - pairing_budget_loss)
+
+        hf_top_m_default = min(8, keep_top_k) if bool(eval_stages.get("stage3_high_fidelity", False)) else 0
+        micro_steps_default = 8 if bool(eval_stages.get("stage2_micro_unroll", False)) else 0
+        micro_max_pairs_default = 8192 if bool(eval_stages.get("stage2_micro_unroll", False)) else 0
+
+        simple_forced_defaults = {
+            "generations": _safe_int(budgets.get("generations", cfg.get("generations", 50)), 50),
+            "pairing_budget_per_gen": int(pairing_budget_per_gen),
+            "pairing_budget_loss": int(pairing_budget_loss),
+            "pairing_budget_builder": int(pairing_budget_builder),
+            "proxy_batches": _safe_int(budgets.get("proxy_batches", cfg.get("proxy_batches", 10)), 10),
+            "proxy_batch_size": _safe_int(budgets.get("proxy_batch_size", cfg.get("proxy_batch_size", 64)), 64),
+            "micro_unroll_steps": _safe_int(
+                budgets.get("micro_unroll_steps", cfg.get("micro_unroll_steps", micro_steps_default)),
+                micro_steps_default,
+            ),
+            "micro_unroll_max_pairs": _safe_int(
+                budgets.get("micro_unroll_max_pairs", cfg.get("micro_unroll_max_pairs", micro_max_pairs_default)),
+                micro_max_pairs_default,
+            ),
+            "high_fidelity_top_m": _safe_int(
+                budgets.get("high_fidelity_top_m", cfg.get("high_fidelity_top_m", hf_top_m_default)),
+                hf_top_m_default,
+            ),
+            "hf_epochs": _safe_int(budgets.get("hf_epochs", cfg.get("hf_epochs", 1)), 1),
+            "pop_f": _safe_int(population.get("n_candidates_loss", cfg.get("pop_f", 64)), 64),
+            "pop_g": _safe_int(population.get("n_candidates_builder", cfg.get("pop_g", 64)), 64),
+            "elite_f": int(keep_top_k),
+            "elite_g": int(keep_top_k),
+            "builder_max_pairs_per_instance": _safe_int(
+                builder_pair_budget.get("per_instance", 64),
+                64,
+            ),
+            "descriptor_pair_count_cap": _safe_int(
+                builder_pair_budget.get("total", 8192),
+                8192,
+            ),
+            # Disable advanced coevo controls in simple mode.
+            "anchor_enabled": False,
+            "recheck_enabled": False,
+            "coverage_k_elite_start": 0,
+            "coverage_k_elite_end": 0,
+            "coverage_k_hof_start": 0,
+            "coverage_k_hof_end": 0,
+            "coverage_k_random_start": 0,
+            "coverage_k_random_end": 0,
+            "crossplay_k_hof_start": 0,
+            "crossplay_k_hof_end": 0,
+            "archive_bins": 8,
+            "archive_per_cell": 1,
+            "diverse_elites_from_archive_max": 0,
+            # Hidden defaults so simple configs can run HF without extra setup.
+            "backend": str(cfg.get("backend", "rl4co")),
+            "env_name": str(cfg.get("env_name", "tsp")),
+            "generator_params": dict(cfg.get("generator_params", {"num_loc": 100}) or {"num_loc": 100}),
+            "policy_name": str(cfg.get("policy_name", "pomo")),
+            "policy_kwargs": dict(cfg.get("policy_kwargs", {"po4cops_compat": True}) or {"po4cops_compat": True}),
+            "rollout_strategy": str(cfg.get("rollout_strategy", "auto")),
+            "objective_sign": str(cfg.get("objective_sign", "neg_reward")),
+            "hf_instances_per_epoch": _safe_int(cfg.get("hf_instances_per_epoch", 100000), 100000),
+            "train_problem_size": _safe_int(cfg.get("train_problem_size", 100), 100),
+            "valid_problem_sizes": list(cfg.get("valid_problem_sizes", [100]) or [100]),
+            "train_batch_size": _safe_int(cfg.get("train_batch_size", 64), 64),
+            "num_validation_episodes": _safe_int(cfg.get("num_validation_episodes", 10000), 10000),
+            "validation_batch_size": _safe_int(cfg.get("validation_batch_size", 64), 64),
+        }
+
+        ignored_prefixes = (
+            "coverage_",
+            "bandit_",
+            "crossplay_",
+            "hof_size_",
+            "archive_",
+            "descriptor_",
+            "anchor_",
+            "recheck_",
+        )
+        ignored_exact = {
+            "credit_assignment",
+            "credit_best_k",
+            "diverse_elites_from_archive_max",
+            "cheap_gate_on",
+            "high_fidelity_on",
+            "micro_unroll_enabled",
+        }
+        for k in cfg.keys():
+            if any(str(k).startswith(p) for p in ignored_prefixes) or str(k) in ignored_exact:
+                ignored_advanced_keys.append(str(k))
+
+    cfg["preset"] = str(preset)
+    cfg["search_mode"] = str(search_mode)
+    cfg["metric_mode"] = str(metric_mode)
+    cfg["improve_eps"] = float(improve_eps)
+    cfg["eval_stages"] = dict(eval_stages)
+    cfg["cheap_gate_on"] = bool(eval_stages.get("stage0_gate", True))
+    cfg["high_fidelity_on"] = bool(eval_stages.get("stage3_high_fidelity", True))
+    cfg["micro_unroll_enabled"] = bool(eval_stages.get("stage2_micro_unroll", False))
+    if simple_forced_defaults:
+        cfg.update(simple_forced_defaults)
+
+    return cfg, {"ignored_advanced_keys": sorted(set(ignored_advanced_keys))}
+
+
+def _resolve_final_score(
+    rec: Mapping[str, Any],
+    *,
+    eval_stages: Mapping[str, bool],
+) -> Tuple[str, float | None]:
+    hf_enabled = bool(eval_stages.get("stage3_high_fidelity", False))
+    micro_enabled = bool(eval_stages.get("stage2_micro_unroll", False))
+    proxy_enabled = bool(eval_stages.get("stage1_proxy", False))
+
+    if hf_enabled:
+        hf_ran = bool(isinstance(rec.get("fitness"), dict) or str(rec.get("stage")) == "high_fidelity")
+        if hf_ran:
+            try:
+                return "high_fidelity", float(rec.get("score"))
+            except (TypeError, ValueError):
+                return "none", None
+    if micro_enabled:
+        if rec.get("micro_score") is not None:
+            try:
+                return "micro_unroll", float(rec.get("micro_score"))
+            except (TypeError, ValueError):
+                return "none", None
+    if proxy_enabled:
+        if rec.get("proxy_score") is not None:
+            try:
+                return "proxy", float(rec.get("proxy_score"))
+            except (TypeError, ValueError):
+                return "none", None
+        if rec.get("score") is not None and str(rec.get("stage")) in {"cheap", "cheap_recheck", "anchor"}:
+            try:
+                return "proxy", float(rec.get("score"))
+            except (TypeError, ValueError):
+                return "none", None
+    return "none", None
+
+
+def _annotate_stage_fields(
+    rec: Mapping[str, Any],
+    *,
+    eval_stages: Mapping[str, bool],
+) -> Tuple[List[str], Dict[str, str]]:
+    ran: List[str] = []
+    skipped: Dict[str, str] = {}
+
+    has_gate_ctx = rec.get("builder_gate_ok") is not None or rec.get("joint_gate_ok") is not None
+    has_proxy_ctx = rec.get("proxy_score") is not None or isinstance(rec.get("proxy_metrics"), dict)
+    has_micro_ctx = rec.get("micro_score") is not None or isinstance(rec.get("micro_metrics"), dict)
+    has_hf_ctx = isinstance(rec.get("fitness"), dict) or str(rec.get("stage")) == "high_fidelity"
+
+    if has_gate_ctx:
+        ran.append("stage0_gate")
+    if has_proxy_ctx:
+        ran.append("stage1_proxy")
+    if has_micro_ctx:
+        ran.append("stage2_micro_unroll")
+    if has_hf_ctx:
+        ran.append("stage3_high_fidelity")
+
+    for stage_name in ("stage0_gate", "stage1_proxy", "stage2_micro_unroll", "stage3_high_fidelity"):
+        if not bool(eval_stages.get(stage_name, False)):
+            skipped[stage_name] = "disabled"
+            continue
+        if stage_name in ran:
+            continue
+        if stage_name == "stage3_high_fidelity":
+            skipped[stage_name] = "not_selected_for_high_fidelity"
+        elif stage_name == "stage2_micro_unroll":
+            skipped[stage_name] = "not_selected_for_micro_unroll"
+        elif stage_name == "stage1_proxy":
+            skipped[stage_name] = "proxy_not_executed"
+        else:
+            skipped[stage_name] = "gate_not_executed"
+    return ran, skipped
+
+
+def _build_alternating_pairs(
+    *,
+    rng: random.Random,
+    g_id_pool: Sequence[str],
+    f_id_pool: Sequence[str],
+    fixed_builder_id: str,
+    fixed_loss_id: str,
+    budget_loss: int,
+    budget_builder: int,
+) -> Tuple[List[Tuple[str, str]], Dict[Tuple[str, str], List[str]], Dict[Tuple[str, str], str]]:
+    pairs: List[Tuple[str, str]] = []
+    reasons: Dict[Tuple[str, str], List[str]] = {}
+    phases: Dict[Tuple[str, str], str] = {}
+    used: set[Tuple[str, str]] = set()
+
+    def _add_pair(gid: str, fid: str, *, reason: str, phase: str) -> None:
+        key = (str(gid), str(fid))
+        if key in used:
+            reasons.setdefault(key, []).append(str(reason))
+            return
+        used.add(key)
+        pairs.append(key)
+        reasons.setdefault(key, []).append(str(reason))
+        phases[key] = str(phase)
+
+    loss_pool = [str(fid) for fid in f_id_pool if str(fid) != F_REF_ID]
+    builder_pool = [str(gid) for gid in g_id_pool if str(gid) != G_REF_ID]
+    rng.shuffle(loss_pool)
+    rng.shuffle(builder_pool)
+
+    for fid in loss_pool:
+        if len([1 for p in pairs if phases.get(p) == "loss"]) >= int(max(0, budget_loss)):
+            break
+        _add_pair(str(fixed_builder_id), str(fid), reason="alternating_loss_phase", phase="loss")
+
+    for gid in builder_pool:
+        if len([1 for p in pairs if phases.get(p) == "builder"]) >= int(max(0, budget_builder)):
+            break
+        _add_pair(str(gid), str(fixed_loss_id), reason="alternating_builder_phase", phase="builder")
+
+    return pairs, reasons, phases
+
 class _CompiledBuilderAdapter(PrefBuilder):
     def __init__(self, compiled: CompiledPreferenceBuilder) -> None:
         self._compiled = compiled
@@ -2857,13 +3222,15 @@ def run_pref_loss_coevo(
     Outputs:
         Writes artifacts under a run directory (timestamped under output_root or resume_dir):
             - builders.jsonl, losses.jsonl, pairs.jsonl, gate_reports.jsonl
-            - checkpoint.json, best_builder.json, best_loss.json, best_pair.json
+            - checkpoint.json, summary.json, eval_protocol.json
+            - best_builder.json, best_loss.json, best_pair.json
     """
     with open(config_path, "r", encoding="utf-8") as f:
         cfg_yaml = yaml.safe_load(f) or {}
     if not isinstance(cfg_yaml, dict):
         raise ValueError(f"Invalid YAML config: {config_path}")
     cfg_yaml.update({k: v for k, v in overrides.items() if v is not None})
+    cfg_yaml, runtime_meta = _resolve_runtime_config(cfg_yaml)
 
     seed = int(cfg_yaml.get("seed", 0))
     _set_seed(seed)
@@ -2875,6 +3242,20 @@ def run_pref_loss_coevo(
     elite_g = int(cfg_yaml.get("elite_g", 4))
     elite_f = int(cfg_yaml.get("elite_f", 4))
     pairing_budget = int(cfg_yaml.get("pairing_budget_per_gen", 16))
+    pairing_budget_loss = int(cfg_yaml.get("pairing_budget_loss", pairing_budget // 2) or (pairing_budget // 2))
+    pairing_budget_loss = max(0, min(int(pairing_budget_loss), int(pairing_budget)))
+    pairing_budget_builder = int(cfg_yaml.get("pairing_budget_builder", pairing_budget - pairing_budget_loss) or 0)
+    if pairing_budget_builder < 0:
+        pairing_budget_builder = 0
+    if (pairing_budget_loss + pairing_budget_builder) <= 0:
+        pairing_budget_loss = int(pairing_budget // 2)
+        pairing_budget_builder = int(pairing_budget - pairing_budget_loss)
+
+    preset = str(cfg_yaml.get("preset", "advanced") or "advanced").strip().lower()
+    search_mode = str(cfg_yaml.get("search_mode", "coevo") or "coevo").strip().lower()
+    metric_mode = _normalize_metric_mode(cfg_yaml.get("metric_mode", "minimize"))
+    improve_eps = float(cfg_yaml.get("improve_eps", 0.0) or 0.0)
+    eval_stages = _normalize_eval_stages(cfg_yaml)
 
     cheap_gate_on = bool(cfg_yaml.get("cheap_gate_on", True))
     high_fidelity_on = bool(cfg_yaml.get("high_fidelity_on", True))
@@ -2906,6 +3287,27 @@ def run_pref_loss_coevo(
         if not os.path.isdir(run_dir):
             raise FileNotFoundError(f"resume_dir does not exist: {run_dir}")
         resume_state = _load_checkpoint(run_dir)
+        for k, default_v in (
+            ("preset", preset),
+            ("search_mode", search_mode),
+            ("metric_mode", metric_mode),
+            ("improve_eps", improve_eps),
+        ):
+            if k in resume_state and resume_state.get(k) != default_v:
+                LOGGER.warning(
+                    "Resume override: checkpoint %s=%r (config requested %r); using checkpoint value.",
+                    str(k),
+                    resume_state.get(k),
+                    default_v,
+                )
+        ckpt_eval_stages = resume_state.get("eval_stages")
+        if isinstance(ckpt_eval_stages, dict) and ckpt_eval_stages != eval_stages:
+            LOGGER.warning(
+                "Resume override: checkpoint eval_stages=%s (config requested %s); using checkpoint value.",
+                dict(ckpt_eval_stages),
+                dict(eval_stages),
+            )
+
         seed_from_ckpt = resume_state.get("seed")
         if seed_from_ckpt is not None:
             seed = int(seed_from_ckpt)
@@ -2917,11 +3319,35 @@ def run_pref_loss_coevo(
                 rng.setstate(_unb64_pickle(rng_state))
             except Exception:  # noqa: BLE001
                 pass
+        preset = str(resume_state.get("preset", preset) or preset).strip().lower()
+        search_mode = _normalize_search_mode(resume_state.get("search_mode", search_mode), default_mode=search_mode)
+        metric_mode = _normalize_metric_mode(resume_state.get("metric_mode", metric_mode))
+        improve_eps = float(resume_state.get("improve_eps", improve_eps) or 0.0)
+        ckpt_eval_stages = resume_state.get("eval_stages")
+        if isinstance(ckpt_eval_stages, dict):
+            eval_stages = _normalize_eval_stages({"eval_stages": ckpt_eval_stages})
+        cfg_yaml["preset"] = str(preset)
+        cfg_yaml["search_mode"] = str(search_mode)
+        cfg_yaml["metric_mode"] = str(metric_mode)
+        cfg_yaml["improve_eps"] = float(improve_eps)
+        cfg_yaml["eval_stages"] = dict(eval_stages)
+        cfg_yaml["cheap_gate_on"] = bool(eval_stages.get("stage0_gate", True))
+        cfg_yaml["high_fidelity_on"] = bool(eval_stages.get("stage3_high_fidelity", True))
+        cfg_yaml["micro_unroll_enabled"] = bool(eval_stages.get("stage2_micro_unroll", False))
+        cheap_gate_on = bool(cfg_yaml.get("cheap_gate_on", True))
+        high_fidelity_on = bool(cfg_yaml.get("high_fidelity_on", True))
         LOGGER.info("Resuming run_dir=%s next_generation=%s", run_dir, resume_state.get("next_generation"))
     else:
         run_dir = _timestamp_dir(out_root)
 
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
+    LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+    if preset == "simple":
+        ignored_keys = list(runtime_meta.get("ignored_advanced_keys", []))
+        if ignored_keys:
+            LOGGER.warning("preset=simple: advanced keys are ignored: %s", ignored_keys)
+    if search_mode == "coevo":
+        LOGGER.warning("search_mode=coevo is supported but not encouraged; prefer search_mode=alternating.")
 
     # ----------------------
     # Double-EoH LLM wiring
@@ -3067,6 +3493,8 @@ def run_pref_loss_coevo(
     losses_jsonl = os.path.join(run_dir, "losses.jsonl")
     pairs_jsonl = os.path.join(run_dir, "pairs.jsonl")
     gate_jsonl = os.path.join(run_dir, "gate_reports.jsonl")
+    summary_json = os.path.join(run_dir, "summary.json")
+    eval_protocol_json = os.path.join(run_dir, "eval_protocol.json")
 
     if resume_state is None:
         for path in (builders_jsonl, losses_jsonl, pairs_jsonl, gate_jsonl):
@@ -3084,6 +3512,25 @@ def run_pref_loss_coevo(
     hof_f: List[Dict[str, Any]] = list(resume_state.get("hof_f", [])) if resume_state else []
     archive_g: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_g", {})) if resume_state else {}
     archive_f: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_f", {})) if resume_state else {}
+    best_so_far: Dict[str, Any] | None = None
+    if resume_state and isinstance(resume_state.get("best_so_far"), dict):
+        best_so_far = dict(resume_state.get("best_so_far", {}))
+    elif resume_state:
+        legacy_best_score = resume_state.get("best_score")
+        legacy_g = resume_state.get("best_builder_id")
+        legacy_f = resume_state.get("best_loss_id")
+        if legacy_best_score is not None and legacy_g and legacy_f:
+            try:
+                best_so_far = {
+                    "score": float(legacy_best_score),
+                    "builder_id": str(legacy_g),
+                    "loss_id": str(legacy_f),
+                    "stage_final": str(resume_state.get("best_stage_final", "unknown")),
+                    "generation": int(resume_state.get("best_gen", -1) or -1),
+                    "phase": str(resume_state.get("best_phase", "unknown")),
+                }
+            except (TypeError, ValueError):
+                best_so_far = None
 
     # Pair-level cached evaluation results (in-memory by default).
     cache_dir = cfg_yaml.get("cache_persist_dir", None)
@@ -3105,6 +3552,10 @@ def run_pref_loss_coevo(
         "micro_unroll_top_k": int(cfg_yaml.get("micro_unroll_top_k", 0) or 0),
         "micro_unroll_steps": int(cfg_yaml.get("micro_unroll_steps", 0) or 0),
         "micro_unroll_lr": float(cfg_yaml.get("micro_unroll_lr", 0.0) or 0.0),
+        "eval_stages": dict(eval_stages),
+        "metric_mode": str(metric_mode),
+        "improve_eps": float(improve_eps),
+        "search_mode": str(search_mode),
     }
     eval_sig = eval_budget_signature(
         cfg=sig_hf_cfg,
@@ -3114,6 +3565,33 @@ def run_pref_loss_coevo(
         proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
         extra_budget=micro_budget,
     )
+
+    eval_protocol_payload = {
+        "preset": str(preset),
+        "search_mode": str(search_mode),
+        "metric_mode": str(metric_mode),
+        "improve_eps": float(improve_eps),
+        "eval_stages": dict(eval_stages),
+        "budgets": {
+            "generations": int(generations),
+            "pairing_budget_per_gen": int(pairing_budget),
+            "pairing_budget_loss": int(pairing_budget_loss),
+            "pairing_budget_builder": int(pairing_budget_builder),
+            "proxy_batches": int(proxy_batches),
+            "proxy_batch_size": int(proxy_batch_size),
+            "micro_unroll_steps": int(cfg_yaml.get("micro_unroll_steps", 0) or 0),
+            "micro_unroll_max_pairs": int(cfg_yaml.get("micro_unroll_max_pairs", 0) or 0),
+            "high_fidelity_top_m": int(cfg_yaml.get("high_fidelity_top_m", 0) or 0),
+            "hf_epochs": int(cfg_yaml.get("hf_epochs", 0) or 0),
+        },
+        "builder_pair_budget": {
+            "per_instance": int(cfg_yaml.get("builder_max_pairs_per_instance", 0) or 0),
+            "total": int(cfg_yaml.get("descriptor_pair_count_cap", 0) or 0),
+        },
+        "pair_score_selection_policy": "HF > micro > proxy > none",
+        "eval_budget_signature": str(eval_sig),
+    }
+    _atomic_write_json(eval_protocol_json, eval_protocol_payload)
 
     # Sanity: proxy rollouts (pomo_size) control per-instance pair count for all_pairs (~K*(K-1)/2).
     # If this exceeds builder_max_pairs_per_instance, cheap gates will reject most/all builders,
@@ -3254,11 +3732,54 @@ def run_pref_loss_coevo(
         loaded = load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=eval_sig)
         LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sig=%s)", loaded, eval_sig)
 
+    def _summary_state(last_generation: int) -> Dict[str, Any]:
+        return {
+            "config_path": os.path.abspath(config_path),
+            "run_dir": os.path.abspath(run_dir),
+            "preset": str(preset),
+            "search_mode": str(search_mode),
+            "metric_mode": str(metric_mode),
+            "improve_eps": float(improve_eps),
+            "eval_stages": dict(eval_stages),
+            "last_generation": int(last_generation),
+            "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
+            "best_pair_ids": (
+                {
+                    "builder_id": str(best_so_far.get("builder_id")),
+                    "loss_id": str(best_so_far.get("loss_id")),
+                }
+                if isinstance(best_so_far, dict)
+                else None
+            ),
+            "best_score": (float(best_so_far.get("score")) if isinstance(best_so_far, dict) else None),
+            "best_stage_final": (best_so_far.get("stage_final") if isinstance(best_so_far, dict) else None),
+            "best_gen": (best_so_far.get("generation") if isinstance(best_so_far, dict) else None),
+            "best_phase": (best_so_far.get("phase") if isinstance(best_so_far, dict) else None),
+        }
+
     def _checkpoint_state(next_generation: int) -> Dict[str, Any]:
         return {
             "config_path": os.path.abspath(config_path),
             "seed": int(seed),
             "next_generation": int(next_generation),
+            "preset": str(preset),
+            "search_mode": str(search_mode),
+            "metric_mode": str(metric_mode),
+            "improve_eps": float(improve_eps),
+            "eval_stages": dict(eval_stages),
+            "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
+            "best_score": (float(best_so_far.get("score")) if isinstance(best_so_far, dict) else None),
+            "best_pair_ids": (
+                {
+                    "builder_id": str(best_so_far.get("builder_id")),
+                    "loss_id": str(best_so_far.get("loss_id")),
+                }
+                if isinstance(best_so_far, dict)
+                else None
+            ),
+            "best_stage_final": (best_so_far.get("stage_final") if isinstance(best_so_far, dict) else None),
+            "best_gen": (best_so_far.get("generation") if isinstance(best_so_far, dict) else None),
+            "best_phase": (best_so_far.get("phase") if isinstance(best_so_far, dict) else None),
             "rng_state_b64": _b64_pickle(rng.getstate()),
             "seen_g": sorted(seen_g),
             "seen_f": sorted(seen_f),
@@ -3273,11 +3794,29 @@ def run_pref_loss_coevo(
         }
 
     _save_checkpoint(run_dir, _checkpoint_state(gen_start))
+    _atomic_write_json(summary_json, _summary_state(gen_start - 1))
 
     llm_feedback_state: Dict[str, Any] = {}
 
     for gen in range(gen_start, generations):
-        LOGGER.info("=== coevo generation %d/%d ===", gen, generations - 1)
+        LOGGER.info("=== %s generation %d/%d ===", str(search_mode), gen, generations - 1)
+        LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+        if isinstance(best_so_far, dict):
+            LOGGER.info(
+                "INCUMBENT best_score=%s best_pair=(%s,%s) best_stage=%s metric_mode=%s improve_eps=%s",
+                best_so_far.get("score"),
+                best_so_far.get("builder_id"),
+                best_so_far.get("loss_id"),
+                best_so_far.get("stage_final"),
+                str(metric_mode),
+                float(improve_eps),
+            )
+        else:
+            LOGGER.info(
+                "INCUMBENT best_score=None best_pair=(None,None) best_stage=none metric_mode=%s improve_eps=%s",
+                str(metric_mode),
+                float(improve_eps),
+            )
         LOGGER.info("Gen %d start: %s %s", int(gen), _cache_brief(caches), _cuda_mem_brief(device_list))
 
         best_builder_ir = dict(elites_g[0].get("ir")) if elites_g else None
@@ -3307,7 +3846,7 @@ def run_pref_loss_coevo(
         global_feedback.update(
             {
                 "generation": int(gen),
-                "objective": "lower_is_better",
+                "objective": ("lower_is_better" if str(metric_mode) == "minimize" else "higher_is_better"),
                 "proxy_problem_size": int(proxy_problem_size),
                 "proxy_batch_size": int(proxy_batch_size),
                 "proxy_batches": int(proxy_batches),
@@ -3570,62 +4109,71 @@ def run_pref_loss_coevo(
 
         # === Multi-fidelity evaluation with caching ===
         # Cheap stage: reuse cached rollout feature_cache across all pairs; build PrefBatch once per (g_id, batch_id).
+        stage0_gate_enabled = bool(eval_stages.get("stage0_gate", True))
+        stage1_proxy_enabled = bool(eval_stages.get("stage1_proxy", True))
+        stage2_micro_enabled = bool(eval_stages.get("stage2_micro_unroll", False))
+        stage3_hf_enabled = bool(eval_stages.get("stage3_high_fidelity", True))
+        need_rollout_caches = bool(stage1_proxy_enabled or stage2_micro_enabled)
+
         proxy_device_str = _normalize_device_alias(str(cfg_yaml.get("proxy_device", device_list[0])))
         if proxy_device_str == "cuda" and not torch.cuda.is_available():
             proxy_device_str = "cpu"
         proxy_device = torch.device(proxy_device_str)
 
-        # Pre-build (or reuse) rollout feature caches for the cheap stage.
-        t_rollouts0 = time.time()
-        LOGGER.info(
-            "Gen %d proxy rollouts: device=%s batches=%d batch_size=%d problem_size=%d",
-            int(gen),
-            str(proxy_device_str),
-            int(proxy_batches),
-            int(proxy_batch_size),
-            int(proxy_problem_size),
-        )
+        # Pre-build (or reuse) rollout feature caches when proxy/micro stages are enabled.
         progress_every_proxy_batches = int(cfg_yaml.get("progress_log_every_proxy_batches", 10) or 10)
         rollout_feature_caches: List[Dict[str, torch.Tensor]] = []
-        for batch_id in range(int(proxy_batches)):
-            key = (int(seed), int(proxy_problem_size), int(batch_id))
-            hit = caches.get_rollout(key) is not None
-            fc = build_or_get_rollout_feature_cache(
-                caches=caches,
-                cfg=_build_hf_cfg(cfg_yaml, seed=seed, device_str=proxy_device_str),
-                seed=int(seed),
-                problem_size=int(proxy_problem_size),
-                batch_id=int(batch_id),
-                batch_size=int(proxy_batch_size),
-                device=proxy_device,
+        if need_rollout_caches:
+            t_rollouts0 = time.time()
+            LOGGER.info(
+                "Gen %d proxy rollouts: device=%s batches=%d batch_size=%d problem_size=%d",
+                int(gen),
+                str(proxy_device_str),
+                int(proxy_batches),
+                int(proxy_batch_size),
+                int(proxy_problem_size),
             )
-            rollout_feature_caches.append(fc)
-            if (batch_id + 1) in (1, int(proxy_batches)) or (
-                progress_every_proxy_batches > 0 and ((batch_id + 1) % progress_every_proxy_batches == 0)
-            ):
-                LOGGER.info(
-                    "Gen %d proxy rollouts progress: %d/%d cache_hit=%s %s %s",
-                    int(gen),
-                    int(batch_id + 1),
-                    int(proxy_batches),
-                    str(hit),
-                    _cache_brief(caches),
-                    _cuda_mem_brief([proxy_device_str]),
+            for batch_id in range(int(proxy_batches)):
+                key = (int(seed), int(proxy_problem_size), int(batch_id))
+                hit = caches.get_rollout(key) is not None
+                fc = build_or_get_rollout_feature_cache(
+                    caches=caches,
+                    cfg=_build_hf_cfg(cfg_yaml, seed=seed, device_str=proxy_device_str),
+                    seed=int(seed),
+                    problem_size=int(proxy_problem_size),
+                    batch_id=int(batch_id),
+                    batch_size=int(proxy_batch_size),
+                    device=proxy_device,
                 )
-        LOGGER.info(
-            "Gen %d proxy rollouts done: elapsed_s=%.1f %s %s",
-            int(gen),
-            float(time.time() - t_rollouts0),
-            _cache_brief(caches),
-            _cuda_mem_brief([proxy_device_str]),
-        )
-        _maybe_auto_flush_pref_cache(
-            caches=caches,
-            cfg_yaml=cfg_yaml,
-            default_device_str=proxy_device_str,
-            generation=int(gen),
-            scope="after_proxy_rollouts",
-        )
+                rollout_feature_caches.append(fc)
+                if (batch_id + 1) in (1, int(proxy_batches)) or (
+                    progress_every_proxy_batches > 0 and ((batch_id + 1) % progress_every_proxy_batches == 0)
+                ):
+                    LOGGER.info(
+                        "Gen %d proxy rollouts progress: %d/%d cache_hit=%s %s %s",
+                        int(gen),
+                        int(batch_id + 1),
+                        int(proxy_batches),
+                        str(hit),
+                        _cache_brief(caches),
+                        _cuda_mem_brief([proxy_device_str]),
+                    )
+            LOGGER.info(
+                "Gen %d proxy rollouts done: elapsed_s=%.1f %s %s",
+                int(gen),
+                float(time.time() - t_rollouts0),
+                _cache_brief(caches),
+                _cuda_mem_brief([proxy_device_str]),
+            )
+            _maybe_auto_flush_pref_cache(
+                caches=caches,
+                cfg_yaml=cfg_yaml,
+                default_device_str=proxy_device_str,
+                generation=int(gen),
+                scope="after_proxy_rollouts",
+            )
+        else:
+            LOGGER.info("Gen %d proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0", int(gen))
 
         # Compile pools locally for proxy evaluation (avoids mp pickling issues).
         compiled_g: Dict[str, CompiledPreferenceBuilder] = {}
@@ -3665,7 +4213,8 @@ def run_pref_loss_coevo(
         pair_count_cap = int(cfg_yaml.get("descriptor_pair_count_cap", 4096) or 4096)
         loss_scale = float(cfg_yaml.get("descriptor_loss_scale", 5.0) or 5.0)
 
-        _ensure_reference_compiled(compiled_g=compiled_g, compiled_f=compiled_f, operator_whitelist=operator_whitelist)
+        if bool(stage1_proxy_enabled) and bool(cfg_yaml.get("anchor_enabled", True)):
+            _ensure_reference_compiled(compiled_g=compiled_g, compiled_f=compiled_f, operator_whitelist=operator_whitelist)
         hof_g_ids, hof_f_ids = _compile_hof_candidates(
             hof_g=hof_g,
             hof_f=hof_f,
@@ -3682,11 +4231,12 @@ def run_pref_loss_coevo(
             batch_size=int(proxy_batch_size),
         )
 
-        # Anchor evaluation for anti-collapse.
-        anchor_enabled = bool(cfg_yaml.get("anchor_enabled", True))
+        # Anchor evaluation for anti-collapse (only coevo + proxy stage).
+        anchor_enabled = bool(cfg_yaml.get("anchor_enabled", True)) and bool(stage1_proxy_enabled) and str(search_mode) == "coevo"
         anchor_max_score = float(cfg_yaml.get("anchor_proxy_max_score", 10.0) or 10.0)
         eliminated_g: set[str] = set()
         eliminated_f: set[str] = set()
+        pair_phase_by_pair: Dict[Tuple[str, str], str] = {}
 
         anchor_pairs: List[Tuple[str, str]] = []
         anchor_reasons: Dict[Tuple[str, str], List[str]] = {}
@@ -3694,9 +4244,11 @@ def run_pref_loss_coevo(
             for gid in list(new_g_ids):
                 anchor_pairs.append((str(gid), F_REF_ID))
                 anchor_reasons[(str(gid), F_REF_ID)] = ["anchor_builder_vs_f_ref"]
+                pair_phase_by_pair[(str(gid), F_REF_ID)] = "coevo"
             for fid in list(new_f_ids):
                 anchor_pairs.append((G_REF_ID, str(fid)))
                 anchor_reasons[(G_REF_ID, str(fid))] = ["anchor_loss_vs_g_ref"]
+                pair_phase_by_pair[(G_REF_ID, str(fid))] = "coevo"
 
         anchor_records: Dict[Tuple[str, str], Dict[str, Any]] = {}
         t_anchor0 = time.time()
@@ -3724,7 +4276,7 @@ def run_pref_loss_coevo(
                 bins=bins,
                 pair_count_cap=pair_count_cap,
                 loss_scale=loss_scale,
-                cheap_gate_on=True,
+                cheap_gate_on=bool(stage0_gate_enabled),
             )
             anchor_records[(str(gid), str(fid))] = rec
             if progress_every_pairs > 0 and ((p_idx + 1) in (1, int(len(anchor_pairs))) or ((p_idx + 1) % progress_every_pairs == 0)):
@@ -3790,28 +4342,76 @@ def run_pref_loss_coevo(
             if isinstance(e, dict) and e.get("id") and isinstance(e.get("ir"), dict):
                 f_map.setdefault(str(e["id"]), dict(e))
 
-        # Core pairing budget excludes mandatory anchor pairs.
-        core_budget = max(0, int(pairing_budget) - len(anchor_pairs))
-        core_pairs, core_reasons = _build_coverage_plus_bandit_pairs(
-            cfg_yaml=cfg_yaml,
-            gen=int(gen),
-            generations=int(generations),
-            pairing_budget=int(core_budget),
-            rng=rng,
-            new_g_ids=list(new_g_ids),
-            new_f_ids=list(new_f_ids),
-            elite_g_ids=list(elite_g_ids),
-            elite_f_ids=list(elite_f_ids),
-            hof_g_ids=list(hof_g_ids),
-            hof_f_ids=list(hof_f_ids),
-            g_id_pool=list(g_id_pool),
-            f_id_pool=list(f_id_pool),
-            caches=caches,
-            eval_sig=str(eval_sig),
-        )
+        pairs: List[Tuple[str, str]] = []
+        reasons_by_pair: Dict[Tuple[str, str], List[str]] = {}
+        if str(search_mode) == "alternating":
+            fixed_builder_id = None
+            fixed_loss_id = None
+            if isinstance(best_so_far, dict):
+                fixed_builder_id = str(best_so_far.get("builder_id") or "")
+                fixed_loss_id = str(best_so_far.get("loss_id") or "")
+            if fixed_builder_id not in g_map:
+                fixed_builder_id = str(g_id_pool[0]) if g_id_pool else None
+            if fixed_loss_id not in f_map:
+                fixed_loss_id = str(f_id_pool[0]) if f_id_pool else None
 
-        pairs = list(anchor_pairs) + list(core_pairs)
-        active_g_ids = list(dict.fromkeys([str(gid) for gid, _ in pairs] + [G_REF_ID]))
+            if fixed_builder_id and fixed_loss_id:
+                LOGGER.info(
+                    "Alternating phase=loss fixed_g=%s budget=%d",
+                    str(fixed_builder_id),
+                    int(pairing_budget_loss),
+                )
+                LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+                LOGGER.info(
+                    "Alternating phase=builder fixed_f=%s budget=%d",
+                    str(fixed_loss_id),
+                    int(pairing_budget_builder),
+                )
+                LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+                pairs, reasons_by_pair, pair_phase_by_pair = _build_alternating_pairs(
+                    rng=rng,
+                    g_id_pool=list(g_id_pool),
+                    f_id_pool=list(f_id_pool),
+                    fixed_builder_id=str(fixed_builder_id),
+                    fixed_loss_id=str(fixed_loss_id),
+                    budget_loss=int(pairing_budget_loss),
+                    budget_builder=int(pairing_budget_builder),
+                )
+            else:
+                LOGGER.warning(
+                    "Alternating skipped this generation: missing fixed incumbent ids (fixed_builder=%s fixed_loss=%s).",
+                    str(fixed_builder_id),
+                    str(fixed_loss_id),
+                )
+        else:
+            LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+            # Core pairing budget excludes mandatory anchor pairs.
+            core_budget = max(0, int(pairing_budget) - len(anchor_pairs))
+            core_pairs, core_reasons = _build_coverage_plus_bandit_pairs(
+                cfg_yaml=cfg_yaml,
+                gen=int(gen),
+                generations=int(generations),
+                pairing_budget=int(core_budget),
+                rng=rng,
+                new_g_ids=list(new_g_ids),
+                new_f_ids=list(new_f_ids),
+                elite_g_ids=list(elite_g_ids),
+                elite_f_ids=list(elite_f_ids),
+                hof_g_ids=list(hof_g_ids),
+                hof_f_ids=list(hof_f_ids),
+                g_id_pool=list(g_id_pool),
+                f_id_pool=list(f_id_pool),
+                caches=caches,
+                eval_sig=str(eval_sig),
+            )
+            pairs = list(anchor_pairs) + list(core_pairs)
+            reasons_by_pair = dict(core_reasons)
+            for k, v in anchor_reasons.items():
+                reasons_by_pair.setdefault(k, []).extend(list(v))
+            for p in pairs:
+                pair_phase_by_pair.setdefault((str(p[0]), str(p[1])), "coevo")
+
+        active_g_ids = list(dict.fromkeys([str(gid) for gid, _ in pairs] + ([G_REF_ID] if anchor_enabled else [])))
         keep_base_batch_ids = [int(i) for i in range(int(proxy_batches))]
         dropped = caches.prune_pref_cache(keep_g_ids=active_g_ids, keep_batch_ids=keep_base_batch_ids)
         if dropped > 0:
@@ -3832,74 +4432,100 @@ def run_pref_loss_coevo(
                 except Exception:  # noqa: BLE001
                     pass
 
-        reasons_by_pair: Dict[Tuple[str, str], List[str]] = dict(core_reasons)
-        for k, v in anchor_reasons.items():
-            reasons_by_pair.setdefault(k, []).extend(list(v))
-
         pair_records_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
         # Carry over anchor records (already computed).
         pair_records_map.update(anchor_records)
 
         # Cheap stage evaluation for scheduled pairs using Common Random Numbers (base_seed).
         t_cheap0 = time.time()
-        for p_idx, (gid, fid) in enumerate(pairs):
-            if (gid, fid) in pair_records_map and pair_records_map[(gid, fid)].get("stage") == "anchor":
-                continue
-            rec = _cheap_eval_pair_cached(
-                caches=caches,
-                compiled_g=compiled_g,
-                compiled_f=compiled_f,
-                rollout_feature_caches=rollout_feature_caches,
-                cfg_yaml=cfg_yaml,
-                eval_sig=str(eval_sig),
-                gid=str(gid),
-                fid=str(fid),
-                generation=int(gen),
-                pair_index=int(p_idx),
-                seed_used=int(base_seed),
-                seed_sig=str(base_seed_sig),
-                pref_batch_id_offset=0,
-                stage="cheap",
-                reasons=reasons_by_pair.get((gid, fid), ["scheduled"]),
-                proxy_device_str=proxy_device_str,
-                joint_gate_kwargs=joint_gate_kwargs,
-                proxy_weights=dict(proxy_weights),
-                bins=bins,
-                pair_count_cap=pair_count_cap,
-                loss_scale=loss_scale,
-                cheap_gate_on=bool(cheap_gate_on),
-            )
-            pair_records_map[(str(gid), str(fid))] = rec
-            if progress_every_pairs > 0 and ((p_idx + 1) in (1, int(len(pairs))) or ((p_idx + 1) % progress_every_pairs == 0)):
+        if stage1_proxy_enabled:
+            for p_idx, (gid, fid) in enumerate(pairs):
+                if (gid, fid) in pair_records_map and pair_records_map[(gid, fid)].get("stage") == "anchor":
+                    pair_records_map[(gid, fid)]["phase"] = pair_phase_by_pair.get((gid, fid), "coevo")
+                    continue
+                rec = _cheap_eval_pair_cached(
+                    caches=caches,
+                    compiled_g=compiled_g,
+                    compiled_f=compiled_f,
+                    rollout_feature_caches=rollout_feature_caches,
+                    cfg_yaml=cfg_yaml,
+                    eval_sig=str(eval_sig),
+                    gid=str(gid),
+                    fid=str(fid),
+                    generation=int(gen),
+                    pair_index=int(p_idx),
+                    seed_used=int(base_seed),
+                    seed_sig=str(base_seed_sig),
+                    pref_batch_id_offset=0,
+                    stage="cheap",
+                    reasons=reasons_by_pair.get((gid, fid), ["scheduled"]),
+                    proxy_device_str=proxy_device_str,
+                    joint_gate_kwargs=joint_gate_kwargs,
+                    proxy_weights=dict(proxy_weights),
+                    bins=bins,
+                    pair_count_cap=pair_count_cap,
+                    loss_scale=loss_scale,
+                    cheap_gate_on=bool(stage0_gate_enabled),
+                )
+                rec["phase"] = pair_phase_by_pair.get((str(gid), str(fid)), "coevo")
+                pair_records_map[(str(gid), str(fid))] = rec
+                if progress_every_pairs > 0 and (
+                    (p_idx + 1) in (1, int(len(pairs))) or ((p_idx + 1) % progress_every_pairs == 0)
+                ):
+                    LOGGER.info(
+                        "Cheap eval progress gen=%d: %d/%d %s %s",
+                        int(gen),
+                        int(p_idx + 1),
+                        int(len(pairs)),
+                        _cache_brief(caches),
+                        _cuda_mem_brief([proxy_device_str]),
+                    )
+            if pairs:
                 LOGGER.info(
-                    "Cheap eval progress gen=%d: %d/%d %s %s",
+                    "Cheap eval done gen=%d: pairs=%d elapsed_s=%.1f %s %s",
                     int(gen),
-                    int(p_idx + 1),
                     int(len(pairs)),
+                    float(time.time() - t_cheap0),
                     _cache_brief(caches),
                     _cuda_mem_brief([proxy_device_str]),
                 )
-        if pairs:
-            LOGGER.info(
-                "Cheap eval done gen=%d: pairs=%d elapsed_s=%.1f %s %s",
-                int(gen),
-                int(len(pairs)),
-                float(time.time() - t_cheap0),
-                _cache_brief(caches),
-                _cuda_mem_brief([proxy_device_str]),
-            )
-            _maybe_auto_flush_pref_cache(
-                caches=caches,
-                cfg_yaml=cfg_yaml,
-                default_device_str=proxy_device_str,
-                generation=int(gen),
-                scope="after_cheap",
-            )
+                _maybe_auto_flush_pref_cache(
+                    caches=caches,
+                    cfg_yaml=cfg_yaml,
+                    default_device_str=proxy_device_str,
+                    generation=int(gen),
+                    scope="after_cheap",
+                )
+        else:
+            for p_idx, (gid, fid) in enumerate(pairs):
+                base = dict(pair_records_map.get((str(gid), str(fid)), {}))
+                base.update(
+                    {
+                        "generation": int(gen),
+                        "pair_index": int(p_idx),
+                        "g_id": str(gid),
+                        "f_id": str(fid),
+                        "eval_budget_signature": str(eval_sig),
+                        "seed_signature": str(base_seed_sig),
+                        "seed_used": int(base_seed),
+                        "device": str(proxy_device_str),
+                        "stage": str(base.get("stage", "scheduled")),
+                        "reasons": list(reasons_by_pair.get((gid, fid), ["scheduled"])),
+                        "pair_ok": True,
+                        "pair_reason": "proxy_disabled",
+                        "score": base.get("score"),
+                        "proxy_score": base.get("proxy_score"),
+                        "proxy_metrics": base.get("proxy_metrics"),
+                        "descriptor": base.get("descriptor"),
+                        "phase": pair_phase_by_pair.get((str(gid), str(fid)), "coevo"),
+                    }
+                )
+                pair_records_map[(str(gid), str(fid))] = base
 
         # 2-seed recheck: best_pair + elite-boundary pairs (cheap stage only).
         recheck_enabled = bool(cfg_yaml.get("recheck_enabled", True))
         recheck_num_seeds = int(cfg_yaml.get("recheck_num_seeds", 2) or 2)
-        if recheck_enabled and recheck_num_seeds >= 2 and pairs:
+        if stage1_proxy_enabled and recheck_enabled and recheck_num_seeds >= 2 and pairs:
             recheck_offset = int(cfg_yaml.get("recheck_seed_offset", 10007) or 10007)
             recheck_elite_margin = int(cfg_yaml.get("recheck_elite_margin", 1) or 1)
             recheck_max_pairs = int(cfg_yaml.get("recheck_max_pairs", 16) or 16)
@@ -3987,7 +4613,7 @@ def run_pref_loss_coevo(
                     gid=str(gid),
                     fid=str(fid),
                     generation=int(gen),
-                    pair_index=int(pair_records_map.get((gid, fid), {}).get("pair_index", 0)),
+                    pair_index=_safe_int(pair_records_map.get((gid, fid), {}).get("pair_index", 0), 0),
                     seed_used=int(seed2),
                     seed_sig=str(seed2_sig),
                     pref_batch_id_offset=100000,
@@ -3999,7 +4625,7 @@ def run_pref_loss_coevo(
                     bins=bins,
                     pair_count_cap=pair_count_cap,
                     loss_scale=loss_scale,
-                    cheap_gate_on=bool(cheap_gate_on),
+                    cheap_gate_on=bool(stage0_gate_enabled),
                 )
                 pair_records_map[(str(gid), str(fid))] = rec2
             if recheck_pairs:
@@ -4042,8 +4668,11 @@ def run_pref_loss_coevo(
                             pass
 
         pair_records: List[Dict[str, Any]] = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+        for rec in pair_records:
+            k = (str(rec.get("g_id")), str(rec.get("f_id")))
+            rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
 
-        if bool(cfg_yaml.get("drop_pref_cache_before_micro_unroll", True)):
+        if stage2_micro_enabled and bool(cfg_yaml.get("drop_pref_cache_before_micro_unroll", True)):
             dropped_pre_mu = caches.prune_pref_cache(keep_g_ids=[], keep_batch_ids=[])
             if dropped_pre_mu > 0:
                 LOGGER.info(
@@ -4065,7 +4694,7 @@ def run_pref_loss_coevo(
         # Optional Stage B: offline micro-unroll on cached rollouts (no new rollouts).
         # This improves selection signal at a fraction of HF cost by taking a few
         # gradient steps on cached log_prob tensors.
-        micro_enabled = bool(cfg_yaml.get("micro_unroll_enabled", False))
+        micro_enabled = bool(stage2_micro_enabled)
         if micro_enabled:
             default_top_m = int(
                 cfg_yaml.get(
@@ -4077,12 +4706,21 @@ def run_pref_loss_coevo(
             mu_candidates = [
                 r
                 for r in pair_records
-                if bool(r.get("pair_ok"))
+                if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
                 and str(r.get("g_id")) != G_REF_ID
                 and str(r.get("f_id")) != F_REF_ID
                 and str(r.get("stage")) != "anchor"
             ]
-            mu_candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
+            if stage1_proxy_enabled:
+                mu_candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
+            else:
+                mu_candidates.sort(
+                    key=lambda r: (
+                        _safe_int(r.get("pair_index", 10**9), 10**9),
+                        str(r.get("g_id", "")),
+                        str(r.get("f_id", "")),
+                    )
+                )
             if mu_candidates:
                 micro_top_k = int(
                     cfg_yaml.get(
@@ -4218,21 +4856,33 @@ def run_pref_loss_coevo(
 
                 # Rebuild after micro-unroll overwrites `score` for some pairs.
                 pair_records = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+                for rec in pair_records:
+                    k = (str(rec.get("g_id")), str(rec.get("f_id")))
+                    rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
 
         # High-fidelity stage: evaluate only top-m by cheap proxy `score`.
-        if high_fidelity_on:
+        if stage3_hf_enabled:
             top_m = int(cfg_yaml.get("high_fidelity_top_m", max(1, min(len(pair_records), pairing_budget // 4))) or 1)
             candidates = [
                 r
                 for r in pair_records
-                if bool(r.get("pair_ok"))
+                if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
                 and str(r.get("g_id")) != G_REF_ID
                 and str(r.get("f_id")) != F_REF_ID
                 and str(r.get("stage")) != "anchor"
             ]
             if micro_enabled:
                 candidates = [r for r in candidates if isinstance(r.get("micro_metrics"), dict)]
-            candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
+            if micro_enabled or stage1_proxy_enabled:
+                candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
+            else:
+                candidates.sort(
+                    key=lambda r: (
+                        _safe_int(r.get("pair_index", 10**9), 10**9),
+                        str(r.get("g_id", "")),
+                        str(r.get("f_id", "")),
+                    )
+                )
 
             selected = candidates[: max(0, top_m)]
             LOGGER.info(
@@ -4258,7 +4908,7 @@ def run_pref_loss_coevo(
                 hf_tasks.append(
                     {
                         "generation": int(gen),
-                        "pair_index": int(r.get("pair_index", -1)),
+                        "pair_index": _safe_int(r.get("pair_index", -1), -1),
                         "g_entry": g_map[gid],
                         "f_entry": f_map[fid],
                         "cfg_yaml": dict(cfg_yaml),
@@ -4359,6 +5009,7 @@ def run_pref_loss_coevo(
                 merged.update(dict(hf_rec))
                 merged["eval_budget_signature"] = str(eval_sig)
                 merged["stage"] = "high_fidelity"
+                merged["phase"] = pair_phase_by_pair.get((gid, fid), merged.get("phase", "coevo"))
                 if isinstance(merged.get("fitness"), dict):
                     merged["fitness"]["cheap_only"] = False
                     merged["fitness"]["proxy_score"] = float(merged.get("proxy_score", merged["fitness"].get("fitness_score", float("inf"))))
@@ -4366,6 +5017,108 @@ def run_pref_loss_coevo(
                 pair_records_map[(gid, fid)] = merged
 
             pair_records = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+            for rec in pair_records:
+                k = (str(rec.get("g_id")), str(rec.get("f_id")))
+                rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
+
+        # Stage annotations + incumbent-gating (better_than_prev_best).
+        for rec in pair_records:
+            rec["stages_enabled"] = dict(eval_stages)
+            ran, skipped = _annotate_stage_fields(rec, eval_stages=eval_stages)
+            rec["stages_ran"] = list(ran)
+            rec["stages_skipped"] = dict(skipped)
+            stage_final, final_score = _resolve_final_score(rec, eval_stages=eval_stages)
+            rec["stage_final"] = str(stage_final)
+            rec["final_score"] = final_score
+            rec["metric_mode"] = str(metric_mode)
+            rec["compare_target"] = "prev_best"
+            rec["improve_eps"] = float(improve_eps)
+
+        current_ref = None
+        if isinstance(best_so_far, dict):
+            try:
+                current_ref = float(best_so_far.get("score"))
+            except (TypeError, ValueError):
+                current_ref = None
+        LOGGER.info(
+            "COMPARE target=prev_best reference_score=%s threshold=%s metric_mode=%s improve_eps=%s",
+            current_ref,
+            _score_threshold(reference_score=current_ref, metric_mode=metric_mode, improve_eps=improve_eps),
+            str(metric_mode),
+            float(improve_eps),
+        )
+
+        for rec in sorted(
+            pair_records,
+            key=lambda r: (
+                _safe_int(r.get("pair_index", 10**9), 10**9),
+                str(r.get("g_id", "")),
+                str(r.get("f_id", "")),
+            ),
+        ):
+            reference_score = None
+            if isinstance(best_so_far, dict):
+                try:
+                    reference_score = float(best_so_far.get("score"))
+                except (TypeError, ValueError):
+                    reference_score = None
+            rec["reference_score"] = reference_score
+            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID or str(rec.get("stage")) == "anchor":
+                rec["better_than_prev_best"] = False
+                rec["delta_vs_prev_best"] = None
+                continue
+
+            final_score = rec.get("final_score")
+            if final_score is None:
+                rec["better_than_prev_best"] = False
+                rec["delta_vs_prev_best"] = None
+                continue
+            try:
+                cand_score_f = float(final_score)
+            except (TypeError, ValueError):
+                rec["better_than_prev_best"] = False
+                rec["delta_vs_prev_best"] = None
+                rec["final_score"] = None
+                rec["stage_final"] = "none"
+                continue
+            if not math.isfinite(cand_score_f):
+                rec["better_than_prev_best"] = False
+                rec["delta_vs_prev_best"] = None
+                continue
+
+            delta = _score_delta(cand_score=cand_score_f, ref_score=reference_score, metric_mode=metric_mode)
+            better = _is_better_than_reference(
+                cand_score=cand_score_f,
+                reference_score=reference_score,
+                metric_mode=metric_mode,
+                improve_eps=improve_eps,
+            )
+            rec["better_than_prev_best"] = bool(better)
+            rec["delta_vs_prev_best"] = delta
+            rec["score"] = float(cand_score_f)
+            if bool(better):
+                threshold = _score_threshold(reference_score=reference_score, metric_mode=metric_mode, improve_eps=improve_eps)
+                best_so_far = {
+                    "score": float(cand_score_f),
+                    "builder_id": str(rec.get("g_id")),
+                    "loss_id": str(rec.get("f_id")),
+                    "stage_final": str(rec.get("stage_final", "none")),
+                    "generation": int(gen),
+                    "phase": str(rec.get("phase", "coevo")),
+                }
+                LOGGER.info(
+                    "NEW BEST: score=%s ref=%s delta=%s pair=(%s,%s) stage=%s gen=%d phase=%s threshold=%s compare_target=prev_best improve_eps=%s",
+                    float(cand_score_f),
+                    reference_score,
+                    delta,
+                    rec.get("g_id"),
+                    rec.get("f_id"),
+                    rec.get("stage_final"),
+                    int(gen),
+                    rec.get("phase", "coevo"),
+                    threshold,
+                    float(improve_eps),
+                )
 
         # Per-generation summary for troubleshooting.
         stage_ctr = collections.Counter(str(r.get("stage", "")) for r in pair_records)
@@ -4402,7 +5155,7 @@ def run_pref_loss_coevo(
 
         # Best pair preview (for coevolution guidance).
         best_pair_preview: Dict[str, Any] | None = None
-        best_score_preview = float("inf")
+        best_score_preview: float | None = None
         for rec in pair_records:
             if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID:
                 continue
@@ -4411,10 +5164,15 @@ def run_pref_loss_coevo(
             if not bool(rec.get("pair_ok")):
                 continue
             try:
-                score_f = float(rec.get("score", float("inf")))
+                score_f = float(rec.get("final_score", rec.get("score", float("inf"))))
             except (TypeError, ValueError):
                 continue
-            if score_f < best_score_preview:
+            if _is_better_than_reference(
+                cand_score=score_f,
+                reference_score=best_score_preview,
+                metric_mode=metric_mode,
+                improve_eps=0.0,
+            ):
                 best_score_preview = score_f
                 best_pair_preview = {
                     "g_id": rec.get("g_id"),
@@ -4449,13 +5207,13 @@ def run_pref_loss_coevo(
             llm_feedback_state["prev_gen_llm_cache"] = dict(loss_llm_ops.llm_cache_stats())
         except Exception:  # noqa: BLE001
             pass
-        if "cheap" not in stage_ctr and "cheap_recheck" not in stage_ctr:
+        if stage1_proxy_enabled and "cheap" not in stage_ctr and "cheap_recheck" not in stage_ctr:
             LOGGER.warning(
                 "Gen %d produced no core cheap evaluations (stage='cheap'). "
                 "This usually means candidate pools collapsed or pairing_budget_per_gen is too small after anchors.",
                 int(gen),
             )
-        if high_fidelity_on and "high_fidelity" not in stage_ctr:
+        if stage3_hf_enabled and "high_fidelity" not in stage_ctr:
             LOGGER.warning(
                 "Gen %d produced no high-fidelity evaluations (stage='high_fidelity'). "
                 "Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.",
@@ -4474,6 +5232,16 @@ def run_pref_loss_coevo(
                     "proxy_metrics": rec.get("proxy_metrics"),
                     "seed_signature": rec.get("seed_signature"),
                     "descriptor": rec.get("descriptor"),
+                    "stages_enabled": rec.get("stages_enabled"),
+                    "stages_ran": rec.get("stages_ran"),
+                    "stages_skipped": rec.get("stages_skipped"),
+                    "stage_final": rec.get("stage_final"),
+                    "final_score": rec.get("final_score"),
+                    "reference_score": rec.get("reference_score"),
+                    "improve_eps": rec.get("improve_eps"),
+                    "better_than_prev_best": rec.get("better_than_prev_best"),
+                    "delta_vs_prev_best": rec.get("delta_vs_prev_best"),
+                    "compare_target": rec.get("compare_target"),
                     "static_ok": rec.get("f_static_ok"),
                     "static_reason": rec.get("f_static_reason"),
                     "builder_gate_ok": rec.get("builder_gate_ok"),
@@ -4540,7 +5308,10 @@ def run_pref_loss_coevo(
                 e2["fitness"] = float(fit_map.get(eid, float("inf")))
                 e2["descriptor"] = _candidate_descriptor(eid, kind=kind)
                 out.append(e2)
-            out.sort(key=lambda x: float(x.get("fitness", float("inf"))))
+            out.sort(
+                key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
+                reverse=bool(str(metric_mode) == "maximize"),
+            )
             return out
 
         ranked_g = _rank_entries(list(g_map.values()), fitness_g, kind="g")
@@ -4592,19 +5363,28 @@ def run_pref_loss_coevo(
             _atomic_write_json(os.path.join(run_dir, "best_loss.json"), dict(elites_f[0]))
 
         best_pair: Dict[str, Any] | None = None
-        best_score = float("inf")
-        for rec in pair_records:
-            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID:
-                continue
-            if str(rec.get("stage")) == "anchor":
-                continue
-            try:
-                score_f = float(rec.get("score", float("inf")))
-            except (TypeError, ValueError):
-                continue
-            if score_f < best_score:
-                best_score = score_f
-                best_pair = dict(rec)
+        if isinstance(best_so_far, dict):
+            gid_best = str(best_so_far.get("builder_id"))
+            fid_best = str(best_so_far.get("loss_id"))
+            for rec in pair_records:
+                if str(rec.get("g_id")) == gid_best and str(rec.get("f_id")) == fid_best:
+                    best_pair = dict(rec)
+                    break
+            if best_pair is None:
+                best_pair = {
+                    "g_id": gid_best,
+                    "f_id": fid_best,
+                    "score": best_so_far.get("score"),
+                    "final_score": best_so_far.get("score"),
+                    "stage_final": best_so_far.get("stage_final"),
+                    "generation": best_so_far.get("generation"),
+                    "phase": best_so_far.get("phase"),
+                    "compare_target": "prev_best",
+                    "metric_mode": str(metric_mode),
+                    "improve_eps": float(improve_eps),
+                    "reference_score": None,
+                    "better_than_prev_best": True,
+                }
         if best_pair is not None:
             _atomic_write_json(os.path.join(run_dir, "best_pair.json"), best_pair)
 
@@ -4627,5 +5407,8 @@ def run_pref_loss_coevo(
                         pass
 
         _save_checkpoint(run_dir, _checkpoint_state(gen + 1))
+        _atomic_write_json(summary_json, _summary_state(gen))
 
+    if generations <= gen_start:
+        _atomic_write_json(summary_json, _summary_state(gen_start - 1))
     LOGGER.info("Co-evolution complete. Artifacts saved under: %s", os.path.abspath(run_dir))

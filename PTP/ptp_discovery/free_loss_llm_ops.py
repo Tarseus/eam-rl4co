@@ -175,6 +175,7 @@ Return ONLY a JSON object. It must match this schema:
 Constraints:
 - `generated_loss` must return a scalar torch.Tensor.
 - Do not use imports; do not access filesystem; no eval/exec/open.
+- Use vectorized tensor ops only; do not use Python loops/comprehensions over batch/pair tensors.
 """
 
     n = str(name or "").strip().lower()

@@ -23,6 +23,8 @@ Hard constraints:
 - generated_builder must return a PrefBatch.
 - No imports, no filesystem/network, no randomness.
 - Use torch/ops only.
+- Use vectorized tensor ops only; do NOT use Python loops/comprehensions over pair tensors.
+- Do NOT implement O(num_pairs) Python loops for filtering/capping pairs; use mask/topk/slicing.
 
 Guidance:
 - Prefer controlling pair count via explicit downsampling or anchor constructions.

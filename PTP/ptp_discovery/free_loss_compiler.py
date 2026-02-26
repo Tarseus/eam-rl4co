@@ -131,6 +131,16 @@ class _SafeCodeValidator(ast.NodeVisitor):
         "pathlib",
     }
 
+    _FORBIDDEN_COMPLEXITY_NODES = (
+        ast.For,
+        ast.AsyncFor,
+        ast.While,
+        ast.ListComp,
+        ast.SetComp,
+        ast.DictComp,
+        ast.GeneratorExp,
+    )
+
     def visit_Import(self, node: ast.Import) -> None:  # type: ignore[override]
         raise CompileError("Loss code must not use import statements.")
 
@@ -150,6 +160,13 @@ class _SafeCodeValidator(ast.NodeVisitor):
                     "Only tensor-level math using torch/F is allowed."
                 )
         self.generic_visit(node)
+
+    def generic_visit(self, node: ast.AST) -> None:  # type: ignore[override]
+        if isinstance(node, self._FORBIDDEN_COMPLEXITY_NODES):
+            raise CompileError(
+                "Loss/builder code must be vectorized: Python loops/comprehensions are not allowed."
+            )
+        super().generic_visit(node)
 
 
 def _validate_user_code(code_str: str) -> None:

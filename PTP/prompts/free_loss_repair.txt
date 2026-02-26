@@ -14,4 +14,5 @@ Hard constraints:
 - Define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
 - No imports / filesystem / eval / exec / global state.
 - Use only `ops.*` and tensor ops.
+- Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
 - Keep `implementation_hint.expects` consistent with code and mode.
