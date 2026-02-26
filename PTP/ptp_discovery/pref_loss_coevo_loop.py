@@ -2579,7 +2579,8 @@ def _cheap_eval_pair_cached(
     batch_metrics: List[Dict[str, Any]] = []
     builder_gate_first: Dict[str, Any] | None = None
     builder_ok = True
-    joint_ok_all = True
+    joint_ok_count = 0
+    joint_total_count = 0
     first_joint_fail_reason: str | None = None
     first_joint_fail_trace: Dict[str, Any] | None = None
     joint_failure_kinds: collections.Counter[str] = collections.Counter()
@@ -2644,8 +2645,11 @@ def _cheap_eval_pair_cached(
             pref_batch=pref,
             joint_gate_kwargs=joint_gate_kwargs,
         )
-        joint_ok_all = joint_ok_all and bool(m.get("joint_ok", False))
-        if not bool(m.get("joint_ok", False)):
+        joint_batch_ok = bool(m.get("joint_ok", False))
+        joint_total_count += 1
+        if joint_batch_ok:
+            joint_ok_count += 1
+        else:
             jr = str(m.get("joint_reason", "") or "")
             jt = m.get("joint_trace")
             kind = None
@@ -2658,6 +2662,39 @@ def _cheap_eval_pair_cached(
             if first_joint_fail_trace is None and isinstance(jt, dict):
                 first_joint_fail_trace = dict(jt)
         batch_metrics.append(m)
+
+    joint_batch_pass_rate_threshold = _safe_float(
+        cfg_yaml.get("proxy_joint_batch_pass_rate_threshold", 1.0),
+        1.0,
+    )
+    if not math.isfinite(joint_batch_pass_rate_threshold):
+        joint_batch_pass_rate_threshold = 1.0
+    joint_batch_pass_rate_threshold = max(0.0, min(1.0, float(joint_batch_pass_rate_threshold)))
+    joint_pass_rate = (
+        float(joint_ok_count) / float(joint_total_count)
+        if joint_total_count > 0
+        else 1.0
+    )
+    joint_ok = bool(joint_pass_rate >= joint_batch_pass_rate_threshold)
+    if (not joint_ok) and first_joint_fail_reason is None:
+        first_joint_fail_reason = "joint_batch_pass_rate_below_threshold"
+    joint_gate_trace = None
+    if not joint_ok:
+        joint_gate_trace = {
+            "failed_gate": "JointPreference",
+            "failure_kind": "joint_batch_pass_rate_below_threshold",
+            "observed": {
+                "joint_ok_batches": int(joint_ok_count),
+                "joint_total_batches": int(joint_total_count),
+                "joint_pass_rate": float(joint_pass_rate),
+            },
+            "threshold": {
+                "min_joint_pass_rate": float(joint_batch_pass_rate_threshold),
+            },
+            "first_failure_reason": first_joint_fail_reason,
+            "first_failure_trace": dict(first_joint_fail_trace) if isinstance(first_joint_fail_trace, dict) else None,
+            "joint_failure_kind_counts": dict(joint_failure_kinds),
+        }
 
     proxy_score, proxy_agg = aggregate_proxy_metrics(batch_metrics, proxy_weights=dict(proxy_weights))
     per_batch_summary = [
@@ -2678,6 +2715,10 @@ def _cheap_eval_pair_cached(
     ]
     proxy_metrics: Dict[str, Any] = dict(proxy_agg)
     proxy_metrics["batches"] = per_batch_summary
+    proxy_metrics["joint_ok_batches"] = int(joint_ok_count)
+    proxy_metrics["joint_total_batches"] = int(joint_total_count)
+    proxy_metrics["joint_pass_rate"] = float(joint_pass_rate)
+    proxy_metrics["joint_batch_pass_rate_threshold"] = float(joint_batch_pass_rate_threshold)
     if joint_failure_kinds:
         proxy_metrics["joint_failure_kinds"] = dict(joint_failure_kinds)
 
@@ -2698,21 +2739,17 @@ def _cheap_eval_pair_cached(
             "builder_gate_ok": None if builder_gate_first is None else builder_gate_first.get("builder_gate_ok"),
             "builder_gate_reason": None if builder_gate_first is None else builder_gate_first.get("builder_gate_reason"),
             "builder_gate_trace": None if builder_gate_first is None else builder_gate_first.get("builder_gate_trace"),
-            "joint_gate_ok": bool(joint_ok_all),
+            "joint_gate_ok": bool(joint_ok),
             "joint_gate_reason": (
                 "ok"
-                if joint_ok_all
-                else (
-                    f"joint_failed:{joint_failure_kinds.most_common(1)[0][0]}"
-                    if joint_failure_kinds
-                    else (first_joint_fail_reason or "joint_failed_on_some_batch")
-                )
+                if joint_ok
+                else "joint_failed:joint_batch_pass_rate_below_threshold"
             ),
-            "joint_gate_trace": None if joint_ok_all else first_joint_fail_trace,
+            "joint_gate_trace": joint_gate_trace,
         }
     )
 
-    if cheap_gate_on and (not builder_ok or not joint_ok_all):
+    if cheap_gate_on and (not builder_ok or not joint_ok):
         base["pair_ok"] = False
         base["pair_reason"] = "cheap_proxy_gate_failed"
         base["score"] = float("inf")
@@ -5276,8 +5313,6 @@ def run_pref_loss_coevo(
                 r
                 for r in pair_records
                 if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
-                and str(r.get("g_id")) != G_REF_ID
-                and str(r.get("f_id")) != F_REF_ID
                 and str(r.get("stage")) != "anchor"
             ]
             if stage1_proxy_enabled:
@@ -5436,8 +5471,6 @@ def run_pref_loss_coevo(
                 r
                 for r in pair_records
                 if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
-                and str(r.get("g_id")) != G_REF_ID
-                and str(r.get("f_id")) != F_REF_ID
                 and str(r.get("stage")) != "anchor"
             ]
             if micro_enabled:
