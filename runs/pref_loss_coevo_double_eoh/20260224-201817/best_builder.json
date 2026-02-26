@@ -1,30 +1,44 @@
 {
-  "generation": 0,
-  "index": 6,
-  "id": "g000_006_a0557e76",
-  "signature": "a0557e761e06fe0a2703c417073e0210cd3c5939",
-  "origin": "M1",
-  "origin_base": "M1",
-  "op_type": "M1",
+  "generation": 2,
+  "index": 4,
+  "id": "g002_004_6db5a8c1",
+  "signature": "6db5a8c1e894ecdee218f60effe7ef2057389e3b",
+  "origin": "REPAIR",
+  "origin_base": "M2",
+  "op_type": "REPAIR",
   "parents": [
-    "bootstrap_g_002"
+    "g000_003_9ff412ee"
   ],
   "attempt": 0,
-  "prompt_sha1": "05fada8d8d34ef902ede550c234cec79e691fcb8",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
-  "llm_seed": 1620694933,
+  "prompt_sha1": "e0fe04f37c828526bfa16ec0f0a7e6770ac3883f",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+  "llm_seed": 1860482698,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
-      "llm_op": "M1",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
-      "prompt_sha1": "05fada8d8d34ef902ede550c234cec79e691fcb8"
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "prompt_sha1": "192cd3ebb4ed51a81e23403f7b9fd5baaafc5000"
+    },
+    {
+      "attempt": 0,
+      "op": "M3",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+      "prompt_sha1": "286f8e4d2c60ff5b2a9fde5028e54a29e2794503"
+    },
+    {
+      "attempt": 0,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "e0fe04f37c828526bfa16ec0f0a7e6770ac3883f"
     }
   ],
   "ir": {
-    "name": "builder_gap_threshold_pairs_003",
-    "intuition": "Filter out near-ties by requiring a minimum objective gap, reducing noisy/ambiguous comparisons while keeping clear winner/loser signal; threshold is configurable via extra['gap_threshold'].",
+    "name": "gap_threshold_no_int_001_fix",
+    "intuition": "Create pairwise (winner, loser) preferences only for clear wins under a lower-is-better objective: include (i,j) when objective[i] is at least `gap_threshold` smaller than objective[j], filtering near-ties while avoiding Python builtins like `int`.",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -33,7 +47,7 @@
       "returns": "PrefBatch",
       "mode": "pairwise"
     },
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # lower objective is better; only keep pairs with a clear margin to reduce noisy supervision\n    gap_threshold = 0.0\n    if extra is not None and 'gap_threshold' in extra and extra['gap_threshold'] is not None:\n        gap_threshold = extra['gap_threshold']\n    gap = objective[:, :, None] - objective[:, None, :]\n    # winner i vs loser j when objective[i] < objective[j] - gap_threshold\n    mask = gap < (-gap_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_threshold_pairs', 'gap_threshold': gap_threshold})"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    extra = {} if extra is None else extra\n\n    # Lower objective is better; only create pairs for clear wins.\n    gap_threshold = extra.get('gap_threshold', 0)\n\n    # objective: [B, K]\n    diff = objective[:, :, None] - objective[:, None, :]\n    mask = diff < (-gap_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n\n    # Indices should be int64 1D tensors.\n    b_idx = b_idx.to(dtype=torch.long).reshape(-1)\n    winner_idx = winner_idx.to(dtype=torch.long).reshape(-1)\n    loser_idx = loser_idx.to(dtype=torch.long).reshape(-1)\n\n    meta = {'builder': 'gap_threshold_no_int', 'gap_threshold': gap_threshold}\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta=meta)"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -68,7 +82,7 @@
       }
     ]
   },
-  "fitness": 0.598240303993225,
+  "fitness": 0.5985539197921753,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,

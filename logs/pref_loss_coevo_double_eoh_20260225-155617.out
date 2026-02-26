@@ -365,3 +365,176 @@
   ckpt = torch.load(ckpt_path, map_location="cpu")
 /data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py:341: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
   ckpt = torch.load(ckpt_path, map_location="cpu")
+[2026-02-26 08:21:35,173] INFO:ptp_discovery.pref_loss_coevo: HF vs baseline gen=7: better=0 worse=8 unknown=0 (ok=8 failed=0)
+[2026-02-26 08:21:35,177] INFO:ptp_discovery.pref_loss_coevo: Gen 7 summary: g_pool=16 f_pool=11 pairs=128 ok=120 stages={'anchor': 31, 'cheap_recheck': 4, 'micro_unroll': 46, 'cheap': 39, 'high_fidelity': 8} top_reasons=[('ok_proxy', 56), ('ok_micro_unroll', 56), ('cheap_proxy_gate_failed', 8)]
+[2026-02-26 08:21:35,302] INFO:ptp_discovery.pref_loss_coevo: === coevo generation 8/9 ===
+[2026-02-26 08:21:35,303] INFO:ptp_discovery.pref_loss_coevo: Gen 8 start: caches(rollout=100 pref=0 pair=1006) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 08:21:35,303] INFO:ptp_discovery.pref_loss_coevo: Gen 8 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=504 chars
+<string>:118: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than tensor.new_tensor(sourceTensor).
+<string>:119: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than tensor.new_tensor(sourceTensor).
+[2026-02-26 08:34:46,270] INFO:openai._base_client: Retrying request to /chat/completions in 0.497701 seconds
+<string>:118: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than tensor.new_tensor(sourceTensor).
+<string>:119: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than tensor.new_tensor(sourceTensor).
+[2026-02-26 08:35:03,616] INFO:ptp_discovery.pref_loss_coevo: Gen 8 LLM ops: builders={'E1': 5, 'E2': 3, 'M3': 3, 'REPAIR': 3, 'M1': 1, 'M2': 1} (repairs=3) losses={'E1': 5, 'M2': 2, 'E2': 2, 'M1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co/runs/pref_loss_coevo_double_eoh/20260224-201817/llm_cache.jsonl', 'cache_entries': 755, 'cache_hits': 34, 'cache_misses': 85}
+[2026-02-26 08:35:03,616] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts: device=cuda:4 batches=50 batch_size=64 problem_size=100
+[2026-02-26 08:35:03,617] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts progress: 1/50 cache_hit=True caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,617] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts progress: 10/50 cache_hit=True caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,618] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts progress: 20/50 cache_hit=True caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,618] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts progress: 30/50 cache_hit=True caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,619] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts progress: 40/50 cache_hit=True caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,619] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts progress: 50/50 cache_hit=True caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,620] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts done: elapsed_s=0.0 caches(rollout=100 pref=0 pair=1006) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:35:03,806] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=8: 1/32 caches(rollout=100 pref=50 pair=1007) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+<string>:118: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than tensor.new_tensor(sourceTensor).
+<string>:119: UserWarning: To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach() or sourceTensor.clone().detach().requires_grad_(True), rather than tensor.new_tensor(sourceTensor).
+[2026-02-26 08:35:10,728] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=8: 10/32 caches(rollout=100 pref=500 pair=1016) cuda(cuda:4(alloc=1.64G,resv=2.06G))
+[2026-02-26 08:35:12,440] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=8: 20/32 caches(rollout=100 pref=850 pair=1026) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:14,112] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=8: 30/32 caches(rollout=100 pref=850 pair=1036) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:14,425] INFO:ptp_discovery.pref_loss_coevo: Anchor eval progress gen=8: 32/32 caches(rollout=100 pref=850 pair=1038) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:14,426] INFO:ptp_discovery.pref_loss_coevo: Anchor eval done gen=8: pairs=32 elapsed_s=10.7 caches(rollout=100 pref=850 pair=1038) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:14,427] INFO:ptp_discovery.pref_loss_coevo: Anchor filter gen=8: eliminated_g=4 eliminated_f=1 (anchor_max_score=10.000)
+[2026-02-26 08:35:15,849] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 40/128 caches(rollout=100 pref=850 pair=1046) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:17,489] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 50/128 caches(rollout=100 pref=850 pair=1056) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:19,187] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 60/128 caches(rollout=100 pref=850 pair=1066) cuda(cuda:4(alloc=2.78G,resv=3.14G))
+[2026-02-26 08:35:20,978] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 70/128 caches(rollout=100 pref=1000 pair=1076) cuda(cuda:4(alloc=3.85G,resv=4.61G))
+[2026-02-26 08:35:22,916] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 80/128 caches(rollout=100 pref=1350 pair=1086) cuda(cuda:4(alloc=6.05G,resv=7.54G))
+[2026-02-26 08:35:24,602] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 90/128 caches(rollout=100 pref=1400 pair=1096) cuda(cuda:4(alloc=6.47G,resv=8.02G))
+[2026-02-26 08:35:26,250] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 100/128 caches(rollout=100 pref=1450 pair=1106) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,539] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 110/128 caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,540] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 120/128 caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,540] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=8: 128/128 caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,541] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=8: pairs=128 elapsed_s=13.1 caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,542] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 gen=8: pairs=16 seed=11241 device=cuda:4 proxy_batches=50
+[2026-02-26 08:35:27,543] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=8: 1/50 cache_hit=True caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,544] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=8: 10/50 cache_hit=True caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,544] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=8: 20/50 cache_hit=True caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,545] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=8: 30/50 cache_hit=True caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,545] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=8: 40/50 cache_hit=True caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:27,546] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 rollouts progress gen=8: 50/50 cache_hit=True caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=8.51G))
+[2026-02-26 08:35:36,258] INFO:ptp_discovery.pref_loss_coevo: Recheck seed2 done gen=8: pairs=16 elapsed_s=8.7 caches(rollout=100 pref=2100 pair=1114) cuda(cuda:4(alloc=9.07G,resv=11.49G))
+[2026-02-26 08:35:36,263] INFO:ptp_discovery.pref_loss_coevo: Gen 8 pref_cache drop recheck: dropped=650 kept=1450 caches(rollout=100 pref=1450 pair=1114) cuda(cuda:4(alloc=6.82G,resv=11.49G))
+[2026-02-26 08:35:36,647] INFO:ptp_discovery.pref_loss_coevo: Gen 8 pref_cache drop before micro-unroll: dropped=1450 kept=0 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=8.50G))
+[2026-02-26 08:35:37,099] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=8: tasks=64 steps=100 lr=0.05 alpha=0.05 (proxy_batches=50)
+[2026-02-26 08:35:37,099] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 1/64 g_id=g004_002_250dcfea f_id=f006_003_f09e69cf proxy_score=2.039
+[2026-02-26 08:35:43,016] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 1/64 g_id=g004_002_250dcfea f_id=f006_003_f09e69cf score=0.6011 elapsed_s=5.9
+[2026-02-26 08:35:43,016] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 1/64 elapsed_s=5.9 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.58G))
+[2026-02-26 08:35:43,017] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 2/64 g_id=g004_002_250dcfea f_id=f005_006_f0c58771 proxy_score=2.207
+[2026-02-26 08:35:48,815] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 2/64 g_id=g004_002_250dcfea f_id=f005_006_f0c58771 score=0.6019 elapsed_s=5.8
+[2026-02-26 08:35:48,815] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 3/64 g_id=g001_006_0ead4f6a f_id=f005_006_f0c58771 proxy_score=2.207
+[2026-02-26 08:35:54,601] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 3/64 g_id=g001_006_0ead4f6a f_id=f005_006_f0c58771 score=0.6019 elapsed_s=5.8
+[2026-02-26 08:35:54,601] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 4/64 g_id=g002_004_6db5a8c1 f_id=f005_006_f0c58771 proxy_score=2.207
+[2026-02-26 08:36:00,459] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 4/64 g_id=g002_004_6db5a8c1 f_id=f005_006_f0c58771 score=0.6019 elapsed_s=5.9
+[2026-02-26 08:36:00,459] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 5/64 g_id=g004_000_bb657eae f_id=f002_008_1eb77cac proxy_score=2.204
+[2026-02-26 08:36:06,086] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 5/64 g_id=g004_000_bb657eae f_id=f002_008_1eb77cac score=0.6024 elapsed_s=5.6
+[2026-02-26 08:36:06,087] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 19/64 g_id=g008_011_540d59da f_id=f007_000_30e38f09 proxy_score=0.9106
+[2026-02-26 08:36:12,215] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 19/64 g_id=g008_011_540d59da f_id=f007_000_30e38f09 score=0.6809 elapsed_s=6.1
+[2026-02-26 08:36:12,215] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 20/64 g_id=g007_011_4b42d333 f_id=f003_008_9d517350 proxy_score=2.09
+[2026-02-26 08:36:17,821] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 20/64 g_id=g007_011_4b42d333 f_id=f003_008_9d517350 score=0.5182 elapsed_s=5.6
+[2026-02-26 08:36:17,821] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 21/64 g_id=g000_006_a0557e76 f_id=f006_003_f09e69cf proxy_score=2.039
+[2026-02-26 08:36:23,731] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 21/64 g_id=g000_006_a0557e76 f_id=f006_003_f09e69cf score=0.6011 elapsed_s=5.9
+[2026-02-26 08:36:23,732] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 22/64 g_id=g000_006_a0557e76 f_id=f008_012_f2f55d8f proxy_score=1.468
+[2026-02-26 08:36:29,387] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 22/64 g_id=g000_006_a0557e76 f_id=f008_012_f2f55d8f score=0.7092 elapsed_s=5.7
+[2026-02-26 08:36:29,387] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 23/64 g_id=g004_000_bb657eae f_id=f008_012_f2f55d8f proxy_score=1.468
+[2026-02-26 08:36:35,055] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 23/64 g_id=g004_000_bb657eae f_id=f008_012_f2f55d8f score=0.7092 elapsed_s=5.7
+[2026-02-26 08:36:35,056] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 24/64 g_id=g004_004_2536e60a f_id=f008_014_8b7d4805 proxy_score=1.589
+[2026-02-26 08:36:40,699] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 24/64 g_id=g004_004_2536e60a f_id=f008_014_8b7d4805 score=0.7021 elapsed_s=5.6
+[2026-02-26 08:36:40,699] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 24/64 elapsed_s=63.6 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:36:40,699] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 25/64 g_id=g000_000_33de46ae f_id=f008_014_8b7d4805 proxy_score=1.589
+[2026-02-26 08:36:46,355] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 25/64 g_id=g000_000_33de46ae f_id=f008_014_8b7d4805 score=0.7021 elapsed_s=5.7
+[2026-02-26 08:36:46,356] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 26/64 g_id=g008_009_78b7f437 f_id=f006_003_f09e69cf proxy_score=1.643
+[2026-02-26 08:36:55,781] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 26/64 g_id=g008_009_78b7f437 f_id=f006_003_f09e69cf score=0.6771 elapsed_s=9.4
+[2026-02-26 08:36:55,781] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 27/64 g_id=g008_009_78b7f437 f_id=f008_007_bd1a7d9c proxy_score=1.633
+[2026-02-26 08:37:05,180] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 27/64 g_id=g008_009_78b7f437 f_id=f008_007_bd1a7d9c score=0.6773 elapsed_s=9.4
+[2026-02-26 08:37:05,181] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 28/64 g_id=g008_010_37df40e6 f_id=f008_013_1e3971f1 proxy_score=1.651
+[2026-02-26 08:37:10,481] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 28/64 g_id=g008_010_37df40e6 f_id=f008_013_1e3971f1 score=0.6301 elapsed_s=5.3
+[2026-02-26 08:37:10,481] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 29/64 g_id=g008_009_78b7f437 f_id=f005_006_f0c58771 proxy_score=1.766
+[2026-02-26 08:37:20,102] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 29/64 g_id=g008_009_78b7f437 f_id=f005_006_f0c58771 score=0.6773 elapsed_s=9.6
+[2026-02-26 08:37:20,103] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 30/64 g_id=g008_002_533814b2 f_id=f003_008_9d517350 proxy_score=1.764
+[2026-02-26 08:37:26,080] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 30/64 g_id=g008_002_533814b2 f_id=f003_008_9d517350 score=0.5014 elapsed_s=6.0
+[2026-02-26 08:37:26,081] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 31/64 g_id=g008_002_533814b2 f_id=f008_000_91a5e5c5 proxy_score=1.765
+[2026-02-26 08:37:32,288] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 31/64 g_id=g008_002_533814b2 f_id=f008_000_91a5e5c5 score=0.5027 elapsed_s=6.2
+[2026-02-26 08:37:32,288] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 32/64 g_id=g008_000_820722b7 f_id=f000_007_95c97e67 proxy_score=1.787
+[2026-02-26 08:37:37,791] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 32/64 g_id=g008_000_820722b7 f_id=f000_007_95c97e67 score=0.7302 elapsed_s=5.5
+[2026-02-26 08:37:37,792] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 32/64 elapsed_s=120.7 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:37:37,792] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 33/64 g_id=g008_002_533814b2 f_id=f003_009_32641513 proxy_score=1.888
+[2026-02-26 08:37:43,789] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 33/64 g_id=g008_002_533814b2 f_id=f003_009_32641513 score=0.4927 elapsed_s=6.0
+[2026-02-26 08:37:43,789] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 34/64 g_id=g000_002_3351a086 f_id=f008_010_d9a89cb1 proxy_score=2.037
+[2026-02-26 08:37:49,379] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 34/64 g_id=g000_002_3351a086 f_id=f008_010_d9a89cb1 score=0.6789 elapsed_s=5.6
+[2026-02-26 08:37:49,379] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 35/64 g_id=g002_012_c3249671 f_id=f008_004_e8e1f228 proxy_score=2.031
+[2026-02-26 08:37:55,226] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 35/64 g_id=g002_012_c3249671 f_id=f008_004_e8e1f228 score=0.6015 elapsed_s=5.8
+[2026-02-26 08:37:55,227] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 36/64 g_id=g008_005_46fd54b7 f_id=f006_003_f09e69cf proxy_score=2.039
+[2026-02-26 08:38:01,052] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 36/64 g_id=g008_005_46fd54b7 f_id=f006_003_f09e69cf score=0.6011 elapsed_s=5.8
+[2026-02-26 08:38:01,052] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 37/64 g_id=g004_004_2536e60a f_id=f008_000_91a5e5c5 proxy_score=2.039
+[2026-02-26 08:38:06,892] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 37/64 g_id=g004_004_2536e60a f_id=f008_000_91a5e5c5 score=0.6011 elapsed_s=5.8
+[2026-02-26 08:38:06,892] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 38/64 g_id=g000_008_8124bb63 f_id=f008_005_b39d6225 proxy_score=1.985
+[2026-02-26 08:38:12,544] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 38/64 g_id=g000_008_8124bb63 f_id=f008_005_b39d6225 score=0.5952 elapsed_s=5.7
+[2026-02-26 08:38:12,544] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 39/64 g_id=g002_004_6db5a8c1 f_id=f008_005_b39d6225 proxy_score=1.985
+[2026-02-26 08:38:18,186] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 39/64 g_id=g002_004_6db5a8c1 f_id=f008_005_b39d6225 score=0.5952 elapsed_s=5.6
+[2026-02-26 08:38:18,186] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 40/64 g_id=g004_002_250dcfea f_id=f008_005_b39d6225 proxy_score=1.985
+[2026-02-26 08:38:23,803] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 40/64 g_id=g004_002_250dcfea f_id=f008_005_b39d6225 score=0.5952 elapsed_s=5.6
+[2026-02-26 08:38:23,804] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 40/64 elapsed_s=166.7 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:38:23,804] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 41/64 g_id=g008_010_37df40e6 f_id=f003_006_108914af proxy_score=2.148
+[2026-02-26 08:38:29,373] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 41/64 g_id=g008_010_37df40e6 f_id=f003_006_108914af score=0.5158 elapsed_s=5.6
+[2026-02-26 08:38:29,373] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 42/64 g_id=g000_000_33de46ae f_id=f008_007_bd1a7d9c proxy_score=2.023
+[2026-02-26 08:38:35,253] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 42/64 g_id=g000_000_33de46ae f_id=f008_007_bd1a7d9c score=0.6019 elapsed_s=5.9
+[2026-02-26 08:38:35,253] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 43/64 g_id=g008_007_5a5f7be7 f_id=f004_004_493c421b proxy_score=2.025
+[2026-02-26 08:38:41,269] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 43/64 g_id=g008_007_5a5f7be7 f_id=f004_004_493c421b score=0.6023 elapsed_s=6.0
+[2026-02-26 08:38:41,269] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 44/64 g_id=g008_008_5f1aa2f5 f_id=f008_007_bd1a7d9c proxy_score=2.026
+[2026-02-26 08:38:47,057] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 44/64 g_id=g008_008_5f1aa2f5 f_id=f008_007_bd1a7d9c score=0.5941 elapsed_s=5.8
+[2026-02-26 08:38:47,058] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 45/64 g_id=g008_007_5a5f7be7 f_id=f008_006_de0939d2 proxy_score=2.031
+[2026-02-26 08:38:54,392] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 45/64 g_id=g008_007_5a5f7be7 f_id=f008_006_de0939d2 score=0.6015 elapsed_s=7.3
+[2026-02-26 08:38:54,392] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 46/64 g_id=g000_008_8124bb63 f_id=f008_006_de0939d2 proxy_score=2.031
+[2026-02-26 08:39:01,724] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 46/64 g_id=g000_008_8124bb63 f_id=f008_006_de0939d2 score=0.6015 elapsed_s=7.3
+[2026-02-26 08:39:01,724] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 47/64 g_id=g004_002_250dcfea f_id=f008_006_de0939d2 proxy_score=2.031
+[2026-02-26 08:39:08,982] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 47/64 g_id=g004_002_250dcfea f_id=f008_006_de0939d2 score=0.6015 elapsed_s=7.3
+[2026-02-26 08:39:08,982] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 48/64 g_id=g004_000_bb657eae f_id=f008_006_de0939d2 proxy_score=2.031
+[2026-02-26 08:39:16,312] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 48/64 g_id=g004_000_bb657eae f_id=f008_006_de0939d2 score=0.6015 elapsed_s=7.3
+[2026-02-26 08:39:16,313] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 48/64 elapsed_s=219.2 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:39:16,313] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 49/64 g_id=g002_004_6db5a8c1 f_id=f008_004_e8e1f228 proxy_score=2.031
+[2026-02-26 08:39:23,709] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 49/64 g_id=g002_004_6db5a8c1 f_id=f008_004_e8e1f228 score=0.6015 elapsed_s=7.4
+[2026-02-26 08:39:23,709] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 50/64 g_id=g000_003_9ff412ee f_id=f008_004_e8e1f228 proxy_score=2.031
+[2026-02-26 08:39:31,090] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 50/64 g_id=g000_003_9ff412ee f_id=f008_004_e8e1f228 score=0.6015 elapsed_s=7.4
+[2026-02-26 08:39:31,091] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 51/64 g_id=g000_000_33de46ae f_id=f008_010_d9a89cb1 proxy_score=2.037
+[2026-02-26 08:39:38,068] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 51/64 g_id=g000_000_33de46ae f_id=f008_010_d9a89cb1 score=0.6789 elapsed_s=7.0
+[2026-02-26 08:39:38,068] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 52/64 g_id=g008_011_540d59da f_id=f008_010_d9a89cb1 proxy_score=2.037
+[2026-02-26 08:39:45,036] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 52/64 g_id=g008_011_540d59da f_id=f008_010_d9a89cb1 score=0.6789 elapsed_s=7.0
+[2026-02-26 08:39:45,037] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 53/64 g_id=g000_000_33de46ae f_id=f008_009_b4ccf4ae proxy_score=2.038
+[2026-02-26 08:39:52,364] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 53/64 g_id=g000_000_33de46ae f_id=f008_009_b4ccf4ae score=0.6011 elapsed_s=7.3
+[2026-02-26 08:39:52,365] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 54/64 g_id=g008_003_ebc60f8f f_id=f003_008_9d517350 proxy_score=2.038
+[2026-02-26 08:39:59,488] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 54/64 g_id=g008_003_ebc60f8f f_id=f003_008_9d517350 score=0.6015 elapsed_s=7.1
+[2026-02-26 08:39:59,488] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 55/64 g_id=g008_004_7cdbdd55 f_id=f003_008_9d517350 proxy_score=2.038
+[2026-02-26 08:40:06,529] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 55/64 g_id=g008_004_7cdbdd55 f_id=f003_008_9d517350 score=0.6015 elapsed_s=7.0
+[2026-02-26 08:40:06,530] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 56/64 g_id=g008_011_540d59da f_id=f003_008_9d517350 proxy_score=2.038
+[2026-02-26 08:40:13,662] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 56/64 g_id=g008_011_540d59da f_id=f003_008_9d517350 score=0.6015 elapsed_s=7.1
+[2026-02-26 08:40:13,663] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 56/64 elapsed_s=276.6 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:40:13,663] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 57/64 g_id=g002_004_6db5a8c1 f_id=f008_000_91a5e5c5 proxy_score=2.039
+[2026-02-26 08:40:21,047] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 57/64 g_id=g002_004_6db5a8c1 f_id=f008_000_91a5e5c5 score=0.6011 elapsed_s=7.4
+[2026-02-26 08:40:21,048] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 58/64 g_id=g004_000_bb657eae f_id=f008_000_91a5e5c5 proxy_score=2.039
+[2026-02-26 08:40:28,436] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 58/64 g_id=g004_000_bb657eae f_id=f008_000_91a5e5c5 score=0.6011 elapsed_s=7.4
+[2026-02-26 08:40:28,437] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 59/64 g_id=g000_000_33de46ae f_id=f008_001_a081dbe6 proxy_score=2.039
+[2026-02-26 08:40:35,820] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 59/64 g_id=g000_000_33de46ae f_id=f008_001_a081dbe6 score=0.6011 elapsed_s=7.4
+[2026-02-26 08:40:35,820] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 60/64 g_id=g000_006_a0557e76 f_id=f008_001_a081dbe6 proxy_score=2.039
+[2026-02-26 08:40:43,211] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 60/64 g_id=g000_006_a0557e76 f_id=f008_001_a081dbe6 score=0.6011 elapsed_s=7.4
+[2026-02-26 08:40:43,212] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 61/64 g_id=g000_000_33de46ae f_id=f008_002_29704966 proxy_score=2.039
+[2026-02-26 08:40:50,593] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 61/64 g_id=g000_000_33de46ae f_id=f008_002_29704966 score=0.6011 elapsed_s=7.4
+[2026-02-26 08:40:50,593] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 62/64 g_id=g008_004_7cdbdd55 f_id=f008_002_29704966 proxy_score=2.039
+[2026-02-26 08:40:57,902] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 62/64 g_id=g008_004_7cdbdd55 f_id=f008_002_29704966 score=0.6011 elapsed_s=7.3
+[2026-02-26 08:40:57,902] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 63/64 g_id=g001_006_0ead4f6a f_id=f008_008_446e04c7 proxy_score=2.039
+[2026-02-26 08:41:05,194] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 63/64 g_id=g001_006_0ead4f6a f_id=f008_008_446e04c7 score=0.6011 elapsed_s=7.3
+[2026-02-26 08:41:05,195] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=8: 64/64 g_id=g004_000_bb657eae f_id=f008_008_446e04c7 proxy_score=2.039
+[2026-02-26 08:41:12,559] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=8: 64/64 g_id=g004_000_bb657eae f_id=f008_008_446e04c7 score=0.6011 elapsed_s=7.4
+[2026-02-26 08:41:12,559] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=8: 64/64 elapsed_s=335.5 caches(rollout=100 pref=0 pair=1114) cuda(cuda:4(alloc=0.04G,resv=0.59G))
+[2026-02-26 08:41:12,561] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=8: eligible=64 selected=8 (top_m=8)
+[2026-02-26 08:41:12,561] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=8: {'cuda:0': 2, 'cuda:1': 2, 'cuda:2': 2, 'cuda:3': 2}
+[2026-02-26 08:41:12,561] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=8: tasks=8 mp=True procs=4
+[2026-02-26 08:41:12,561] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via pinned mp: start_method=spawn processes=4 tasks=8
+/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py:341: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  ckpt = torch.load(ckpt_path, map_location="cpu")
+/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py:341: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  ckpt = torch.load(ckpt_path, map_location="cpu")
+/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py:341: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  ckpt = torch.load(ckpt_path, map_location="cpu")
+/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py:341: FutureWarning: You are using `torch.load` with `weights_only=False` (the current default value), which uses the default pickle module implicitly. It is possible to construct malicious pickle data which will execute arbitrary code during unpickling (See https://github.com/pytorch/pytorch/blob/main/SECURITY.md#untrusted-models for more details). In a future release, the default value for `weights_only` will be flipped to `True`. This limits the functions that could be executed during unpickling. Arbitrary objects will no longer be allowed to be loaded via this mode unless they are explicitly allowlisted by the user via `torch.serialization.add_safe_globals`. We recommend you start setting `weights_only=True` for any use case where you don't have full control of the loaded file. Please open an issue on GitHub for any issues related to this experimental feature.
+  ckpt = torch.load(ckpt_path, map_location="cpu")
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/multiprocessing/resource_tracker.py:254: UserWarning: resource_tracker: There appear to be 6 leaked semaphore objects to clean up at shutdown
+  warnings.warn('resource_tracker: There appear to be %d '

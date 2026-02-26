@@ -1,0 +1,113 @@
+[2026-02-26 10:35:15,194] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260226-103515
+[2026-02-26 10:35:15,195] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:35:15,195] INFO:ptp_discovery.pref_loss_coevo: Alternating schedule enabled: loss_generations=10 builder_generations=10 rounds=1
+[2026-02-26 10:35:15,195] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-103515/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-02-26 10:35:15,197] WARNING:ptp_discovery.pref_loss_coevo: Proxy rollouts K=100 implies all_pairs has ~4950 pairs/instance, which exceeds builder_max_pairs_per_instance=64. Fix by setting `pomo_size: null` (align to problem size) or increasing builder_max_pairs_per_instance.
+[2026-02-26 10:35:15,477] INFO:ptp_discovery.pref_loss_coevo: External baseline loaded for HF comparisons: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv warmstart_epoch_start=410 epochs=10 val_column=val/max_reward split=True scratch_start_epoch=0 early_eval_steps=100
+[2026-02-26 10:35:15,478] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 0/19 ===
+[2026-02-26 10:35:15,478] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:35:15,478] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=None best_pair=(None,None) best_stage=none metric_mode=minimize improve_eps=0.0
+[2026-02-26 10:35:15,479] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 10:35:15,479] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-02-26 10:46:26,332] INFO:ptp_discovery.pref_loss_coevo: Gen 0 LLM ops: builders={'M2': 2, 'E1': 4, 'M1': 2, 'M3': 1, 'REPAIR': 1, 'E2': 2} (repairs=1) losses={'M2': 4} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-103515/llm_cache.jsonl', 'cache_entries': 47, 'cache_hits': 0, 'cache_misses': 47}
+[2026-02-26 10:46:26,333] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-26 10:46:34,091] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts progress: 1/10 cache_hit=False caches(rollout=1 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.13G))
+[2026-02-26 10:46:35,411] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts progress: 10/10 cache_hit=False caches(rollout=10 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:46:35,412] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts done: elapsed_s=9.1 caches(rollout=10 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:46:35,428] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=0/20 budgets(loss=128,builder=0)
+[2026-02-26 10:46:35,428] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g000_000_45082401 budget=128
+[2026-02-26 10:46:35,428] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:46:35,429] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f000_000_8147353c budget=0
+[2026-02-26 10:46:35,429] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:46:35,465] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 1/12 caches(rollout=10 pref=10 pair=1) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:46:35,712] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 10/12 caches(rollout=10 pref=10 pair=10) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:46:35,770] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 12/12 caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:46:35,770] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=0: pairs=12 elapsed_s=0.3 caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:46:35,771] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=0: eligible=0 selected=0 (top_m=8)
+[2026-02-26 10:46:35,771] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=prev_best reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-26 10:46:35,771] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=3.3759276534717704 ref=None delta=None pair=(g000_000_45082401,f000_002_5b71f728) stage=proxy gen=0 phase=loss threshold=None compare_target=prev_best improve_eps=0.0
+[2026-02-26 10:46:35,771] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=3.2318701741106985 ref=3.3759276534717704 delta=0.14405747936107183 pair=(g000_000_45082401,f000_010_c31e81be) stage=proxy gen=0 phase=loss threshold=3.3759276534717704 compare_target=prev_best improve_eps=0.0
+[2026-02-26 10:46:35,771] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=2.1254876265531113 ref=3.2318701741106985 delta=1.1063825475575872 pair=(g000_000_45082401,f000_004_7c34c451) stage=proxy gen=0 phase=loss threshold=3.2318701741106985 compare_target=prev_best improve_eps=0.0
+[2026-02-26 10:46:35,772] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=1.9188173438651197 ref=2.1254876265531113 delta=0.2066702826879916 pair=(g000_000_45082401,f000_000_8147353c) stage=proxy gen=0 phase=loss threshold=2.1254876265531113 compare_target=prev_best improve_eps=0.0
+[2026-02-26 10:46:35,772] INFO:ptp_discovery.pref_loss_coevo: Gen 0 summary: g_pool=10 f_pool=12 pairs=12 ok=0 stages={'cheap': 12} top_reasons=[('cheap_proxy_gate_failed', 12)]
+[2026-02-26 10:46:35,772] WARNING:ptp_discovery.pref_loss_coevo: Gen 0 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-02-26 10:46:35,783] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 1/19 ===
+[2026-02-26 10:46:35,784] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:46:35,784] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=1.9188173438651197 best_pair=(g000_000_45082401,f000_000_8147353c) best_stage=proxy metric_mode=minimize improve_eps=0.0
+[2026-02-26 10:46:35,785] INFO:ptp_discovery.pref_loss_coevo: Gen 1 start: caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 10:46:35,785] INFO:ptp_discovery.pref_loss_coevo: Gen 1 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=492 chars
+[2026-02-26 10:53:17,460] INFO:ptp_discovery.pref_loss_coevo: Gen 1 LLM ops: builders={'E2': 2, 'M1': 1, 'E1': 2, 'M2': 2} (repairs=0) losses={'M2': 5, 'E2': 1, 'M1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-103515/llm_cache.jsonl', 'cache_entries': 70, 'cache_hits': 0, 'cache_misses': 70}
+[2026-02-26 10:53:17,460] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-26 10:53:17,461] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,461] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,462] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=10 pair=12) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,508] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=1/20 budgets(loss=128,builder=0)
+[2026-02-26 10:53:17,508] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g000_000_45082401 budget=128
+[2026-02-26 10:53:17,509] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:53:17,509] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f000_000_8147353c budget=0
+[2026-02-26 10:53:17,509] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:53:17,560] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=1: 1/20 caches(rollout=10 pref=10 pair=13) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,721] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=1: 10/20 caches(rollout=10 pref=10 pair=18) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,904] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=1: 20/20 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,905] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=1: pairs=20 elapsed_s=0.4 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 10:53:17,905] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=1: eligible=0 selected=0 (top_m=8)
+[2026-02-26 10:53:17,905] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=prev_best reference_score=1.9188173438651197 threshold=1.9188173438651197 metric_mode=minimize improve_eps=0.0
+[2026-02-26 10:53:17,905] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=1.5177724536737136 ref=1.9188173438651197 delta=0.4010448901914061 pair=(g000_000_45082401,f001_003_44921e9b) stage=proxy gen=1 phase=loss threshold=1.9188173438651197 compare_target=prev_best improve_eps=0.0
+[2026-02-26 10:53:17,905] INFO:ptp_discovery.pref_loss_coevo: Gen 1 summary: g_pool=11 f_pool=12 pairs=20 ok=0 stages={'cheap': 20} top_reasons=[('cheap_proxy_gate_failed', 20)]
+[2026-02-26 10:53:17,906] WARNING:ptp_discovery.pref_loss_coevo: Gen 1 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-02-26 10:53:17,921] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 2/19 ===
+[2026-02-26 10:53:17,921] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 10:53:17,921] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=1.5177724536737136 best_pair=(g000_000_45082401,f001_003_44921e9b) best_stage=proxy metric_mode=minimize improve_eps=0.0
+[2026-02-26 10:53:17,923] INFO:ptp_discovery.pref_loss_coevo: Gen 2 start: caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 10:53:17,923] INFO:ptp_discovery.pref_loss_coevo: Gen 2 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=492 chars
+[2026-02-26 11:02:27,375] INFO:ptp_discovery.pref_loss_coevo: Gen 2 LLM ops: builders={'M1': 1, 'M2': 3, 'E2': 2, 'E1': 1} (repairs=0) losses={'E1': 1, 'M2': 5, 'M1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-103515/llm_cache.jsonl', 'cache_entries': 105, 'cache_hits': 0, 'cache_misses': 105}
+[2026-02-26 11:02:27,375] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-26 11:02:27,376] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,376] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,377] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,440] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=2/20 budgets(loss=128,builder=0)
+[2026-02-26 11:02:27,440] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g000_000_45082401 budget=128
+[2026-02-26 11:02:27,440] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 11:02:27,440] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f001_003_44921e9b budget=0
+[2026-02-26 11:02:27,440] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 11:02:27,441] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 1/26 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,574] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 10/26 caches(rollout=10 pref=10 pair=29) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,668] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 20/26 caches(rollout=10 pref=10 pair=34) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,702] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 26/26 caches(rollout=10 pref=10 pair=36) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,702] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=2: pairs=26 elapsed_s=0.3 caches(rollout=10 pref=10 pair=36) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:02:27,703] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=2: eligible=0 selected=0 (top_m=8)
+[2026-02-26 11:02:27,703] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=prev_best reference_score=1.5177724536737136 threshold=1.5177724536737136 metric_mode=minimize improve_eps=0.0
+[2026-02-26 11:02:27,703] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=1.3197351836828224 ref=1.5177724536737136 delta=0.19803726999089122 pair=(g000_000_45082401,f002_002_728a0d71) stage=proxy gen=2 phase=loss threshold=1.5177724536737136 compare_target=prev_best improve_eps=0.0
+[2026-02-26 11:02:27,703] INFO:ptp_discovery.pref_loss_coevo: Gen 2 summary: g_pool=11 f_pool=12 pairs=26 ok=0 stages={'cheap': 26} top_reasons=[('cheap_proxy_gate_failed', 26)]
+[2026-02-26 11:02:27,703] WARNING:ptp_discovery.pref_loss_coevo: Gen 2 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-02-26 11:02:27,715] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 3/19 ===
+[2026-02-26 11:02:27,715] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 11:02:27,715] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=1.3197351836828224 best_pair=(g000_000_45082401,f002_002_728a0d71) best_stage=proxy metric_mode=minimize improve_eps=0.0
+[2026-02-26 11:02:27,716] INFO:ptp_discovery.pref_loss_coevo: Gen 3 start: caches(rollout=10 pref=10 pair=36) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 11:02:27,716] INFO:ptp_discovery.pref_loss_coevo: Gen 3 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=492 chars
+[2026-02-26 11:08:58,722] INFO:ptp_discovery.pref_loss_coevo: Gen 3 LLM ops: builders={'E2': 2, 'M2': 3, 'M1': 2} (repairs=0) losses={'E2': 1, 'M2': 5, 'E1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260226-103515/llm_cache.jsonl', 'cache_entries': 129, 'cache_hits': 0, 'cache_misses': 129}
+[2026-02-26 11:08:58,723] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-26 11:08:58,723] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=10 pair=36) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:58,724] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=10 pair=36) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:58,724] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=10 pair=36) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:58,798] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=3/20 budgets(loss=128,builder=0)
+[2026-02-26 11:08:58,798] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g000_000_45082401 budget=128
+[2026-02-26 11:08:58,799] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 11:08:58,799] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f002_002_728a0d71 budget=0
+[2026-02-26 11:08:58,799] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 11:08:58,835] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 1/32 caches(rollout=10 pref=10 pair=37) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:58,921] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 10/32 caches(rollout=10 pref=10 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:58,978] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 20/32 caches(rollout=10 pref=10 pair=46) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:59,013] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 30/32 caches(rollout=10 pref=10 pair=48) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:59,013] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 32/32 caches(rollout=10 pref=10 pair=48) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:59,013] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=3: pairs=32 elapsed_s=0.2 caches(rollout=10 pref=10 pair=48) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-26 11:08:59,013] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=3: eligible=0 selected=0 (top_m=8)
+[2026-02-26 11:08:59,014] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=prev_best reference_score=1.3197351836828224 threshold=1.3197351836828224 metric_mode=minimize improve_eps=0.0
+[2026-02-26 11:08:59,014] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=1.1350102645573847 ref=1.3197351836828224 delta=0.18472491912543765 pair=(g000_000_45082401,f003_002_375504fc) stage=proxy gen=3 phase=loss threshold=1.3197351836828224 compare_target=prev_best improve_eps=0.0
+[2026-02-26 11:08:59,014] INFO:ptp_discovery.pref_loss_coevo: Gen 3 summary: g_pool=9 f_pool=12 pairs=32 ok=0 stages={'cheap': 32} top_reasons=[('cheap_proxy_gate_failed', 32)]
+[2026-02-26 11:08:59,014] WARNING:ptp_discovery.pref_loss_coevo: Gen 3 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-02-26 11:08:59,028] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 4/19 ===
+[2026-02-26 11:08:59,028] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-02-26 11:08:59,028] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=1.1350102645573847 best_pair=(g000_000_45082401,f003_002_375504fc) best_stage=proxy metric_mode=minimize improve_eps=0.0
+[2026-02-26 11:08:59,029] INFO:ptp_discovery.pref_loss_coevo: Gen 4 start: caches(rollout=10 pref=10 pair=48) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-26 11:08:59,029] INFO:ptp_discovery.pref_loss_coevo: Gen 4 prompt context sizes: best_builder_summary.code=504 chars best_loss_summary.code=492 chars

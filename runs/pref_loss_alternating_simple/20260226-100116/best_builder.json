@@ -1,0 +1,73 @@
+{
+  "generation": 37,
+  "index": 26,
+  "id": "g037_026_d68455e6",
+  "signature": "d68455e64bf8c679c503c74510b3333b1aec55c1",
+  "origin": "SEED",
+  "origin_base": null,
+  "op_type": "SEED_CROSSOVER",
+  "parents": [
+    "g035_019_e5a4c5ba",
+    "g018_028_9e190eb6"
+  ],
+  "attempt": 0,
+  "prompt_sha1": null,
+  "prompt_path": null,
+  "llm_seed": null,
+  "history": [],
+  "ir": {
+    "name": "builder_sampled_pairs_000_x_g035_019_g018_028",
+    "intuition": "rule_based:sampled_pairs",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    max_pairs = int(extra.get('max_pairs', 67))\n    if b_idx.numel() > max_pairs:\n        perm = torch.randperm(b_idx.numel(), device=b_idx.device)[:max_pairs]\n        b_idx = b_idx[perm]\n        winner_idx = winner_idx[perm]\n        loser_idx = loser_idx[perm]\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'sampled_pairs', 'max_pairs': max_pairs})\n"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 67,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 11,
+        "threshold": 64,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 1.0876129279440756,
+  "descriptor": {
+    "x": 0.671875,
+    "y": 0.0,
+    "cell": [
+      5,
+      0
+    ]
+  }
+}
