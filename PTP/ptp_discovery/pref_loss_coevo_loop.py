@@ -484,6 +484,35 @@ def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any]
             if any(str(k).startswith(p) for p in ignored_prefixes) or str(k) in ignored_exact:
                 ignored_advanced_keys.append(str(k))
 
+        default_side_llm = {
+            "enabled": True,
+            "offline_mode": False,
+            "parent_p": 5,
+            "seed_reserve": 2,
+            "init_num_E1": 6,
+            "init_num_E2": 4,
+            "init_num_M1": 4,
+            "init_num_M2": 4,
+            "num_E1": 8,
+            "num_E2": 8,
+            "num_M1": 8,
+            "num_M2": 8,
+            "repair": {"enabled": True, "max_attempts": 1, "simplify_first": True},
+        }
+        for side in ("builder_llm", "loss_llm"):
+            side_cfg = cfg.get(side)
+            if not isinstance(side_cfg, dict):
+                cfg[side] = dict(default_side_llm)
+                continue
+            merged = dict(default_side_llm)
+            merged.update(dict(side_cfg))
+            repair_in = side_cfg.get("repair")
+            if isinstance(repair_in, dict):
+                rep = dict(default_side_llm.get("repair", {}))
+                rep.update(dict(repair_in))
+                merged["repair"] = rep
+            cfg[side] = merged
+
     cfg["preset"] = str(preset)
     cfg["search_mode"] = str(search_mode)
     cfg["metric_mode"] = str(metric_mode)

@@ -30,3 +30,40 @@ population:
   n_candidates_loss: 64
   n_candidates_builder: 64
   keep_top_k: 8
+
+# Keep alternating search but still use Double-EoH operators on both sides.
+builder_llm:
+  enabled: true
+  offline_mode: false
+  parent_p: 5
+  seed_reserve: 2
+  init_num_E1: 6
+  init_num_E2: 4
+  init_num_M1: 4
+  init_num_M2: 4
+  num_E1: 8
+  num_E2: 8
+  num_M1: 8
+  num_M2: 8
+  repair:
+    enabled: true
+    max_attempts: 1
+    simplify_first: true
+
+loss_llm:
+  enabled: true
+  offline_mode: false
+  parent_p: 5
+  seed_reserve: 2
+  init_num_E1: 6
+  init_num_E2: 4
+  init_num_M1: 4
+  init_num_M2: 4
+  num_E1: 8
+  num_E2: 8
+  num_M1: 8
+  num_M2: 8
+  repair:
+    enabled: true
+    max_attempts: 1
+    simplify_first: true
