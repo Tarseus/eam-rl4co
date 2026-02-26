@@ -18,6 +18,13 @@ eval_stages:
   stage2_micro_unroll: false
   stage3_high_fidelity: true
 
+proxy_gate_repair:
+  enabled: true
+  max_repairs_per_gen: 8
+  max_attempts_per_pair: 1
+  repair_builder_on_builder_gate_fail: true
+  repair_loss_on_joint_gate_fail: true
+
 budgets:
   generations: 20
   pairing_budget_per_gen: 128

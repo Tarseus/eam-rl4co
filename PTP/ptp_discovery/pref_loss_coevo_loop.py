@@ -4294,6 +4294,35 @@ def run_pref_loss_coevo(
             "variant": "visible",
         }
 
+        gate_repair_cfg_raw = cfg_yaml.get("proxy_gate_repair", {})
+        gate_repair_cfg = gate_repair_cfg_raw if isinstance(gate_repair_cfg_raw, dict) else {}
+        gate_repair_enabled = bool(llm_enabled and stage1_proxy_enabled and bool(gate_repair_cfg.get("enabled", False)))
+        gate_repair_remaining = max(0, int(gate_repair_cfg.get("max_repairs_per_gen", 0) or 0))
+        gate_repair_attempts = max(0, int(gate_repair_cfg.get("max_attempts_per_pair", 1) or 1))
+        gate_repair_builder_on_fail = bool(gate_repair_cfg.get("repair_builder_on_builder_gate_fail", True))
+        gate_repair_loss_on_fail = bool(gate_repair_cfg.get("repair_loss_on_joint_gate_fail", True))
+        gate_repair_attempted_pairs: set[tuple[str, str]] = set()
+        gate_repair_attempted_builders: set[str] = set()
+        gate_repair_attempted_losses: set[str] = set()
+
+        llm_prompts_cfg = llm_cfg.get("prompts", {}) if isinstance(llm_cfg.get("prompts"), dict) else {}
+        p_builder_rep = str(llm_prompts_cfg.get("builder_repair", "") or "")
+        p_builder_m3 = str(llm_prompts_cfg.get("builder_m3", "") or "")
+        p_loss_rep = str(llm_prompts_cfg.get("loss_repair", "") or "")
+        p_loss_m3 = str(llm_prompts_cfg.get("loss_m3", "") or "")
+        builder_repair_live_cfg = builder_cfg.get("repair", {}) if isinstance(builder_cfg.get("repair"), dict) else {}
+        loss_repair_live_cfg = loss_cfg.get("repair", {}) if isinstance(loss_cfg.get("repair"), dict) else {}
+        builder_gate_live_cfg = llm_cfg.get("builder_gate", {}) if isinstance(llm_cfg.get("builder_gate"), dict) else {}
+
+        if gate_repair_enabled:
+            LOGGER.info(
+                "Proxy gate-repair enabled: max_repairs_per_gen=%d max_attempts_per_pair=%d builder_on_fail=%s loss_on_fail=%s",
+                int(gate_repair_remaining),
+                int(gate_repair_attempts),
+                str(gate_repair_builder_on_fail),
+                str(gate_repair_loss_on_fail),
+            )
+
         bins = int(cfg_yaml.get("archive_bins", 8) or 8)
         pair_count_cap = int(cfg_yaml.get("descriptor_pair_count_cap", 4096) or 4096)
         loss_scale = float(cfg_yaml.get("descriptor_loss_scale", 5.0) or 5.0)
@@ -4576,6 +4605,287 @@ def run_pref_loss_coevo(
                     loss_scale=loss_scale,
                     cheap_gate_on=bool(stage0_gate_enabled),
                 )
+                pair_key = (str(gid), str(fid))
+                gate_repair_events: List[Dict[str, Any]] = []
+                gate_repair_applied = False
+                if (
+                    gate_repair_enabled
+                    and gate_repair_remaining > 0
+                    and pair_key not in gate_repair_attempted_pairs
+                    and not bool(rec.get("pair_ok"))
+                    and str(rec.get("pair_reason", "")) == "cheap_proxy_gate_failed"
+                ):
+                    gate_repair_attempted_pairs.add(pair_key)
+                    gate_repair_remaining -= 1
+                    pair_fail_context = {
+                        "stage": "proxy_gate",
+                        "pair_reason": str(rec.get("pair_reason", "")),
+                        "builder_gate_ok": rec.get("builder_gate_ok"),
+                        "builder_gate_reason": rec.get("builder_gate_reason"),
+                        "builder_gate_trace": rec.get("builder_gate_trace"),
+                        "joint_gate_ok": rec.get("joint_gate_ok"),
+                        "joint_gate_reason": rec.get("joint_gate_reason"),
+                        "joint_gate_trace": rec.get("joint_gate_trace"),
+                        "pair_context": {
+                            "generation": int(gen),
+                            "pair_index": int(p_idx),
+                            "g_id": str(gid),
+                            "f_id": str(fid),
+                            "phase": str(pair_phase_by_pair.get((str(gid), str(fid)), "coevo")),
+                        },
+                    }
+                    call_feedback = dict(global_feedback or {})
+                    call_feedback["llm_call"] = {
+                        "side": "pair_gate_repair",
+                        "op_type": "PAIR_GATE_REPAIR",
+                        "seed": int(rng.randint(0, 2**31 - 1)),
+                    }
+
+                    if (
+                        gate_repair_builder_on_fail
+                        and (not bool(rec.get("builder_gate_ok")))
+                        and str(gid) not in gate_repair_attempted_builders
+                        and str(gid) in g_map
+                        and isinstance(g_map[str(gid)].get("ir"), dict)
+                        and p_builder_rep
+                    ):
+                        gate_repair_attempted_builders.add(str(gid))
+                        try:
+                            g_ir = pref_builder_ir_from_json(g_map[str(gid)]["ir"])
+                            builder_fail_report = _builder_failure_report(
+                                stage="proxy_gate",
+                                reason=str(rec.get("builder_gate_reason") or rec.get("pair_reason") or "builder_gate_failed"),
+                                trace={
+                                    "builder_gate_trace": rec.get("builder_gate_trace"),
+                                    "joint_gate_trace": rec.get("joint_gate_trace"),
+                                    "pair_context": pair_fail_context.get("pair_context"),
+                                },
+                            )
+                            repaired_g_ir, rep_meta = _repair_builder_candidate_loop(
+                                g_ir,
+                                failure_report=builder_fail_report,
+                                operator_whitelist=operator_whitelist,
+                                gate_cfg={
+                                    "min_pairs": int(builder_gate_live_cfg.get("min_pairs", 1) or 1),
+                                    "min_coverage": float(builder_gate_live_cfg.get("min_coverage", 1.0) or 1.0),
+                                    "max_pairs_per_instance": int(
+                                        builder_gate_live_cfg.get("max_pairs_per_instance", 4096) or 4096
+                                    ),
+                                    "weight_nonneg": bool(builder_gate_live_cfg.get("weight_nonneg", True)),
+                                    "semantic_tolerance": float(builder_gate_live_cfg.get("semantic_tolerance", 0.0) or 0.0),
+                                    "semantic_min_pass_rate": float(
+                                        builder_gate_live_cfg.get("semantic_min_pass_rate", 1.0) or 1.0
+                                    ),
+                                },
+                                llm_prompts={"builder_m3": p_builder_m3, "builder_repair": p_builder_rep},
+                                global_feedback=call_feedback,
+                                max_attempts=max(0, int(gate_repair_attempts)),
+                                simplify_first=bool(builder_repair_live_cfg.get("simplify_first", True)),
+                            )
+                            if repaired_g_ir is not None:
+                                g_map[str(gid)]["ir"] = asdict(repaired_g_ir)
+                                g_map[str(gid)]["signature"] = _sig_pref_builder(repaired_g_ir)
+                                g_map[str(gid)]["origin"] = "REPAIR_GATE"
+                                hist = g_map[str(gid)].get("history")
+                                if not isinstance(hist, list):
+                                    hist = []
+                                    g_map[str(gid)]["history"] = hist
+                                if isinstance(rep_meta, dict) and isinstance(rep_meta.get("attempts"), list):
+                                    hist.extend(list(rep_meta.get("attempts") or []))
+                                compiled_g[str(gid)] = compile_preference_builder(
+                                    repaired_g_ir,
+                                    operator_whitelist=operator_whitelist,
+                                )
+                                dropped_pref = 0
+                                for pref_key in list(caches.pref_cache.keys()):
+                                    if str(pref_key[0]) == str(gid):
+                                        dropped_pref += 1
+                                        del caches.pref_cache[pref_key]
+                                dropped_pair = 0
+                                for ck in list(caches.pair_cache.keys()):
+                                    if str(ck[2]) == str(eval_sig) and str(ck[0]) == str(gid):
+                                        dropped_pair += 1
+                                        del caches.pair_cache[ck]
+                                gate_repair_events.append(
+                                    {
+                                        "side": "builder",
+                                        "status": "repaired",
+                                        "dropped_pref_cache": int(dropped_pref),
+                                        "dropped_pair_cache": int(dropped_pair),
+                                    }
+                                )
+                                gate_repair_applied = True
+                            else:
+                                gate_repair_events.append(
+                                    {
+                                        "side": "builder",
+                                        "status": "failed",
+                                        "meta": rep_meta,
+                                    }
+                                )
+                        except Exception as exc:  # noqa: BLE001
+                            gate_repair_events.append({"side": "builder", "status": "error", "error": str(exc)})
+
+                    if (
+                        gate_repair_loss_on_fail
+                        and (not bool(rec.get("joint_gate_ok")))
+                        and str(fid) not in gate_repair_attempted_losses
+                        and str(fid) in f_map
+                        and isinstance(f_map[str(fid)].get("ir"), dict)
+                        and p_loss_rep
+                    ):
+                        gate_repair_attempted_losses.add(str(fid))
+                        try:
+                            f_ir = free_loss_ir_from_json(f_map[str(fid)]["ir"])
+                            last_fail: Dict[str, Any] = dict(pair_fail_context)
+                            repaired_f_ir: FreeLossIR | None = None
+                            rep_hist: List[Dict[str, Any]] = []
+                            for _ra in range(max(0, int(gate_repair_attempts))):
+                                fail_payload = dict(last_fail)
+                                fail_payload["repair_attempt"] = int(_ra)
+                                fail_payload["llm_call"] = dict(call_feedback.get("llm_call") or {})
+                                prompt_sha = _build_free_loss_failure_prompt(
+                                    p_loss_rep,
+                                    candidate=f_ir,
+                                    failure_reason=fail_payload,
+                                    global_feedback=None,
+                                    block_name="CANDIDATE_AND_FAILURE_JSON",
+                                    ensure_ascii=True,
+                                )[1]
+                                rep_hist.append(
+                                    {
+                                        "attempt": int(_ra),
+                                        "side": "loss",
+                                        "llm_op": "REPAIR",
+                                        "prompt_path": str(p_loss_rep),
+                                        "prompt_sha1": str(prompt_sha),
+                                    }
+                                )
+                                candidate = loss_llm_ops.repair_free_loss(
+                                    p_loss_rep,
+                                    failed_ir=f_ir,
+                                    failure_reason=fail_payload,
+                                )
+                                static_res = run_static_gates(candidate, operator_whitelist=operator_whitelist)
+                                if not bool(static_res.ok):
+                                    last_fail = {
+                                        "stage": "static_gate",
+                                        "reason": str(static_res.reason),
+                                        "trace": static_res.trace,
+                                    }
+                                    if bool(loss_repair_live_cfg.get("simplify_first", True)) and p_loss_m3:
+                                        try:
+                                            prompt_sha_m3 = _build_free_loss_failure_prompt(
+                                                p_loss_m3,
+                                                candidate=candidate,
+                                                failure_reason=last_fail,
+                                                global_feedback=call_feedback,
+                                                block_name="CANDIDATE_AND_FAILURE_JSON",
+                                                ensure_ascii=False,
+                                            )[1]
+                                            rep_hist.append(
+                                                {
+                                                    "attempt": int(_ra),
+                                                    "side": "loss",
+                                                    "llm_op": "M3",
+                                                    "prompt_path": str(p_loss_m3),
+                                                    "prompt_sha1": str(prompt_sha_m3),
+                                                }
+                                            )
+                                            candidate = loss_llm_ops.m3_simplify_loss(
+                                                p_loss_m3,
+                                                candidate=candidate,
+                                                failure_reason=last_fail,
+                                                global_feedback=call_feedback,
+                                            )
+                                        except Exception:
+                                            pass
+                                    f_ir = candidate
+                                    continue
+                                try:
+                                    _ = compile_free_loss(candidate, operator_whitelist=operator_whitelist)
+                                except Exception as exc:  # noqa: BLE001
+                                    last_fail = {"stage": "compile", "error": str(exc)}
+                                    f_ir = candidate
+                                    continue
+                                repaired_f_ir = candidate
+                                break
+
+                            if repaired_f_ir is not None:
+                                f_map[str(fid)]["ir"] = asdict(repaired_f_ir)
+                                f_map[str(fid)]["signature"] = _sig_free_loss(repaired_f_ir)
+                                f_map[str(fid)]["origin"] = "REPAIR_GATE"
+                                hist = f_map[str(fid)].get("history")
+                                if not isinstance(hist, list):
+                                    hist = []
+                                    f_map[str(fid)]["history"] = hist
+                                hist.extend(rep_hist)
+                                compiled_f[str(fid)] = compile_free_loss(
+                                    repaired_f_ir,
+                                    operator_whitelist=operator_whitelist,
+                                )
+                                dropped_pair = 0
+                                for ck in list(caches.pair_cache.keys()):
+                                    if str(ck[2]) == str(eval_sig) and str(ck[1]) == str(fid):
+                                        dropped_pair += 1
+                                        del caches.pair_cache[ck]
+                                gate_repair_events.append(
+                                    {
+                                        "side": "loss",
+                                        "status": "repaired",
+                                        "attempts": int(len(rep_hist)),
+                                        "dropped_pair_cache": int(dropped_pair),
+                                    }
+                                )
+                                gate_repair_applied = True
+                            else:
+                                gate_repair_events.append(
+                                    {
+                                        "side": "loss",
+                                        "status": "failed",
+                                        "attempts": int(gate_repair_attempts),
+                                    }
+                                )
+                        except Exception as exc:  # noqa: BLE001
+                            gate_repair_events.append({"side": "loss", "status": "error", "error": str(exc)})
+
+                    if gate_repair_applied:
+                        rec = _cheap_eval_pair_cached(
+                            caches=caches,
+                            compiled_g=compiled_g,
+                            compiled_f=compiled_f,
+                            rollout_feature_caches=rollout_feature_caches,
+                            cfg_yaml=cfg_yaml,
+                            eval_sig=str(eval_sig),
+                            gid=str(gid),
+                            fid=str(fid),
+                            generation=int(gen),
+                            pair_index=int(p_idx),
+                            seed_used=int(base_seed),
+                            seed_sig=str(base_seed_sig),
+                            pref_batch_id_offset=0,
+                            stage="cheap",
+                            reasons=list(reasons_by_pair.get((gid, fid), ["scheduled"])) + ["gate_repair_retry"],
+                            proxy_device_str=proxy_device_str,
+                            joint_gate_kwargs=joint_gate_kwargs,
+                            proxy_weights=dict(proxy_weights),
+                            bins=bins,
+                            pair_count_cap=pair_count_cap,
+                            loss_scale=loss_scale,
+                            cheap_gate_on=bool(stage0_gate_enabled),
+                        )
+                        rec["gate_repair"] = {
+                            "enabled": True,
+                            "events": gate_repair_events,
+                        }
+                        LOGGER.info(
+                            "Gate-repair retry gen=%d pair=(%s,%s): pair_ok=%s reason=%s",
+                            int(gen),
+                            str(gid),
+                            str(fid),
+                            str(rec.get("pair_ok")),
+                            str(rec.get("pair_reason")),
+                        )
                 rec["phase"] = pair_phase_by_pair.get((str(gid), str(fid)), "coevo")
                 pair_records_map[(str(gid), str(fid))] = rec
                 if progress_every_pairs > 0 and (
