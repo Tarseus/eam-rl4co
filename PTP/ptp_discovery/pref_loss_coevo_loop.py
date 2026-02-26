@@ -4516,13 +4516,58 @@ def run_pref_loss_coevo(
 
             fixed_builder_id = None
             fixed_loss_id = None
-            if isinstance(best_so_far, dict):
-                fixed_builder_id = str(best_so_far.get("builder_id") or "")
-                fixed_loss_id = str(best_so_far.get("loss_id") or "")
-            if fixed_builder_id not in g_map:
-                fixed_builder_id = str(g_id_pool[0]) if g_id_pool else None
-            if fixed_loss_id not in f_map:
-                fixed_loss_id = str(f_id_pool[0]) if f_id_pool else None
+
+            try:
+                _ensure_reference_compiled(
+                    compiled_g=compiled_g,
+                    compiled_f=compiled_f,
+                    operator_whitelist=operator_whitelist,
+                )
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning(
+                    "Failed to ensure reference g_ref/f_ref for alternating fallback: %s",
+                    str(exc),
+                )
+
+            # Fixed builder for loss-search: prefer current best builder; fallback to g_ref.
+            if elites_g:
+                cand_g = str(elites_g[0].get("id") or "")
+                if cand_g and cand_g in compiled_g:
+                    fixed_builder_id = cand_g
+            if (not fixed_builder_id) and isinstance(best_so_far, dict):
+                cand_g = str(best_so_far.get("builder_id") or "")
+                if cand_g and cand_g in compiled_g:
+                    fixed_builder_id = cand_g
+            if not fixed_builder_id and G_REF_ID in compiled_g:
+                fixed_builder_id = str(G_REF_ID)
+            if (not fixed_builder_id) and g_id_pool:
+                for gid0 in g_id_pool:
+                    if str(gid0) in compiled_g:
+                        fixed_builder_id = str(gid0)
+                        break
+
+            # Fixed loss for pair-search: prefer current best loss; fallback to f_ref.
+            if elites_f:
+                cand_f = str(elites_f[0].get("id") or "")
+                if cand_f and cand_f in compiled_f:
+                    fixed_loss_id = cand_f
+            if (not fixed_loss_id) and isinstance(best_so_far, dict):
+                cand_f = str(best_so_far.get("loss_id") or "")
+                if cand_f and cand_f in compiled_f:
+                    fixed_loss_id = cand_f
+            if not fixed_loss_id and F_REF_ID in compiled_f:
+                fixed_loss_id = str(F_REF_ID)
+            if (not fixed_loss_id) and f_id_pool:
+                for fid0 in f_id_pool:
+                    if str(fid0) in compiled_f:
+                        fixed_loss_id = str(fid0)
+                        break
+
+            LOGGER.info(
+                "Alternating fixed candidates resolved: fixed_g=%s fixed_f=%s",
+                str(fixed_builder_id),
+                str(fixed_loss_id),
+            )
 
             if fixed_builder_id and fixed_loss_id:
                 LOGGER.info(
@@ -4689,6 +4734,7 @@ def run_pref_loss_coevo(
                     if (
                         gate_repair_builder_on_fail
                         and (not bool(rec.get("builder_gate_ok")))
+                        and str(gid) != G_REF_ID
                         and str(gid) not in gate_repair_attempted_builders
                         and str(gid) in g_map
                         and isinstance(g_map[str(gid)].get("ir"), dict)
