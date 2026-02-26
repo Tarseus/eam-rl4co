@@ -428,6 +428,7 @@ def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any]
                 builder_pair_budget.get("per_instance", 64),
                 64,
             ),
+            "builder_min_coverage": _safe_float(cfg.get("builder_min_coverage", 0.0), 0.0),
             "descriptor_pair_count_cap": _safe_int(
                 builder_pair_budget.get("total", 8192),
                 8192,
@@ -1211,7 +1212,7 @@ def validate_builder_candidate(
             pb,
             feature_cache=fc,
             min_pairs=int(gate_cfg.get("min_pairs", 1) or 1),
-            min_coverage=float(gate_cfg.get("min_coverage", 1.0) or 1.0),
+            min_coverage=float(gate_cfg.get("min_coverage", 0.0) or 0.0),
             max_pairs_per_instance=int(gate_cfg.get("max_pairs_per_instance", 4096) or 4096),
             weight_nonneg=bool(gate_cfg.get("weight_nonneg", True)),
             semantic_tolerance=float(gate_cfg.get("semantic_tolerance", 0.0) or 0.0),
@@ -1382,7 +1383,7 @@ def _propose_builders_for_generation(
         if not isinstance(gate_cfg, dict):
             gate_cfg = {}
         min_pairs = int(gate_cfg.get("min_pairs", 1) or 1)
-        min_cov = float(gate_cfg.get("min_coverage", 1.0) or 1.0)
+        min_cov = float(gate_cfg.get("min_coverage", 0.0) or 0.0)
         max_pairs_pi = int(gate_cfg.get("max_pairs_per_instance", 4096) or 4096)
         weight_nonneg = bool(gate_cfg.get("weight_nonneg", True))
         sem_tol = float(gate_cfg.get("semantic_tolerance", 0.0) or 0.0)
@@ -2620,7 +2621,7 @@ def _cheap_eval_pair_cached(
                 pref,
                 feature_cache=fc,
                 min_pairs=int(cfg_yaml.get("builder_min_pairs", 1) or 1),
-                min_coverage=float(cfg_yaml.get("builder_min_coverage", 1.0) or 1.0),
+                min_coverage=float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
                 max_pairs_per_instance=int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
                 weight_nonneg=bool(cfg_yaml.get("builder_weight_nonneg", True)),
                 semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
@@ -3022,7 +3023,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         pref_batch,
         feature_cache=feature_cache,
         min_pairs=int(cfg.get("builder_min_pairs", 1) or 1),
-        min_coverage=float(cfg.get("builder_min_coverage", 1.0) or 1.0),
+        min_coverage=float(cfg.get("builder_min_coverage", 0.0) or 0.0),
         max_pairs_per_instance=int(cfg.get("builder_max_pairs_per_instance", 4096) or 4096),
         weight_nonneg=bool(cfg.get("builder_weight_nonneg", True)),
         semantic_tolerance=float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
@@ -3538,7 +3539,7 @@ def run_pref_loss_coevo(
         "prompts": dict(llm_prompts),
         "builder_gate": {
             "min_pairs": int(cfg_yaml.get("builder_min_pairs", 1) or 1),
-            "min_coverage": float(cfg_yaml.get("builder_min_coverage", 1.0) or 1.0),
+            "min_coverage": float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
             "max_pairs_per_instance": int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
             "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
             "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
@@ -3968,6 +3969,35 @@ def run_pref_loss_coevo(
             global_feedback=global_feedback if llm_enabled else None,
         )
 
+        # Ensure generation-0 default pair/loss match PO4COPs-style baseline
+        # before search-driven variants are considered.
+        if int(gen) == 0 and bool(cfg_yaml.get("seed_with_po4cops_default", True)):
+            proposed_g = [
+                {
+                    "ir": _ref_builder_ir(),
+                    "origin": "SEED_PO4COPS_DEFAULT",
+                    "op_type": "SEED_PO4COPS_DEFAULT",
+                    "parents": [],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            ] + list(proposed_g)
+            proposed_f = [
+                {
+                    "ir": _ref_loss_ir(),
+                    "origin": "SEED_PO4COPS_DEFAULT",
+                    "op_type": "SEED_PO4COPS_DEFAULT",
+                    "parents": [],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            ] + list(proposed_f)
+            LOGGER.info("Gen %d injected PO4COPs-compatible default builder/loss seeds.", int(gen))
+
         # Dedupe for novelty across resume + prior generations.
         def _fill_unique_builders(proposals: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
             unique: List[Dict[str, Any]] = []
@@ -4081,7 +4111,7 @@ def run_pref_loss_coevo(
                     pb,
                     feature_cache=fc,
                     min_pairs=int(cfg_yaml.get("builder_min_pairs", 1) or 1),
-                    min_coverage=float(cfg_yaml.get("builder_min_coverage", 1.0) or 1.0),
+                    min_coverage=float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
                     max_pairs_per_instance=int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
                     weight_nonneg=bool(cfg_yaml.get("builder_weight_nonneg", True)),
                     semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
@@ -4683,7 +4713,7 @@ def run_pref_loss_coevo(
                                 operator_whitelist=operator_whitelist,
                                 gate_cfg={
                                     "min_pairs": int(builder_gate_live_cfg.get("min_pairs", 1) or 1),
-                                    "min_coverage": float(builder_gate_live_cfg.get("min_coverage", 1.0) or 1.0),
+                                    "min_coverage": float(builder_gate_live_cfg.get("min_coverage", 0.0) or 0.0),
                                     "max_pairs_per_instance": int(
                                         builder_gate_live_cfg.get("max_pairs_per_instance", 4096) or 4096
                                     ),
