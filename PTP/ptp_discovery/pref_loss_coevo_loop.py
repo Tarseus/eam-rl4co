@@ -1312,6 +1312,7 @@ def _propose_builders_for_generation(
     llm_cfg: Mapping[str, Any] | None = None,
     operator_whitelist: Sequence[str] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    llm_init_only: bool = False,
 ) -> List[Dict[str, Any]]:
     """Propose builder candidates with elitism + mutation/crossover."""
 
@@ -1357,6 +1358,8 @@ def _propose_builders_for_generation(
         seed_reserve = max(0, min(int(seed_reserve_raw or 0), int(pop_g)))
     except (TypeError, ValueError):
         seed_reserve = 2 if llm_enabled else 0
+    if bool(llm_init_only):
+        seed_reserve = 0
 
     if llm_enabled:
         if operator_whitelist is None:
@@ -1581,6 +1584,8 @@ def _propose_builders_for_generation(
                 )
 
     # Mutations/crossover and fresh seeds.
+    if bool(llm_init_only):
+        return out[:pop_g]
     while len(out) < pop_g:
         op = rng.choice(["mutate", "crossover", "seed"]) if parent_pool else "seed"
         if op == "seed":
@@ -1649,6 +1654,7 @@ def _propose_losses_for_generation(
     llm_cfg: Mapping[str, Any] | None = None,
     operator_whitelist: Sequence[str] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    llm_init_only: bool = False,
 ) -> List[Dict[str, Any]]:
     """Propose loss candidates with elitism + mutation/crossover."""
 
@@ -1693,6 +1699,8 @@ def _propose_losses_for_generation(
         seed_reserve = max(0, min(int(seed_reserve_raw or 0), int(pop_f)))
     except (TypeError, ValueError):
         seed_reserve = 2 if llm_enabled else 0
+    if bool(llm_init_only):
+        seed_reserve = 0
 
     if llm_enabled:
         if operator_whitelist is None:
@@ -1978,6 +1986,8 @@ def _propose_losses_for_generation(
                     }
                 )
 
+    if bool(llm_init_only):
+        return out[:pop_f]
     while len(out) < pop_f:
         op = rng.choice(["mutate", "crossover", "seed"]) if parent_pool else "seed"
         if op == "seed":
@@ -3985,6 +3995,7 @@ def run_pref_loss_coevo(
             }
         )
 
+        llm_init_only = bool(cfg_yaml.get("llm_init_only", False))
         proposed_g = _propose_builders_for_generation(
             generation=int(gen),
             pop_g=int(pop_g),
@@ -3994,6 +4005,7 @@ def run_pref_loss_coevo(
             llm_cfg=llm_cfg if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
+            llm_init_only=bool(llm_init_only),
         )
         proposed_f = _propose_losses_for_generation(
             generation=int(gen),
@@ -4004,11 +4016,12 @@ def run_pref_loss_coevo(
             llm_cfg=llm_cfg if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
+            llm_init_only=bool(llm_init_only),
         )
 
         # Ensure generation-0 default pair/loss match PO4COPs-style baseline
         # before search-driven variants are considered.
-        if int(gen) == 0 and bool(cfg_yaml.get("seed_with_po4cops_default", True)):
+        if int(gen) == 0 and bool(cfg_yaml.get("seed_with_po4cops_default", True)) and (not bool(llm_init_only)):
             proposed_g = [
                 {
                     "ir": _ref_builder_ir(),
@@ -4048,7 +4061,7 @@ def run_pref_loss_coevo(
                     continue
                 unique.append(dict(p))
                 seen_g.add(sig)
-            while len(unique) < pop_g and attempts < pop_g * 20:
+            while (not bool(llm_init_only)) and len(unique) < pop_g and attempts < pop_g * 20:
                 attempts += 1
                 ir = _make_builtin_builder_irs(rng, 1)[0]
                 sig = _sig_pref_builder(ir)
@@ -4081,7 +4094,7 @@ def run_pref_loss_coevo(
                     continue
                 unique2.append(dict(p))
                 seen_f.add(sig)
-            while len(unique2) < pop_f and attempts2 < pop_f * 20:
+            while (not bool(llm_init_only)) and len(unique2) < pop_f and attempts2 < pop_f * 20:
                 attempts2 += 1
                 ir = _make_builtin_loss_irs(rng, 1)[0]
                 sig = _sig_free_loss(ir)
@@ -4526,6 +4539,9 @@ def run_pref_loss_coevo(
 
         pairs: List[Tuple[str, str]] = []
         reasons_by_pair: Dict[Tuple[str, str], List[str]] = {}
+        alternating_active_phase = "none"
+        alternating_fixed_builder_id: str | None = None
+        alternating_fixed_loss_id: str | None = None
         if str(search_mode) == "alternating":
             loss_budget_now = int(pairing_budget_loss)
             builder_budget_now = int(pairing_budget_builder)
@@ -4605,6 +4621,14 @@ def run_pref_loss_coevo(
                 str(fixed_builder_id),
                 str(fixed_loss_id),
             )
+            if int(loss_budget_now) > 0 and int(builder_budget_now) == 0:
+                alternating_active_phase = "loss"
+                alternating_fixed_builder_id = str(fixed_builder_id) if fixed_builder_id else None
+            elif int(builder_budget_now) > 0 and int(loss_budget_now) == 0:
+                alternating_active_phase = "builder"
+                alternating_fixed_loss_id = str(fixed_loss_id) if fixed_loss_id else None
+            elif int(loss_budget_now) > 0 and int(builder_budget_now) > 0:
+                alternating_active_phase = "mixed"
 
             if fixed_builder_id and fixed_loss_id:
                 LOGGER.info(
@@ -4628,6 +4652,34 @@ def run_pref_loss_coevo(
                     budget_loss=int(loss_budget_now),
                     budget_builder=int(builder_budget_now),
                 )
+                if alternating_active_phase == "loss" and alternating_fixed_builder_id:
+                    before_n = len(pairs)
+                    pairs = [p for p in pairs if str(p[0]) == str(alternating_fixed_builder_id)]
+                    if len(pairs) != before_n:
+                        LOGGER.warning(
+                            "Alternating loss-phase pair cleanup gen=%d: dropped %d pairs not using fixed_g=%s",
+                            int(gen),
+                            int(before_n - len(pairs)),
+                            str(alternating_fixed_builder_id),
+                        )
+                if alternating_active_phase == "builder" and alternating_fixed_loss_id:
+                    before_n = len(pairs)
+                    pairs = [p for p in pairs if str(p[1]) == str(alternating_fixed_loss_id)]
+                    if len(pairs) != before_n:
+                        LOGGER.warning(
+                            "Alternating builder-phase pair cleanup gen=%d: dropped %d pairs not using fixed_f=%s",
+                            int(gen),
+                            int(before_n - len(pairs)),
+                            str(alternating_fixed_loss_id),
+                        )
+                if pairs:
+                    pair_set = set((str(p[0]), str(p[1])) for p in pairs)
+                    reasons_by_pair = {
+                        k: v for k, v in reasons_by_pair.items() if (str(k[0]), str(k[1])) in pair_set
+                    }
+                    pair_phase_by_pair = {
+                        k: v for k, v in pair_phase_by_pair.items() if (str(k[0]), str(k[1])) in pair_set
+                    }
             else:
                 LOGGER.warning(
                     "Alternating skipped this generation: missing fixed incumbent ids (fixed_builder=%s fixed_loss=%s).",
@@ -5315,6 +5367,15 @@ def run_pref_loss_coevo(
                 if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
                 and str(r.get("stage")) != "anchor"
             ]
+            if str(search_mode) == "alternating":
+                if alternating_active_phase == "loss" and alternating_fixed_builder_id:
+                    mu_candidates = [
+                        r for r in mu_candidates if str(r.get("g_id")) == str(alternating_fixed_builder_id)
+                    ]
+                if alternating_active_phase == "builder" and alternating_fixed_loss_id:
+                    mu_candidates = [
+                        r for r in mu_candidates if str(r.get("f_id")) == str(alternating_fixed_loss_id)
+                    ]
             if stage1_proxy_enabled:
                 mu_candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
             else:
@@ -5473,6 +5534,15 @@ def run_pref_loss_coevo(
                 if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
                 and str(r.get("stage")) != "anchor"
             ]
+            if str(search_mode) == "alternating":
+                if alternating_active_phase == "loss" and alternating_fixed_builder_id:
+                    candidates = [
+                        r for r in candidates if str(r.get("g_id")) == str(alternating_fixed_builder_id)
+                    ]
+                if alternating_active_phase == "builder" and alternating_fixed_loss_id:
+                    candidates = [
+                        r for r in candidates if str(r.get("f_id")) == str(alternating_fixed_loss_id)
+                    ]
             if micro_enabled:
                 candidates = [r for r in candidates if isinstance(r.get("micro_metrics"), dict)]
             if micro_enabled or stage1_proxy_enabled:
@@ -5882,6 +5952,8 @@ def run_pref_loss_coevo(
                     "pair_index": int(rec.get("pair_index", -1)),
                     "g_id": rec.get("g_id"),
                     "f_id": rec.get("f_id"),
+                    "stage": rec.get("stage"),
+                    "phase": rec.get("phase"),
                     "score": rec.get("score"),
                     "proxy_metrics": rec.get("proxy_metrics"),
                     "seed_signature": rec.get("seed_signature"),
