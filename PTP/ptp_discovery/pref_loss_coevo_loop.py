@@ -3560,11 +3560,12 @@ def run_pref_loss_coevo(
     losses_jsonl = os.path.join(run_dir, "losses.jsonl")
     pairs_jsonl = os.path.join(run_dir, "pairs.jsonl")
     gate_jsonl = os.path.join(run_dir, "gate_reports.jsonl")
+    gate_repair_jsonl = os.path.join(run_dir, "gate_repair_reports.jsonl")
     summary_json = os.path.join(run_dir, "summary.json")
     eval_protocol_json = os.path.join(run_dir, "eval_protocol.json")
 
     if resume_state is None:
-        for path in (builders_jsonl, losses_jsonl, pairs_jsonl, gate_jsonl):
+        for path in (builders_jsonl, losses_jsonl, pairs_jsonl, gate_jsonl, gate_repair_jsonl):
             with open(path, "w", encoding="utf-8"):
                 pass
 
@@ -4571,6 +4572,7 @@ def run_pref_loss_coevo(
                     pass
 
         pair_records_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        gate_repair_records_gen: List[Dict[str, Any]] = []
         # Carry over anchor records (already computed).
         pair_records_map.update(anchor_records)
 
@@ -4608,6 +4610,18 @@ def run_pref_loss_coevo(
                 pair_key = (str(gid), str(fid))
                 gate_repair_events: List[Dict[str, Any]] = []
                 gate_repair_applied = False
+                gate_repair_attempted = False
+                t_gate_repair0 = time.time()
+                pre_gate_state = {
+                    "pair_ok": bool(rec.get("pair_ok")),
+                    "pair_reason": str(rec.get("pair_reason", "")),
+                    "builder_gate_ok": rec.get("builder_gate_ok"),
+                    "builder_gate_reason": rec.get("builder_gate_reason"),
+                    "builder_gate_trace": rec.get("builder_gate_trace"),
+                    "joint_gate_ok": rec.get("joint_gate_ok"),
+                    "joint_gate_reason": rec.get("joint_gate_reason"),
+                    "joint_gate_trace": rec.get("joint_gate_trace"),
+                }
                 if (
                     gate_repair_enabled
                     and gate_repair_remaining > 0
@@ -4615,6 +4629,7 @@ def run_pref_loss_coevo(
                     and not bool(rec.get("pair_ok"))
                     and str(rec.get("pair_reason", "")) == "cheap_proxy_gate_failed"
                 ):
+                    gate_repair_attempted = True
                     gate_repair_attempted_pairs.add(pair_key)
                     gate_repair_remaining -= 1
                     pair_fail_context = {
@@ -4652,6 +4667,7 @@ def run_pref_loss_coevo(
                         gate_repair_attempted_builders.add(str(gid))
                         try:
                             g_ir = pref_builder_ir_from_json(g_map[str(gid)]["ir"])
+                            before_sig = _sig_pref_builder(g_ir)
                             builder_fail_report = _builder_failure_report(
                                 stage="proxy_gate",
                                 reason=str(rec.get("builder_gate_reason") or rec.get("pair_reason") or "builder_gate_failed"),
@@ -4683,8 +4699,9 @@ def run_pref_loss_coevo(
                                 simplify_first=bool(builder_repair_live_cfg.get("simplify_first", True)),
                             )
                             if repaired_g_ir is not None:
+                                after_sig = _sig_pref_builder(repaired_g_ir)
                                 g_map[str(gid)]["ir"] = asdict(repaired_g_ir)
-                                g_map[str(gid)]["signature"] = _sig_pref_builder(repaired_g_ir)
+                                g_map[str(gid)]["signature"] = after_sig
                                 g_map[str(gid)]["origin"] = "REPAIR_GATE"
                                 hist = g_map[str(gid)].get("history")
                                 if not isinstance(hist, list):
@@ -4710,8 +4727,11 @@ def run_pref_loss_coevo(
                                     {
                                         "side": "builder",
                                         "status": "repaired",
+                                        "before_signature": str(before_sig),
+                                        "after_signature": str(after_sig),
                                         "dropped_pref_cache": int(dropped_pref),
                                         "dropped_pair_cache": int(dropped_pair),
+                                        "meta": rep_meta,
                                     }
                                 )
                                 gate_repair_applied = True
@@ -4737,13 +4757,20 @@ def run_pref_loss_coevo(
                         gate_repair_attempted_losses.add(str(fid))
                         try:
                             f_ir = free_loss_ir_from_json(f_map[str(fid)]["ir"])
+                            before_sig = _sig_free_loss(f_ir)
                             last_fail: Dict[str, Any] = dict(pair_fail_context)
                             repaired_f_ir: FreeLossIR | None = None
                             rep_hist: List[Dict[str, Any]] = []
+                            loss_attempt_reports: List[Dict[str, Any]] = []
                             for _ra in range(max(0, int(gate_repair_attempts))):
                                 fail_payload = dict(last_fail)
                                 fail_payload["repair_attempt"] = int(_ra)
                                 fail_payload["llm_call"] = dict(call_feedback.get("llm_call") or {})
+                                attempt_report: Dict[str, Any] = {
+                                    "attempt": int(_ra),
+                                    "input_failure_stage": str(fail_payload.get("stage", "")),
+                                    "input_failure_reason": str(fail_payload.get("reason", fail_payload.get("pair_reason", "")) or ""),
+                                }
                                 prompt_sha = _build_free_loss_failure_prompt(
                                     p_loss_rep,
                                     candidate=f_ir,
@@ -4773,6 +4800,8 @@ def run_pref_loss_coevo(
                                         "reason": str(static_res.reason),
                                         "trace": static_res.trace,
                                     }
+                                    attempt_report["result"] = "static_gate_failed"
+                                    attempt_report["static_reason"] = str(static_res.reason)
                                     if bool(loss_repair_live_cfg.get("simplify_first", True)) and p_loss_m3:
                                         try:
                                             prompt_sha_m3 = _build_free_loss_failure_prompt(
@@ -4798,22 +4827,32 @@ def run_pref_loss_coevo(
                                                 failure_reason=last_fail,
                                                 global_feedback=call_feedback,
                                             )
+                                            attempt_report["m3_attempted"] = True
                                         except Exception:
-                                            pass
+                                            attempt_report["m3_attempted"] = False
+                                    else:
+                                        attempt_report["m3_attempted"] = False
+                                    loss_attempt_reports.append(attempt_report)
                                     f_ir = candidate
                                     continue
                                 try:
                                     _ = compile_free_loss(candidate, operator_whitelist=operator_whitelist)
                                 except Exception as exc:  # noqa: BLE001
                                     last_fail = {"stage": "compile", "error": str(exc)}
+                                    attempt_report["result"] = "compile_failed"
+                                    attempt_report["compile_error"] = str(exc)
+                                    loss_attempt_reports.append(attempt_report)
                                     f_ir = candidate
                                     continue
                                 repaired_f_ir = candidate
+                                attempt_report["result"] = "ok"
+                                loss_attempt_reports.append(attempt_report)
                                 break
 
                             if repaired_f_ir is not None:
+                                after_sig = _sig_free_loss(repaired_f_ir)
                                 f_map[str(fid)]["ir"] = asdict(repaired_f_ir)
-                                f_map[str(fid)]["signature"] = _sig_free_loss(repaired_f_ir)
+                                f_map[str(fid)]["signature"] = after_sig
                                 f_map[str(fid)]["origin"] = "REPAIR_GATE"
                                 hist = f_map[str(fid)].get("history")
                                 if not isinstance(hist, list):
@@ -4833,8 +4872,11 @@ def run_pref_loss_coevo(
                                     {
                                         "side": "loss",
                                         "status": "repaired",
+                                        "before_signature": str(before_sig),
+                                        "after_signature": str(after_sig),
                                         "attempts": int(len(rep_hist)),
                                         "dropped_pair_cache": int(dropped_pair),
+                                        "attempt_reports": loss_attempt_reports,
                                     }
                                 )
                                 gate_repair_applied = True
@@ -4844,6 +4886,7 @@ def run_pref_loss_coevo(
                                         "side": "loss",
                                         "status": "failed",
                                         "attempts": int(gate_repair_attempts),
+                                        "attempt_reports": loss_attempt_reports,
                                     }
                                 )
                         except Exception as exc:  # noqa: BLE001
@@ -4878,14 +4921,45 @@ def run_pref_loss_coevo(
                             "enabled": True,
                             "events": gate_repair_events,
                         }
-                        LOGGER.info(
-                            "Gate-repair retry gen=%d pair=(%s,%s): pair_ok=%s reason=%s",
-                            int(gen),
-                            str(gid),
-                            str(fid),
-                            str(rec.get("pair_ok")),
-                            str(rec.get("pair_reason")),
-                        )
+                if gate_repair_attempted:
+                    post_gate_state = {
+                        "pair_ok": bool(rec.get("pair_ok")),
+                        "pair_reason": str(rec.get("pair_reason", "")),
+                        "builder_gate_ok": rec.get("builder_gate_ok"),
+                        "builder_gate_reason": rec.get("builder_gate_reason"),
+                        "builder_gate_trace": rec.get("builder_gate_trace"),
+                        "joint_gate_ok": rec.get("joint_gate_ok"),
+                        "joint_gate_reason": rec.get("joint_gate_reason"),
+                        "joint_gate_trace": rec.get("joint_gate_trace"),
+                    }
+                    repair_record = {
+                        "generation": int(gen),
+                        "pair_index": int(p_idx),
+                        "g_id": str(gid),
+                        "f_id": str(fid),
+                        "phase": str(pair_phase_by_pair.get((str(gid), str(fid)), "coevo")),
+                        "repair_applied": bool(gate_repair_applied),
+                        "repair_elapsed_s": float(time.time() - t_gate_repair0),
+                        "pre": pre_gate_state,
+                        "post": post_gate_state,
+                        "events": gate_repair_events,
+                    }
+                    rec["gate_repair"] = dict(repair_record)
+                    gate_repair_records_gen.append(dict(repair_record))
+                    LOGGER.info(
+                        "Gate-repair retry gen=%d pair=(%s,%s): pre(pair=%s,bg=%s,jg=%s) post(pair=%s,bg=%s,jg=%s) events=%d elapsed_s=%.1f",
+                        int(gen),
+                        str(gid),
+                        str(fid),
+                        str(pre_gate_state.get("pair_reason")),
+                        str(pre_gate_state.get("builder_gate_reason")),
+                        str(pre_gate_state.get("joint_gate_reason")),
+                        str(post_gate_state.get("pair_reason")),
+                        str(post_gate_state.get("builder_gate_reason")),
+                        str(post_gate_state.get("joint_gate_reason")),
+                        int(len(gate_repair_events)),
+                        float(repair_record["repair_elapsed_s"]),
+                    )
                 rec["phase"] = pair_phase_by_pair.get((str(gid), str(fid)), "coevo")
                 pair_records_map[(str(gid), str(fid))] = rec
                 if progress_every_pairs > 0 and (
@@ -5553,6 +5627,25 @@ def run_pref_loss_coevo(
             dict(stage_ctr),
             reason_ctr.most_common(3),
         )
+        if gate_repair_records_gen:
+            repair_applied = sum(1 for r in gate_repair_records_gen if bool(r.get("repair_applied")))
+            repair_pair_ok = sum(1 for r in gate_repair_records_gen if bool((r.get("post") or {}).get("pair_ok")))
+            repair_event_ctr: collections.Counter[str] = collections.Counter()
+            for rr in gate_repair_records_gen:
+                for ev in rr.get("events", []) or []:
+                    if not isinstance(ev, dict):
+                        continue
+                    side = str(ev.get("side", "unknown"))
+                    status = str(ev.get("status", "unknown"))
+                    repair_event_ctr[f"{side}:{status}"] += 1
+            LOGGER.info(
+                "Gen %d gate-repair summary: attempted_pairs=%d applied=%d post_pair_ok=%d events=%s",
+                int(gen),
+                int(len(gate_repair_records_gen)),
+                int(repair_applied),
+                int(repair_pair_ok),
+                dict(repair_event_ctr),
+            )
 
         # Candidate-level failures (useful for repair prompts).
         g_fail_compile = sum(1 for e in g_entries if not bool(e.get("compile_ok")))
@@ -5621,6 +5714,22 @@ def run_pref_loss_coevo(
             "pop_g": int(len(g_entries)),
             "pop_f": int(len(f_entries)),
         }
+        if gate_repair_records_gen:
+            llm_feedback_state["prev_gen_gate_repair"] = {
+                "attempted_pairs": int(len(gate_repair_records_gen)),
+                "applied_pairs": int(sum(1 for r in gate_repair_records_gen if bool(r.get("repair_applied")))),
+                "post_pair_ok_pairs": int(sum(1 for r in gate_repair_records_gen if bool((r.get("post") or {}).get("pair_ok")))),
+                "top_pre_pair_reasons": list(
+                    collections.Counter(
+                        str((r.get("pre") or {}).get("pair_reason", "")) for r in gate_repair_records_gen
+                    ).most_common(6)
+                ),
+                "top_post_pair_reasons": list(
+                    collections.Counter(
+                        str((r.get("post") or {}).get("pair_reason", "")) for r in gate_repair_records_gen
+                    ).most_common(6)
+                ),
+            }
         llm_feedback_state["prev_gen_best_pair_preview"] = best_pair_preview
         try:
             llm_feedback_state["prev_gen_llm_cache"] = dict(loss_llm_ops.llm_cache_stats())
@@ -5677,11 +5786,13 @@ def run_pref_loss_coevo(
                     "dynamic_hidden_trace": None,
                     "pair_ok": rec.get("pair_ok"),
                     "pair_reason": rec.get("pair_reason"),
+                    "gate_repair": rec.get("gate_repair"),
                 }
             )
 
         _append_jsonl(pairs_jsonl, pair_records)
         _append_jsonl(gate_jsonl, gate_records)
+        _append_jsonl(gate_repair_jsonl, gate_repair_records_gen)
 
         fitness_g, fitness_f = _credit_assignment_v2(pair_records=pair_records)
 
