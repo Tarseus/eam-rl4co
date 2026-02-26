@@ -1,0 +1,71 @@
+{
+  "generation": 1,
+  "index": 3,
+  "id": "f001_003_f41775e5",
+  "signature": "f41775e553264adefcb2bffe731616b3146f99bd",
+  "origin": "E1",
+  "origin_base": "E1",
+  "op_type": "E1",
+  "parents": [
+    "f000_008_b7b2247b",
+    "f000_005_7c34c451",
+    "f000_007_d0ba1b0e",
+    "f000_010_8b29e417",
+    "f000_005_7c34c451"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "a3bbeb9232299d689c9726eac1d6d5d569f94f9a",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+  "llm_seed": 1101610896,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "prompt_sha1": "a3bbeb9232299d689c9726eac1d6d5d569f94f9a"
+    }
+  ],
+  "ir": {
+    "name": "loss_logsigmoid_costgap_001",
+    "intuition": "Combine the stable pairwise -logsigmoid preference loss with a small, detached cost-gap bias: when the objective gap indicates the winner is much better than the loser, we slightly increase the effective margin so training focuses on clear improvements without letting noisy cost gradients destabilize optimization. Keep the core logits clamped for numerical stability and preserve optional example weighting.",
+    "pseudocode": "base = alpha*scale*(lpw-lpl); margin = margin_coef*clamp(detach(cost_l-cost_w),0,margin_clip); loss = -logsigmoid(clamp(base+margin,-20,20))",
+    "hyperparams": {
+      "scale": 0.623559482294971,
+      "margin_coef": 0.1,
+      "margin_clip": 5.0,
+      "logit_clip": 20.0
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "cost_a",
+        "cost_b",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0)))\n    scale = float(hp.get('scale', 0.623559482294971))\n\n    # Optional detached margin from objective/cost gap: encourages larger separation when winner is clearly better.\n    margin_coef = float(hp.get('margin_coef', 0.1))\n    margin_clip = float(hp.get('margin_clip', 5.0))\n    logit_clip = float(hp.get('logit_clip', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    gap_pos = ops.clamp(gap, 0.0, margin_clip)\n\n    x = alpha * scale * (lpw - lpl) + margin_coef * gap_pos\n    x = ops.clamp(x, -logit_clip, logit_clip)\n    loss = -ops.logsigmoid(x)\n\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": "Pairwise logistic (Bradley-Terry / DPO-style) preference loss with a detached margin term derived from objective gap; clamping controls numerical stability while the detached gap avoids injecting potentially misaligned gradients from the cost proxy."
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 1.2050676314246975,
+  "descriptor": {
+    "x": 0.9890625,
+    "y": 0.21966074582189324,
+    "cell": [
+      7,
+      1
+    ]
+  }
+}
