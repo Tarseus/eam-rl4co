@@ -6,6 +6,12 @@ output_root: runs/pref_loss_alternating_simple
 metric_mode: minimize
 improve_eps: 0.0
 
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+mp:
+  enabled: true
+  processes: 4
+  start_method: spawn
+
 eval_stages:
   stage0_gate: true
   stage1_proxy: true
@@ -13,22 +19,36 @@ eval_stages:
   stage3_high_fidelity: true
 
 budgets:
-  generations: 50
+  generations: 20
   pairing_budget_per_gen: 128
   proxy_batches: 10
   proxy_batch_size: 64
   micro_unroll_steps: 8
   micro_unroll_max_pairs: 8192
   high_fidelity_top_m: 8
-  hf_epochs: 1
+  hf_epochs: 10
+
+alternating_schedule:
+  loss_generations: 10
+  pair_generations: 10
+  rounds: 1
+
+# Keep HF split evaluation enabled by default (scratch + warmstart).
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
+baseline:
+  metrics_csv: baseline/metrics.csv
+  checkpoint: baseline/epoch_409.ckpt
+  checkpoint_epoch: 409
+  val_column: val/max_reward
 
 builder_pair_budget:
   per_instance: 64
   total: 8192
 
 population:
-  n_candidates_loss: 64
-  n_candidates_builder: 64
+  n_candidates_loss: 12
+  n_candidates_builder: 12
   keep_top_k: 8
 
 # Keep alternating search but still use Double-EoH operators on both sides.
