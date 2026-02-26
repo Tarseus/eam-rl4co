@@ -1,0 +1,480 @@
+{
+  "generation": 0,
+  "pair_index": 6,
+  "g_id": "g000_000_0763ff14",
+  "f_id": "f000_008_b7b2247b",
+  "eval_budget_signature": "20c25b2a4fa3dbaa",
+  "seed_signature": [
+    "cdacd691e16fb5cc"
+  ],
+  "seed_used": 0,
+  "device": "cuda:0",
+  "stage": "cheap",
+  "reasons": [
+    "alternating_loss_phase"
+  ],
+  "cached": false,
+  "proxy_score": 2.297981755085325,
+  "score": 2.297981755085325,
+  "proxy_metrics": {
+    "proxy_loss_mean": 2.2067196287214754,
+    "proxy_effective_grad_ratio_mean": 1.0,
+    "proxy_ess_ratio_mean": 0.08737873636150478,
+    "proxy_weights": {
+      "effective_grad_ratio": 1.0,
+      "ess_ratio": 0.1
+    },
+    "batches": [
+      {
+        "loss": 3.592649459838867,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.01879523528417751,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.6313291192054749,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.04689475570790781,
+        "pair_count": 128,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 2.0116283893585205,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.08398426289305397,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 1.6951732635498047,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.07270861862169554,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 1.3597383499145508,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.021838622342813606,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 6.948586463928223,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.01171017377993324,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 1.83217191696167,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.1482189165231654,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 1.0830789804458618,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.0948397497888608,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.020785070955753326,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.32916142588600755,
+        "pair_count": 128,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 2.8920552730560303,
+        "effective_grad_ratio": 1.0,
+        "ess_ratio": 0.045635602787432346,
+        "pair_count": 128,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      }
+    ],
+    "joint_failure_kinds": {
+      "joint_preference_violation": 8
+    }
+  },
+  "descriptor": {
+    "g": {
+      "coverage": 0.078125,
+      "pair_count": 0,
+      "semantic_pass_rate": 0.0,
+      "x": 0.078125,
+      "y": 0.0,
+      "cell": [
+        0,
+        0
+      ]
+    },
+    "f": {
+      "effective_grad_ratio": 1.0,
+      "ess_ratio": 0.08737873636150478,
+      "proxy_loss_mean": 2.2067196287214754,
+      "x": 1.0,
+      "y": 0.4413439257442951,
+      "cell": [
+        7,
+        3
+      ]
+    }
+  },
+  "builder_gate_ok": false,
+  "builder_gate_reason": "insufficient_coverage",
+  "builder_gate_trace": {
+    "failed_gate": "PreferenceBuilder",
+    "failure_kind": "insufficient_coverage",
+    "metric": {
+      "metric_name": "coverage",
+      "observed_value": 0.078125,
+      "threshold": 1.0,
+      "direction": ">="
+    }
+  },
+  "joint_gate_ok": false,
+  "joint_gate_reason": "joint_failed:joint_preference_violation",
+  "joint_gate_trace": {
+    "failed_gate": "JointPreference",
+    "failure_kind": "joint_preference_violation",
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 1.0,
+      "loss": 3.592649459838867,
+      "loss_swap": 0.2195911854505539,
+      "swap_ok": false,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 3.592649459838867
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [
+      "swap"
+    ],
+    "variant": "visible"
+  },
+  "pair_ok": false,
+  "pair_reason": "cheap_proxy_gate_failed",
+  "seed_records": {
+    "cdacd691e16fb5cc": {
+      "score": Infinity,
+      "proxy_metrics": {
+        "proxy_loss_mean": 2.2067196287214754,
+        "proxy_effective_grad_ratio_mean": 1.0,
+        "proxy_ess_ratio_mean": 0.08737873636150478,
+        "proxy_weights": {
+          "effective_grad_ratio": 1.0,
+          "ess_ratio": 0.1
+        },
+        "batches": [
+          {
+            "loss": 3.592649459838867,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.01879523528417751,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.6313291192054749,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.04689475570790781,
+            "pair_count": 128,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 2.0116283893585205,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.08398426289305397,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 1.6951732635498047,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.07270861862169554,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 1.3597383499145508,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.021838622342813606,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 6.948586463928223,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.01171017377993324,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 1.83217191696167,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.1482189165231654,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 1.0830789804458618,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.0948397497888608,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.020785070955753326,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.32916142588600755,
+            "pair_count": 128,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 2.8920552730560303,
+            "effective_grad_ratio": 1.0,
+            "ess_ratio": 0.045635602787432346,
+            "pair_count": 128,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          }
+        ],
+        "joint_failure_kinds": {
+          "joint_preference_violation": 8
+        }
+      },
+      "descriptor": {
+        "g": {
+          "coverage": 0.078125,
+          "pair_count": 0,
+          "semantic_pass_rate": 0.0,
+          "x": 0.078125,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "f": {
+          "effective_grad_ratio": 1.0,
+          "ess_ratio": 0.08737873636150478,
+          "proxy_loss_mean": 2.2067196287214754,
+          "x": 1.0,
+          "y": 0.4413439257442951,
+          "cell": [
+            7,
+            3
+          ]
+        }
+      }
+    }
+  },
+  "gate_repair": {
+    "generation": 0,
+    "pair_index": 6,
+    "g_id": "g000_000_0763ff14",
+    "f_id": "f000_008_b7b2247b",
+    "phase": "loss",
+    "repair_applied": false,
+    "repair_elapsed_s": 124.84231901168823,
+    "pre": {
+      "pair_ok": false,
+      "pair_reason": "cheap_proxy_gate_failed",
+      "builder_gate_ok": false,
+      "builder_gate_reason": "insufficient_coverage",
+      "builder_gate_trace": {
+        "failed_gate": "PreferenceBuilder",
+        "failure_kind": "insufficient_coverage",
+        "metric": {
+          "metric_name": "coverage",
+          "observed_value": 0.078125,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      },
+      "joint_gate_ok": false,
+      "joint_gate_reason": "joint_failed:joint_preference_violation",
+      "joint_gate_trace": {
+        "failed_gate": "JointPreference",
+        "failure_kind": "joint_preference_violation",
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 3.592649459838867,
+          "loss_swap": 0.2195911854505539,
+          "swap_ok": false,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 3.592649459838867
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [
+          "swap"
+        ],
+        "variant": "visible"
+      }
+    },
+    "post": {
+      "pair_ok": false,
+      "pair_reason": "cheap_proxy_gate_failed",
+      "builder_gate_ok": false,
+      "builder_gate_reason": "insufficient_coverage",
+      "builder_gate_trace": {
+        "failed_gate": "PreferenceBuilder",
+        "failure_kind": "insufficient_coverage",
+        "metric": {
+          "metric_name": "coverage",
+          "observed_value": 0.078125,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      },
+      "joint_gate_ok": false,
+      "joint_gate_reason": "joint_failed:joint_preference_violation",
+      "joint_gate_trace": {
+        "failed_gate": "JointPreference",
+        "failure_kind": "joint_preference_violation",
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 3.592649459838867,
+          "loss_swap": 0.2195911854505539,
+          "swap_ok": false,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 3.592649459838867
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [
+          "swap"
+        ],
+        "variant": "visible"
+      }
+    },
+    "events": [
+      {
+        "side": "loss",
+        "status": "failed",
+        "attempts": 4,
+        "attempt_reports": [
+          {
+            "attempt": 0,
+            "input_failure_stage": "proxy_gate",
+            "input_failure_reason": "cheap_proxy_gate_failed",
+            "result": "static_gate_failed",
+            "static_reason": "implementation_hint.expects missing required keys: ['log_prob_l', 'log_prob_w']",
+            "m3_attempted": true
+          },
+          {
+            "attempt": 1,
+            "input_failure_stage": "static_gate",
+            "input_failure_reason": "implementation_hint.expects missing required keys: ['log_prob_l', 'log_prob_w']",
+            "result": "static_gate_failed",
+            "static_reason": "implementation_hint.expects must include at least one objective signal from {delta_z, delta_rank, delta_regret, cost_a, cost_b}.",
+            "m3_attempted": true
+          },
+          {
+            "attempt": 2,
+            "input_failure_stage": "static_gate",
+            "input_failure_reason": "implementation_hint.expects must include at least one objective signal from {delta_z, delta_rank, delta_regret, cost_a, cost_b}.",
+            "result": "static_gate_failed",
+            "static_reason": "implementation_hint.expects missing required keys: ['log_prob_l', 'log_prob_w']",
+            "m3_attempted": true
+          },
+          {
+            "attempt": 3,
+            "input_failure_stage": "static_gate",
+            "input_failure_reason": "implementation_hint.expects missing required keys: ['log_prob_l', 'log_prob_w']",
+            "result": "static_gate_failed",
+            "static_reason": "implementation_hint.expects must include at least one objective signal from {delta_z, delta_rank, delta_regret, cost_a, cost_b}.",
+            "m3_attempted": true
+          }
+        ]
+      }
+    ]
+  },
+  "phase": "loss",
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": true,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage1_proxy"
+  ],
+  "stages_skipped": {
+    "stage2_micro_unroll": "disabled",
+    "stage3_high_fidelity": "not_selected_for_high_fidelity"
+  },
+  "stage_final": "proxy",
+  "final_score": 2.297981755085325,
+  "metric_mode": "minimize",
+  "compare_target": "prev_best",
+  "improve_eps": 0.0,
+  "reference_score": 3.455649450002798,
+  "better_than_prev_best": true,
+  "delta_vs_prev_best": 1.157667694917473
+}

@@ -1,40 +1,36 @@
 {
-  "generation": 1,
-  "index": 3,
-  "id": "f001_003_f41775e5",
-  "signature": "f41775e553264adefcb2bffe731616b3146f99bd",
-  "origin": "E1",
-  "origin_base": "E1",
-  "op_type": "E1",
+  "generation": 2,
+  "index": 1,
+  "id": "f002_001_60d592e2",
+  "signature": "60d592e2c2f1b87afcbac8f21b41e317450a4ada",
+  "origin": "M2",
+  "origin_base": "M2",
+  "op_type": "M2",
   "parents": [
-    "f000_008_b7b2247b",
-    "f000_005_7c34c451",
-    "f000_007_d0ba1b0e",
-    "f000_010_8b29e417",
-    "f000_005_7c34c451"
+    "f001_003_f41775e5"
   ],
   "attempt": 0,
-  "prompt_sha1": "a3bbeb9232299d689c9726eac1d6d5d569f94f9a",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
-  "llm_seed": 1101610896,
+  "prompt_sha1": "7b36f8ed81b00ac2467631fbf87694576fa9023c",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+  "llm_seed": 202004839,
   "history": [
     {
       "attempt": 0,
       "side": "loss",
-      "llm_op": "E1",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
-      "prompt_sha1": "a3bbeb9232299d689c9726eac1d6d5d569f94f9a"
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "prompt_sha1": "7b36f8ed81b00ac2467631fbf87694576fa9023c"
     }
   ],
   "ir": {
-    "name": "loss_logsigmoid_costgap_001",
-    "intuition": "Combine the stable pairwise -logsigmoid preference loss with a small, detached cost-gap bias: when the objective gap indicates the winner is much better than the loser, we slightly increase the effective margin so training focuses on clear improvements without letting noisy cost gradients destabilize optimization. Keep the core logits clamped for numerical stability and preserve optional example weighting.",
-    "pseudocode": "base = alpha*scale*(lpw-lpl); margin = margin_coef*clamp(detach(cost_l-cost_w),0,margin_clip); loss = -logsigmoid(clamp(base+margin,-20,20))",
+    "name": "loss_logsigmoid_costgap_002_tuned",
+    "intuition": "Increase the influence of the detached cost-gap margin while slightly reducing the log-probability scale so the loss relies less on potentially noisy logit differences and more on the builder’s “clear improvement” signal. Specifically, raising margin_coef and tightening margin_clip makes the added margin kick in more often but saturate earlier (preventing huge shifts when gaps are extreme), and reducing logit_clip avoids overly confident logits that can make gradients vanish under -logsigmoid.",
+    "pseudocode": "base = alpha*scale*(lpw-lpl); margin = margin_coef*clamp(detach(cost_l-cost_w),0,margin_clip); x = clamp(base+margin,-logit_clip,logit_clip); loss = -logsigmoid(x); if weight: loss*=weight; mean(loss)",
     "hyperparams": {
-      "scale": 0.623559482294971,
-      "margin_coef": 0.1,
-      "margin_clip": 5.0,
-      "logit_clip": 20.0
+      "scale": 0.52,
+      "margin_coef": 0.18,
+      "margin_clip": 2.5,
+      "logit_clip": 15.0
     },
     "operators_used": [
       "logsigmoid",
@@ -59,10 +55,10 @@
   "static_trace": null,
   "compile_ok": true,
   "compile_reason": "ok",
-  "fitness": 1.2050676314246975,
+  "fitness": 1.041616686255964,
   "descriptor": {
-    "x": 0.9890625,
-    "y": 0.21966074582189324,
+    "x": 1.0,
+    "y": 0.1891580567881465,
     "cell": [
       7,
       1

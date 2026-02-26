@@ -1,0 +1,376 @@
+{
+  "generation": 0,
+  "pair_index": 8,
+  "g_id": "g000_000_17e664a2",
+  "f_id": "f000_000_c2e8ac5e",
+  "eval_budget_signature": "20c25b2a4fa3dbaa",
+  "seed_signature": [
+    "cdacd691e16fb5cc"
+  ],
+  "seed_used": 0,
+  "device": "cuda:0",
+  "stage": "cheap",
+  "reasons": [
+    "alternating_loss_phase",
+    "gate_repair_retry"
+  ],
+  "cached": false,
+  "proxy_score": 0.4558792728499708,
+  "score": 0.4558792728499708,
+  "proxy_metrics": {
+    "proxy_loss_mean": 0.26943664252758026,
+    "proxy_effective_grad_ratio_mean": 0.913381826877594,
+    "proxy_ess_ratio_mean": 0.0017554280001550436,
+    "proxy_weights": {
+      "effective_grad_ratio": 1.0,
+      "ess_ratio": 0.1
+    },
+    "batches": [
+      {
+        "loss": 0.26976683735847473,
+        "effective_grad_ratio": 0.929927408695221,
+        "ess_ratio": 0.0003831639330687947,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.2439367026090622,
+        "effective_grad_ratio": 0.887786865234375,
+        "ess_ratio": 0.00027893259187764186,
+        "pair_count": 316799,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.29130318760871887,
+        "effective_grad_ratio": 0.9549116492271423,
+        "ess_ratio": 0.0007772177753807656,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.2802176773548126,
+        "effective_grad_ratio": 0.9401673078536987,
+        "ess_ratio": 0.00033299360716469164,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.3157324492931366,
+        "effective_grad_ratio": 0.9703625440597534,
+        "ess_ratio": 0.0010250844185978793,
+        "pair_count": 316795,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.2331770956516266,
+        "effective_grad_ratio": 0.8599458932876587,
+        "ess_ratio": 0.00025126728557493,
+        "pair_count": 316799,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.29885613918304443,
+        "effective_grad_ratio": 0.962771475315094,
+        "ess_ratio": 8.067112227092276e-05,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.2731936275959015,
+        "effective_grad_ratio": 0.9255555868148804,
+        "ess_ratio": 0.00016591292671039022,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.22041504085063934,
+        "effective_grad_ratio": 0.7772411704063416,
+        "ess_ratio": 0.013793556952220157,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      },
+      {
+        "loss": 0.26776766777038574,
+        "effective_grad_ratio": 0.9251483678817749,
+        "ess_ratio": 0.00046547938868426455,
+        "pair_count": 316800,
+        "joint_ok": false,
+        "joint_reason": "joint_preference_violation",
+        "joint_failure_kind": "joint_preference_violation"
+      }
+    ],
+    "joint_failure_kinds": {
+      "joint_preference_violation": 10
+    }
+  },
+  "descriptor": {
+    "g": {
+      "coverage": 0.0,
+      "pair_count": 0,
+      "semantic_pass_rate": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "cell": [
+        0,
+        0
+      ]
+    },
+    "f": {
+      "effective_grad_ratio": 0.913381826877594,
+      "ess_ratio": 0.0017554280001550436,
+      "proxy_loss_mean": 0.26943664252758026,
+      "x": 0.913381826877594,
+      "y": 0.05388732850551605,
+      "cell": [
+        7,
+        0
+      ]
+    }
+  },
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 316800,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 4950,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "joint_gate_ok": false,
+  "joint_gate_reason": "joint_failed:joint_preference_violation",
+  "joint_gate_trace": {
+    "failed_gate": "JointPreference",
+    "failure_kind": "joint_preference_violation",
+    "observed": {
+      "grad_w_pass_rate": 0.46214649081230164,
+      "grad_l_pass_rate": 0.46214649081230164,
+      "effective_grad_ratio": 0.929927408695221,
+      "loss": 0.26976683735847473,
+      "loss_swap": 2.295905828475952,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 0.26976683735847473
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [
+      "log_prob_w_direction",
+      "log_prob_l_direction"
+    ],
+    "variant": "visible"
+  },
+  "pair_ok": false,
+  "pair_reason": "cheap_proxy_gate_failed",
+  "seed_records": {
+    "cdacd691e16fb5cc": {
+      "score": Infinity,
+      "proxy_metrics": {
+        "proxy_loss_mean": 0.26943664252758026,
+        "proxy_effective_grad_ratio_mean": 0.913381826877594,
+        "proxy_ess_ratio_mean": 0.0017554280001550436,
+        "proxy_weights": {
+          "effective_grad_ratio": 1.0,
+          "ess_ratio": 0.1
+        },
+        "batches": [
+          {
+            "loss": 0.26976683735847473,
+            "effective_grad_ratio": 0.929927408695221,
+            "ess_ratio": 0.0003831639330687947,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.2439367026090622,
+            "effective_grad_ratio": 0.887786865234375,
+            "ess_ratio": 0.00027893259187764186,
+            "pair_count": 316799,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.29130318760871887,
+            "effective_grad_ratio": 0.9549116492271423,
+            "ess_ratio": 0.0007772177753807656,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.2802176773548126,
+            "effective_grad_ratio": 0.9401673078536987,
+            "ess_ratio": 0.00033299360716469164,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.3157324492931366,
+            "effective_grad_ratio": 0.9703625440597534,
+            "ess_ratio": 0.0010250844185978793,
+            "pair_count": 316795,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.2331770956516266,
+            "effective_grad_ratio": 0.8599458932876587,
+            "ess_ratio": 0.00025126728557493,
+            "pair_count": 316799,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.29885613918304443,
+            "effective_grad_ratio": 0.962771475315094,
+            "ess_ratio": 8.067112227092276e-05,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.2731936275959015,
+            "effective_grad_ratio": 0.9255555868148804,
+            "ess_ratio": 0.00016591292671039022,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.22041504085063934,
+            "effective_grad_ratio": 0.7772411704063416,
+            "ess_ratio": 0.013793556952220157,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          },
+          {
+            "loss": 0.26776766777038574,
+            "effective_grad_ratio": 0.9251483678817749,
+            "ess_ratio": 0.00046547938868426455,
+            "pair_count": 316800,
+            "joint_ok": false,
+            "joint_reason": "joint_preference_violation",
+            "joint_failure_kind": "joint_preference_violation"
+          }
+        ],
+        "joint_failure_kinds": {
+          "joint_preference_violation": 10
+        }
+      },
+      "descriptor": {
+        "g": {
+          "coverage": 0.0,
+          "pair_count": 0,
+          "semantic_pass_rate": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "f": {
+          "effective_grad_ratio": 0.913381826877594,
+          "ess_ratio": 0.0017554280001550436,
+          "proxy_loss_mean": 0.26943664252758026,
+          "x": 0.913381826877594,
+          "y": 0.05388732850551605,
+          "cell": [
+            7,
+            0
+          ]
+        }
+      }
+    }
+  },
+  "gate_repair": {
+    "enabled": true,
+    "events": [
+      {
+        "side": "loss",
+        "status": "repaired",
+        "attempts": 7,
+        "dropped_pair_cache": 1
+      }
+    ]
+  },
+  "phase": "loss",
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": true,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage1_proxy"
+  ],
+  "stages_skipped": {
+    "stage2_micro_unroll": "disabled",
+    "stage3_high_fidelity": "not_selected_for_high_fidelity"
+  },
+  "stage_final": "proxy",
+  "final_score": 0.4558792728499708,
+  "metric_mode": "minimize",
+  "compare_target": "prev_best",
+  "improve_eps": 0.0,
+  "reference_score": 1.1413684177712735,
+  "better_than_prev_best": true,
+  "delta_vs_prev_best": 0.6854891449213028
+}

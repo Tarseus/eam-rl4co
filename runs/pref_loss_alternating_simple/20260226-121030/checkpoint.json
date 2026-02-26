@@ -1,0 +1,3228 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/alternating_simple.yaml",
+  "seed": 0,
+  "next_generation": 1,
+  "preset": "simple",
+  "search_mode": "alternating",
+  "alternating_schedule": {
+    "enabled": true,
+    "loss_generations": 10,
+    "builder_generations": 10,
+    "rounds": 1
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": true,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "best_so_far": {
+    "score": 0.4558792728499708,
+    "builder_id": "g000_000_17e664a2",
+    "loss_id": "f000_000_c2e8ac5e",
+    "stage_final": "proxy",
+    "generation": 0,
+    "phase": "loss"
+  },
+  "best_score": 0.4558792728499708,
+  "best_pair_ids": {
+    "builder_id": "g000_000_17e664a2",
+    "loss_id": "f000_000_c2e8ac5e"
+  },
+  "best_stage_final": "proxy",
+  "best_gen": 0,
+  "best_phase": "loss",
+  "rng_state_b64": "gASVtg4AAAAAAABLAyhKT0rMUYoF/zILwACKBadMNPkAigWh0drtAErfBOc8igUWrYGEAIoFP7kc5QBKLe2gI4oFyJW48ACKBQXON4IAigVKxPaaAEoknJ5MigWowrXXAIoFKrJizQBKQhSBJ0oGj+8iSkYWRlCKBUQJFNoAigUEau3MAErfv20SigUJIkTiAIoF+s9yygBKORs4GIoFJ6NSjgCKBWbmMJMAigVHzRSHAEp76lJligXgq1rxAIoFaimyqwCKBb2p2YMAigVj53jeAErw51B8igV9cVXhAIoFcqrvngCKBfpSwZcAigUa1JC2AIoF399c5ACKBUx74qAASh5EtVuKBZXZrpwAigULXdCsAIoF02q7zQBK1Nb0BUrAUc50StoC2kFK3iI9DUpqMfR+SuqtAjlKoQn+QooFqzE/9wCKBUQKGtwASvnRMkRKENmnE4oFrjnq4QCKBVOXs4UAigX+7GnaAEq2J1NiSvomVXxKc3NfNEr/OX0ZSi1gcUGKBaMpb8sAigWOjf+qAErEH5QqigXLHTWUAIoFlVsDxABKngsZaYoFoXm0tgCKBZJNpdcAStxWmCVKG6iSBIoFXc4c0QCKBZ/iZ+oASuGnO09K0TWTQYoF72/MuwCKBRzXXN0ASsogOT1K0ZwEJYoFPO7qnQBKWH/EZkpo4e4uSlXmmXeKBQp3rK8ASh+ZfUaKBXQi+OMASgOrP0iKBT7ED/EASsHfxhKKBRat09MASubd+URK6RddVUoRPi9FSlopIRZKgOlIN0qqpsVxSkOL11FKHsGoV0rTa78vigUT9U3pAIoFny2MyQCKBQ9zlKsAigVNFvHpAIoFmWJA/gCKBevmTJcAigUuAvmHAIoFeQNV0gBKi1UrNErK8qw1igUggmPlAEpWdEtrSvpE7QWKBZfiP4YASr/yZBuKBTACRu0ASi5hRCaKBdnh2L0AigWkiCzIAEpVtYUGSnEGBFuKBSZDu6wASgbY2ytK3EhwEUoppicnSvZa9WuKBdTXneUASpiFxDdKzX1bIkqGUIsZigVJepGkAIoFWih9jQCKBUzmB5QASiQFAzuKBezl9v0AigVsWRePAEoXDYE3StK9t2JKw691aIoFElZCygCKBZxiYLEAigUOs8HSAEquw04aSohwxm+KBdvazOEASv1nnV+KBfxNoMIAigUM7gfKAEq5c1VDShCfdAmKBc7DvMoAigVF0E7RAErR2WZRSi5Rv3tKWy6dCEolnJ5nigUqAJzFAEqv+YMpigVmzxOtAEqwkONkigXOpJWUAEoqO0UvigVOOp3cAEoYhkNkigWk0eeoAEoBC8FvSsK6H0KKBbb0n4AASlGbWX+KBZ5k0psAigWrSZOqAIoFKbndoABKYRqRCUrCtgghStkmQVVK1864Kkpb0ZQfigUfi5LPAEp5GHgxigXIP8mTAEqMaUpzSimsZAhKu2gRQ0o+qeZhSqDjG0yKBSroZ+0ASmQ0ETyKBajPkcMASphZTAhKMB6MFYoFGjpU3QCKBR0Vj64ASqdWxjeKBW+Da/cAigWUiGLlAIoF1xMLuQBKOGCoJIoF4IgurwBKcmLkTYoF1xCwrgBKDoAkQ0p9dV0CigUf5Mb3AIoFBonkzwCKBdOWC/sAigUwg0z6AIoFifOytwBKnPJnSUojJMwGSqwJ2FaKBb2MDPAASjPfeS5KAqjbd4oFm887swBK7C4IZkpivOtFigXlwomLAIoFArHLkQCKBZ4PFeYAigVxYdy6AEqyf3pzigVLYSv2AIoFGd+v7gCKBV/6b+gAShGyrmuKBW7QKb0AigVrI9O+AEqddoZ1igUQ3M+HAIoF4H5rngCKBfpfqJ8AigXppZ+FAErv9kVwigVxmKi9AIoFfPxtpgBKeSD1V0preLVFSl9ihgqKBW3H1tMAigXtHw3+AIoFE2M3jABKWdS4Skq2SSIiSrVP41pKLT1qRIoFyDP+6gCKBed9xbwASprYq2RKmQOaG4oFv8XD6wBKV59ONYoFwrga6ABKRKDScEo2tGdvigWpWaLLAIoFw/6JjwCKBWNtB5oASkOglltKXPSjZ0pTn60MigWfPHLEAIoF2/sDgQBK0+tiP4oFsfTh9QBKNd4PYIoFrV5PggBKp3eXAooFAUzBwABKxE35RIoFjXBr5gCKBQr5zJkAigUOcvTRAIoF0RZ75ACKBbw9m5kAigV+VXvPAIoFXB5p3gBKYsuWZkqZU0c8igXiGZvrAIoFHZbbhgBKAbJKJkq0DOM5SgEWlxVK8+fXSkqDDb4ISh/XVHtKMYfjS0rwdTIHigXoUjW/AIoFTxvV3QCKBY1yK9kAigVLOHjjAIoFp4/7ugCKBX0jf6oASqqBbWxKDUC3DYoFaP5t1wBKlVulNkrD2xI3igWBJaeSAEowVd8bSkD3sjdKCuWwQIoFxDhRtwCKBUPEiagASsu7miRKYFyBLYoFjFcN5wBKN1CGAkqYkOwIigVsQ0rMAIoF0UHevACKBVmB2skAigXuU9LIAIoFenJ2zABKEzrhIooF5aob7gBKG4A2TYoF9DF+uQCKBWgMXMUASgr1LD+KBZsLBtMASvxnKxuKBQ1Ie7YAigUiuhKCAEqErTEkigUTIqHBAIoFTwVr1QCKBfG5mOYASoNqHSyKBZfjfvIAigVwYFLxAIoFzH9K4QCKBQzEr6oAigU5H8HlAIoFThHGygCKBTU1GqEAigWgvBmlAEqD+pBaSn3nDwVKMT33SEox+55aSjT8nRxKreI+AkqK4jYnigUIpgjjAErfG9ZFigWX69+gAEo6+SV4igUJsiOkAEqVLDZ6SjYL40tK0O6cf4oFxKhU/gBKYud+aooFVaZK5wBKqOpDLUrgybwCSi063jFKT//DXUq8r1pFSo7nHAxKTelWM4oFy4cE8gCKBf+YsJwAigW1sMzSAIoFoPJ3kgBKPfpQb4oF/uPK0gCKBQLeYNwAigUll8O6AEr0tLZTSu7ChjSKBVh4d/YASnGu3x9KkUV/I0rSR/4BigWI3ID+AErfKVdOigWUuFCVAErufRteSscZw29KMipZHkpkdOFzSjvVMQSKBdh0jK8AigWLueTwAIoFGmDKsABKr4euCErS1ZcqSpkuvjtK2mzzHooFd0p1rgBKCX1GOIoFjtZ26QCKBZwRw40ASgFfZzaKBRSiGOkAigVisrOHAIoFel7n9gCKBZBqUuwAigUvYr6lAIoFIeBG8wBK+2MfDooFfHHu5ABK/u2WJooFdoy6gwCKBbXU3YcASkP3BApK+4kXV0rQ9jBeigUkCoeKAIoFOHtgoABKX8nBZIoFQGk81QBK8AwELIoFJqeOhwCKBasbQpUAigUiS6HCAErGIm1RigUW4kOxAEpa8Yp2SiXJjC+KBZh4Ro8AStwiPSaKBQUB0+EAigUQPbGlAEqXoXF9igW6iz3fAEp2FAFeSn+Z4lGKBa1pq+gAigXQvTKrAIoFV7cstgCKBepyH7cAigXxuqiHAErAK8JaigWscIfVAIoFAMS+2gCKBTF/mdgASje8hSVKowXYSYoFol1PtwBKxB5/MIoFLiQ+0QCKBfUW460AigUVuQalAErpvsFzigX/Z//fAEpxm0RzigVCV8eFAEoH0D9YSopulVBK/lOeF4oFB57j+ABKO9LvUEqemPcNigVlkp29AErZH2RPSjPqvy5K+8x4LooFNzPDigBK1dW/QYoFdpAbswBKrttJRYoFBcI8swCKBVoOdKIASpvcVRCKBRxnubsAigUWJROyAIoFzsw/xABKAIzREEqtujU5igVIrJaIAIoFmNLz2gBKx3qyCUoDgFpJigWYYiOUAEqlxrR3igW3k+jFAIoFy1XZ4wCKBRnDIbgAigU37tXQAEq91alNigXMsFnGAIoFP9z+2gBKYr/1P4oFCq5FpQCKBTgyib4ASqxSH2ZK9xH2V0rd73RkSquw+WGKBXtUJuIAigXGbJGCAIoFv4BToACKBaiiX7oAigWDi5mkAIoFfOOulQBKYKBDaooFzNl0rgCKBRHeY9EAigUddKqeAIoFY1hIoABKzKR5R0qgXMsWSppbYCZKWOsdMEph8ohaSpPeCGWKBTZu7a4AigWC/TX5AIoFYd47xwCKBQmJco8ASnuLsUaKBVwqPqIAigVlNRWxAIoFx4710wCKBRphArcAigXCno+1AEoDnY9rSvSGcHeKBQVXXvgAigVHIRCCAEqZ9zx/SihYVjaKBSKu66oASk9RFkxKs97jHooFL9sInABKXdNLAUphLAR8Sg/ia3WKBZTVOpwAigW+diLeAEoFU0IJigVciaGZAEqDgr5migXCYZLYAEqoZkMNigW31fahAIoF7k007wCKBXXioYYASpJe9i1KJfyhMIoFDUnK3wCKBa5IubIAigVIYLG5AIoFAqj5sgBKYN8SQIoFDwg0swBKJ7QQMUpkIdIYSuzhlgJKcPzuZooFGV6I6gBK+P+lCYoF47QXpwBKPegzPkr1fBQGSstoI2dKETolSIoFDyAVkQCKBc4vpYIAigVqKz62AIoFfj1s1wCKBQMkg8AAStFG8xOKBaET0Z4ASrMfA0+KBTZNvu0AigXBcZGZAIoF6IlpsABK9Qs/eEpmBGlAShgU3zVK5RBdSEpKBEZrigVKsa/LAEr0Xx4wSihItFWKBfhXrp0ASnPRhXxKPB1cUIoF4N43qQBKfzOhJooF+KX0/wCKBR8L+OAASqaDuTlKBzufF0qd8TdhigXef9/QAEqaIj1MSq078W+KBXuWVbIAigVIcgLIAEpjxUJgSig0JRdKv56COYoFRlmm5ABKpbKGB0rDBHlQSrtyH2dKd3M6N0odFKYZSoL3GS2KBYDQ84wAigXmtvvUAIoFCcuEqwCKBXf+Q5gAigW3ye2IAIoFPRK19wBKq5AGUEqKTZ1eSl9wbFFKXbrkYEpPjJNaSvES8giKBXELRZAASq4XYn1KFOzCb4oFQe9+0QCKBSHAQdIAigUa7+25AErsN/YYTRgBdJROh5Qu",
+  "seen_g": [
+    "17e664a2185cbef78069c00209b7df11360ff092",
+    "29d22e5a93a2b2a3eddfaacce685c8923a5b83eb",
+    "36fba5ea1d3c15adf538beab63dd43a35e73be9c",
+    "5354063308132b67e4b2877bd88e10d4f56a1897",
+    "67f3f3259bdacc4c2a17de02c9699ae2576816da",
+    "6dd7b2a7b3440214f6c8b0410e53afe52ed3242b",
+    "714e7ccea98a1854251d3c8563b5ce2998548e01",
+    "80376541dc7f73b22195cb78b6d4adc53222f3ee",
+    "8124bb63e81bbc0bb97377f844ad78761e5ee7b5",
+    "9cfda342663b7ba51508accc6d56fa6a826a7d96",
+    "a3e919abcffa1969e2549c079bd163e041050dc8",
+    "bbe11c5b9ddad76115c7a6afbe1d1d53cc0f43be"
+  ],
+  "seen_f": [
+    "27b3e020c3cafce554f7ade7f858872420aa93bb",
+    "400da7e5b0b606e18a3e8b020d685b0c1895e6b2",
+    "4423b02e6a4fe2cb9ed8be5b610ca911cd3e66b6",
+    "5d3ef4bab6d5d63e51229d6e798f59704f971e0f",
+    "79b56b71220865a74a495254d776e0d3838f946c",
+    "7c34c451afeb01900f062173e5fd3be454b50448",
+    "8b29e417ae4e39b3f588382fe94d449fd4598408",
+    "b7b2247b60824568ae695b03dbae2cce167d81fa",
+    "c2e8ac5e5bb09085404d3b0378bf56c6cf0a15c2",
+    "c31e81bec71cc2f3761c7f112802c818188189fa",
+    "c47f01e6bc13ab877e833b8d6c18b8dd68cf9921",
+    "d0ba1b0e9257fc1a0327ce2bca375346839df900"
+  ],
+  "elites_g": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "g000_000_17e664a2",
+      "signature": "70aca848b5a6c2ddf847dcc0dbddebc1cb409ec6",
+      "origin": "REPAIR_GATE",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_g_002"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "llm_seed": 1418186270,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+          "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f"
+        },
+        {
+          "attempt": 0,
+          "op": "M3",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+          "prompt_sha1": "6ffeeea58c5a1b9dc0c413a653dcadb348e364ac"
+        },
+        {
+          "attempt": 0,
+          "op": "REPAIR",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+          "prompt_sha1": "7fc93d28be81dab09060ce495bd957d4a5d7160b"
+        },
+        {
+          "attempt": 1,
+          "op": "REPAIR",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+          "prompt_sha1": "25a83918971ce37626566ac36392dd333fd260d9"
+        }
+      ],
+      "ir": {
+        "name": "builder_all_pairs_oriented_003",
+        "intuition": "Build a dense, tie-free tournament within each instance where the winner is always the lower objective (lower_is_better). This guarantees semantic correctness under swap checks while keeping coverage at 1.0 by including all unequal pairs in a single consistent direction.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    B, N = objective.shape\n\n    # All unordered pairs (i < j) within each instance, then orient by objective.\n    idx = torch.arange(N, device=objective.device, dtype=torch.int64)\n    gi, gj = torch.meshgrid(idx, idx, indexing='ij')  # [N, N]\n    upper = gi < gj\n    gi = gi[upper]\n    gj = gj[upper]\n\n    num_pairs = gi.numel()\n    b = torch.arange(B, device=objective.device, dtype=torch.int64)[:, None].expand(B, num_pairs).reshape(-1)\n    i = gi[None, :].expand(B, num_pairs).reshape(-1)\n    j = gj[None, :].expand(B, num_pairs).reshape(-1)\n\n    obj_i = objective[b, i]\n    obj_j = objective[b, j]\n\n    # Drop ties to avoid ambiguous labels.\n    keep = obj_i != obj_j\n    b = b[keep]\n    i = i[keep]\n    j = j[keep]\n    obj_i = obj_i[keep]\n    obj_j = obj_j[keep]\n\n    # Winner is always the lower objective; loser is the higher objective.\n    w = torch.where(obj_i < obj_j, i, j).to(torch.int64)\n    l = torch.where(obj_i < obj_j, j, i).to(torch.int64)\n\n    meta = {\n        'builder': 'all_pairs_oriented_by_objective',\n        'drops_ties': True,\n        'unique_pairs': True\n    }\n    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta=meta)"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 128,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 17,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": 1.6412798890375107,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "g000_001_9cfda342",
+      "signature": "9cfda342663b7ba51508accc6d56fa6a826a7d96",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "35699a3dc418dfe9430d2eb01732eafe069eed42",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+      "llm_seed": 2027837527,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+          "prompt_sha1": "35699a3dc418dfe9430d2eb01732eafe069eed42"
+        }
+      ],
+      "ir": {
+        "name": "builder_anchor_gap_topk",
+        "intuition": "Create stable, high-signal preferences by anchoring each instance on its best (lowest objective) and worst (highest objective) candidates, then add a small set of the largest objective-gap pairs above a threshold to increase coverage without exploding pair count.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, K], lower is better\n    B, K = objective.shape\n    device = objective.device\n\n    # Always include best-vs-worst anchor per instance (guarantees coverage when K>=2).\n    best_idx = objective.argmin(dim=1)  # [B]\n    worst_idx = objective.argmax(dim=1)  # [B]\n    b_anchor = torch.arange(B, device=device)\n\n    # Candidate additional pairs: largest positive objective gaps (winner lower than loser).\n    # diff[b, w, l] = obj[l] - obj[w]\n    diff = objective[:, None, :] - objective[:, :, None]  # [B, K, K]\n    thr = float(extra.get('gap_threshold', 0.0))\n    valid = diff > thr\n\n    # Disallow self-pairs.\n    eye = torch.eye(K, device=device, dtype=torch.bool)[None, :, :]\n    valid = valid & (~eye)\n\n    # Select up to topk_per_instance additional pairs per instance by largest diff.\n    topk_per_instance = int(extra.get('topk_per_instance', 1))\n    topk_per_instance = max(0, min(topk_per_instance, K * K - K))\n\n    if topk_per_instance > 0:\n        scores = torch.where(valid, diff, torch.full_like(diff, -1e9))\n        flat = scores.reshape(B, K * K)\n        topv, topi = flat.topk(k=topk_per_instance, dim=1, largest=True, sorted=False)\n        take = topv > -1e8\n        b_rep = torch.arange(B, device=device)[:, None].expand(B, topk_per_instance)\n        w_idx = (topi // K)\n        l_idx = (topi % K)\n\n        b_extra = b_rep[take]\n        w_extra = w_idx[take]\n        l_extra = l_idx[take]\n    else:\n        b_extra = torch.empty((0,), device=device, dtype=torch.long)\n        w_extra = torch.empty((0,), device=device, dtype=torch.long)\n        l_extra = torch.empty((0,), device=device, dtype=torch.long)\n\n    # Combine anchors + extra; winner is lower objective.\n    b_idx = torch.cat([b_anchor, b_extra], dim=0)\n    winner_idx = torch.cat([best_idx, w_extra], dim=0)\n    loser_idx = torch.cat([worst_idx, l_extra], dim=0)\n\n    # Global cap to respect pairing budget; deterministic truncation.\n    max_pairs = int(extra.get('max_pairs', 128))\n    max_pairs = max(1, max_pairs)\n    if b_idx.numel() > max_pairs:\n        b_idx = b_idx[:max_pairs]\n        winner_idx = winner_idx[:max_pairs]\n        loser_idx = loser_idx[:max_pairs]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'anchor_gap_topk', 'gap_threshold': thr, 'topk_per_instance': int(extra.get('topk_per_instance', 1)), 'max_pairs': max_pairs})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 16,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 2,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "g000_002_36fba5ea",
+      "signature": "36fba5ea1d3c15adf538beab63dd43a35e73be9c",
+      "origin": "REPAIR",
+      "origin_base": "M1",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_g_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "79fb1a698b33e2611fa38764652227b190a0418a",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "llm_seed": 1519522183,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+          "prompt_sha1": "1e4756a621f720df5a85aaaf7286887f5f903dcf"
+        },
+        {
+          "attempt": 0,
+          "op": "M3",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+          "prompt_sha1": "2d3e625fc400c8d6723bcd8d637136afd2d9959a"
+        },
+        {
+          "attempt": 0,
+          "op": "REPAIR",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+          "prompt_sha1": "79fb1a698b33e2611fa38764652227b190a0418a"
+        }
+      ],
+      "ir": {
+        "name": "builder_fullcover_bestvsworst_001",
+        "intuition": "Guarantee 100% per-instance coverage by always emitting at least one pair: the best (lowest objective) completion as winner against the worst (highest objective) as loser; optionally add more top-gap pairs across the batch weighted by objective gap so clearer wins contribute more without ever dropping an instance.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, K]\n    B, K = objective.shape\n\n    # Always provide at least one pair per instance: best vs worst.\n    winner0 = objective.argmin(dim=1)  # [B]\n    loser0 = objective.argmax(dim=1)   # [B]\n    b0 = objective.new_empty((B,), dtype=torch.long)\n    b0.copy_(torch.arange(B, device=objective.device, dtype=torch.long))\n\n    # Gap for base pairs (positive => winner better than loser).\n    gap0 = (objective[b0, loser0] - objective[b0, winner0]).clamp_min(0)\n\n    # Build all strict win pairs for optional extra coverage/budget fill.\n    o_w = objective[:, :, None]  # [B, K, 1]\n    o_l = objective[:, None, :]  # [B, 1, K]\n    gap = o_l - o_w              # [B, K, K]\n\n    base_mask = gap > 0\n    gap_threshold = float(extra.get('gap_threshold', 0.0))\n    if gap_threshold > 0.0:\n        thr_mask = gap > gap_threshold\n        use_mask = thr_mask if thr_mask.any() else base_mask\n    else:\n        use_mask = base_mask\n\n    b_idx, w_idx, l_idx = use_mask.nonzero(as_tuple=True)\n    sel_gap = gap[b_idx, w_idx, l_idx] if b_idx.numel() > 0 else objective.new_empty((0,))\n\n    # Optionally cap extra pairs globally while keeping the mandatory B base pairs.\n    # Treat max_pairs as a global cap; never reduce below B.\n    max_pairs = int(extra.get('max_pairs', 0))\n    if max_pairs and max_pairs > B and b_idx.numel() > 0:\n        extra_budget = max_pairs - B\n        if b_idx.numel() > extra_budget:\n            _, topk_idx = sel_gap.topk(k=extra_budget, largest=True, sorted=False)\n            b_idx = b_idx[topk_idx]\n            w_idx = w_idx[topk_idx]\n            l_idx = l_idx[topk_idx]\n            sel_gap = sel_gap[topk_idx]\n\n    # Concatenate base pairs with optional extra pairs.\n    b_all = torch.cat([b0, b_idx.to(dtype=torch.long)], dim=0)\n    w_all = torch.cat([winner0.to(dtype=torch.long), w_idx.to(dtype=torch.long)], dim=0)\n    l_all = torch.cat([loser0.to(dtype=torch.long), l_idx.to(dtype=torch.long)], dim=0)\n    gap_all = torch.cat([gap0, sel_gap.to(dtype=objective.dtype)], dim=0)\n\n    # Nonnegative weights proportional to (clipped) gap.\n    max_gap = float(extra.get('max_gap', 10.0))\n    if max_gap > 0.0:\n        gap_all = gap_all.clamp_max(max_gap)\n    w_min = float(extra.get('weight_min', 0.1))\n    w_scale = float(extra.get('weight_scale', 1.0))\n    weight = (w_min + w_scale * gap_all).clamp_min(0.0)\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_all, w_all, l_all),\n        weight=weight,\n        meta={\n            'builder': 'fullcover_bestvsworst',\n            'gap_threshold': gap_threshold,\n            'max_pairs': max_pairs,\n        },\n    )"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 968,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 121,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "g000_003_80376541",
+      "signature": "80376541dc7f73b22195cb78b6d4adc53222f3ee",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "bootstrap_g_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "823e2ac422c1f045f2e6934b8d991983b840f2f2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+      "llm_seed": 878225224,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+          "prompt_sha1": "823e2ac422c1f045f2e6934b8d991983b840f2f2"
+        }
+      ],
+      "ir": {
+        "name": "builder_all_pairs_gap_weight_001",
+        "intuition": "Prefer pairs with a larger objective gap (clearer winner/loser separation) while keeping all valid pairs; this downweights near-ties that add label noise and can improve generalization.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # objective is [B, K], lower is better\n    obj_w = objective[:, :, None]\n    obj_l = objective[:, None, :]\n    mask = obj_w < obj_l\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n\n    # Nonnegative weight proportional to normalized gap; emphasize clearer preferences.\n    gap = (obj_l - obj_w)[b_idx, winner_idx, loser_idx]\n    eps = 1e-8\n    scale = objective.abs().mean(dim=1, keepdim=True) + eps  # [B, 1]\n    w = (gap / scale[b_idx, 0]).clamp_min(0.0)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=w, meta={'builder': 'all_pairs_gap_weight', 'weight': 'gap_norm'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 4,
+      "id": "g000_004_bbe11c5b",
+      "signature": "bbe11c5b9ddad76115c7a6afbe1d1d53cc0f43be",
+      "origin": "E2",
+      "origin_base": "E2",
+      "op_type": "E2",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "512d28c5f50a8f429b3794127ce773596ee7fdbd",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+      "llm_seed": 2048741382,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+          "prompt_sha1": "512d28c5f50a8f429b3794127ce773596ee7fdbd"
+        }
+      ],
+      "ir": {
+        "name": "rank_stratified_cap",
+        "intuition": "Build preferences by ranking candidates per instance (lower objective is better), then pairing across rank strata (best-vs-worst, best-vs-mid, mid-vs-worst) with a per-instance cap so every instance is covered without enumerating all O(n^2) objective comparisons.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Rank-based, stratified pairing with per-instance cap.\n    # objective: [B, K] where lower is better.\n    B, K = objective.shape\n    device = objective.device\n\n    per_instance_cap = int(extra.get('per_instance_cap', 2))\n    per_instance_cap = 1 if per_instance_cap < 1 else per_instance_cap\n\n    # Sort candidates per instance by objective (ascending).\n    order = objective.argsort(dim=1)\n\n    # Build a small fixed set of candidate rank-pairs (winner_rank, loser_rank).\n    # Use up to 6 stratified pairs, then slice to per_instance_cap.\n    # Always includes a strong contrast pair if K>=2.\n    top = torch.tensor([0], device=device, dtype=torch.long)\n    mid = torch.tensor([K // 2], device=device, dtype=torch.long)\n    q1 = torch.tensor([K // 4], device=device, dtype=torch.long)\n    q3 = torch.tensor([(3 * K) // 4], device=device, dtype=torch.long)\n    bot = torch.tensor([K - 1], device=device, dtype=torch.long)\n\n    # Candidate pairs in rank space; later deduped via masking.\n    w_ranks = torch.cat([top, top, mid, q1, top, mid], dim=0)\n    l_ranks = torch.cat([bot, mid, bot, q3, q3, q1], dim=0)\n\n    # Cap number of rank-pairs considered per instance (vectorized slicing).\n    P = w_ranks.shape[0]\n    capP = per_instance_cap if per_instance_cap < P else P\n    w_ranks = w_ranks[:capP]\n    l_ranks = l_ranks[:capP]\n\n    # Expand to [B, capP] and map ranks -> candidate indices.\n    w_pos = w_ranks.unsqueeze(0).expand(B, capP)\n    l_pos = l_ranks.unsqueeze(0).expand(B, capP)\n    winners = order.gather(1, w_pos)\n    losers = order.gather(1, l_pos)\n\n    # Valid pairs: distinct indices only.\n    valid = winners.ne(losers)\n\n    # Ensure direction is consistent with objective even under ties.\n    w_obj = objective.gather(1, winners)\n    l_obj = objective.gather(1, losers)\n    better = w_obj.lt(l_obj)\n    flip = valid & (~better) & l_obj.lt(w_obj)\n    winners2 = torch.where(flip, losers, winners)\n    losers2 = torch.where(flip, winners, losers)\n    valid = valid & (better | flip)\n\n    # Flatten selected pairs.\n    b_idx = torch.arange(B, device=device, dtype=torch.long).unsqueeze(1).expand(B, capP)\n    b_idx = b_idx[valid]\n    winner_idx = winners2[valid]\n    loser_idx = losers2[valid]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'rank_stratified_cap', 'per_instance_cap': per_instance_cap})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 16,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 2,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "g000_005_67f3f325",
+      "signature": "67f3f3259bdacc4c2a17de02c9699ae2576816da",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "65287bd2dc5048b3f170f32660d70ed61c9abf17",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+      "llm_seed": 1901353491,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+          "prompt_sha1": "65287bd2dc5048b3f170f32660d70ed61c9abf17"
+        }
+      ],
+      "ir": {
+        "name": "builder_anchor_gap_topk_001",
+        "intuition": "Prefer clear improvements by pairing the best (lowest objective) completion in each instance against worse ones that exceed a configurable objective gap, then cap to a fixed budget via deterministic top-k by gap size for stability.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    B, N = objective.shape\n    gap_thr = float(extra.get('gap_threshold', 0.0))\n    max_pairs = int(extra.get('max_pairs', 128))\n\n    # Anchor each instance on the best (lowest objective) item; pair vs all others with sufficient gap.\n    best_idx = objective.argmin(dim=1)  # (B,)\n    best_obj = objective.gather(1, best_idx[:, None]).squeeze(1)  # (B,)\n    gap = objective - best_obj[:, None]  # (B, N)\n\n    # Candidate losers: not the anchor itself and worse by at least gap_thr.\n    cand = (gap >= gap_thr) & (torch.arange(N, device=objective.device)[None, :] != best_idx[:, None])\n\n    # Score by gap (larger = clearer preference); mask invalid with -inf so topk skips them.\n    score = torch.where(cand, gap, torch.full_like(gap, float('-inf')))\n\n    k = min(N, max_pairs)\n    top_score, top_j = score.topk(k=k, dim=1, largest=True)\n    valid = top_score.isfinite()\n\n    b_idx = torch.arange(B, device=objective.device)[:, None].expand(B, k)[valid]\n    winner_idx = best_idx[:, None].expand(B, k)[valid]\n    loser_idx = top_j[valid]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'anchor_gap_topk', 'gap_threshold': gap_thr, 'max_pairs': max_pairs})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 120,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 15,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "g000_006_29d22e5a",
+      "signature": "29d22e5a93a2b2a3eddfaacce685c8923a5b83eb",
+      "origin": "E2",
+      "origin_base": "E2",
+      "op_type": "E2",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "d95b3bce192d52e1ea8d553090bc2db4a458e83a",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+      "llm_seed": 1118805955,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+          "prompt_sha1": "d95b3bce192d52e1ea8d553090bc2db4a458e83a"
+        }
+      ],
+      "ir": {
+        "name": "rank_strata_cap_v1",
+        "intuition": "Build preferences by rank-stratified pairing within each instance: compare near-best vs tail and mid vs tail using objective ranks (lower is better), then cap pairs per instance to ensure full coverage without exploding all-pairs.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, K], lower is better\n    B, K = objective.shape\n    device = objective.device\n\n    # Rank each candidate within instance (0 = best). Use stable sort to be deterministic.\n    order = objective.argsort(dim=1, stable=True)  # [B, K]\n\n    # Per-instance cap; keep coverage by generating at least one pair per instance when K>=2.\n    cap = int(extra.get('max_pairs_per_instance', 4))\n    cap = 1 if cap < 1 else cap\n\n    # Choose stratified indices: near-best, mid, tail.\n    a_n = min(2, K)  # near-best count\n    a_m = min(2, K)  # mid count\n    a_t = min(4, K)  # tail count\n\n    near = order[:, :a_n]  # [B, a_n]\n    mid_start = (K // 2) - (a_m // 2)\n    mid_start = 0 if mid_start < 0 else mid_start\n    mid_end = mid_start + a_m\n    if mid_end > K:\n        mid_end = K\n        mid_start = max(0, K - a_m)\n    mid = order[:, mid_start:mid_end]  # [B, <=a_m]\n    tail = order[:, K - a_t:]  # [B, a_t]\n\n    # Generate pair grids (vectorized): (near x tail) and (mid x tail)\n    # Winners are lower objective => earlier ranks.\n    w1 = near.unsqueeze(2).expand(B, near.shape[1], tail.shape[1])\n    l1 = tail.unsqueeze(1).expand(B, near.shape[1], tail.shape[1])\n    w2 = mid.unsqueeze(2).expand(B, mid.shape[1], tail.shape[1])\n    l2 = tail.unsqueeze(1).expand(B, mid.shape[1], tail.shape[1])\n\n    w = torch.cat([w1.reshape(B, -1), w2.reshape(B, -1)], dim=1)  # [B, P]\n    l = torch.cat([l1.reshape(B, -1), l2.reshape(B, -1)], dim=1)  # [B, P]\n\n    # Remove self-pairs (can happen when K is small and strata overlap).\n    valid = (w != l)\n\n    # Deterministic per-instance cap without loops: take first `cap` valid pairs per row.\n    P = w.shape[1]\n    if P == 0:\n        # No possible pairs; return empty (will likely fail gate if K<2).\n        empty = torch.empty((0,), dtype=torch.long, device=device)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None, meta={'builder': 'rank_strata_cap', 'cap': cap})\n\n    # Build a stable ordering that puts valid pairs first.\n    idx = torch.arange(P, device=device).unsqueeze(0).expand(B, P)\n    big = torch.full((B, P), P, device=device, dtype=idx.dtype)\n    order_idx = torch.where(valid, idx, big).argsort(dim=1, stable=True)  # valid first\n    take = min(cap, P)\n    sel = order_idx[:, :take]  # [B, take]\n\n    w_sel = w.gather(1, sel)\n    l_sel = l.gather(1, sel)\n    v_sel = (w_sel != l_sel)\n\n    # Flatten to PrefBatch indices.\n    b_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, take)\n    b_flat = b_idx.reshape(-1)[v_sel.reshape(-1)]\n    w_flat = w_sel.reshape(-1)[v_sel.reshape(-1)]\n    l_flat = l_sel.reshape(-1)[v_sel.reshape(-1)]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_flat, w_flat, l_flat), weight=None, meta={'builder': 'rank_strata_cap', 'cap': cap, 'strata': {'near': int(a_n), 'mid': int(mid.shape[1]), 'tail': int(a_t)}})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 32,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 4,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "g000_007_714e7cce",
+      "signature": "714e7ccea98a1854251d3c8563b5ce2998548e01",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "bootstrap_g_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "349ed1e5617b046d13658648500dba8a0866fae6",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+      "llm_seed": 60308648,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+          "prompt_sha1": "349ed1e5617b046d13658648500dba8a0866fae6"
+        }
+      ],
+      "ir": {
+        "name": "builder_all_pairs_gapthr_w_001",
+        "intuition": "Filter out near-ties by requiring a minimum objective improvement and weight remaining pairs by the objective gap, emphasizing clearer preferences and reducing noisy training signal.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # lower objective is better\n    gap_threshold = extra.get('gap_threshold', 0.0)\n    # gap[b,i,j] = objective[j] - objective[i]; positive means i better than j\n    gap = objective[:, None, :] - objective[:, :, None]\n    mask = gap > gap_threshold\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight = gap[b_idx, winner_idx, loser_idx].clamp_min(0.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gapthr_w', 'gap_threshold': float(gap_threshold)})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "elites_f": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_c2e8ac5e",
+      "signature": "e0ab5e8fee17645d1424a404dc45eb8fc0e23769",
+      "origin": "REPAIR_GATE",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "ac24981d8557c7bad7937528e0dc609f440102fe",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 801997237,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "ac24981d8557c7bad7937528e0dc609f440102fe"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "679aea1d1a6c0f29abc00080aeb5be52aa87a95d"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "6261d61221102aa3db31cac693a2d8c4d75dceeb"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "142c869dcd1408685e9b325c8d9ab254a58060c5"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "2bc32e40112591e4e51e82199adcd86cbf585646"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "aa0a94005eee682c4ef25ec10cb365b0f40cbf75"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "fba771f28ab64678919dea72d355e055dcf2c9ca"
+        },
+        {
+          "attempt": 3,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "6750cd880c11d287aaa6621e6147f1e11e2bda2d"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_003_delta_z_gate_stable_symmetric_gap",
+        "intuition": "The static gate failure was because the candidate did not include an `implementation_hint.expects` field listing an objective signal. I fixed this by adding `implementation_hint.expects` that explicitly includes `delta_z` (and the other required batch keys) and keeping it consistent with the code path: the loss reads `log_prob_w`, `log_prob_l`, and `delta_z`, and optionally `weight`. No functional changes were needed beyond aligning the declared expectations with the actual inputs so the gate can verify the presence of an objective signal.",
+        "pseudocode": "expects: [log_prob_w, log_prob_l, delta_z, (optional) weight]\nd = log_prob_w - log_prob_l\ngap = abs(d)\ng = tanh(clamp(delta_z, -dz_clip, dz_clip))\nmargin = clamp(g * gap * scale, -m_clip, m_clip)\nper_example = -logsigmoid(margin)\nif weight present: per_example *= clamp(weight, 0, weight_clip)\nreturn mean(per_example)",
+        "hyperparams": {
+          "scale": 1.0,
+          "m_clip": 20.0,
+          "dz_clip": 10.0,
+          "weight_clip": 1000000000.0
+        },
+        "operators_used": [
+          "abs",
+          "clamp",
+          "tanh",
+          "logsigmoid",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    dz = batch['delta_z']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    scale = hp.get('scale', 1.0)\n    m_clip = hp.get('m_clip', 20.0)\n    dz_clip = hp.get('dz_clip', 10.0)\n    weight_clip = hp.get('weight_clip', 1e9)\n\n    d = lpw - lpl\n    gap = ops.abs(d)\n\n    dz_c = ops.clamp(dz, -dz_clip, dz_clip)\n    gate = ops.tanh(dz_c)\n\n    margin = gate * gap * scale\n    margin = ops.clamp(margin, -m_clip, m_clip)\n\n    per_ex = -ops.logsigmoid(margin)\n\n    if weight is not None:\n        w = ops.clamp(weight, 0.0, weight_clip)\n        per_ex = per_ex * w\n\n    return per_ex.mean()",
+        "theoretical_basis": "This is a gated logistic preference loss. The absolute gap |log_prob_w-log_prob_l| provides a swap-symmetric magnitude of separation, while a bounded gate tanh(clamp(delta_z)) injects the required objective signal and orients the margin. Clamping delta_z and the final margin improves numerical stability; -logsigmoid(margin) is smooth and finite. Optional nonnegative weight scales per-example contributions."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 0.4558792728499708,
+      "descriptor": {
+        "x": 0.913381826877594,
+        "y": 0.05388732850551605,
+        "cell": [
+          7,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 8,
+      "id": "f000_008_b7b2247b",
+      "signature": "ebfa0e8bf0afc43c13c26c0474057aa9b720c1f8",
+      "origin": "REPAIR_GATE",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "3918bc482ac771120617aaab5453b43ea70ac5f5"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "8e9da843b8b22a199f841c54ea2a58fd2d9ab659"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "02b22d89ba7876d275d796611931637f03725821"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_repaired_swapinv_m3_fixkeys_v2",
+        "intuition": "The failure was purely schema-related: `implementation_hint.expects` did not list the required pairwise keys `log_prob_w` and `log_prob_l`. I fixed this by explicitly including those keys in expects (and matching the code to use only those names). I kept the vectorized pairwise logistic loss, preserved swap-consistent behavior (logit uses `log_prob_w - log_prob_l` and cost modulation uses `abs(cost_a-cost_b)`), and retained clamping to avoid extreme logits and degenerate modulation weights.",
+        "pseudocode": "d = clamp(alpha*scale*(log_prob_w-log_prob_l), -logit_clamp, logit_clamp); if costs: mod = clamp(1/(1+cost_scale*abs(cost_a-cost_b)), min_weight, 1); d = mod*d; loss = -logsigmoid(d); if weight: loss*=weight; return mean(loss)",
+        "hyperparams": {
+          "scale": 0.5243135399910347,
+          "cost_scale": 0.1,
+          "logit_clamp": 20.0,
+          "min_weight": 0.05
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "abs"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    # Required pairwise keys\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n\n    # Optional sample weights\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 0.5243135399910347))\n    cost_scale = float(hp.get('cost_scale', 0.1))\n    logit_clamp = float(hp.get('logit_clamp', 20.0))\n    min_weight = float(hp.get('min_weight', 0.05))\n\n    # Base preference logit (anti-symmetric under swapping w/l).\n    d = alpha * scale * (lpw - lpl)\n    d = ops.clamp(d, -logit_clamp, logit_clamp)\n\n    # Swap-invariant modulation using absolute cost gap when costs are provided.\n    if ('cost_a' in batch) and ('cost_b' in batch):\n        gap = ops.abs(batch['cost_a'] - batch['cost_b'])\n        mod = 1.0 / (1.0 + cost_scale * gap)\n        mod = ops.clamp(mod, min_weight, 1.0)\n        d = mod * d\n\n    loss = -ops.logsigmoid(d)\n\n    if weight is not None:\n        loss = loss * weight\n\n    return loss.mean()",
+        "theoretical_basis": "Pairwise logistic (Bradley-Terry / DPO-style) loss on the winner-loser log-probability difference. Optional cost information enters only via a symmetric (swap-invariant) modulation based on |cost_a - cost_b|, preserving swap consistency while improving numerical stability through clamping."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 1.1413684177712735,
+      "descriptor": {
+        "x": 0.9909962177276611,
+        "y": 0.20650803565979006,
+        "cell": [
+          7,
+          1
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "f000_005_7c34c451",
+      "signature": "7c34c451afeb01900f062173e5fd3be454b50448",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 0.623559482294971
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 0.623559482294971))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 1.3607322383240994,
+      "descriptor": {
+        "x": 0.9715542793273926,
+        "y": 0.2464924120903015,
+        "cell": [
+          7,
+          1
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 10,
+      "id": "f000_010_8b29e417",
+      "signature": "8b29e417ae4e39b3f588382fe94d449fd4598408",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.0580902896216098
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0580902896216098))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 2.0315576422528565,
+      "descriptor": {
+        "x": 0.9113641798496246,
+        "y": 0.3686194729804993,
+        "cell": [
+          7,
+          2
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_400da7e5",
+      "signature": "400da7e5b0b606e18a3e8b020d685b0c1895e6b2",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_003"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "d730f5e2bb94e3a56d40ab9ce1e49769767bb8ed",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 1801409089,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "d730f5e2bb94e3a56d40ab9ce1e49769767bb8ed"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_004_scale_1p15",
+        "intuition": "This is a pairwise logistic (logsigmoid) loss on the margin (lpw-lpl). The only tuning lever here is `scale`, which controls the sharpness/temperature of the logistic; increasing it moderately strengthens gradients when the model ranks the winner and loser too closely, improving separation without changing the loss form. Keeping the existing clamp at [-20, 20] prevents numerical issues even with a larger scale.",
+        "pseudocode": "margin = clamp(alpha*scale*(lpw-lpl), -20, 20); loss = -logsigmoid(margin); if weight: loss *= weight; return mean(loss)",
+        "hyperparams": {
+          "scale": 1.15
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 0.8579238929228303))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 2.180489360125476,
+      "descriptor": {
+        "x": 0.8979844152927399,
+        "y": 0.39572986364364626,
+        "cell": [
+          7,
+          3
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "f000_006_c47f01e6",
+      "signature": "c47f01e6bc13ab877e833b8d6c18b8dd68cf9921",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.2296663029537502
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2296663029537502))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 2.3716862726525605,
+      "descriptor": {
+        "x": 0.8915386915206909,
+        "y": 0.43268010139465335,
+        "cell": [
+          7,
+          3
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "f000_007_d0ba1b0e",
+      "signature": "d0ba1b0e9257fc1a0327ce2bca375346839df900",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.7676163635072728
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.7676163635072728))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 3.184092538388186,
+      "descriptor": {
+        "x": 0.8170050978660583,
+        "y": 0.580254635810852,
+        "cell": [
+          6,
+          4
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "f000_001_79b56b71",
+      "signature": "ac6916876e67f6e2ce4396b446d7b417399c7409",
+      "origin": "REPAIR_GATE",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "41ef35c3d7f35f75b369dc8448ed27b12fe2a175",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 385792672,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "41ef35c3d7f35f75b369dc8448ed27b12fe2a175"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "845409a67411d0dbce27a08eb5db9bc264914fd6"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "609459d84e078361b7cede1eb32475f1fd3a6da1"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "66b56eb7d53f0e2deeef613be8619e22386a6c50"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "924139c1e5ef1b3d9ca5d575c461a479880a97f6"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "8f741be460847555211daa4a274885394a5c727e"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_001_swap_safe_004_add_objective_signal_repair_003",
+        "intuition": "The failure was purely a static schema issue: implementation_hint.expects did not list any required objective-signal keys. I fixed this by adding `delta_regret` (and other allowed signals) to expects while keeping the core swap-consistent, numerically-stable pairwise logistic loss on (log_prob_w - log_prob_l). I also removed Python branching over which signal exists (to stay within vectorized-tensor constraints) by always consuming `delta_regret` as the objective weight; if it is absent upstream, the caller should provide it (or map another signal into it). The weight is ReLUed, clamped, and detached so it cannot be gamed by the model, and the preference margin is clamped to avoid softplus overflow.",
+        "pseudocode": "d = log_prob_w - log_prob_l; x = clamp(scale*d, -clamp, clamp); base = softplus(-x); w = clamp(relu(delta_regret), 0, weight_max).detach(); loss = mean(base * (w + weight_min))",
+        "hyperparams": {
+          "scale": 1.0,
+          "clamp": 20.0,
+          "weight_max": 10.0,
+          "weight_min": 1.0
+        },
+        "operators_used": [
+          "softplus",
+          "clamp",
+          "relu",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_regret"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    # Stable, swap-consistent pairwise logistic preference loss with objective-signal weighting.\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    scale = hp.get('scale', 1.0)\n    clamp_v = hp.get('clamp', 20.0)\n    w_max = hp.get('weight_max', 10.0)\n    w_min = hp.get('weight_min', 1.0)\n\n    d = batch['log_prob_w'] - batch['log_prob_l']\n    x = ops.clamp(d * scale, -clamp_v, clamp_v)\n    base = ops.softplus(-x)\n\n    # Objective signal is required by the schema; use it as a non-negative, detached weight.\n    w = ops.relu(batch['delta_regret'])\n    w = ops.clamp(w, 0.0, w_max)\n    w = w.detach() if hasattr(w, 'detach') else w\n\n    loss = base * (w + w_min)\n    return loss.mean()",
+        "theoretical_basis": "The base loss softplus(-(log p_w - log p_l)) is the standard Bradley-Terry / pairwise logistic objective; it is monotone in the winner-loser log-probability gap and swap-consistent. Multiplying by a non-negative external objective signal (delta_regret) preserves the preference direction while upweighting higher-impact comparisons. Clamping the margin and the weight improves numerical stability; detaching the weight prevents gradients from incentivizing manipulation of the objective signal."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 1.0,
+        "cell": [
+          0,
+          7
+        ]
+      }
+    }
+  ],
+  "diverse_elites_g": [
+    {
+      "id": "g000_000_17e664a2",
+      "signature": "70aca848b5a6c2ddf847dcc0dbddebc1cb409ec6",
+      "ir": {
+        "name": "builder_all_pairs_oriented_003",
+        "intuition": "Build a dense, tie-free tournament within each instance where the winner is always the lower objective (lower_is_better). This guarantees semantic correctness under swap checks while keeping coverage at 1.0 by including all unequal pairs in a single consistent direction.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    B, N = objective.shape\n\n    # All unordered pairs (i < j) within each instance, then orient by objective.\n    idx = torch.arange(N, device=objective.device, dtype=torch.int64)\n    gi, gj = torch.meshgrid(idx, idx, indexing='ij')  # [N, N]\n    upper = gi < gj\n    gi = gi[upper]\n    gj = gj[upper]\n\n    num_pairs = gi.numel()\n    b = torch.arange(B, device=objective.device, dtype=torch.int64)[:, None].expand(B, num_pairs).reshape(-1)\n    i = gi[None, :].expand(B, num_pairs).reshape(-1)\n    j = gj[None, :].expand(B, num_pairs).reshape(-1)\n\n    obj_i = objective[b, i]\n    obj_j = objective[b, j]\n\n    # Drop ties to avoid ambiguous labels.\n    keep = obj_i != obj_j\n    b = b[keep]\n    i = i[keep]\n    j = j[keep]\n    obj_i = obj_i[keep]\n    obj_j = obj_j[keep]\n\n    # Winner is always the lower objective; loser is the higher objective.\n    w = torch.where(obj_i < obj_j, i, j).to(torch.int64)\n    l = torch.where(obj_i < obj_j, j, i).to(torch.int64)\n\n    meta = {\n        'builder': 'all_pairs_oriented_by_objective',\n        'drops_ties': True,\n        'unique_pairs': True\n    }\n    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta=meta)"
+      },
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "fitness": 1.6412798890375107,
+      "archive_cell": [
+        0,
+        0
+      ],
+      "archive_score": 1.6412798890375107
+    }
+  ],
+  "diverse_elites_f": [
+    {
+      "id": "f000_000_c2e8ac5e",
+      "signature": "e0ab5e8fee17645d1424a404dc45eb8fc0e23769",
+      "ir": {
+        "name": "loss_logsigmoid_003_delta_z_gate_stable_symmetric_gap",
+        "intuition": "The static gate failure was because the candidate did not include an `implementation_hint.expects` field listing an objective signal. I fixed this by adding `implementation_hint.expects` that explicitly includes `delta_z` (and the other required batch keys) and keeping it consistent with the code path: the loss reads `log_prob_w`, `log_prob_l`, and `delta_z`, and optionally `weight`. No functional changes were needed beyond aligning the declared expectations with the actual inputs so the gate can verify the presence of an objective signal.",
+        "pseudocode": "expects: [log_prob_w, log_prob_l, delta_z, (optional) weight]\nd = log_prob_w - log_prob_l\ngap = abs(d)\ng = tanh(clamp(delta_z, -dz_clip, dz_clip))\nmargin = clamp(g * gap * scale, -m_clip, m_clip)\nper_example = -logsigmoid(margin)\nif weight present: per_example *= clamp(weight, 0, weight_clip)\nreturn mean(per_example)",
+        "hyperparams": {
+          "scale": 1.0,
+          "m_clip": 20.0,
+          "dz_clip": 10.0,
+          "weight_clip": 1000000000.0
+        },
+        "operators_used": [
+          "abs",
+          "clamp",
+          "tanh",
+          "logsigmoid",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    dz = batch['delta_z']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    scale = hp.get('scale', 1.0)\n    m_clip = hp.get('m_clip', 20.0)\n    dz_clip = hp.get('dz_clip', 10.0)\n    weight_clip = hp.get('weight_clip', 1e9)\n\n    d = lpw - lpl\n    gap = ops.abs(d)\n\n    dz_c = ops.clamp(dz, -dz_clip, dz_clip)\n    gate = ops.tanh(dz_c)\n\n    margin = gate * gap * scale\n    margin = ops.clamp(margin, -m_clip, m_clip)\n\n    per_ex = -ops.logsigmoid(margin)\n\n    if weight is not None:\n        w = ops.clamp(weight, 0.0, weight_clip)\n        per_ex = per_ex * w\n\n    return per_ex.mean()",
+        "theoretical_basis": "This is a gated logistic preference loss. The absolute gap |log_prob_w-log_prob_l| provides a swap-symmetric magnitude of separation, while a bounded gate tanh(clamp(delta_z)) injects the required objective signal and orients the margin. Clamping delta_z and the final margin improves numerical stability; -logsigmoid(margin) is smooth and finite. Optional nonnegative weight scales per-example contributions."
+      },
+      "descriptor": {
+        "x": 0.913381826877594,
+        "y": 0.05388732850551605,
+        "cell": [
+          7,
+          0
+        ]
+      },
+      "fitness": 0.4558792728499708,
+      "archive_cell": [
+        7,
+        0
+      ],
+      "archive_score": 0.4558792728499708
+    },
+    {
+      "id": "f000_008_b7b2247b",
+      "signature": "ebfa0e8bf0afc43c13c26c0474057aa9b720c1f8",
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_repaired_swapinv_m3_fixkeys_v2",
+        "intuition": "The failure was purely schema-related: `implementation_hint.expects` did not list the required pairwise keys `log_prob_w` and `log_prob_l`. I fixed this by explicitly including those keys in expects (and matching the code to use only those names). I kept the vectorized pairwise logistic loss, preserved swap-consistent behavior (logit uses `log_prob_w - log_prob_l` and cost modulation uses `abs(cost_a-cost_b)`), and retained clamping to avoid extreme logits and degenerate modulation weights.",
+        "pseudocode": "d = clamp(alpha*scale*(log_prob_w-log_prob_l), -logit_clamp, logit_clamp); if costs: mod = clamp(1/(1+cost_scale*abs(cost_a-cost_b)), min_weight, 1); d = mod*d; loss = -logsigmoid(d); if weight: loss*=weight; return mean(loss)",
+        "hyperparams": {
+          "scale": 0.5243135399910347,
+          "cost_scale": 0.1,
+          "logit_clamp": 20.0,
+          "min_weight": 0.05
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "abs"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    # Required pairwise keys\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n\n    # Optional sample weights\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 0.5243135399910347))\n    cost_scale = float(hp.get('cost_scale', 0.1))\n    logit_clamp = float(hp.get('logit_clamp', 20.0))\n    min_weight = float(hp.get('min_weight', 0.05))\n\n    # Base preference logit (anti-symmetric under swapping w/l).\n    d = alpha * scale * (lpw - lpl)\n    d = ops.clamp(d, -logit_clamp, logit_clamp)\n\n    # Swap-invariant modulation using absolute cost gap when costs are provided.\n    if ('cost_a' in batch) and ('cost_b' in batch):\n        gap = ops.abs(batch['cost_a'] - batch['cost_b'])\n        mod = 1.0 / (1.0 + cost_scale * gap)\n        mod = ops.clamp(mod, min_weight, 1.0)\n        d = mod * d\n\n    loss = -ops.logsigmoid(d)\n\n    if weight is not None:\n        loss = loss * weight\n\n    return loss.mean()",
+        "theoretical_basis": "Pairwise logistic (Bradley-Terry / DPO-style) loss on the winner-loser log-probability difference. Optional cost information enters only via a symmetric (swap-invariant) modulation based on |cost_a - cost_b|, preserving swap consistency while improving numerical stability through clamping."
+      },
+      "descriptor": {
+        "x": 0.9909962177276611,
+        "y": 0.20650803565979006,
+        "cell": [
+          7,
+          1
+        ]
+      },
+      "fitness": 1.1413684177712735,
+      "archive_cell": [
+        7,
+        1
+      ],
+      "archive_score": 1.1413684177712735
+    },
+    {
+      "id": "f000_010_8b29e417",
+      "signature": "8b29e417ae4e39b3f588382fe94d449fd4598408",
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.0580902896216098
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0580902896216098))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "descriptor": {
+        "x": 0.9113641798496246,
+        "y": 0.3686194729804993,
+        "cell": [
+          7,
+          2
+        ]
+      },
+      "fitness": 2.0315576422528565,
+      "archive_cell": [
+        7,
+        2
+      ],
+      "archive_score": 2.0315576422528565
+    },
+    {
+      "id": "f000_003_400da7e5",
+      "signature": "400da7e5b0b606e18a3e8b020d685b0c1895e6b2",
+      "ir": {
+        "name": "loss_logsigmoid_004_scale_1p15",
+        "intuition": "This is a pairwise logistic (logsigmoid) loss on the margin (lpw-lpl). The only tuning lever here is `scale`, which controls the sharpness/temperature of the logistic; increasing it moderately strengthens gradients when the model ranks the winner and loser too closely, improving separation without changing the loss form. Keeping the existing clamp at [-20, 20] prevents numerical issues even with a larger scale.",
+        "pseudocode": "margin = clamp(alpha*scale*(lpw-lpl), -20, 20); loss = -logsigmoid(margin); if weight: loss *= weight; return mean(loss)",
+        "hyperparams": {
+          "scale": 1.15
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 0.8579238929228303))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "descriptor": {
+        "x": 0.8979844152927399,
+        "y": 0.39572986364364626,
+        "cell": [
+          7,
+          3
+        ]
+      },
+      "fitness": 2.180489360125476,
+      "archive_cell": [
+        7,
+        3
+      ],
+      "archive_score": 2.180489360125476
+    },
+    {
+      "id": "f000_007_d0ba1b0e",
+      "signature": "d0ba1b0e9257fc1a0327ce2bca375346839df900",
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.7676163635072728
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.7676163635072728))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "descriptor": {
+        "x": 0.8170050978660583,
+        "y": 0.580254635810852,
+        "cell": [
+          6,
+          4
+        ]
+      },
+      "fitness": 3.184092538388186,
+      "archive_cell": [
+        6,
+        4
+      ],
+      "archive_score": 3.184092538388186
+    },
+    {
+      "id": "f000_001_79b56b71",
+      "signature": "ac6916876e67f6e2ce4396b446d7b417399c7409",
+      "ir": {
+        "name": "loss_logsigmoid_001_swap_safe_004_add_objective_signal_repair_003",
+        "intuition": "The failure was purely a static schema issue: implementation_hint.expects did not list any required objective-signal keys. I fixed this by adding `delta_regret` (and other allowed signals) to expects while keeping the core swap-consistent, numerically-stable pairwise logistic loss on (log_prob_w - log_prob_l). I also removed Python branching over which signal exists (to stay within vectorized-tensor constraints) by always consuming `delta_regret` as the objective weight; if it is absent upstream, the caller should provide it (or map another signal into it). The weight is ReLUed, clamped, and detached so it cannot be gamed by the model, and the preference margin is clamped to avoid softplus overflow.",
+        "pseudocode": "d = log_prob_w - log_prob_l; x = clamp(scale*d, -clamp, clamp); base = softplus(-x); w = clamp(relu(delta_regret), 0, weight_max).detach(); loss = mean(base * (w + weight_min))",
+        "hyperparams": {
+          "scale": 1.0,
+          "clamp": 20.0,
+          "weight_max": 10.0,
+          "weight_min": 1.0
+        },
+        "operators_used": [
+          "softplus",
+          "clamp",
+          "relu",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_regret"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    # Stable, swap-consistent pairwise logistic preference loss with objective-signal weighting.\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    scale = hp.get('scale', 1.0)\n    clamp_v = hp.get('clamp', 20.0)\n    w_max = hp.get('weight_max', 10.0)\n    w_min = hp.get('weight_min', 1.0)\n\n    d = batch['log_prob_w'] - batch['log_prob_l']\n    x = ops.clamp(d * scale, -clamp_v, clamp_v)\n    base = ops.softplus(-x)\n\n    # Objective signal is required by the schema; use it as a non-negative, detached weight.\n    w = ops.relu(batch['delta_regret'])\n    w = ops.clamp(w, 0.0, w_max)\n    w = w.detach() if hasattr(w, 'detach') else w\n\n    loss = base * (w + w_min)\n    return loss.mean()",
+        "theoretical_basis": "The base loss softplus(-(log p_w - log p_l)) is the standard Bradley-Terry / pairwise logistic objective; it is monotone in the winner-loser log-probability gap and swap-consistent. Multiplying by a non-negative external objective signal (delta_regret) preserves the preference direction while upweighting higher-impact comparisons. Clamping the margin and the weight improves numerical stability; detaching the weight prevents gradients from incentivizing manipulation of the objective signal."
+      },
+      "descriptor": {
+        "x": 0.0,
+        "y": 1.0,
+        "cell": [
+          0,
+          7
+        ]
+      },
+      "fitness": Infinity,
+      "archive_cell": [
+        0,
+        7
+      ],
+      "archive_score": Infinity
+    }
+  ],
+  "hof_g": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "g000_000_17e664a2",
+      "signature": "70aca848b5a6c2ddf847dcc0dbddebc1cb409ec6",
+      "origin": "REPAIR_GATE",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_g_002"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "llm_seed": 1418186270,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+          "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f"
+        },
+        {
+          "attempt": 0,
+          "op": "M3",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+          "prompt_sha1": "6ffeeea58c5a1b9dc0c413a653dcadb348e364ac"
+        },
+        {
+          "attempt": 0,
+          "op": "REPAIR",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+          "prompt_sha1": "7fc93d28be81dab09060ce495bd957d4a5d7160b"
+        },
+        {
+          "attempt": 1,
+          "op": "REPAIR",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+          "prompt_sha1": "25a83918971ce37626566ac36392dd333fd260d9"
+        }
+      ],
+      "ir": {
+        "name": "builder_all_pairs_oriented_003",
+        "intuition": "Build a dense, tie-free tournament within each instance where the winner is always the lower objective (lower_is_better). This guarantees semantic correctness under swap checks while keeping coverage at 1.0 by including all unequal pairs in a single consistent direction.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    B, N = objective.shape\n\n    # All unordered pairs (i < j) within each instance, then orient by objective.\n    idx = torch.arange(N, device=objective.device, dtype=torch.int64)\n    gi, gj = torch.meshgrid(idx, idx, indexing='ij')  # [N, N]\n    upper = gi < gj\n    gi = gi[upper]\n    gj = gj[upper]\n\n    num_pairs = gi.numel()\n    b = torch.arange(B, device=objective.device, dtype=torch.int64)[:, None].expand(B, num_pairs).reshape(-1)\n    i = gi[None, :].expand(B, num_pairs).reshape(-1)\n    j = gj[None, :].expand(B, num_pairs).reshape(-1)\n\n    obj_i = objective[b, i]\n    obj_j = objective[b, j]\n\n    # Drop ties to avoid ambiguous labels.\n    keep = obj_i != obj_j\n    b = b[keep]\n    i = i[keep]\n    j = j[keep]\n    obj_i = obj_i[keep]\n    obj_j = obj_j[keep]\n\n    # Winner is always the lower objective; loser is the higher objective.\n    w = torch.where(obj_i < obj_j, i, j).to(torch.int64)\n    l = torch.where(obj_i < obj_j, j, i).to(torch.int64)\n\n    meta = {\n        'builder': 'all_pairs_oriented_by_objective',\n        'drops_ties': True,\n        'unique_pairs': True\n    }\n    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta=meta)"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 128,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 17,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": 1.6412798890375107,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "g000_001_9cfda342",
+      "signature": "9cfda342663b7ba51508accc6d56fa6a826a7d96",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "35699a3dc418dfe9430d2eb01732eafe069eed42",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+      "llm_seed": 2027837527,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+          "prompt_sha1": "35699a3dc418dfe9430d2eb01732eafe069eed42"
+        }
+      ],
+      "ir": {
+        "name": "builder_anchor_gap_topk",
+        "intuition": "Create stable, high-signal preferences by anchoring each instance on its best (lowest objective) and worst (highest objective) candidates, then add a small set of the largest objective-gap pairs above a threshold to increase coverage without exploding pair count.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, K], lower is better\n    B, K = objective.shape\n    device = objective.device\n\n    # Always include best-vs-worst anchor per instance (guarantees coverage when K>=2).\n    best_idx = objective.argmin(dim=1)  # [B]\n    worst_idx = objective.argmax(dim=1)  # [B]\n    b_anchor = torch.arange(B, device=device)\n\n    # Candidate additional pairs: largest positive objective gaps (winner lower than loser).\n    # diff[b, w, l] = obj[l] - obj[w]\n    diff = objective[:, None, :] - objective[:, :, None]  # [B, K, K]\n    thr = float(extra.get('gap_threshold', 0.0))\n    valid = diff > thr\n\n    # Disallow self-pairs.\n    eye = torch.eye(K, device=device, dtype=torch.bool)[None, :, :]\n    valid = valid & (~eye)\n\n    # Select up to topk_per_instance additional pairs per instance by largest diff.\n    topk_per_instance = int(extra.get('topk_per_instance', 1))\n    topk_per_instance = max(0, min(topk_per_instance, K * K - K))\n\n    if topk_per_instance > 0:\n        scores = torch.where(valid, diff, torch.full_like(diff, -1e9))\n        flat = scores.reshape(B, K * K)\n        topv, topi = flat.topk(k=topk_per_instance, dim=1, largest=True, sorted=False)\n        take = topv > -1e8\n        b_rep = torch.arange(B, device=device)[:, None].expand(B, topk_per_instance)\n        w_idx = (topi // K)\n        l_idx = (topi % K)\n\n        b_extra = b_rep[take]\n        w_extra = w_idx[take]\n        l_extra = l_idx[take]\n    else:\n        b_extra = torch.empty((0,), device=device, dtype=torch.long)\n        w_extra = torch.empty((0,), device=device, dtype=torch.long)\n        l_extra = torch.empty((0,), device=device, dtype=torch.long)\n\n    # Combine anchors + extra; winner is lower objective.\n    b_idx = torch.cat([b_anchor, b_extra], dim=0)\n    winner_idx = torch.cat([best_idx, w_extra], dim=0)\n    loser_idx = torch.cat([worst_idx, l_extra], dim=0)\n\n    # Global cap to respect pairing budget; deterministic truncation.\n    max_pairs = int(extra.get('max_pairs', 128))\n    max_pairs = max(1, max_pairs)\n    if b_idx.numel() > max_pairs:\n        b_idx = b_idx[:max_pairs]\n        winner_idx = winner_idx[:max_pairs]\n        loser_idx = loser_idx[:max_pairs]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'anchor_gap_topk', 'gap_threshold': thr, 'topk_per_instance': int(extra.get('topk_per_instance', 1)), 'max_pairs': max_pairs})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 16,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 2,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "g000_002_36fba5ea",
+      "signature": "36fba5ea1d3c15adf538beab63dd43a35e73be9c",
+      "origin": "REPAIR",
+      "origin_base": "M1",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_g_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "79fb1a698b33e2611fa38764652227b190a0418a",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "llm_seed": 1519522183,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+          "prompt_sha1": "1e4756a621f720df5a85aaaf7286887f5f903dcf"
+        },
+        {
+          "attempt": 0,
+          "op": "M3",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+          "prompt_sha1": "2d3e625fc400c8d6723bcd8d637136afd2d9959a"
+        },
+        {
+          "attempt": 0,
+          "op": "REPAIR",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+          "prompt_sha1": "79fb1a698b33e2611fa38764652227b190a0418a"
+        }
+      ],
+      "ir": {
+        "name": "builder_fullcover_bestvsworst_001",
+        "intuition": "Guarantee 100% per-instance coverage by always emitting at least one pair: the best (lowest objective) completion as winner against the worst (highest objective) as loser; optionally add more top-gap pairs across the batch weighted by objective gap so clearer wins contribute more without ever dropping an instance.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, K]\n    B, K = objective.shape\n\n    # Always provide at least one pair per instance: best vs worst.\n    winner0 = objective.argmin(dim=1)  # [B]\n    loser0 = objective.argmax(dim=1)   # [B]\n    b0 = objective.new_empty((B,), dtype=torch.long)\n    b0.copy_(torch.arange(B, device=objective.device, dtype=torch.long))\n\n    # Gap for base pairs (positive => winner better than loser).\n    gap0 = (objective[b0, loser0] - objective[b0, winner0]).clamp_min(0)\n\n    # Build all strict win pairs for optional extra coverage/budget fill.\n    o_w = objective[:, :, None]  # [B, K, 1]\n    o_l = objective[:, None, :]  # [B, 1, K]\n    gap = o_l - o_w              # [B, K, K]\n\n    base_mask = gap > 0\n    gap_threshold = float(extra.get('gap_threshold', 0.0))\n    if gap_threshold > 0.0:\n        thr_mask = gap > gap_threshold\n        use_mask = thr_mask if thr_mask.any() else base_mask\n    else:\n        use_mask = base_mask\n\n    b_idx, w_idx, l_idx = use_mask.nonzero(as_tuple=True)\n    sel_gap = gap[b_idx, w_idx, l_idx] if b_idx.numel() > 0 else objective.new_empty((0,))\n\n    # Optionally cap extra pairs globally while keeping the mandatory B base pairs.\n    # Treat max_pairs as a global cap; never reduce below B.\n    max_pairs = int(extra.get('max_pairs', 0))\n    if max_pairs and max_pairs > B and b_idx.numel() > 0:\n        extra_budget = max_pairs - B\n        if b_idx.numel() > extra_budget:\n            _, topk_idx = sel_gap.topk(k=extra_budget, largest=True, sorted=False)\n            b_idx = b_idx[topk_idx]\n            w_idx = w_idx[topk_idx]\n            l_idx = l_idx[topk_idx]\n            sel_gap = sel_gap[topk_idx]\n\n    # Concatenate base pairs with optional extra pairs.\n    b_all = torch.cat([b0, b_idx.to(dtype=torch.long)], dim=0)\n    w_all = torch.cat([winner0.to(dtype=torch.long), w_idx.to(dtype=torch.long)], dim=0)\n    l_all = torch.cat([loser0.to(dtype=torch.long), l_idx.to(dtype=torch.long)], dim=0)\n    gap_all = torch.cat([gap0, sel_gap.to(dtype=objective.dtype)], dim=0)\n\n    # Nonnegative weights proportional to (clipped) gap.\n    max_gap = float(extra.get('max_gap', 10.0))\n    if max_gap > 0.0:\n        gap_all = gap_all.clamp_max(max_gap)\n    w_min = float(extra.get('weight_min', 0.1))\n    w_scale = float(extra.get('weight_scale', 1.0))\n    weight = (w_min + w_scale * gap_all).clamp_min(0.0)\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_all, w_all, l_all),\n        weight=weight,\n        meta={\n            'builder': 'fullcover_bestvsworst',\n            'gap_threshold': gap_threshold,\n            'max_pairs': max_pairs,\n        },\n    )"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 968,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 121,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "g000_003_80376541",
+      "signature": "80376541dc7f73b22195cb78b6d4adc53222f3ee",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "bootstrap_g_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "823e2ac422c1f045f2e6934b8d991983b840f2f2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+      "llm_seed": 878225224,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+          "prompt_sha1": "823e2ac422c1f045f2e6934b8d991983b840f2f2"
+        }
+      ],
+      "ir": {
+        "name": "builder_all_pairs_gap_weight_001",
+        "intuition": "Prefer pairs with a larger objective gap (clearer winner/loser separation) while keeping all valid pairs; this downweights near-ties that add label noise and can improve generalization.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # objective is [B, K], lower is better\n    obj_w = objective[:, :, None]\n    obj_l = objective[:, None, :]\n    mask = obj_w < obj_l\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n\n    # Nonnegative weight proportional to normalized gap; emphasize clearer preferences.\n    gap = (obj_l - obj_w)[b_idx, winner_idx, loser_idx]\n    eps = 1e-8\n    scale = objective.abs().mean(dim=1, keepdim=True) + eps  # [B, 1]\n    w = (gap / scale[b_idx, 0]).clamp_min(0.0)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=w, meta={'builder': 'all_pairs_gap_weight', 'weight': 'gap_norm'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 4,
+      "id": "g000_004_bbe11c5b",
+      "signature": "bbe11c5b9ddad76115c7a6afbe1d1d53cc0f43be",
+      "origin": "E2",
+      "origin_base": "E2",
+      "op_type": "E2",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "512d28c5f50a8f429b3794127ce773596ee7fdbd",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+      "llm_seed": 2048741382,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+          "prompt_sha1": "512d28c5f50a8f429b3794127ce773596ee7fdbd"
+        }
+      ],
+      "ir": {
+        "name": "rank_stratified_cap",
+        "intuition": "Build preferences by ranking candidates per instance (lower objective is better), then pairing across rank strata (best-vs-worst, best-vs-mid, mid-vs-worst) with a per-instance cap so every instance is covered without enumerating all O(n^2) objective comparisons.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Rank-based, stratified pairing with per-instance cap.\n    # objective: [B, K] where lower is better.\n    B, K = objective.shape\n    device = objective.device\n\n    per_instance_cap = int(extra.get('per_instance_cap', 2))\n    per_instance_cap = 1 if per_instance_cap < 1 else per_instance_cap\n\n    # Sort candidates per instance by objective (ascending).\n    order = objective.argsort(dim=1)\n\n    # Build a small fixed set of candidate rank-pairs (winner_rank, loser_rank).\n    # Use up to 6 stratified pairs, then slice to per_instance_cap.\n    # Always includes a strong contrast pair if K>=2.\n    top = torch.tensor([0], device=device, dtype=torch.long)\n    mid = torch.tensor([K // 2], device=device, dtype=torch.long)\n    q1 = torch.tensor([K // 4], device=device, dtype=torch.long)\n    q3 = torch.tensor([(3 * K) // 4], device=device, dtype=torch.long)\n    bot = torch.tensor([K - 1], device=device, dtype=torch.long)\n\n    # Candidate pairs in rank space; later deduped via masking.\n    w_ranks = torch.cat([top, top, mid, q1, top, mid], dim=0)\n    l_ranks = torch.cat([bot, mid, bot, q3, q3, q1], dim=0)\n\n    # Cap number of rank-pairs considered per instance (vectorized slicing).\n    P = w_ranks.shape[0]\n    capP = per_instance_cap if per_instance_cap < P else P\n    w_ranks = w_ranks[:capP]\n    l_ranks = l_ranks[:capP]\n\n    # Expand to [B, capP] and map ranks -> candidate indices.\n    w_pos = w_ranks.unsqueeze(0).expand(B, capP)\n    l_pos = l_ranks.unsqueeze(0).expand(B, capP)\n    winners = order.gather(1, w_pos)\n    losers = order.gather(1, l_pos)\n\n    # Valid pairs: distinct indices only.\n    valid = winners.ne(losers)\n\n    # Ensure direction is consistent with objective even under ties.\n    w_obj = objective.gather(1, winners)\n    l_obj = objective.gather(1, losers)\n    better = w_obj.lt(l_obj)\n    flip = valid & (~better) & l_obj.lt(w_obj)\n    winners2 = torch.where(flip, losers, winners)\n    losers2 = torch.where(flip, winners, losers)\n    valid = valid & (better | flip)\n\n    # Flatten selected pairs.\n    b_idx = torch.arange(B, device=device, dtype=torch.long).unsqueeze(1).expand(B, capP)\n    b_idx = b_idx[valid]\n    winner_idx = winners2[valid]\n    loser_idx = losers2[valid]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'rank_stratified_cap', 'per_instance_cap': per_instance_cap})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 16,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 2,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "g000_005_67f3f325",
+      "signature": "67f3f3259bdacc4c2a17de02c9699ae2576816da",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "65287bd2dc5048b3f170f32660d70ed61c9abf17",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+      "llm_seed": 1901353491,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+          "prompt_sha1": "65287bd2dc5048b3f170f32660d70ed61c9abf17"
+        }
+      ],
+      "ir": {
+        "name": "builder_anchor_gap_topk_001",
+        "intuition": "Prefer clear improvements by pairing the best (lowest objective) completion in each instance against worse ones that exceed a configurable objective gap, then cap to a fixed budget via deterministic top-k by gap size for stability.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    B, N = objective.shape\n    gap_thr = float(extra.get('gap_threshold', 0.0))\n    max_pairs = int(extra.get('max_pairs', 128))\n\n    # Anchor each instance on the best (lowest objective) item; pair vs all others with sufficient gap.\n    best_idx = objective.argmin(dim=1)  # (B,)\n    best_obj = objective.gather(1, best_idx[:, None]).squeeze(1)  # (B,)\n    gap = objective - best_obj[:, None]  # (B, N)\n\n    # Candidate losers: not the anchor itself and worse by at least gap_thr.\n    cand = (gap >= gap_thr) & (torch.arange(N, device=objective.device)[None, :] != best_idx[:, None])\n\n    # Score by gap (larger = clearer preference); mask invalid with -inf so topk skips them.\n    score = torch.where(cand, gap, torch.full_like(gap, float('-inf')))\n\n    k = min(N, max_pairs)\n    top_score, top_j = score.topk(k=k, dim=1, largest=True)\n    valid = top_score.isfinite()\n\n    b_idx = torch.arange(B, device=objective.device)[:, None].expand(B, k)[valid]\n    winner_idx = best_idx[:, None].expand(B, k)[valid]\n    loser_idx = top_j[valid]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'anchor_gap_topk', 'gap_threshold': gap_thr, 'max_pairs': max_pairs})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 120,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 15,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "g000_006_29d22e5a",
+      "signature": "29d22e5a93a2b2a3eddfaacce685c8923a5b83eb",
+      "origin": "E2",
+      "origin_base": "E2",
+      "op_type": "E2",
+      "parents": [
+        "bootstrap_g_000",
+        "bootstrap_g_001",
+        "bootstrap_g_002",
+        "bootstrap_g_003",
+        "bootstrap_g_004"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "d95b3bce192d52e1ea8d553090bc2db4a458e83a",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+      "llm_seed": 1118805955,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "E2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_e2.txt",
+          "prompt_sha1": "d95b3bce192d52e1ea8d553090bc2db4a458e83a"
+        }
+      ],
+      "ir": {
+        "name": "rank_strata_cap_v1",
+        "intuition": "Build preferences by rank-stratified pairing within each instance: compare near-best vs tail and mid vs tail using objective ranks (lower is better), then cap pairs per instance to ensure full coverage without exploding all-pairs.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, K], lower is better\n    B, K = objective.shape\n    device = objective.device\n\n    # Rank each candidate within instance (0 = best). Use stable sort to be deterministic.\n    order = objective.argsort(dim=1, stable=True)  # [B, K]\n\n    # Per-instance cap; keep coverage by generating at least one pair per instance when K>=2.\n    cap = int(extra.get('max_pairs_per_instance', 4))\n    cap = 1 if cap < 1 else cap\n\n    # Choose stratified indices: near-best, mid, tail.\n    a_n = min(2, K)  # near-best count\n    a_m = min(2, K)  # mid count\n    a_t = min(4, K)  # tail count\n\n    near = order[:, :a_n]  # [B, a_n]\n    mid_start = (K // 2) - (a_m // 2)\n    mid_start = 0 if mid_start < 0 else mid_start\n    mid_end = mid_start + a_m\n    if mid_end > K:\n        mid_end = K\n        mid_start = max(0, K - a_m)\n    mid = order[:, mid_start:mid_end]  # [B, <=a_m]\n    tail = order[:, K - a_t:]  # [B, a_t]\n\n    # Generate pair grids (vectorized): (near x tail) and (mid x tail)\n    # Winners are lower objective => earlier ranks.\n    w1 = near.unsqueeze(2).expand(B, near.shape[1], tail.shape[1])\n    l1 = tail.unsqueeze(1).expand(B, near.shape[1], tail.shape[1])\n    w2 = mid.unsqueeze(2).expand(B, mid.shape[1], tail.shape[1])\n    l2 = tail.unsqueeze(1).expand(B, mid.shape[1], tail.shape[1])\n\n    w = torch.cat([w1.reshape(B, -1), w2.reshape(B, -1)], dim=1)  # [B, P]\n    l = torch.cat([l1.reshape(B, -1), l2.reshape(B, -1)], dim=1)  # [B, P]\n\n    # Remove self-pairs (can happen when K is small and strata overlap).\n    valid = (w != l)\n\n    # Deterministic per-instance cap without loops: take first `cap` valid pairs per row.\n    P = w.shape[1]\n    if P == 0:\n        # No possible pairs; return empty (will likely fail gate if K<2).\n        empty = torch.empty((0,), dtype=torch.long, device=device)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None, meta={'builder': 'rank_strata_cap', 'cap': cap})\n\n    # Build a stable ordering that puts valid pairs first.\n    idx = torch.arange(P, device=device).unsqueeze(0).expand(B, P)\n    big = torch.full((B, P), P, device=device, dtype=idx.dtype)\n    order_idx = torch.where(valid, idx, big).argsort(dim=1, stable=True)  # valid first\n    take = min(cap, P)\n    sel = order_idx[:, :take]  # [B, take]\n\n    w_sel = w.gather(1, sel)\n    l_sel = l.gather(1, sel)\n    v_sel = (w_sel != l_sel)\n\n    # Flatten to PrefBatch indices.\n    b_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, take)\n    b_flat = b_idx.reshape(-1)[v_sel.reshape(-1)]\n    w_flat = w_sel.reshape(-1)[v_sel.reshape(-1)]\n    l_flat = l_sel.reshape(-1)[v_sel.reshape(-1)]\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_flat, w_flat, l_flat), weight=None, meta={'builder': 'rank_strata_cap', 'cap': cap, 'strata': {'near': int(a_n), 'mid': int(mid.shape[1]), 'tail': int(a_t)}})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 32,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 4,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "g000_007_714e7cce",
+      "signature": "714e7ccea98a1854251d3c8563b5ce2998548e01",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "bootstrap_g_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "349ed1e5617b046d13658648500dba8a0866fae6",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+      "llm_seed": 60308648,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+          "prompt_sha1": "349ed1e5617b046d13658648500dba8a0866fae6"
+        }
+      ],
+      "ir": {
+        "name": "builder_all_pairs_gapthr_w_001",
+        "intuition": "Filter out near-ties by requiring a minimum objective improvement and weight remaining pairs by the objective gap, emphasizing clearer preferences and reducing noisy training signal.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # lower objective is better\n    gap_threshold = extra.get('gap_threshold', 0.0)\n    # gap[b,i,j] = objective[j] - objective[i]; positive means i better than j\n    gap = objective[:, None, :] - objective[:, :, None]\n    mask = gap > gap_threshold\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight = gap[b_idx, winner_idx, loser_idx].clamp_min(0.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gapthr_w', 'gap_threshold': float(gap_threshold)})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ]
+      },
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "hof_f": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_c2e8ac5e",
+      "signature": "e0ab5e8fee17645d1424a404dc45eb8fc0e23769",
+      "origin": "REPAIR_GATE",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "ac24981d8557c7bad7937528e0dc609f440102fe",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 801997237,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "ac24981d8557c7bad7937528e0dc609f440102fe"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "679aea1d1a6c0f29abc00080aeb5be52aa87a95d"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "6261d61221102aa3db31cac693a2d8c4d75dceeb"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "142c869dcd1408685e9b325c8d9ab254a58060c5"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "2bc32e40112591e4e51e82199adcd86cbf585646"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "aa0a94005eee682c4ef25ec10cb365b0f40cbf75"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "fba771f28ab64678919dea72d355e055dcf2c9ca"
+        },
+        {
+          "attempt": 3,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "6750cd880c11d287aaa6621e6147f1e11e2bda2d"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_003_delta_z_gate_stable_symmetric_gap",
+        "intuition": "The static gate failure was because the candidate did not include an `implementation_hint.expects` field listing an objective signal. I fixed this by adding `implementation_hint.expects` that explicitly includes `delta_z` (and the other required batch keys) and keeping it consistent with the code path: the loss reads `log_prob_w`, `log_prob_l`, and `delta_z`, and optionally `weight`. No functional changes were needed beyond aligning the declared expectations with the actual inputs so the gate can verify the presence of an objective signal.",
+        "pseudocode": "expects: [log_prob_w, log_prob_l, delta_z, (optional) weight]\nd = log_prob_w - log_prob_l\ngap = abs(d)\ng = tanh(clamp(delta_z, -dz_clip, dz_clip))\nmargin = clamp(g * gap * scale, -m_clip, m_clip)\nper_example = -logsigmoid(margin)\nif weight present: per_example *= clamp(weight, 0, weight_clip)\nreturn mean(per_example)",
+        "hyperparams": {
+          "scale": 1.0,
+          "m_clip": 20.0,
+          "dz_clip": 10.0,
+          "weight_clip": 1000000000.0
+        },
+        "operators_used": [
+          "abs",
+          "clamp",
+          "tanh",
+          "logsigmoid",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    dz = batch['delta_z']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    scale = hp.get('scale', 1.0)\n    m_clip = hp.get('m_clip', 20.0)\n    dz_clip = hp.get('dz_clip', 10.0)\n    weight_clip = hp.get('weight_clip', 1e9)\n\n    d = lpw - lpl\n    gap = ops.abs(d)\n\n    dz_c = ops.clamp(dz, -dz_clip, dz_clip)\n    gate = ops.tanh(dz_c)\n\n    margin = gate * gap * scale\n    margin = ops.clamp(margin, -m_clip, m_clip)\n\n    per_ex = -ops.logsigmoid(margin)\n\n    if weight is not None:\n        w = ops.clamp(weight, 0.0, weight_clip)\n        per_ex = per_ex * w\n\n    return per_ex.mean()",
+        "theoretical_basis": "This is a gated logistic preference loss. The absolute gap |log_prob_w-log_prob_l| provides a swap-symmetric magnitude of separation, while a bounded gate tanh(clamp(delta_z)) injects the required objective signal and orients the margin. Clamping delta_z and the final margin improves numerical stability; -logsigmoid(margin) is smooth and finite. Optional nonnegative weight scales per-example contributions."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 0.4558792728499708,
+      "descriptor": {
+        "x": 0.913381826877594,
+        "y": 0.05388732850551605,
+        "cell": [
+          7,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 8,
+      "id": "f000_008_b7b2247b",
+      "signature": "ebfa0e8bf0afc43c13c26c0474057aa9b720c1f8",
+      "origin": "REPAIR_GATE",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "3918bc482ac771120617aaab5453b43ea70ac5f5"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "8e9da843b8b22a199f841c54ea2a58fd2d9ab659"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "02b22d89ba7876d275d796611931637f03725821"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_repaired_swapinv_m3_fixkeys_v2",
+        "intuition": "The failure was purely schema-related: `implementation_hint.expects` did not list the required pairwise keys `log_prob_w` and `log_prob_l`. I fixed this by explicitly including those keys in expects (and matching the code to use only those names). I kept the vectorized pairwise logistic loss, preserved swap-consistent behavior (logit uses `log_prob_w - log_prob_l` and cost modulation uses `abs(cost_a-cost_b)`), and retained clamping to avoid extreme logits and degenerate modulation weights.",
+        "pseudocode": "d = clamp(alpha*scale*(log_prob_w-log_prob_l), -logit_clamp, logit_clamp); if costs: mod = clamp(1/(1+cost_scale*abs(cost_a-cost_b)), min_weight, 1); d = mod*d; loss = -logsigmoid(d); if weight: loss*=weight; return mean(loss)",
+        "hyperparams": {
+          "scale": 0.5243135399910347,
+          "cost_scale": 0.1,
+          "logit_clamp": 20.0,
+          "min_weight": 0.05
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "abs"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    # Required pairwise keys\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n\n    # Optional sample weights\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 0.5243135399910347))\n    cost_scale = float(hp.get('cost_scale', 0.1))\n    logit_clamp = float(hp.get('logit_clamp', 20.0))\n    min_weight = float(hp.get('min_weight', 0.05))\n\n    # Base preference logit (anti-symmetric under swapping w/l).\n    d = alpha * scale * (lpw - lpl)\n    d = ops.clamp(d, -logit_clamp, logit_clamp)\n\n    # Swap-invariant modulation using absolute cost gap when costs are provided.\n    if ('cost_a' in batch) and ('cost_b' in batch):\n        gap = ops.abs(batch['cost_a'] - batch['cost_b'])\n        mod = 1.0 / (1.0 + cost_scale * gap)\n        mod = ops.clamp(mod, min_weight, 1.0)\n        d = mod * d\n\n    loss = -ops.logsigmoid(d)\n\n    if weight is not None:\n        loss = loss * weight\n\n    return loss.mean()",
+        "theoretical_basis": "Pairwise logistic (Bradley-Terry / DPO-style) loss on the winner-loser log-probability difference. Optional cost information enters only via a symmetric (swap-invariant) modulation based on |cost_a - cost_b|, preserving swap consistency while improving numerical stability through clamping."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 1.1413684177712735,
+      "descriptor": {
+        "x": 0.9909962177276611,
+        "y": 0.20650803565979006,
+        "cell": [
+          7,
+          1
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "f000_005_7c34c451",
+      "signature": "7c34c451afeb01900f062173e5fd3be454b50448",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 0.623559482294971
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 0.623559482294971))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 1.3607322383240994,
+      "descriptor": {
+        "x": 0.9715542793273926,
+        "y": 0.2464924120903015,
+        "cell": [
+          7,
+          1
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 10,
+      "id": "f000_010_8b29e417",
+      "signature": "8b29e417ae4e39b3f588382fe94d449fd4598408",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.0580902896216098
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0580902896216098))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 2.0315576422528565,
+      "descriptor": {
+        "x": 0.9113641798496246,
+        "y": 0.3686194729804993,
+        "cell": [
+          7,
+          2
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_400da7e5",
+      "signature": "400da7e5b0b606e18a3e8b020d685b0c1895e6b2",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_003"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "d730f5e2bb94e3a56d40ab9ce1e49769767bb8ed",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 1801409089,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "d730f5e2bb94e3a56d40ab9ce1e49769767bb8ed"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_004_scale_1p15",
+        "intuition": "This is a pairwise logistic (logsigmoid) loss on the margin (lpw-lpl). The only tuning lever here is `scale`, which controls the sharpness/temperature of the logistic; increasing it moderately strengthens gradients when the model ranks the winner and loser too closely, improving separation without changing the loss form. Keeping the existing clamp at [-20, 20] prevents numerical issues even with a larger scale.",
+        "pseudocode": "margin = clamp(alpha*scale*(lpw-lpl), -20, 20); loss = -logsigmoid(margin); if weight: loss *= weight; return mean(loss)",
+        "hyperparams": {
+          "scale": 1.15
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 0.8579238929228303))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 2.180489360125476,
+      "descriptor": {
+        "x": 0.8979844152927399,
+        "y": 0.39572986364364626,
+        "cell": [
+          7,
+          3
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "f000_006_c47f01e6",
+      "signature": "c47f01e6bc13ab877e833b8d6c18b8dd68cf9921",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.2296663029537502
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2296663029537502))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 2.3716862726525605,
+      "descriptor": {
+        "x": 0.8915386915206909,
+        "y": 0.43268010139465335,
+        "cell": [
+          7,
+          3
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "f000_007_d0ba1b0e",
+      "signature": "d0ba1b0e9257fc1a0327ce2bca375346839df900",
+      "origin": "SEED",
+      "origin_base": null,
+      "op_type": "SEED",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [],
+      "ir": {
+        "name": "loss_logsigmoid_000",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.7676163635072728
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.7676163635072728))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 3.184092538388186,
+      "descriptor": {
+        "x": 0.8170050978660583,
+        "y": 0.580254635810852,
+        "cell": [
+          6,
+          4
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "f000_001_79b56b71",
+      "signature": "ac6916876e67f6e2ce4396b446d7b417399c7409",
+      "origin": "REPAIR_GATE",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "41ef35c3d7f35f75b369dc8448ed27b12fe2a175",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 385792672,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "41ef35c3d7f35f75b369dc8448ed27b12fe2a175"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "845409a67411d0dbce27a08eb5db9bc264914fd6"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "609459d84e078361b7cede1eb32475f1fd3a6da1"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "66b56eb7d53f0e2deeef613be8619e22386a6c50"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "924139c1e5ef1b3d9ca5d575c461a479880a97f6"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "8f741be460847555211daa4a274885394a5c727e"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_001_swap_safe_004_add_objective_signal_repair_003",
+        "intuition": "The failure was purely a static schema issue: implementation_hint.expects did not list any required objective-signal keys. I fixed this by adding `delta_regret` (and other allowed signals) to expects while keeping the core swap-consistent, numerically-stable pairwise logistic loss on (log_prob_w - log_prob_l). I also removed Python branching over which signal exists (to stay within vectorized-tensor constraints) by always consuming `delta_regret` as the objective weight; if it is absent upstream, the caller should provide it (or map another signal into it). The weight is ReLUed, clamped, and detached so it cannot be gamed by the model, and the preference margin is clamped to avoid softplus overflow.",
+        "pseudocode": "d = log_prob_w - log_prob_l; x = clamp(scale*d, -clamp, clamp); base = softplus(-x); w = clamp(relu(delta_regret), 0, weight_max).detach(); loss = mean(base * (w + weight_min))",
+        "hyperparams": {
+          "scale": 1.0,
+          "clamp": 20.0,
+          "weight_max": 10.0,
+          "weight_min": 1.0
+        },
+        "operators_used": [
+          "softplus",
+          "clamp",
+          "relu",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_regret"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    # Stable, swap-consistent pairwise logistic preference loss with objective-signal weighting.\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    scale = hp.get('scale', 1.0)\n    clamp_v = hp.get('clamp', 20.0)\n    w_max = hp.get('weight_max', 10.0)\n    w_min = hp.get('weight_min', 1.0)\n\n    d = batch['log_prob_w'] - batch['log_prob_l']\n    x = ops.clamp(d * scale, -clamp_v, clamp_v)\n    base = ops.softplus(-x)\n\n    # Objective signal is required by the schema; use it as a non-negative, detached weight.\n    w = ops.relu(batch['delta_regret'])\n    w = ops.clamp(w, 0.0, w_max)\n    w = w.detach() if hasattr(w, 'detach') else w\n\n    loss = base * (w + w_min)\n    return loss.mean()",
+        "theoretical_basis": "The base loss softplus(-(log p_w - log p_l)) is the standard Bradley-Terry / pairwise logistic objective; it is monotone in the winner-loser log-probability gap and swap-consistent. Multiplying by a non-negative external objective signal (delta_regret) preserves the preference direction while upweighting higher-impact comparisons. Clamping the margin and the weight improves numerical stability; detaching the weight prevents gradients from incentivizing manipulation of the objective signal."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 1.0,
+        "cell": [
+          0,
+          7
+        ]
+      }
+    }
+  ],
+  "archive_g": {
+    "0,0": [
+      {
+        "id": "g000_000_17e664a2",
+        "signature": "70aca848b5a6c2ddf847dcc0dbddebc1cb409ec6",
+        "ir": {
+          "name": "builder_all_pairs_oriented_003",
+          "intuition": "Build a dense, tie-free tournament within each instance where the winner is always the lower objective (lower_is_better). This guarantees semantic correctness under swap checks while keeping coverage at 1.0 by including all unequal pairs in a single consistent direction.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    B, N = objective.shape\n\n    # All unordered pairs (i < j) within each instance, then orient by objective.\n    idx = torch.arange(N, device=objective.device, dtype=torch.int64)\n    gi, gj = torch.meshgrid(idx, idx, indexing='ij')  # [N, N]\n    upper = gi < gj\n    gi = gi[upper]\n    gj = gj[upper]\n\n    num_pairs = gi.numel()\n    b = torch.arange(B, device=objective.device, dtype=torch.int64)[:, None].expand(B, num_pairs).reshape(-1)\n    i = gi[None, :].expand(B, num_pairs).reshape(-1)\n    j = gj[None, :].expand(B, num_pairs).reshape(-1)\n\n    obj_i = objective[b, i]\n    obj_j = objective[b, j]\n\n    # Drop ties to avoid ambiguous labels.\n    keep = obj_i != obj_j\n    b = b[keep]\n    i = i[keep]\n    j = j[keep]\n    obj_i = obj_i[keep]\n    obj_j = obj_j[keep]\n\n    # Winner is always the lower objective; loser is the higher objective.\n    w = torch.where(obj_i < obj_j, i, j).to(torch.int64)\n    l = torch.where(obj_i < obj_j, j, i).to(torch.int64)\n\n    meta = {\n        'builder': 'all_pairs_oriented_by_objective',\n        'drops_ties': True,\n        'unique_pairs': True\n    }\n    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta=meta)"
+        },
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "fitness": 1.6412798890375107,
+        "archive_cell": [
+          0,
+          0
+        ],
+        "archive_score": 1.6412798890375107
+      }
+    ]
+  },
+  "archive_f": {
+    "7,0": [
+      {
+        "id": "f000_000_c2e8ac5e",
+        "signature": "e0ab5e8fee17645d1424a404dc45eb8fc0e23769",
+        "ir": {
+          "name": "loss_logsigmoid_003_delta_z_gate_stable_symmetric_gap",
+          "intuition": "The static gate failure was because the candidate did not include an `implementation_hint.expects` field listing an objective signal. I fixed this by adding `implementation_hint.expects` that explicitly includes `delta_z` (and the other required batch keys) and keeping it consistent with the code path: the loss reads `log_prob_w`, `log_prob_l`, and `delta_z`, and optionally `weight`. No functional changes were needed beyond aligning the declared expectations with the actual inputs so the gate can verify the presence of an objective signal.",
+          "pseudocode": "expects: [log_prob_w, log_prob_l, delta_z, (optional) weight]\nd = log_prob_w - log_prob_l\ngap = abs(d)\ng = tanh(clamp(delta_z, -dz_clip, dz_clip))\nmargin = clamp(g * gap * scale, -m_clip, m_clip)\nper_example = -logsigmoid(margin)\nif weight present: per_example *= clamp(weight, 0, weight_clip)\nreturn mean(per_example)",
+          "hyperparams": {
+            "scale": 1.0,
+            "m_clip": 20.0,
+            "dz_clip": 10.0,
+            "weight_clip": 1000000000.0
+          },
+          "operators_used": [
+            "abs",
+            "clamp",
+            "tanh",
+            "logsigmoid",
+            "mean"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_z",
+              "weight"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    dz = batch['delta_z']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    scale = hp.get('scale', 1.0)\n    m_clip = hp.get('m_clip', 20.0)\n    dz_clip = hp.get('dz_clip', 10.0)\n    weight_clip = hp.get('weight_clip', 1e9)\n\n    d = lpw - lpl\n    gap = ops.abs(d)\n\n    dz_c = ops.clamp(dz, -dz_clip, dz_clip)\n    gate = ops.tanh(dz_c)\n\n    margin = gate * gap * scale\n    margin = ops.clamp(margin, -m_clip, m_clip)\n\n    per_ex = -ops.logsigmoid(margin)\n\n    if weight is not None:\n        w = ops.clamp(weight, 0.0, weight_clip)\n        per_ex = per_ex * w\n\n    return per_ex.mean()",
+          "theoretical_basis": "This is a gated logistic preference loss. The absolute gap |log_prob_w-log_prob_l| provides a swap-symmetric magnitude of separation, while a bounded gate tanh(clamp(delta_z)) injects the required objective signal and orients the margin. Clamping delta_z and the final margin improves numerical stability; -logsigmoid(margin) is smooth and finite. Optional nonnegative weight scales per-example contributions."
+        },
+        "descriptor": {
+          "x": 0.913381826877594,
+          "y": 0.05388732850551605,
+          "cell": [
+            7,
+            0
+          ]
+        },
+        "fitness": 0.4558792728499708,
+        "archive_cell": [
+          7,
+          0
+        ],
+        "archive_score": 0.4558792728499708
+      }
+    ],
+    "7,1": [
+      {
+        "id": "f000_008_b7b2247b",
+        "signature": "ebfa0e8bf0afc43c13c26c0474057aa9b720c1f8",
+        "ir": {
+          "name": "loss_logsigmoid_000_cost_repaired_swapinv_m3_fixkeys_v2",
+          "intuition": "The failure was purely schema-related: `implementation_hint.expects` did not list the required pairwise keys `log_prob_w` and `log_prob_l`. I fixed this by explicitly including those keys in expects (and matching the code to use only those names). I kept the vectorized pairwise logistic loss, preserved swap-consistent behavior (logit uses `log_prob_w - log_prob_l` and cost modulation uses `abs(cost_a-cost_b)`), and retained clamping to avoid extreme logits and degenerate modulation weights.",
+          "pseudocode": "d = clamp(alpha*scale*(log_prob_w-log_prob_l), -logit_clamp, logit_clamp); if costs: mod = clamp(1/(1+cost_scale*abs(cost_a-cost_b)), min_weight, 1); d = mod*d; loss = -logsigmoid(d); if weight: loss*=weight; return mean(loss)",
+          "hyperparams": {
+            "scale": 0.5243135399910347,
+            "cost_scale": 0.1,
+            "logit_clamp": 20.0,
+            "min_weight": 0.05
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp",
+            "abs"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "cost_a",
+              "cost_b",
+              "weight"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    # Required pairwise keys\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n\n    # Optional sample weights\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 0.5243135399910347))\n    cost_scale = float(hp.get('cost_scale', 0.1))\n    logit_clamp = float(hp.get('logit_clamp', 20.0))\n    min_weight = float(hp.get('min_weight', 0.05))\n\n    # Base preference logit (anti-symmetric under swapping w/l).\n    d = alpha * scale * (lpw - lpl)\n    d = ops.clamp(d, -logit_clamp, logit_clamp)\n\n    # Swap-invariant modulation using absolute cost gap when costs are provided.\n    if ('cost_a' in batch) and ('cost_b' in batch):\n        gap = ops.abs(batch['cost_a'] - batch['cost_b'])\n        mod = 1.0 / (1.0 + cost_scale * gap)\n        mod = ops.clamp(mod, min_weight, 1.0)\n        d = mod * d\n\n    loss = -ops.logsigmoid(d)\n\n    if weight is not None:\n        loss = loss * weight\n\n    return loss.mean()",
+          "theoretical_basis": "Pairwise logistic (Bradley-Terry / DPO-style) loss on the winner-loser log-probability difference. Optional cost information enters only via a symmetric (swap-invariant) modulation based on |cost_a - cost_b|, preserving swap consistency while improving numerical stability through clamping."
+        },
+        "descriptor": {
+          "x": 0.9909962177276611,
+          "y": 0.20650803565979006,
+          "cell": [
+            7,
+            1
+          ]
+        },
+        "fitness": 1.1413684177712735,
+        "archive_cell": [
+          7,
+          1
+        ],
+        "archive_score": 1.1413684177712735
+      }
+    ],
+    "7,2": [
+      {
+        "id": "f000_010_8b29e417",
+        "signature": "8b29e417ae4e39b3f588382fe94d449fd4598408",
+        "ir": {
+          "name": "loss_logsigmoid_000",
+          "intuition": "rule_based: pairwise logsigmoid loss",
+          "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+          "hyperparams": {
+            "scale": 1.0580902896216098
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_z",
+              "weight"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0580902896216098))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+          "theoretical_basis": ""
+        },
+        "descriptor": {
+          "x": 0.9113641798496246,
+          "y": 0.3686194729804993,
+          "cell": [
+            7,
+            2
+          ]
+        },
+        "fitness": 2.0315576422528565,
+        "archive_cell": [
+          7,
+          2
+        ],
+        "archive_score": 2.0315576422528565
+      }
+    ],
+    "7,3": [
+      {
+        "id": "f000_003_400da7e5",
+        "signature": "400da7e5b0b606e18a3e8b020d685b0c1895e6b2",
+        "ir": {
+          "name": "loss_logsigmoid_004_scale_1p15",
+          "intuition": "This is a pairwise logistic (logsigmoid) loss on the margin (lpw-lpl). The only tuning lever here is `scale`, which controls the sharpness/temperature of the logistic; increasing it moderately strengthens gradients when the model ranks the winner and loser too closely, improving separation without changing the loss form. Keeping the existing clamp at [-20, 20] prevents numerical issues even with a larger scale.",
+          "pseudocode": "margin = clamp(alpha*scale*(lpw-lpl), -20, 20); loss = -logsigmoid(margin); if weight: loss *= weight; return mean(loss)",
+          "hyperparams": {
+            "scale": 1.15
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_z",
+              "weight"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 0.8579238929228303))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+          "theoretical_basis": ""
+        },
+        "descriptor": {
+          "x": 0.8979844152927399,
+          "y": 0.39572986364364626,
+          "cell": [
+            7,
+            3
+          ]
+        },
+        "fitness": 2.180489360125476,
+        "archive_cell": [
+          7,
+          3
+        ],
+        "archive_score": 2.180489360125476
+      }
+    ],
+    "6,4": [
+      {
+        "id": "f000_007_d0ba1b0e",
+        "signature": "d0ba1b0e9257fc1a0327ce2bca375346839df900",
+        "ir": {
+          "name": "loss_logsigmoid_000",
+          "intuition": "rule_based: pairwise logsigmoid loss",
+          "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+          "hyperparams": {
+            "scale": 1.7676163635072728
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_z",
+              "weight"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.7676163635072728))\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+          "theoretical_basis": ""
+        },
+        "descriptor": {
+          "x": 0.8170050978660583,
+          "y": 0.580254635810852,
+          "cell": [
+            6,
+            4
+          ]
+        },
+        "fitness": 3.184092538388186,
+        "archive_cell": [
+          6,
+          4
+        ],
+        "archive_score": 3.184092538388186
+      }
+    ],
+    "0,7": [
+      {
+        "id": "f000_001_79b56b71",
+        "signature": "ac6916876e67f6e2ce4396b446d7b417399c7409",
+        "ir": {
+          "name": "loss_logsigmoid_001_swap_safe_004_add_objective_signal_repair_003",
+          "intuition": "The failure was purely a static schema issue: implementation_hint.expects did not list any required objective-signal keys. I fixed this by adding `delta_regret` (and other allowed signals) to expects while keeping the core swap-consistent, numerically-stable pairwise logistic loss on (log_prob_w - log_prob_l). I also removed Python branching over which signal exists (to stay within vectorized-tensor constraints) by always consuming `delta_regret` as the objective weight; if it is absent upstream, the caller should provide it (or map another signal into it). The weight is ReLUed, clamped, and detached so it cannot be gamed by the model, and the preference margin is clamped to avoid softplus overflow.",
+          "pseudocode": "d = log_prob_w - log_prob_l; x = clamp(scale*d, -clamp, clamp); base = softplus(-x); w = clamp(relu(delta_regret), 0, weight_max).detach(); loss = mean(base * (w + weight_min))",
+          "hyperparams": {
+            "scale": 1.0,
+            "clamp": 20.0,
+            "weight_max": 10.0,
+            "weight_min": 1.0
+          },
+          "operators_used": [
+            "softplus",
+            "clamp",
+            "relu",
+            "mean"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_regret"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    # Stable, swap-consistent pairwise logistic preference loss with objective-signal weighting.\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    scale = hp.get('scale', 1.0)\n    clamp_v = hp.get('clamp', 20.0)\n    w_max = hp.get('weight_max', 10.0)\n    w_min = hp.get('weight_min', 1.0)\n\n    d = batch['log_prob_w'] - batch['log_prob_l']\n    x = ops.clamp(d * scale, -clamp_v, clamp_v)\n    base = ops.softplus(-x)\n\n    # Objective signal is required by the schema; use it as a non-negative, detached weight.\n    w = ops.relu(batch['delta_regret'])\n    w = ops.clamp(w, 0.0, w_max)\n    w = w.detach() if hasattr(w, 'detach') else w\n\n    loss = base * (w + w_min)\n    return loss.mean()",
+          "theoretical_basis": "The base loss softplus(-(log p_w - log p_l)) is the standard Bradley-Terry / pairwise logistic objective; it is monotone in the winner-loser log-probability gap and swap-consistent. Multiplying by a non-negative external objective signal (delta_regret) preserves the preference direction while upweighting higher-impact comparisons. Clamping the margin and the weight improves numerical stability; detaching the weight prevents gradients from incentivizing manipulation of the objective signal."
+        },
+        "descriptor": {
+          "x": 0.0,
+          "y": 1.0,
+          "cell": [
+            0,
+            7
+          ]
+        },
+        "fitness": Infinity,
+        "archive_cell": [
+          0,
+          7
+        ],
+        "archive_score": Infinity
+      }
+    ]
+  },
+  "schema_version": 1,
+  "saved_at": "2026-02-26 12:38:40"
+}

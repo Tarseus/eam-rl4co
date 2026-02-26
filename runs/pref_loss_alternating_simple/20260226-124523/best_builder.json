@@ -1,0 +1,80 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "g000_000_0763ff14",
+  "signature": "0763ff1445add33966b5faa027aa6e0717f52c26",
+  "origin": "M2",
+  "origin_base": "M2",
+  "op_type": "M2",
+  "parents": [
+    "bootstrap_g_002"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+  "llm_seed": 1418186270,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f"
+    }
+  ],
+  "ir": {
+    "name": "builder_pairs_margin_topk_003",
+    "intuition": "Construct pairwise preferences by comparing objective values and keeping only sufficiently separated (margin) winner/loser pairs, then cap globally with a deterministic top-k on the objective gap so training focuses on clearer wins within a fixed budget.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Configurable thresholds/budgets\n    gap_thr = float(extra.get('gap_threshold', 0.0))\n    max_pairs = int(extra.get('max_pairs', 128))\n    # Build all (winner, loser) where objective_winner + gap_thr < objective_loser\n    ow = objective[:, :, None]\n    ol = objective[:, None, :]\n    gap = (ol - ow)\n    mask = gap > gap_thr\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    n = b_idx.numel()\n    if n > max_pairs:\n        # Deterministic selection: keep pairs with largest objective gaps\n        pair_gap = gap[b_idx, winner_idx, loser_idx]\n        topk_idx = pair_gap.topk(k=max_pairs, largest=True, sorted=False).indices\n        b_idx = b_idx[topk_idx]\n        winner_idx = winner_idx[topk_idx]\n        loser_idx = loser_idx[topk_idx]\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairs_margin_topk', 'max_pairs': max_pairs, 'gap_threshold': gap_thr})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 128,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 17,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 5.204851613184678,
+  "descriptor": {
+    "x": 0.078125,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

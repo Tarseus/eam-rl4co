@@ -1,0 +1,101 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "g000_000_17e664a2",
+  "signature": "70aca848b5a6c2ddf847dcc0dbddebc1cb409ec6",
+  "origin": "REPAIR_GATE",
+  "origin_base": "M2",
+  "op_type": "M2",
+  "parents": [
+    "bootstrap_g_002"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+  "llm_seed": 1418186270,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "prompt_sha1": "035c6334de600ce165bb7aba9e30479e9d4ac67f"
+    },
+    {
+      "attempt": 0,
+      "op": "M3",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+      "prompt_sha1": "6ffeeea58c5a1b9dc0c413a653dcadb348e364ac"
+    },
+    {
+      "attempt": 0,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "7fc93d28be81dab09060ce495bd957d4a5d7160b"
+    },
+    {
+      "attempt": 1,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "25a83918971ce37626566ac36392dd333fd260d9"
+    }
+  ],
+  "ir": {
+    "name": "builder_all_pairs_oriented_003",
+    "intuition": "Build a dense, tie-free tournament within each instance where the winner is always the lower objective (lower_is_better). This guarantees semantic correctness under swap checks while keeping coverage at 1.0 by including all unequal pairs in a single consistent direction.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    B, N = objective.shape\n\n    # All unordered pairs (i < j) within each instance, then orient by objective.\n    idx = torch.arange(N, device=objective.device, dtype=torch.int64)\n    gi, gj = torch.meshgrid(idx, idx, indexing='ij')  # [N, N]\n    upper = gi < gj\n    gi = gi[upper]\n    gj = gj[upper]\n\n    num_pairs = gi.numel()\n    b = torch.arange(B, device=objective.device, dtype=torch.int64)[:, None].expand(B, num_pairs).reshape(-1)\n    i = gi[None, :].expand(B, num_pairs).reshape(-1)\n    j = gj[None, :].expand(B, num_pairs).reshape(-1)\n\n    obj_i = objective[b, i]\n    obj_j = objective[b, j]\n\n    # Drop ties to avoid ambiguous labels.\n    keep = obj_i != obj_j\n    b = b[keep]\n    i = i[keep]\n    j = j[keep]\n    obj_i = obj_i[keep]\n    obj_j = obj_j[keep]\n\n    # Winner is always the lower objective; loser is the higher objective.\n    w = torch.where(obj_i < obj_j, i, j).to(torch.int64)\n    l = torch.where(obj_i < obj_j, j, i).to(torch.int64)\n\n    meta = {\n        'builder': 'all_pairs_oriented_by_objective',\n        'drops_ties': True,\n        'unique_pairs': True\n    }\n    return PrefBatch(mode='pairwise', pair_idx=(b, w, l), weight=None, meta=meta)"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 128,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 17,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 1.6412798890375107,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
