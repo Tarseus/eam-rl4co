@@ -121,7 +121,10 @@ def compile_preference_builder(
     if not code_str:
         raise PreferenceBuilderCompileError("PreferenceBuilderIR.code is empty.")
 
-    _validate_user_code(code_str)
+    try:
+        _validate_user_code(code_str)
+    except Exception as exc:  # noqa: BLE001
+        raise PreferenceBuilderCompileError(f"Builder static code validation failed: {exc}") from exc
 
     ops_table = _build_operator_table()
     if operator_whitelist:

@@ -15,3 +15,4 @@ Hard constraints:
 - Output JSON only.
 - `intuition` must be non-empty and specific (explain the tuned hyperparams and why).
 - No imports / filesystem / eval / exec / global state.
+- Keep the code vectorized (no Python loops/comprehensions over batch/pair tensors).

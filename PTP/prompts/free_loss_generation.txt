@@ -30,6 +30,7 @@ Hard constraints:
 - `code` must define `generated_loss(batch, model_output, extra)` and return a scalar torch.Tensor.
 - Do NOT use `import`, `open`, `eval`, `exec`, filesystem/network, randomness, or global state.
 - Only use tensor math and `ops.*` operators (e.g., ops.logsigmoid, ops.softplus, ops.clamp, ops.normalize, ops.zscore).
+- Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
 
 You may read `alpha` as: `alpha = float(extra.get("alpha", extra.get("hyperparams", {}).get("alpha", 1.0)))`.
 

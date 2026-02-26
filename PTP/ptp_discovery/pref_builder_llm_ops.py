@@ -48,6 +48,8 @@ Constraints:
 - generated_builder must return a PrefBatch.
 - Do not use imports; do not access filesystem; no eval/exec/open.
 - You may use torch, F, ops, and PrefBatch which are provided by the sandbox.
+- Use vectorized tensor ops only; do not use Python loops/comprehensions over pair indices.
+- Do not build O(num_pairs) Python loops for capping/filtering; prefer tensor masking/topk/slicing.
 """
     n = str(name or "").strip().lower()
     if "repair" in n:
