@@ -6,7 +6,8 @@ output_root: runs/pref_loss_alternating_simple
 metric_mode: minimize
 improve_eps: 0.0
 builder_min_coverage: 0.0
-seed_with_po4cops_default: true
+seed_with_po4cops_default: false
+llm_init_only: true
 proxy_joint_swap_check_mode: synthetic
 proxy_joint_batch_pass_rate_threshold: 0.9
 
@@ -67,7 +68,7 @@ builder_llm:
   enabled: true
   offline_mode: false
   parent_p: 5
-  seed_reserve: 2
+  seed_reserve: 0
   init_num_E1: 6
   init_num_E2: 4
   init_num_M1: 4
@@ -85,7 +86,7 @@ loss_llm:
   enabled: true
   offline_mode: false
   parent_p: 5
-  seed_reserve: 2
+  seed_reserve: 0
   init_num_E1: 6
   init_num_E2: 4
   init_num_M1: 4
