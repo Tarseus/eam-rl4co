@@ -5955,7 +5955,10 @@ def run_pref_loss_coevo(
                 except (TypeError, ValueError):
                     reference_score = None
             rec["reference_score"] = reference_score
-            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID or str(rec.get("stage")) == "anchor":
+            if (
+                (str(rec.get("g_id")) == G_REF_ID and str(rec.get("f_id")) == F_REF_ID)
+                or str(rec.get("stage")) == "anchor"
+            ):
                 rec["better_than_incumbent"] = False
                 rec["delta_vs_incumbent"] = None
                 rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
@@ -6039,7 +6042,10 @@ def run_pref_loss_coevo(
 
         gen_phase_best_score: float | None = None
         for rec in pair_records:
-            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID or str(rec.get("stage")) == "anchor":
+            if (
+                (str(rec.get("g_id")) == G_REF_ID and str(rec.get("f_id")) == F_REF_ID)
+                or str(rec.get("stage")) == "anchor"
+            ):
                 continue
             try:
                 score_f = float(rec.get("final_score"))
@@ -6119,7 +6125,7 @@ def run_pref_loss_coevo(
         best_pair_preview: Dict[str, Any] | None = None
         best_score_preview: float | None = None
         for rec in pair_records:
-            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID:
+            if str(rec.get("g_id")) == G_REF_ID and str(rec.get("f_id")) == F_REF_ID:
                 continue
             if str(rec.get("stage")) == "anchor":
                 continue
