@@ -3282,14 +3282,18 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     record["pair_ok"] = True
     record["pair_reason"] = "ok"
     record["fitness"] = dict(fitness)
-    # If baseline epoch objectives are provided, `epoch_better_than_baseline` is
-    # True only when all HF epochs are better than the baseline (smaller objective).
-    if isinstance(fitness, dict):
-        tail_better = fitness.get("epoch_tail_better_than_baseline")
-        if tail_better is None:
-            tail_better = fitness.get("epoch_better_than_baseline")
-        if tail_better is not None:
-            record["better_than_baseline"] = bool(tail_better)
+    if isinstance(record.get("fitness"), dict):
+        fit = record["fitness"]
+        for old_k, new_k in (
+            ("better_than_baseline", "better_than_incumbent"),
+            ("tail_better_than_baseline", "tail_better_than_incumbent"),
+            ("epoch_better_than_baseline", "epoch_better_than_incumbent"),
+            ("epoch_tail_better_than_baseline", "epoch_tail_better_than_incumbent"),
+            ("epoch_window_better_than_baseline", "epoch_window_better_than_incumbent"),
+        ):
+            if old_k in fit:
+                fit[new_k] = fit.get(old_k)
+                fit.pop(old_k, None)
     try:
         record["score"] = float(
             fitness.get(
@@ -3907,6 +3911,28 @@ def run_pref_loss_coevo(
         loaded = load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=eval_sig)
         LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sig=%s)", loaded, eval_sig)
 
+    if best_so_far is None:
+        if baseline_early_valid is not None:
+            incumbent_score = float(baseline_early_valid)
+        else:
+            incumbent_score = float("inf") if str(metric_mode) == "minimize" else float("-inf")
+        best_so_far = {
+            "score": float(incumbent_score),
+            "builder_id": str(G_REF_ID),
+            "loss_id": str(F_REF_ID),
+            "stage_final": "baseline",
+            "generation": -1,
+            "phase": "baseline",
+        }
+        LOGGER.info(
+            "Initialized incumbent from baseline: score=%s pair=(%s,%s) stage=%s gen=%d",
+            best_so_far.get("score"),
+            best_so_far.get("builder_id"),
+            best_so_far.get("loss_id"),
+            best_so_far.get("stage_final"),
+            int(best_so_far.get("generation", -1)),
+        )
+
     def _summary_state(last_generation: int) -> Dict[str, Any]:
         return {
             "config_path": os.path.abspath(config_path),
@@ -3984,6 +4010,10 @@ def run_pref_loss_coevo(
     _atomic_write_json(summary_json, _summary_state(gen_start - 1))
 
     llm_feedback_state: Dict[str, Any] = {}
+    phase_block_label: str | None = None
+    phase_block_best_score: float | None = None
+    last_phase_block_label: str | None = None
+    last_phase_block_best_score: float | None = None
 
     for gen in range(gen_start, generations):
         (
@@ -4004,6 +4034,21 @@ def run_pref_loss_coevo(
             alternating_builder_generations=int(alternating_builder_generations),
             alternating_rounds=int(alternating_rounds),
         )
+        generation_phase_label = str(alternating_phase_hint) if str(search_mode) == "alternating" else "coevo"
+        if phase_block_label is None:
+            phase_block_label = str(generation_phase_label)
+        elif str(generation_phase_label) != str(phase_block_label):
+            last_phase_block_label = str(phase_block_label)
+            last_phase_block_best_score = phase_block_best_score
+            LOGGER.info(
+                "Phase transition detected: prev_phase=%s prev_phase_best=%s -> current_phase=%s",
+                str(last_phase_block_label),
+                last_phase_block_best_score,
+                str(generation_phase_label),
+            )
+            phase_block_label = str(generation_phase_label)
+            phase_block_best_score = None
+
         builder_llm_enabled_this_gen = bool(builder_cfg.get("enabled", False))
         loss_llm_enabled_this_gen = bool(loss_cfg.get("enabled", False))
         if str(search_mode) == "alternating":
@@ -5762,19 +5807,54 @@ def run_pref_loss_coevo(
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))
                 try:
+                    incumbent_ref_for_hf = None
+                    if isinstance(best_so_far, dict):
+                        try:
+                            incumbent_ref_for_hf = float(best_so_far.get("score"))
+                        except (TypeError, ValueError):
+                            incumbent_ref_for_hf = None
                     ok = sum(1 for r in hf_results if bool(r.get("pair_ok")))
                     failed = int(len(hf_results) - ok)
-                    better = sum(1 for r in hf_results if r.get("better_than_baseline") is True)
-                    worse = sum(1 for r in hf_results if r.get("better_than_baseline") is False)
-                    unknown = int(len(hf_results) - better - worse)
+                    better = 0
+                    worse = 0
+                    unknown = 0
+                    for r in hf_results:
+                        score_raw = r.get("score")
+                        try:
+                            score_f = float(score_raw)
+                        except (TypeError, ValueError):
+                            r["better_than_incumbent"] = None
+                            unknown += 1
+                            continue
+                        if not math.isfinite(score_f):
+                            r["better_than_incumbent"] = None
+                            unknown += 1
+                            continue
+                        better_i = _is_better_than_reference(
+                            cand_score=score_f,
+                            reference_score=incumbent_ref_for_hf,
+                            metric_mode=metric_mode,
+                            improve_eps=improve_eps,
+                        )
+                        r["better_than_incumbent"] = bool(better_i)
+                        if bool(better_i):
+                            better += 1
+                        else:
+                            worse += 1
                     LOGGER.info(
-                        "HF vs baseline gen=%d: better=%d worse=%d unknown=%d (ok=%d failed=%d)",
+                        "HF vs incumbent gen=%d: better=%d worse=%d unknown=%d (ok=%d failed=%d) ref=%s threshold=%s",
                         int(gen),
                         int(better),
                         int(worse),
                         int(unknown),
                         int(ok),
                         int(failed),
+                        incumbent_ref_for_hf,
+                        _score_threshold(
+                            reference_score=incumbent_ref_for_hf,
+                            metric_mode=metric_mode,
+                            improve_eps=improve_eps,
+                        ),
                     )
                 except Exception:  # noqa: BLE001
                     pass
@@ -5800,7 +5880,7 @@ def run_pref_loss_coevo(
                 k = (str(rec.get("g_id")), str(rec.get("f_id")))
                 rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
 
-        # Stage annotations + incumbent-gating (better_than_prev_best).
+        # Stage annotations + incumbent-gating (better_than_incumbent).
         for rec in pair_records:
             rec["stages_enabled"] = dict(eval_stages)
             ran, skipped = _annotate_stage_fields(rec, eval_stages=eval_stages)
@@ -5810,8 +5890,29 @@ def run_pref_loss_coevo(
             rec["stage_final"] = str(stage_final)
             rec["final_score"] = final_score
             rec["metric_mode"] = str(metric_mode)
-            rec["compare_target"] = "prev_best"
+            rec["compare_target"] = "incumbent"
             rec["improve_eps"] = float(improve_eps)
+            rec["last_phase_label"] = str(last_phase_block_label) if last_phase_block_label is not None else None
+            rec["last_phase_reference_score"] = (
+                float(last_phase_block_best_score) if last_phase_block_best_score is not None else None
+            )
+            if str(stage_final) == "micro_unroll":
+                rec["better_than_incumbent_note"] = (
+                    "stage2_micro_unroll compares final_score (micro_score) against incumbent score."
+                )
+            elif str(stage_final) == "high_fidelity":
+                rec["better_than_incumbent_note"] = (
+                    "stage3_high_fidelity compares final_score (HF score) against incumbent score."
+                )
+            else:
+                rec["better_than_incumbent_note"] = None
+
+        last_phase_reference_score = None
+        if last_phase_block_best_score is not None:
+            try:
+                last_phase_reference_score = float(last_phase_block_best_score)
+            except (TypeError, ValueError):
+                last_phase_reference_score = None
 
         current_ref = None
         if isinstance(best_so_far, dict):
@@ -5820,9 +5921,21 @@ def run_pref_loss_coevo(
             except (TypeError, ValueError):
                 current_ref = None
         LOGGER.info(
-            "COMPARE target=prev_best reference_score=%s threshold=%s metric_mode=%s improve_eps=%s",
+            "COMPARE target=incumbent reference_score=%s threshold=%s metric_mode=%s improve_eps=%s",
             current_ref,
             _score_threshold(reference_score=current_ref, metric_mode=metric_mode, improve_eps=improve_eps),
+            str(metric_mode),
+            float(improve_eps),
+        )
+        LOGGER.info(
+            "COMPARE target=last_phase last_phase=%s reference_score=%s threshold=%s metric_mode=%s improve_eps=%s",
+            (str(last_phase_block_label) if last_phase_block_label is not None else None),
+            last_phase_reference_score,
+            _score_threshold(
+                reference_score=last_phase_reference_score,
+                metric_mode=metric_mode,
+                improve_eps=improve_eps,
+            ),
             str(metric_mode),
             float(improve_eps),
         )
@@ -5843,26 +5956,34 @@ def run_pref_loss_coevo(
                     reference_score = None
             rec["reference_score"] = reference_score
             if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID or str(rec.get("stage")) == "anchor":
-                rec["better_than_prev_best"] = False
-                rec["delta_vs_prev_best"] = None
+                rec["better_than_incumbent"] = False
+                rec["delta_vs_incumbent"] = None
+                rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
+                rec["delta_vs_last_phase"] = None
                 continue
 
             final_score = rec.get("final_score")
             if final_score is None:
-                rec["better_than_prev_best"] = False
-                rec["delta_vs_prev_best"] = None
+                rec["better_than_incumbent"] = False
+                rec["delta_vs_incumbent"] = None
+                rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
+                rec["delta_vs_last_phase"] = None
                 continue
             try:
                 cand_score_f = float(final_score)
             except (TypeError, ValueError):
-                rec["better_than_prev_best"] = False
-                rec["delta_vs_prev_best"] = None
+                rec["better_than_incumbent"] = False
+                rec["delta_vs_incumbent"] = None
+                rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
+                rec["delta_vs_last_phase"] = None
                 rec["final_score"] = None
                 rec["stage_final"] = "none"
                 continue
             if not math.isfinite(cand_score_f):
-                rec["better_than_prev_best"] = False
-                rec["delta_vs_prev_best"] = None
+                rec["better_than_incumbent"] = False
+                rec["delta_vs_incumbent"] = None
+                rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
+                rec["delta_vs_last_phase"] = None
                 continue
 
             delta = _score_delta(cand_score=cand_score_f, ref_score=reference_score, metric_mode=metric_mode)
@@ -5872,8 +5993,25 @@ def run_pref_loss_coevo(
                 metric_mode=metric_mode,
                 improve_eps=improve_eps,
             )
-            rec["better_than_prev_best"] = bool(better)
-            rec["delta_vs_prev_best"] = delta
+            rec["better_than_incumbent"] = bool(better)
+            rec["delta_vs_incumbent"] = delta
+            if last_phase_reference_score is None:
+                rec["better_than_last_phase"] = None
+                rec["delta_vs_last_phase"] = None
+            else:
+                rec["delta_vs_last_phase"] = _score_delta(
+                    cand_score=cand_score_f,
+                    ref_score=last_phase_reference_score,
+                    metric_mode=metric_mode,
+                )
+                rec["better_than_last_phase"] = bool(
+                    _is_better_than_reference(
+                        cand_score=cand_score_f,
+                        reference_score=last_phase_reference_score,
+                        metric_mode=metric_mode,
+                        improve_eps=improve_eps,
+                    )
+                )
             rec["score"] = float(cand_score_f)
             if bool(better):
                 threshold = _score_threshold(reference_score=reference_score, metric_mode=metric_mode, improve_eps=improve_eps)
@@ -5886,7 +6024,7 @@ def run_pref_loss_coevo(
                     "phase": str(rec.get("phase", "coevo")),
                 }
                 LOGGER.info(
-                    "NEW BEST: score=%s ref=%s delta=%s pair=(%s,%s) stage=%s gen=%d phase=%s threshold=%s compare_target=prev_best improve_eps=%s",
+                    "NEW BEST: score=%s ref=%s delta=%s pair=(%s,%s) stage=%s gen=%d phase=%s threshold=%s compare_target=incumbent improve_eps=%s",
                     float(cand_score_f),
                     reference_score,
                     delta,
@@ -5898,6 +6036,32 @@ def run_pref_loss_coevo(
                     threshold,
                     float(improve_eps),
                 )
+
+        gen_phase_best_score: float | None = None
+        for rec in pair_records:
+            if str(rec.get("g_id")) == G_REF_ID or str(rec.get("f_id")) == F_REF_ID or str(rec.get("stage")) == "anchor":
+                continue
+            try:
+                score_f = float(rec.get("final_score"))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(score_f):
+                continue
+            if _is_better_than_reference(
+                cand_score=score_f,
+                reference_score=gen_phase_best_score,
+                metric_mode=metric_mode,
+                improve_eps=0.0,
+            ):
+                gen_phase_best_score = score_f
+
+        if gen_phase_best_score is not None and _is_better_than_reference(
+            cand_score=float(gen_phase_best_score),
+            reference_score=phase_block_best_score,
+            metric_mode=metric_mode,
+            improve_eps=0.0,
+        ):
+            phase_block_best_score = float(gen_phase_best_score)
 
         # Per-generation summary for troubleshooting.
         stage_ctr = collections.Counter(str(r.get("stage", "")) for r in pair_records)
@@ -6055,8 +6219,13 @@ def run_pref_loss_coevo(
                     "final_score": rec.get("final_score"),
                     "reference_score": rec.get("reference_score"),
                     "improve_eps": rec.get("improve_eps"),
-                    "better_than_prev_best": rec.get("better_than_prev_best"),
-                    "delta_vs_prev_best": rec.get("delta_vs_prev_best"),
+                    "better_than_incumbent": rec.get("better_than_incumbent"),
+                    "delta_vs_incumbent": rec.get("delta_vs_incumbent"),
+                    "better_than_last_phase": rec.get("better_than_last_phase"),
+                    "delta_vs_last_phase": rec.get("delta_vs_last_phase"),
+                    "last_phase_label": rec.get("last_phase_label"),
+                    "last_phase_reference_score": rec.get("last_phase_reference_score"),
+                    "better_than_incumbent_note": rec.get("better_than_incumbent_note"),
                     "compare_target": rec.get("compare_target"),
                     "static_ok": rec.get("f_static_ok"),
                     "static_reason": rec.get("f_static_reason"),
@@ -6197,11 +6366,11 @@ def run_pref_loss_coevo(
                     "stage_final": best_so_far.get("stage_final"),
                     "generation": best_so_far.get("generation"),
                     "phase": best_so_far.get("phase"),
-                    "compare_target": "prev_best",
+                    "compare_target": "incumbent",
                     "metric_mode": str(metric_mode),
                     "improve_eps": float(improve_eps),
                     "reference_score": None,
-                    "better_than_prev_best": True,
+                    "better_than_incumbent": True,
                 }
         if best_pair is not None:
             _atomic_write_json(os.path.join(run_dir, "best_pair.json"), best_pair)
