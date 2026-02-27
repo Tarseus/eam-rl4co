@@ -12,8 +12,8 @@
   "eval_stages": {
     "stage0_gate": true,
     "stage1_proxy": true,
-    "stage2_micro_unroll": false,
-    "stage3_high_fidelity": true
+    "stage2_micro_unroll": true,
+    "stage3_high_fidelity": false
   },
   "budgets": {
     "generations": 20,
@@ -22,7 +22,7 @@
     "pairing_budget_builder": 64,
     "proxy_batches": 10,
     "proxy_batch_size": 64,
-    "micro_unroll_steps": 8,
+    "micro_unroll_steps": 32,
     "micro_unroll_max_pairs": 8192,
     "high_fidelity_top_m": 8,
     "hf_epochs": 10
@@ -32,5 +32,5 @@
     "total": 8192
   },
   "pair_score_selection_policy": "HF > micro > proxy > none",
-  "eval_budget_signature": "04ac63241f5db46c"
+  "eval_budget_signature": "31a0ee5bb9df3e37"
 }

@@ -1,0 +1,66 @@
+{
+  "generation": 2,
+  "index": 3,
+  "id": "f002_003_d2a9d432",
+  "signature": "d2a9d432671935ed48909131f057eb423fc6f0db",
+  "origin": "M1",
+  "origin_base": "M1",
+  "op_type": "M1",
+  "parents": [
+    "f001_008_8722bcba"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "d5bb8bde84c6004349590e24ca28779546db8245",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+  "llm_seed": 1307964584,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+      "prompt_sha1": "d5bb8bde84c6004349590e24ca28779546db8245"
+    }
+  ],
+  "ir": {
+    "name": "loss_logsigmoid_002_cost_margin_centered",
+    "intuition": "Keep the bounded tanh cost correction but center it by subtracting its batch mean so it acts like a relative margin adjustment rather than a global logit bias. This helps when the dataset has a consistent positive/negative cost offset across batches; without centering, the loss can systematically shift x and push many pairs toward saturation, weakening gradients. Centering preserves per-pair ordering information from costs while improving stability and calibration of the preference margin.",
+    "pseudocode": "gap = detach(cost_b-cost_a); cost_term = beta*(tanh(gap) - mean(tanh(gap))); x = clamp(alpha*scale*(lpw-lpl) - cost_term, -20, 20); loss = -logsigmoid(x)",
+    "hyperparams": {
+      "scale": 1.6,
+      "beta": 0.05
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "tanh"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "cost_a",
+        "cost_b",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hyper = extra.get('hyperparams', {}) if extra is not None else {}\n    alpha = float(extra.get('alpha', hyper.get('alpha', 1.0)))\n    scale = float(hyper.get('scale', 1.6))\n    beta = float(hyper.get('beta', 0.05))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    # Center the bounded cost signal to avoid inducing a global bias in x.\n    c = ops.tanh(gap)\n    c = c - c.mean()\n    cost_term = beta * c\n\n    x = alpha * scale * (lpw - lpl) - cost_term\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.6472834944725037,
+  "descriptor": {
+    "x": 0.7383921921253205,
+    "y": 0.5915934419631957,
+    "cell": [
+      5,
+      4
+    ]
+  }
+}
