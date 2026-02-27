@@ -20,8 +20,8 @@ mp:
 eval_stages:
   stage0_gate: true
   stage1_proxy: true
-  stage2_micro_unroll: false
-  stage3_high_fidelity: true
+  stage2_micro_unroll: true
+  stage3_high_fidelity: false
 
 proxy_gate_repair:
   enabled: true
@@ -30,13 +30,17 @@ proxy_gate_repair:
   repair_builder_on_builder_gate_fail: true
   repair_loss_on_joint_gate_fail: true
 
+drop_pref_cache_before_micro_unroll: true
+
 budgets:
   generations: 20
   pairing_budget_per_gen: 128
   proxy_batches: 10
   proxy_batch_size: 64
-  micro_unroll_steps: 8
+  micro_unroll_top_k: 8
+  micro_unroll_steps: 32
   micro_unroll_max_pairs: 8192
+  micro_unroll_timeout_s: 120
   high_fidelity_top_m: 8
   hf_epochs: 10
 

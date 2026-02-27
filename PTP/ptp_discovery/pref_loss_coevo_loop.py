@@ -645,6 +645,59 @@ def _build_alternating_pairs(
 
     return pairs, reasons, phases
 
+
+def _resolve_alternating_phase_and_budgets(
+    *,
+    search_mode: str,
+    generation: int,
+    pairing_budget: int,
+    pairing_budget_loss: int,
+    pairing_budget_builder: int,
+    alternating_schedule_enabled: bool,
+    alternating_loss_generations: int,
+    alternating_builder_generations: int,
+    alternating_rounds: int,
+) -> Tuple[str, int, int, int, int, int]:
+    """Resolve phase and pair budgets for one generation.
+
+    Returns:
+        (phase, loss_budget_now, builder_budget_now, round_idx, cycle_pos, cycle_len)
+    """
+
+    mode = str(search_mode).strip().lower()
+    if mode != "alternating":
+        return "coevo", int(pairing_budget_loss), int(pairing_budget_builder), -1, -1, 0
+
+    loss_budget_now = int(pairing_budget_loss)
+    builder_budget_now = int(pairing_budget_builder)
+    round_idx = -1
+    cycle_pos = -1
+    cycle_len = 0
+
+    if bool(alternating_schedule_enabled):
+        cycle_len = int(max(0, int(alternating_loss_generations)) + max(0, int(alternating_builder_generations)))
+        cycle_pos = int(int(generation) % max(cycle_len, 1))
+        round_idx = int(int(generation) // max(cycle_len, 1))
+        if int(alternating_rounds) > 0 and round_idx >= int(alternating_rounds):
+            loss_budget_now = 0
+            builder_budget_now = 0
+        elif cycle_pos < int(max(0, int(alternating_loss_generations))):
+            loss_budget_now = int(pairing_budget)
+            builder_budget_now = 0
+        else:
+            loss_budget_now = 0
+            builder_budget_now = int(pairing_budget)
+
+    phase = "none"
+    if int(loss_budget_now) > 0 and int(builder_budget_now) == 0:
+        phase = "loss"
+    elif int(builder_budget_now) > 0 and int(loss_budget_now) == 0:
+        phase = "builder"
+    elif int(loss_budget_now) > 0 and int(builder_budget_now) > 0:
+        phase = "mixed"
+    return phase, int(loss_budget_now), int(builder_budget_now), int(round_idx), int(cycle_pos), int(cycle_len)
+
+
 class _CompiledBuilderAdapter(PrefBuilder):
     def __init__(self, compiled: CompiledPreferenceBuilder) -> None:
         self._compiled = compiled
@@ -3933,6 +3986,49 @@ def run_pref_loss_coevo(
     llm_feedback_state: Dict[str, Any] = {}
 
     for gen in range(gen_start, generations):
+        (
+            alternating_phase_hint,
+            alternating_loss_budget_now,
+            alternating_builder_budget_now,
+            alternating_round_idx,
+            alternating_cycle_pos,
+            alternating_cycle_len,
+        ) = _resolve_alternating_phase_and_budgets(
+            search_mode=str(search_mode),
+            generation=int(gen),
+            pairing_budget=int(pairing_budget),
+            pairing_budget_loss=int(pairing_budget_loss),
+            pairing_budget_builder=int(pairing_budget_builder),
+            alternating_schedule_enabled=bool(alternating_schedule_enabled),
+            alternating_loss_generations=int(alternating_loss_generations),
+            alternating_builder_generations=int(alternating_builder_generations),
+            alternating_rounds=int(alternating_rounds),
+        )
+        builder_llm_enabled_this_gen = bool(builder_cfg.get("enabled", False))
+        loss_llm_enabled_this_gen = bool(loss_cfg.get("enabled", False))
+        if str(search_mode) == "alternating":
+            builder_llm_enabled_this_gen = bool(builder_llm_enabled_this_gen and alternating_phase_hint in {"builder", "mixed"})
+            loss_llm_enabled_this_gen = bool(loss_llm_enabled_this_gen and alternating_phase_hint in {"loss", "mixed"})
+
+        llm_cfg_for_gen: Dict[str, Any] | None = None
+        if llm_enabled:
+            llm_cfg_for_gen = dict(llm_cfg)
+            builder_cfg_for_gen = dict(builder_cfg)
+            loss_cfg_for_gen = dict(loss_cfg)
+            builder_cfg_for_gen["enabled"] = bool(builder_llm_enabled_this_gen)
+            loss_cfg_for_gen["enabled"] = bool(loss_llm_enabled_this_gen)
+            llm_cfg_for_gen["builder"] = builder_cfg_for_gen
+            llm_cfg_for_gen["loss"] = loss_cfg_for_gen
+            llm_cfg_for_gen["enabled"] = bool(builder_llm_enabled_this_gen or loss_llm_enabled_this_gen)
+            if str(search_mode) == "alternating":
+                LOGGER.info(
+                    "Alternating LLM gating gen=%d phase=%s llm_enabled(builder=%s,loss=%s)",
+                    int(gen),
+                    str(alternating_phase_hint),
+                    str(builder_llm_enabled_this_gen),
+                    str(loss_llm_enabled_this_gen),
+                )
+
         LOGGER.info("=== %s generation %d/%d ===", str(search_mode), gen, generations - 1)
         LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
         if isinstance(best_so_far, dict):
@@ -4002,7 +4098,7 @@ def run_pref_loss_coevo(
             elites_g=elites_g,
             diverse_elites_g=diverse_elites_g,
             rng=rng,
-            llm_cfg=llm_cfg if llm_enabled else None,
+            llm_cfg=llm_cfg_for_gen if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
             llm_init_only=bool(llm_init_only),
@@ -4013,7 +4109,7 @@ def run_pref_loss_coevo(
             elites_f=elites_f,
             diverse_elites_f=diverse_elites_f,
             rng=rng,
-            llm_cfg=llm_cfg if llm_enabled else None,
+            llm_cfg=llm_cfg_for_gen if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
             llm_init_only=bool(llm_init_only),
@@ -4377,11 +4473,17 @@ def run_pref_loss_coevo(
 
         gate_repair_cfg_raw = cfg_yaml.get("proxy_gate_repair", {})
         gate_repair_cfg = gate_repair_cfg_raw if isinstance(gate_repair_cfg_raw, dict) else {}
-        gate_repair_enabled = bool(llm_enabled and stage1_proxy_enabled and bool(gate_repair_cfg.get("enabled", False)))
+        gate_repair_enabled = bool(
+            (builder_llm_enabled_this_gen or loss_llm_enabled_this_gen)
+            and stage1_proxy_enabled
+            and bool(gate_repair_cfg.get("enabled", False))
+        )
         gate_repair_remaining = max(0, int(gate_repair_cfg.get("max_repairs_per_gen", 0) or 0))
         gate_repair_attempts = max(0, int(gate_repair_cfg.get("max_attempts_per_pair", 1) or 1))
-        gate_repair_builder_on_fail = bool(gate_repair_cfg.get("repair_builder_on_builder_gate_fail", True))
-        gate_repair_loss_on_fail = bool(gate_repair_cfg.get("repair_loss_on_joint_gate_fail", True))
+        gate_repair_builder_on_fail = bool(
+            gate_repair_cfg.get("repair_builder_on_builder_gate_fail", True) and builder_llm_enabled_this_gen
+        )
+        gate_repair_loss_on_fail = bool(gate_repair_cfg.get("repair_loss_on_joint_gate_fail", True) and loss_llm_enabled_this_gen)
         gate_repair_attempted_pairs: set[tuple[str, str]] = set()
         gate_repair_attempted_builders: set[str] = set()
         gate_repair_attempted_losses: set[str] = set()
@@ -4543,26 +4645,14 @@ def run_pref_loss_coevo(
         alternating_fixed_builder_id: str | None = None
         alternating_fixed_loss_id: str | None = None
         if str(search_mode) == "alternating":
-            loss_budget_now = int(pairing_budget_loss)
-            builder_budget_now = int(pairing_budget_builder)
+            loss_budget_now = int(alternating_loss_budget_now)
+            builder_budget_now = int(alternating_builder_budget_now)
             if alternating_schedule_enabled:
-                cycle_len = int(alternating_loss_generations + alternating_builder_generations)
-                cycle_pos = int(gen % max(cycle_len, 1))
-                round_idx = int(gen // max(cycle_len, 1))
-                if alternating_rounds > 0 and round_idx >= int(alternating_rounds):
-                    loss_budget_now = 0
-                    builder_budget_now = 0
-                elif cycle_pos < int(alternating_loss_generations):
-                    loss_budget_now = int(pairing_budget)
-                    builder_budget_now = 0
-                else:
-                    loss_budget_now = 0
-                    builder_budget_now = int(pairing_budget)
                 LOGGER.info(
                     "Alternating block status: round=%d cycle_pos=%d/%d budgets(loss=%d,builder=%d)",
-                    int(round_idx),
-                    int(cycle_pos),
-                    int(cycle_len),
+                    int(alternating_round_idx),
+                    int(alternating_cycle_pos),
+                    int(alternating_cycle_len),
                     int(loss_budget_now),
                     int(builder_budget_now),
                 )
