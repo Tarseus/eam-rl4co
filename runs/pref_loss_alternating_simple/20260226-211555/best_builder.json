@@ -1,0 +1,80 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "g000_000_dd4525c2",
+  "signature": "dd4525c2009875e24ecacca6758477026745e05b",
+  "origin": "M2",
+  "origin_base": "M2",
+  "op_type": "M2",
+  "parents": [
+    "bootstrap_g_003"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "e1238f57cfc29c9b95e09265f25292f6433569a4",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+  "llm_seed": 1073003404,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "prompt_sha1": "e1238f57cfc29c9b95e09265f25292f6433569a4"
+    }
+  ],
+  "ir": {
+    "name": "builder_gap_topk_pairs_001",
+    "intuition": "forms preferences only when the objective gap is meaningfully large, then caps to the strongest gap pairs per instance to stay within a pairing budget while focusing learning signal on clear wins",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Only create pairs when the winner has sufficiently better (lower) objective.\n    thr = float(extra.get('gap_threshold', 0.0))\n    max_pairs_per_instance = int(extra.get('max_pairs_per_instance', 256))\n\n    # gap[b,i,j] = objective[b,j] - objective[b,i]; positive => i is better than j\n    gap = objective[:, None, :] - objective[:, :, None]\n    mask = gap > thr\n\n    B, K, _ = gap.shape\n    flat_gap = gap.reshape(B, K * K)\n    flat_mask = mask.reshape(B, K * K)\n\n    # Select up to top-k highest-gap valid pairs per instance.\n    k = max_pairs_per_instance\n    if k > K * K:\n        k = K * K\n\n    neg_inf = flat_gap.new_full(flat_gap.shape, -1e30)\n    scores = flat_gap.where(flat_mask, neg_inf)\n    topv, topi = scores.topk(k, dim=1)\n    valid = topv > -1e20\n\n    b_idx = valid.nonzero(as_tuple=True)[0]\n    sel = topi[valid]\n    winner_idx = sel // K\n    loser_idx = sel % K\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_topk_pairs', 'gap_threshold': thr, 'max_pairs_per_instance': int(extra.get('max_pairs_per_instance', 256))})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 15.120008700185355,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

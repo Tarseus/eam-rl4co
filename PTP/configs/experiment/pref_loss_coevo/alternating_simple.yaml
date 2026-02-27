@@ -1,6 +1,6 @@
 preset: simple
 search_mode: alternating
-seed: 0
+seed: 1234
 output_root: runs/pref_loss_alternating_simple
 
 metric_mode: minimize
@@ -79,7 +79,7 @@ builder_llm:
   num_M2: 8
   repair:
     enabled: true
-    max_attempts: 1
+    max_attempts: 4
     simplify_first: true
 
 loss_llm:
@@ -97,5 +97,5 @@ loss_llm:
   num_M2: 8
   repair:
     enabled: true
-    max_attempts: 1
+    max_attempts: 4
     simplify_first: true
