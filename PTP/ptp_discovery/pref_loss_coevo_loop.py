@@ -3932,6 +3932,11 @@ def run_pref_loss_coevo(
             best_so_far.get("stage_final"),
             int(best_so_far.get("generation", -1)),
         )
+        if baseline_early_valid is None:
+            LOGGER.info(
+                "Baseline incumbent uses sentinel score (no external baseline_early_valid); "
+                "will calibrate with evaluated (g_ref,f_ref) when rollout caches are available."
+            )
 
     def _summary_state(last_generation: int) -> Dict[str, Any]:
         return {
@@ -4012,8 +4017,16 @@ def run_pref_loss_coevo(
     llm_feedback_state: Dict[str, Any] = {}
     phase_block_label: str | None = None
     phase_block_best_score: float | None = None
+    # Treat baseline as the "last phase" before generation-0 search.
     last_phase_block_label: str | None = None
     last_phase_block_best_score: float | None = None
+    if isinstance(best_so_far, dict):
+        try:
+            last_phase_block_best_score = float(best_so_far.get("score"))
+        except (TypeError, ValueError):
+            last_phase_block_best_score = None
+        last_phase_block_label = str(best_so_far.get("phase") or "baseline")
+    baseline_incumbent_calibrated = False
 
     for gen in range(gen_start, generations):
         (
@@ -4572,6 +4585,103 @@ def run_pref_loss_coevo(
             batch_ids=list(range(int(proxy_batches))),
             batch_size=int(proxy_batch_size),
         )
+
+        if not baseline_incumbent_calibrated:
+            need_calibrate = False
+            if isinstance(best_so_far, dict) and str(best_so_far.get("stage_final")) == "baseline":
+                try:
+                    bs = float(best_so_far.get("score"))
+                except (TypeError, ValueError):
+                    bs = float("inf") if str(metric_mode) == "minimize" else float("-inf")
+                need_calibrate = not math.isfinite(bs)
+            if need_calibrate and need_rollout_caches and rollout_feature_caches:
+                try:
+                    _ensure_reference_compiled(
+                        compiled_g=compiled_g,
+                        compiled_f=compiled_f,
+                        operator_whitelist=operator_whitelist,
+                    )
+                    rec_base = _cheap_eval_pair_cached(
+                        caches=caches,
+                        compiled_g=compiled_g,
+                        compiled_f=compiled_f,
+                        rollout_feature_caches=rollout_feature_caches,
+                        cfg_yaml=cfg_yaml,
+                        eval_sig=str(eval_sig),
+                        gid=str(G_REF_ID),
+                        fid=str(F_REF_ID),
+                        generation=-1,
+                        pair_index=-1,
+                        seed_used=int(base_seed),
+                        seed_sig=str(base_seed_sig),
+                        pref_batch_id_offset=0,
+                        stage="baseline",
+                        reasons=["baseline_ref_pair"],
+                        proxy_device_str=proxy_device_str,
+                        joint_gate_kwargs=joint_gate_kwargs,
+                        proxy_weights=dict(proxy_weights),
+                        bins=bins,
+                        pair_count_cap=pair_count_cap,
+                        loss_scale=loss_scale,
+                        cheap_gate_on=bool(stage0_gate_enabled),
+                    )
+                    base_score = float(rec_base.get("score", float("inf")))
+                    base_stage = "proxy"
+                    if bool(stage2_micro_enabled):
+                        g_ref_comp = compiled_g.get(str(G_REF_ID))
+                        f_ref_comp = compiled_f.get(str(F_REF_ID))
+                        if g_ref_comp is not None and f_ref_comp is not None:
+                            micro_steps = int(cfg_yaml.get("micro_unroll_steps", 3) or 3)
+                            micro_lr = float(cfg_yaml.get("micro_unroll_lr", 5e-2) or 5e-2)
+                            micro_alpha = float(cfg_yaml.get("micro_unroll_alpha", cfg_yaml.get("alpha", 0.05)) or 0.05)
+                            micro_weight_decay = float(cfg_yaml.get("micro_unroll_weight_decay", 0.0) or 0.0)
+                            micro_reuse_pref = bool(cfg_yaml.get("micro_unroll_reuse_pref_batch_when_safe", True))
+                            micro_max_pairs = cfg_yaml.get("micro_unroll_max_pairs", None)
+                            try:
+                                micro_max_pairs_i = int(micro_max_pairs) if micro_max_pairs is not None else None
+                            except (TypeError, ValueError):
+                                micro_max_pairs_i = None
+                            micro_timeout_s = cfg_yaml.get("micro_unroll_timeout_s", None)
+                            try:
+                                micro_timeout_s_f = float(micro_timeout_s) if micro_timeout_s is not None else None
+                            except (TypeError, ValueError):
+                                micro_timeout_s_f = None
+                            mu_score, _mu_metrics = micro_unroll_score_for_pair(
+                                g=g_ref_comp,
+                                f=f_ref_comp,
+                                rollout_feature_caches=rollout_feature_caches,
+                                steps=int(micro_steps),
+                                lr=float(micro_lr),
+                                alpha=float(micro_alpha),
+                                weight_decay=float(micro_weight_decay),
+                                reuse_pref_batch_when_safe=bool(micro_reuse_pref),
+                                max_pairs=micro_max_pairs_i,
+                                timeout_s=micro_timeout_s_f,
+                            )
+                            base_score = float(mu_score)
+                            base_stage = "micro_unroll"
+                    if math.isfinite(base_score):
+                        best_so_far = {
+                            "score": float(base_score),
+                            "builder_id": str(G_REF_ID),
+                            "loss_id": str(F_REF_ID),
+                            "stage_final": str(base_stage),
+                            "generation": -1,
+                            "phase": "baseline",
+                        }
+                        LOGGER.info(
+                            "Calibrated incumbent from evaluated baseline pair: score=%s stage=%s pair=(%s,%s)",
+                            float(base_score),
+                            str(base_stage),
+                            str(G_REF_ID),
+                            str(F_REF_ID),
+                        )
+                        # Keep gen0 last-phase reference aligned with calibrated baseline.
+                        if str(last_phase_block_label) == "baseline":
+                            last_phase_block_best_score = float(base_score)
+                        baseline_incumbent_calibrated = True
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("Failed to calibrate baseline incumbent from ref pair: %s", str(exc))
 
         # Anchor evaluation for anti-collapse (only coevo + proxy stage).
         anchor_enabled = bool(cfg_yaml.get("anchor_enabled", True)) and bool(stage1_proxy_enabled) and str(search_mode) == "coevo"
