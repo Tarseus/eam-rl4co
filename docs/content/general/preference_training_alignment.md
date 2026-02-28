@@ -50,4 +50,4 @@ RL4CO routing environments typically use `reward = -cost`, so higher reward mean
 - Entry: `rl4co/models/zoo/pomo/model.py` (override `calculate_loss`).
 - Loss helpers: `rl4co/models/rl/reinforce/preference_losses.py`.
 - Optional free-form loss compiler: `rl4co/models/rl/reinforce/free_loss/`.
-- Config: `configs/model/pomo.yaml` (loss_type, alpha, pl_impl, free_loss_ir_json_path).
+- Config: `configs/model/pomo.yaml` (loss_type, alpha, pl_impl, free_loss_ir_json_path, pref_builder_ir_json_path, pref_pair_json_path).
