@@ -48,7 +48,7 @@ f1_steps: 200
 hf_epochs: 0
 hf_instances_per_epoch: 0
 train_problem_size: 100
-valid_problem_sizes: [20, 100]
+valid_problem_sizes: [100]
 train_batch_size: 64
 num_validation_episodes: 512
 validation_batch_size: 64
@@ -68,8 +68,9 @@ baseline:
 generator_params:
   offline_train_path: offline_data/tsp100_train.pt
   offline_val_paths:
-    "20": offline_data/tsp20_val.pt
     "100": offline_data/tsp100_val.pt
+
+# "20": offline_data/tsp20_val.pt
 
 builder_pair_budget:
   per_instance: 8192
