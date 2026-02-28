@@ -47,7 +47,7 @@ alternating_schedule:
 f1_steps: 200
 hf_epochs: 0
 hf_instances_per_epoch: 0
-train_problem_size: 20
+train_problem_size: 100
 valid_problem_sizes: [20, 100]
 train_batch_size: 64
 num_validation_episodes: 512
@@ -59,14 +59,14 @@ policy_kwargs:
   po4cops_compat: true
 
 baseline:
-  mini_eval_path: baseline/mini_eval/baseline_minitrain_tsp20_K200.json
+  mini_eval_path: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
   checkpoints:
     - baseline/epoch_135.ckpt
     - baseline/epoch_409.ckpt
   include_scratch: true
 
 generator_params:
-  offline_train_path: offline_data/tsp20_train.pt
+  offline_train_path: offline_data/tsp100_train.pt
   offline_val_paths:
     "20": offline_data/tsp20_val.pt
     "100": offline_data/tsp100_val.pt
