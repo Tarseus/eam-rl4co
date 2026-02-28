@@ -14,5 +14,6 @@ Rules:
 Hard constraints:
 - Output JSON only.
 - `intuition` must be non-empty and specific (explain the tuned hyperparams and why).
+- Preserve or explicitly restate all five family tags in `hyperparams`.
 - No imports / filesystem / eval / exec / global state.
 - Keep the code vectorized (no Python loops/comprehensions over batch/pair tensors).

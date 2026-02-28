@@ -517,6 +517,115 @@ def e2_free_loss(
     return parse_free_loss_from_text(json_str)
 
 
+def paradigm_shift_free_loss(
+    prompt_path: str,
+    parents: Sequence[FreeLossIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    prompt = _read_prompt(prompt_path)
+    parent_blobs = []
+    for idx, parent in enumerate(parents):
+        metrics: Mapping[str, Any] = {}
+        if parents_fitness is not None and idx < len(parents_fitness):
+            metrics = parents_fitness[idx]
+        parent_blobs.append(
+            {
+                "index": idx,
+                "name": parent.name,
+                "intuition": parent.intuition,
+                "pseudocode": parent.pseudocode,
+                "hyperparams": parent.hyperparams,
+                "operators_used": parent.operators_used,
+                "code": parent.code,
+                "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+                "metrics": {
+                    "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+                    "validation_objective": float(metrics.get("validation_objective", float("inf")))
+                    if metrics
+                    else None,
+                    "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+                    "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+                    "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+                },
+            }
+        )
+    prompt = prompt + "\n\nPARENTS_JSON:\n" + json.dumps(parent_blobs, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    raw = _call_llm(prompt, llm_op="LOSS_PARADIGM_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def structure_shift_free_loss(
+    prompt_path: str,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    prompt = _read_prompt(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    parent_blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf")))
+            if metrics
+            else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+        },
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(parent_blob, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    raw = _call_llm(prompt, llm_op="LOSS_STRUCTURE_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
+def constraint_inject_free_loss(
+    prompt_path: str,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> FreeLossIR:
+    prompt = _read_prompt(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    parent_blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf")))
+            if metrics
+            else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+        },
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(parent_blob, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    raw = _call_llm(prompt, llm_op="LOSS_CONSTRAINT_INJECT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return parse_free_loss_from_text(json_str)
+
+
 def m2_tune_hparams(
     m2_prompt_path: str,
     parent: FreeLossIR,
@@ -763,6 +872,142 @@ def repair_from_gate_failure(
         code=code,
         theoretical_basis=str(obj.get("theoretical_basis", "")).strip()
         or getattr(parent_ir, "theoretical_basis", ""),
+    )
+
+
+def paradigm_shift_free_loss_with_meta(
+    prompt_path: str,
+    *,
+    parents: Sequence[FreeLossIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[FreeLossIR, Mapping[str, Any]]:
+    prompt = _read_prompt(prompt_path)
+    parent_blobs = []
+    for idx, parent in enumerate(parents):
+        metrics: Mapping[str, Any] = {}
+        if parents_fitness is not None and idx < len(parents_fitness):
+            metrics = parents_fitness[idx]
+        parent_blobs.append(
+            {
+                "index": idx,
+                "name": parent.name,
+                "intuition": parent.intuition,
+                "pseudocode": parent.pseudocode,
+                "hyperparams": parent.hyperparams,
+                "operators_used": parent.operators_used,
+                "code": parent.code,
+                "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+                "metrics": {
+                    "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+                    "validation_objective": float(metrics.get("validation_objective", float("inf")))
+                    if metrics
+                    else None,
+                    "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+                    "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+                    "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+                },
+            }
+        )
+    prompt = prompt + "\n\nPARENTS_JSON:\n" + json.dumps(parent_blobs, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    prompt_sha1 = sha1(prompt.encode("utf-8")).hexdigest()
+    raw = _call_llm(prompt, llm_op="LOSS_PARADIGM_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return (
+        parse_free_loss_from_text(json_str),
+        {
+            "llm_op": "LOSS_PARADIGM_SHIFT",
+            "prompt_path": str(prompt_path),
+            "prompt_sha1": str(prompt_sha1),
+        },
+    )
+
+
+def structure_shift_free_loss_with_meta(
+    prompt_path: str,
+    *,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[FreeLossIR, Mapping[str, Any]]:
+    prompt = _read_prompt(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    parent_blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf")))
+            if metrics
+            else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+        },
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(parent_blob, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    prompt_sha1 = sha1(prompt.encode("utf-8")).hexdigest()
+    raw = _call_llm(prompt, llm_op="LOSS_STRUCTURE_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return (
+        parse_free_loss_from_text(json_str),
+        {
+            "llm_op": "LOSS_STRUCTURE_SHIFT",
+            "prompt_path": str(prompt_path),
+            "prompt_sha1": str(prompt_sha1),
+        },
+    )
+
+
+def constraint_inject_free_loss_with_meta(
+    prompt_path: str,
+    *,
+    parent: FreeLossIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[FreeLossIR, Mapping[str, Any]]:
+    prompt = _read_prompt(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    parent_blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "pseudocode": parent.pseudocode,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "code": parent.code,
+        "theoretical_basis": getattr(parent, "theoretical_basis", ""),
+        "metrics": {
+            "hf_like_score": float(metrics.get("hf_like_score", float("inf"))) if metrics else None,
+            "validation_objective": float(metrics.get("validation_objective", float("inf")))
+            if metrics
+            else None,
+            "generalization_penalty": float(metrics.get("generalization_penalty", 0.0)) if metrics else None,
+            "pair_count": int(metrics.get("pair_count", 0) or 0) if metrics else 0,
+            "fitness": float(metrics.get("fitness", float("inf"))) if metrics else None,
+        },
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(parent_blob, indent=2, ensure_ascii=False)
+    if global_feedback is not None:
+        prompt = prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    prompt_sha1 = sha1(prompt.encode("utf-8")).hexdigest()
+    raw = _call_llm(prompt, llm_op="LOSS_CONSTRAINT_INJECT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return (
+        parse_free_loss_from_text(json_str),
+        {
+            "llm_op": "LOSS_CONSTRAINT_INJECT",
+            "prompt_path": str(prompt_path),
+            "prompt_sha1": str(prompt_sha1),
+        },
     )
 
 

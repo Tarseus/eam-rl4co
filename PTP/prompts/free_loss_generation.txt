@@ -7,10 +7,17 @@ The JSON MUST be parseable by `ptp_discovery.free_loss_compiler.parse_free_loss_
   "name": "short_unique_name",
   "intuition": "short explanation",
   "pseudocode": "high level math",
-  "hyperparams": { "any": "json" },
+  "hyperparams": {
+    "paradigm_family": "...",
+    "signal_family": "...",
+    "link_family": "...",
+    "agg_family": "...",
+    "constraint_family": "...",
+    "other_hparams": "optional"
+  },
   "operators_used": ["logsigmoid", "..."],
   "implementation_hint": {
-    "expects": ["log_prob_w", "log_prob_l", "delta_z", "weight"],
+    "expects": ["log_prob_w", "log_prob_l", "weight", "..."],
     "returns": "scalar",
     "mode": "pairwise"
   },
@@ -20,13 +27,13 @@ The JSON MUST be parseable by `ptp_discovery.free_loss_compiler.parse_free_loss_
 Hard constraints:
 - Output JSON only.
 - `intuition` must be non-empty and specific (explain the signal and why it should work).
-- `implementation_hint.mode` is "pairwise" or "setwise".
+- Emit all five family tags as non-empty strings in `hyperparams`.
+- `implementation_hint.mode` must be "pairwise".
 - `implementation_hint.returns` must describe a scalar output (use "scalar").
 - `implementation_hint.expects` must be a non-empty list of valid keys for the chosen mode.
-  - Pairwise expects must include "log_prob_w" and "log_prob_l", and at least one of:
-    ["delta_z","delta_rank","delta_regret","cost_a","cost_b"].
-  - Setwise expects must include "log_prob" and at least one of:
-    ["objective","obj_z","rank","regret"].
+  - Pairwise expects must include "log_prob_w", "log_prob_l", and "weight".
+  - Pairwise expects must also include the primary signal declared by signal_family:
+    ["delta_z","delta_rank","delta_regret"] or both ["cost_a","cost_b"] for cost-based signals.
 - `code` must define `generated_loss(batch, model_output, extra)` and return a scalar torch.Tensor.
 - Do NOT use `import`, `open`, `eval`, `exec`, filesystem/network, randomness, or global state.
 - Only use tensor math and `ops.*` operators (e.g., ops.logsigmoid, ops.softplus, ops.clamp, ops.normalize, ops.zscore).

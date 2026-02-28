@@ -1,0 +1,45 @@
+You are performing LOSS_PARADIGM_SHIFT for a free-form preference loss.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+You will receive PARENTS_JSON with multiple parent losses and metrics.
+Create a new pairwise loss with a different paradigm, not just a small parameter change.
+
+Output schema:
+{
+  "name": "...",
+  "intuition": "...",
+  "pseudocode": "...",
+  "hyperparams": {
+    "paradigm_family": "...",
+    "signal_family": "...",
+    "link_family": "...",
+    "agg_family": "...",
+    "constraint_family": "..."
+  },
+  "operators_used": ["..."],
+  "implementation_hint": {
+    "expects": ["log_prob_w", "log_prob_l", "weight", "..."],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- implementation_hint.mode must be "pairwise".
+- Emit all five family tags as non-empty strings.
+- implementation_hint.expects must be self-consistent with the code.
+- expects must always include log_prob_w, log_prob_l, and weight.
+- expects must also include the primary signal declared by signal_family:
+  - signal_family=delta_z -> include delta_z
+  - signal_family=delta_rank -> include delta_rank
+  - signal_family=delta_regret -> include delta_regret
+  - signal_family=cost_gap -> include both cost_a and cost_b
+- You may choose expects freely from the supported keys set: log_prob_w, log_prob_l, weight, delta_z, delta_rank, delta_regret, cost_a, cost_b.
+- paradigm_family must change relative to the dominant parent pattern.
+- Also change at least one of signal_family, link_family, or agg_family.
+- generated_loss must return a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / randomness.
+- Use only vectorized tensor ops and ops.* helpers.

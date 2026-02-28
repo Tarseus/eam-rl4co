@@ -370,6 +370,20 @@ def _sig_free_loss(ir: FreeLossIR) -> str:
 
 _LOSS_FINGERPRINT_CACHE: Dict[str, Dict[str, Any]] = {}
 
+_BUILDER_FAMILY_KEYS = (
+    "geometry_family",
+    "cap_family",
+    "weight_family",
+    "constraint_family",
+)
+_LOSS_FAMILY_KEYS = (
+    "paradigm_family",
+    "signal_family",
+    "link_family",
+    "agg_family",
+    "constraint_family",
+)
+
 
 def _loss_fingerprint(ir: FreeLossIR) -> Dict[str, Any]:
     """Compute a compact structural fingerprint for novelty checks.
@@ -463,8 +477,86 @@ def _loss_fingerprint(ir: FreeLossIR) -> Dict[str, Any]:
     return fp
 
 
+def _normalize_family_value(value: Any) -> str:
+    text = str(value or "").strip()
+    return text if text else "unknown"
+
+
+def _family_tags_from_hparams(hparams: Mapping[str, Any] | None, *, keys: Sequence[str]) -> Dict[str, str]:
+    hp = hparams if isinstance(hparams, Mapping) else {}
+    out: Dict[str, str] = {}
+    for key in keys:
+        raw = hp.get(str(key)) if isinstance(hp, Mapping) else None
+        out[str(key)] = _normalize_family_value(raw)
+    return out
+
+
+def _builder_family_tags(ir: PreferenceBuilderIR) -> Dict[str, str]:
+    return _family_tags_from_hparams(getattr(ir, "hyperparams", {}), keys=_BUILDER_FAMILY_KEYS)
+
+
+def _loss_family_tags(ir: FreeLossIR) -> Dict[str, str]:
+    return _family_tags_from_hparams(getattr(ir, "hyperparams", {}), keys=_LOSS_FAMILY_KEYS)
+
+
+def _family_signature_from_tags(tags: Mapping[str, Any], *, ordered_keys: Sequence[str]) -> str:
+    if not isinstance(tags, Mapping):
+        return "unknown"
+    return "|".join(f"{str(key).replace('_family', '')}={_normalize_family_value(tags.get(str(key)))}" for key in ordered_keys)
+
+
+def _builder_family_signature(ir_or_entry: Any) -> str:
+    if isinstance(ir_or_entry, PreferenceBuilderIR):
+        tags = _builder_family_tags(ir_or_entry)
+    elif isinstance(ir_or_entry, Mapping):
+        if isinstance(ir_or_entry.get("family_signature"), str) and str(ir_or_entry.get("family_signature")).strip():
+            return str(ir_or_entry.get("family_signature"))
+        ir_raw = ir_or_entry.get("ir")
+        if isinstance(ir_raw, dict):
+            try:
+                tags = _builder_family_tags(pref_builder_ir_from_json(ir_raw))
+            except Exception:  # noqa: BLE001
+                tags = _family_tags_from_hparams(ir_raw.get("hyperparams", {}), keys=_BUILDER_FAMILY_KEYS)
+        else:
+            tags = _family_tags_from_hparams(ir_or_entry.get("hyperparams", {}), keys=_BUILDER_FAMILY_KEYS)
+    else:
+        return "unknown"
+    return _family_signature_from_tags(tags, ordered_keys=_BUILDER_FAMILY_KEYS)
+
+
+def _loss_family_signature(ir_or_entry: Any) -> str:
+    if isinstance(ir_or_entry, FreeLossIR):
+        tags = _loss_family_tags(ir_or_entry)
+    elif isinstance(ir_or_entry, Mapping):
+        if isinstance(ir_or_entry.get("family_signature"), str) and str(ir_or_entry.get("family_signature")).strip():
+            return str(ir_or_entry.get("family_signature"))
+        ir_raw = ir_or_entry.get("ir")
+        if isinstance(ir_raw, dict):
+            try:
+                tags = _loss_family_tags(free_loss_ir_from_json(ir_raw))
+            except Exception:  # noqa: BLE001
+                tags = _family_tags_from_hparams(ir_raw.get("hyperparams", {}), keys=_LOSS_FAMILY_KEYS)
+        else:
+            tags = _family_tags_from_hparams(ir_or_entry.get("hyperparams", {}), keys=_LOSS_FAMILY_KEYS)
+    else:
+        return "unknown"
+    return _family_signature_from_tags(tags, ordered_keys=_LOSS_FAMILY_KEYS)
+
+
 def _loss_family_id(ir: FreeLossIR) -> str:
     """Coarse 'family' label for diversity quotas and parent sampling."""
+
+    tags = _loss_family_tags(ir)
+    if any(tags.get(k) not in {"", "unknown"} for k in _LOSS_FAMILY_KEYS):
+        return "|".join(
+            [
+                _normalize_family_value(tags.get("paradigm_family")),
+                _normalize_family_value(tags.get("signal_family")),
+                _normalize_family_value(tags.get("link_family")),
+                _normalize_family_value(tags.get("agg_family")),
+                _normalize_family_value(tags.get("constraint_family")),
+            ]
+        )
 
     mode = "pairwise"
     expects: List[str] = []
@@ -601,50 +693,77 @@ def _select_elites_by_family(
         return []
     if not bool(enabled):
         return [dict(x) for x in list(ranked)[:total]]
+    return _select_elites_with_family_quota(
+        ranked=ranked,
+        elite_n=total,
+        metric_mode="minimize",
+        min_per_family=max(1, int(elite_per_family)),
+        max_per_family=max(1, int(elite_max_per_family)),
+        include_unknown=True,
+    )
 
-    elite_per_family = max(1, int(elite_per_family))
-    elite_max_per_family = max(1, int(elite_max_per_family))
 
-    fam_order: List[str] = []
+def _select_elites_with_family_quota(
+    ranked: Sequence[Mapping[str, Any]],
+    elite_n: int,
+    *,
+    metric_mode: str,
+    min_per_family: int = 1,
+    max_per_family: int | None = None,
+    include_unknown: bool = False,
+) -> List[Dict[str, Any]]:
+    elite_n = max(0, int(elite_n))
+    if elite_n <= 0:
+        return []
+    min_per_family = max(1, int(min_per_family))
+
     fam_to_items: Dict[str, List[Dict[str, Any]]] = {}
-    for e in ranked:
-        fam = str(e.get("family") or "unknown")
-        if fam not in fam_to_items:
-            fam_to_items[fam] = []
-            fam_order.append(fam)
-        fam_to_items[fam].append(dict(e))
+    for item in ranked:
+        fam = str(item.get("family_signature") or item.get("family") or "unknown")
+        fam_to_items.setdefault(fam, []).append(dict(item))
 
-    selected: List[Dict[str, Any]] = []
+    protected: List[Dict[str, Any]] = []
     selected_ids: set[str] = set()
     fam_counts: collections.Counter[str] = collections.Counter()
 
-    for fam in fam_order:
-        for e in fam_to_items.get(fam, [])[:elite_per_family]:
-            if len(selected) >= total:
-                break
-            eid = str(e.get("id") or "")
+    for fam, items in fam_to_items.items():
+        if fam == "unknown" and not bool(include_unknown):
+            continue
+        for item in items[:min_per_family]:
+            eid = str(item.get("id") or "")
             if eid and eid in selected_ids:
                 continue
-            selected.append(e)
-            selected_ids.add(eid)
+            protected.append(dict(item))
+            if eid:
+                selected_ids.add(eid)
             fam_counts[fam] += 1
-        if len(selected) >= total:
-            break
 
-    for e in ranked:
-        if len(selected) >= total:
+    protected.sort(
+        key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
+        reverse=bool(str(metric_mode) == "maximize"),
+    )
+
+    selected: List[Dict[str, Any]] = []
+    for item in protected:
+        if len(selected) >= elite_n:
             break
-        fam = str(e.get("family") or "unknown")
-        if int(fam_counts.get(fam, 0)) >= int(elite_max_per_family):
-            continue
-        eid = str(e.get("id") or "")
+        selected.append(dict(item))
+
+    for item in ranked:
+        if len(selected) >= elite_n:
+            break
+        eid = str(item.get("id") or "")
         if eid and eid in selected_ids:
             continue
-        selected.append(dict(e))
-        selected_ids.add(eid)
+        fam = str(item.get("family_signature") or item.get("family") or "unknown")
+        if max_per_family is not None and int(fam_counts.get(fam, 0)) >= int(max_per_family):
+            continue
+        selected.append(dict(item))
+        if eid:
+            selected_ids.add(eid)
         fam_counts[fam] += 1
 
-    return selected[:total]
+    return selected[:elite_n]
 
 
 def _sig_pref_builder(ir: PreferenceBuilderIR) -> str:
@@ -691,6 +810,155 @@ def _normalize_search_mode(value: Any, *, default_mode: str) -> str:
     if mode not in {"alternating", "coevo"}:
         return str(default_mode)
     return mode
+
+
+def _normalize_operator_name(name: str, side: str) -> str:
+    raw = str(name or "").strip().upper()
+    mapping = {
+        "GEN": "GEN",
+        "GENERATE": "GEN",
+        "E1_GENERATE": "GEN",
+        "XOVER": "XOVER",
+        "CROSSOVER": "XOVER",
+        "E1": "XOVER",
+        "MUTATE": "MUTATE",
+        "MUTATION": "MUTATE",
+        "M1": "MUTATE",
+        "TUNE": "TUNE",
+        "M2": "TUNE",
+        "PARADIGM_SHIFT": "PARADIGM_SHIFT",
+        "STRUCTURE_SHIFT": "STRUCTURE_SHIFT",
+        "CONSTRAINT_INJECT": "CONSTRAINT_INJECT",
+    }
+    if str(side) == "loss" and raw == "AGG_SHIFT":
+        return "STRUCTURE_SHIFT"
+    if str(side) == "builder" and raw == "CAP_SHIFT":
+        return "STRUCTURE_SHIFT"
+    return mapping.get(raw, raw)
+
+
+def _expand_operator_bank(side_cfg: Mapping[str, Any], generation: int, rng: random.Random, *, side: str) -> List[str]:
+    bank = side_cfg.get("operator_bank", {}) if isinstance(side_cfg, Mapping) else {}
+    if not isinstance(bank, Mapping):
+        return []
+    section = bank.get("init" if int(generation) <= 0 else "per_gen", [])
+    if not isinstance(section, Sequence) or isinstance(section, (str, bytes)):
+        return []
+    plan: List[str] = []
+    for item in section:
+        if not isinstance(item, Mapping):
+            continue
+        op = _normalize_operator_name(str(item.get("name", "")), side=side)
+        if op in {"", "ELITE", "M3", "REPAIR"}:
+            continue
+        count = max(0, _safe_int(item.get("count", 0), 0))
+        if count <= 0:
+            continue
+        plan.extend([op] * count)
+    rng.shuffle(plan)
+    return plan
+
+
+def _normalize_family_diversity_cfg(raw: Any) -> Dict[str, Any]:
+    cfg = dict(raw) if isinstance(raw, dict) else {}
+    return {
+        "enabled": bool(cfg.get("enabled", False)),
+        "min_per_family": int(cfg.get("min_per_family", cfg.get("elite_per_family", 1)) or 1),
+        "elite_max_per_family": int(cfg.get("elite_max_per_family", 0) or 0),
+        "parent_max_per_family": int(cfg.get("parent_max_per_family", 0) or 0),
+        "include_unknown": bool(cfg.get("include_unknown", False)),
+    }
+
+
+def _cap_parent_pool_by_family(
+    ranked_parents: Sequence[Tuple[float, str, Any, Mapping[str, Any]]],
+    *,
+    side: str,
+    max_per_family: int,
+    include_unknown: bool,
+) -> List[Tuple[float, str, Any, Mapping[str, Any]]]:
+    if int(max_per_family) <= 0:
+        return list(ranked_parents)
+    counts: collections.Counter[str] = collections.Counter()
+    out: List[Tuple[float, str, Any, Mapping[str, Any]]] = []
+    for item in ranked_parents:
+        fam = (
+            _builder_family_signature(item[3])
+            if str(side) == "builder"
+            else _loss_family_signature(item[3])
+        )
+        if fam == "unknown" and not bool(include_unknown):
+            continue
+        if int(counts[fam]) >= int(max_per_family):
+            continue
+        out.append(item)
+        counts[fam] += 1
+    return out if out else list(ranked_parents)
+
+
+def _sample_cross_family_parents(
+    rng: random.Random,
+    ranked_parents: Sequence[Tuple[float, str, Any, Mapping[str, Any]]],
+    *,
+    side: str,
+    k: int,
+) -> Tuple[List[Tuple[float, str, Any, Mapping[str, Any]]], bool]:
+    if not ranked_parents:
+        return [], False
+    sig_fn = _builder_family_signature if str(side) == "builder" else _loss_family_signature
+    by_sig: Dict[str, List[Tuple[float, str, Any, Mapping[str, Any]]]] = {}
+    for item in ranked_parents:
+        by_sig.setdefault(sig_fn(item[3]), []).append(item)
+    if len(by_sig) >= 2:
+        ordered_sigs = list(by_sig.keys())
+        chosen_sigs = _rank_weighted_sample_without_replacement(rng, ordered_sigs, k=min(len(ordered_sigs), max(2, int(k))))
+        chosen: List[Tuple[float, str, Any, Mapping[str, Any]]] = []
+        for sig in chosen_sigs[:2]:
+            chosen.append(by_sig[sig][0])
+        remaining_pool = [it for it in ranked_parents if str(it[1]) not in {str(x[1]) for x in chosen}]
+        if int(k) > len(chosen):
+            chosen.extend(_rank_weighted_sample_without_replacement(rng, remaining_pool, k=min(int(k) - len(chosen), len(remaining_pool))))
+        return chosen[: max(2, int(k))], False
+    chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=min(max(2, int(k)), len(ranked_parents)))
+    return chosen, True
+
+
+def _majority_parent_tags(
+    parent_irs: Sequence[Any],
+    *,
+    keys: Sequence[str],
+    kind: str,
+) -> Dict[str, str]:
+    out: Dict[str, str] = {}
+    for key in keys:
+        counts: collections.Counter[str] = collections.Counter()
+        ordered: List[str] = []
+        for ir in parent_irs:
+            if str(kind) == "builder":
+                tags = _builder_family_tags(ir)
+            else:
+                tags = _loss_family_tags(ir)
+            val = _normalize_family_value(tags.get(str(key)))
+            if val == "unknown":
+                continue
+            counts[val] += 1
+            ordered.append(val)
+        if not counts:
+            out[str(key)] = "unknown"
+            continue
+        top_n = max(counts.values())
+        tied = {k for k, v in counts.items() if int(v) == int(top_n)}
+        picked = next((v for v in ordered if v in tied), "unknown")
+        out[str(key)] = picked
+    return out
+
+
+def _missing_required_family_tags(tags: Mapping[str, Any], *, keys: Sequence[str]) -> List[str]:
+    missing: List[str] = []
+    for key in keys:
+        if _normalize_family_value(tags.get(str(key))) == "unknown":
+            missing.append(str(key))
+    return missing
 
 
 def _normalize_eval_stages(cfg: Mapping[str, Any]) -> Dict[str, bool]:
@@ -1174,14 +1442,16 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
             code = (
                 "def generated_builder(feature_cache, extra):\n"
                 "    objective = feature_cache['objective']\n"
-                "    mask = objective[:, :, None] < objective[:, None, :]\n"
+                "    gap = objective[:, None, :] - objective[:, :, None]\n"
+                "    mask = gap > 0.0\n"
                 "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
                 f"    max_pairs = int(extra.get('max_pairs', {max_pairs}))\n"
                 "    if b_idx.numel() > max_pairs:\n"
-                "        perm = torch.randperm(b_idx.numel(), device=b_idx.device)[:max_pairs]\n"
-                "        b_idx = b_idx[perm]\n"
-                "        winner_idx = winner_idx[perm]\n"
-                "        loser_idx = loser_idx[perm]\n"
+                "        scores = gap[b_idx, winner_idx, loser_idx]\n"
+                "        keep = torch.topk(scores, k=max_pairs, largest=True, sorted=False).indices\n"
+                "        b_idx = b_idx[keep]\n"
+                "        winner_idx = winner_idx[keep]\n"
+                "        loser_idx = loser_idx[keep]\n"
                 "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'sampled_pairs', 'max_pairs': max_pairs})\n"
             )
 
@@ -1190,6 +1460,25 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
                 name=f"builder_{kind}_{i:03d}",
                 intuition=f"rule_based:{kind}",
                 implementation_hint=_hint(),
+                hyperparams={
+                    "geometry_family": (
+                        "dense_all_pairs"
+                        if kind == "all_pairs"
+                        else ("anchor_star" if kind == "anchor_best" else ("threshold_pairs" if kind == "gap_threshold" else "sampled_pairs"))
+                    ),
+                    "cap_family": (
+                        "uncapped_full"
+                        if kind == "all_pairs"
+                        else ("anchor_single" if kind == "anchor_best" else ("threshold_keep" if kind == "gap_threshold" else "budget_sample"))
+                    ),
+                    "weight_family": "uniform_none",
+                    "constraint_family": (
+                        "none"
+                        if kind == "all_pairs"
+                        else ("dedup_anchor" if kind == "anchor_best" else ("gap_filter" if kind == "gap_threshold" else "budget_clamp"))
+                    ),
+                },
+                operators_used=[kind],
                 code=code,
             )
         )
@@ -1413,7 +1702,14 @@ def _make_builtin_loss_irs(rng: random.Random, n: int) -> List[FreeLossIR]:
             "name": name,
             "intuition": "rule_based: pairwise logsigmoid loss",
             "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
-            "hyperparams": {"scale": scale},
+            "hyperparams": {
+                "scale": scale,
+                "paradigm_family": "pairwise_margin",
+                "signal_family": ("cost_gap" if use_cost else "logprob_gap"),
+                "link_family": "logsigmoid",
+                "agg_family": "mean",
+                "constraint_family": "clamp_stabilized",
+            },
             "operators_used": ["logsigmoid", "clamp"],
             "implementation_hint": {"expects": expects, "returns": "scalar", "mode": "pairwise"},
             "code": code,
@@ -1684,11 +1980,168 @@ def _build_free_loss_failure_prompt(
     return prompt, _prompt_sha1(prompt)
 
 
+def _operator_contract_failure(
+    *,
+    op_type: str,
+    reason: str,
+    parent_tags: Any,
+    cand_tags: Mapping[str, Any],
+    required_change: Any,
+) -> Dict[str, Any]:
+    return {
+        "stage": "operator_contract",
+        "reason": str(reason),
+        "op_type": str(op_type),
+        "parent_tags": parent_tags,
+        "cand_tags": dict(cand_tags),
+        "required_change": required_change,
+        "trace": {
+            "failed_gate": "OperatorContract",
+            "failure_kind": str(reason),
+        },
+    }
+
+
+def _validate_builder_operator_contract(
+    ir: PreferenceBuilderIR,
+    op_type: str,
+    parent_irs: Sequence[PreferenceBuilderIR],
+    parent_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> Tuple[bool, Dict[str, Any]]:
+    del parent_entries
+    op = str(op_type or "").strip().upper()
+    if op not in {"BUILDER_PARADIGM_SHIFT", "BUILDER_STRUCTURE_SHIFT", "BUILDER_CONSTRAINT_INJECT"}:
+        return True, {}
+    cand_tags = _builder_family_tags(ir)
+    missing = _missing_required_family_tags(cand_tags, keys=_BUILDER_FAMILY_KEYS)
+    if missing:
+        return False, _operator_contract_failure(
+            op_type=op,
+            reason="missing_family_tags",
+            parent_tags=[_builder_family_tags(p) for p in parent_irs],
+            cand_tags=cand_tags,
+            required_change={"required_keys": list(_BUILDER_FAMILY_KEYS), "missing": missing},
+        )
+    if op == "BUILDER_PARADIGM_SHIFT":
+        maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
+        if _normalize_family_value(cand_tags.get("geometry_family")) == _normalize_family_value(maj.get("geometry_family")):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="geometry_family_not_changed",
+                parent_tags=maj,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "weight_family"]},
+            )
+        if (
+            _normalize_family_value(cand_tags.get("cap_family")) == _normalize_family_value(maj.get("cap_family"))
+            and _normalize_family_value(cand_tags.get("weight_family")) == _normalize_family_value(maj.get("weight_family"))
+        ):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="secondary_family_not_changed",
+                parent_tags=maj,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "weight_family"]},
+            )
+    elif op == "BUILDER_STRUCTURE_SHIFT":
+        parent = parent_irs[0] if parent_irs else None
+        p_tags = _builder_family_tags(parent) if parent is not None else {}
+        if _normalize_family_value(cand_tags.get("cap_family")) == _normalize_family_value(p_tags.get("cap_family")):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="cap_family_not_changed",
+                parent_tags=p_tags,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["cap_family"]},
+            )
+    elif op == "BUILDER_CONSTRAINT_INJECT":
+        parent = parent_irs[0] if parent_irs else None
+        p_tags = _builder_family_tags(parent) if parent is not None else {}
+        if _normalize_family_value(cand_tags.get("constraint_family")) == _normalize_family_value(p_tags.get("constraint_family")):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="constraint_family_not_changed",
+                parent_tags=p_tags,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["constraint_family"]},
+            )
+    return True, {}
+
+
+def _validate_loss_operator_contract(
+    ir: FreeLossIR,
+    op_type: str,
+    parent_irs: Sequence[FreeLossIR],
+    parent_entries: Sequence[Mapping[str, Any]] | None = None,
+) -> Tuple[bool, Dict[str, Any]]:
+    del parent_entries
+    op = str(op_type or "").strip().upper()
+    if op not in {"LOSS_PARADIGM_SHIFT", "LOSS_STRUCTURE_SHIFT", "LOSS_CONSTRAINT_INJECT"}:
+        return True, {}
+    cand_tags = _loss_family_tags(ir)
+    missing = _missing_required_family_tags(cand_tags, keys=_LOSS_FAMILY_KEYS)
+    if missing:
+        return False, _operator_contract_failure(
+            op_type=op,
+            reason="missing_family_tags",
+            parent_tags=[_loss_family_tags(p) for p in parent_irs],
+            cand_tags=cand_tags,
+            required_change={"required_keys": list(_LOSS_FAMILY_KEYS), "missing": missing},
+        )
+    if op == "LOSS_PARADIGM_SHIFT":
+        maj = _majority_parent_tags(parent_irs, keys=_LOSS_FAMILY_KEYS, kind="loss")
+        if _normalize_family_value(cand_tags.get("paradigm_family")) == _normalize_family_value(maj.get("paradigm_family")):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="paradigm_family_not_changed",
+                parent_tags=maj,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["paradigm_family"], "must_also_change_one_of": ["signal_family", "link_family", "agg_family"]},
+            )
+        if all(
+            _normalize_family_value(cand_tags.get(key)) == _normalize_family_value(maj.get(key))
+            for key in ("signal_family", "link_family", "agg_family")
+        ):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="secondary_family_not_changed",
+                parent_tags=maj,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["paradigm_family"], "must_also_change_one_of": ["signal_family", "link_family", "agg_family"]},
+            )
+    elif op == "LOSS_STRUCTURE_SHIFT":
+        parent = parent_irs[0] if parent_irs else None
+        p_tags = _loss_family_tags(parent) if parent is not None else {}
+        if _normalize_family_value(cand_tags.get("agg_family")) == _normalize_family_value(p_tags.get("agg_family")):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="agg_family_not_changed",
+                parent_tags=p_tags,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["agg_family"]},
+            )
+    elif op == "LOSS_CONSTRAINT_INJECT":
+        parent = parent_irs[0] if parent_irs else None
+        p_tags = _loss_family_tags(parent) if parent is not None else {}
+        if _normalize_family_value(cand_tags.get("constraint_family")) == _normalize_family_value(p_tags.get("constraint_family")):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="constraint_family_not_changed",
+                parent_tags=p_tags,
+                cand_tags=cand_tags,
+                required_change={"must_change": ["constraint_family"]},
+            )
+    return True, {}
+
+
 def validate_builder_candidate(
     ir: PreferenceBuilderIR,
     *,
     operator_whitelist: Sequence[str],
     gate_cfg: Mapping[str, Any],
+    op_type: str | None = None,
+    parent_irs: Sequence[PreferenceBuilderIR] | None = None,
+    parent_entries: Sequence[Mapping[str, Any]] | None = None,
     dummy_variant: str = "visible",
 ) -> Tuple[bool, Dict[str, Any]]:
     """Compile + smoke-run + gate a builder on a synthetic feature_cache.
@@ -1736,6 +2189,15 @@ def validate_builder_candidate(
             trace=bg.trace,
         )
 
+    contract_ok, contract_fail = _validate_builder_operator_contract(
+        ir,
+        str(op_type or ""),
+        list(parent_irs or []),
+        list(parent_entries or []),
+    )
+    if not bool(contract_ok):
+        return False, dict(contract_fail)
+
     return True, {}
 
 
@@ -1745,6 +2207,9 @@ def _repair_builder_candidate_loop(
     failure_report: Mapping[str, Any],
     operator_whitelist: Sequence[str],
     gate_cfg: Mapping[str, Any],
+    op_type: str | None = None,
+    parent_irs: Sequence[PreferenceBuilderIR] | None = None,
+    parent_entries: Sequence[Mapping[str, Any]] | None = None,
     llm_prompts: Mapping[str, str],
     global_feedback: Mapping[str, Any] | None,
     max_attempts: int,
@@ -1801,6 +2266,9 @@ def _repair_builder_candidate_loop(
             repaired,
             operator_whitelist=operator_whitelist,
             gate_cfg=gate_cfg,
+            op_type=op_type,
+            parent_irs=parent_irs,
+            parent_entries=parent_entries,
         )
         if ok:
             return repaired, {"attempts": attempts, "repaired": True}
@@ -1879,6 +2347,7 @@ def _propose_builders_for_generation(
             repair_cfg = {}
         repair_on_fail = bool(repair_cfg.get("enabled", builder_cfg.get("repair_on_failure", True)))
         repair_attempts = int(repair_cfg.get("max_attempts", builder_cfg.get("repair_attempts", 1)) or 1)
+        family_div_cfg = _normalize_family_diversity_cfg(builder_cfg.get("family_diversity", {}))
 
         prompts = llm_root.get("prompts", builder_cfg.get("prompts", {})) or {}
         if not isinstance(prompts, dict):
@@ -1887,6 +2356,9 @@ def _propose_builders_for_generation(
         p_x = str(prompts.get("builder_crossover", "") or "")
         p_m = str(prompts.get("builder_mutation", "") or "")
         p_e2 = str(prompts.get("builder_e2", "") or "")
+        p_shift = str(prompts.get("builder_paradigm_shift", "") or "")
+        p_structure = str(prompts.get("builder_structure_shift", "") or "")
+        p_constraint = str(prompts.get("builder_constraint_inject", "") or "")
         p_m2 = str(prompts.get("builder_m2", "") or "")
         p_m3 = str(prompts.get("builder_m3", "") or "")
         p_rep = str(prompts.get("builder_repair", "") or "")
@@ -1912,17 +2384,60 @@ def _propose_builders_for_generation(
                 fit = float(item.get("fitness", float("inf")))
             except (TypeError, ValueError):
                 fit = float("inf")
-            ranked_parents.append((fit, str(item.get("id", "")), ir, item))
+            item2 = dict(item)
+            item2["family_signature"] = _builder_family_signature(item2)
+            ranked_parents.append((fit, str(item.get("id", "")), ir, item2))
         ranked_parents.sort(key=lambda x: float(x[0]))
         if not ranked_parents:
             # Bootstrap parents so E2/M1/M2 are usable at gen0 (aligns with free_loss EoH behavior).
             bootstrap = _make_builtin_builder_irs(rng, max(2, int(parent_p)))
             for i, ir0 in enumerate(bootstrap):
-                ranked_parents.append((0.0, f"bootstrap_g_{i:03d}", ir0, {"id": f"bootstrap_g_{i:03d}", "fitness": 0.0, "ir": asdict(ir0)}))
+                ranked_parents.append(
+                    (
+                        0.0,
+                        f"bootstrap_g_{i:03d}",
+                        ir0,
+                        {
+                            "id": f"bootstrap_g_{i:03d}",
+                            "fitness": 0.0,
+                            "ir": asdict(ir0),
+                            "family_signature": _builder_family_signature(ir0),
+                        },
+                    )
+                )
+        if bool(family_div_cfg.get("enabled", False)):
+            ranked_parents = _cap_parent_pool_by_family(
+                ranked_parents,
+                side="builder",
+                max_per_family=int(family_div_cfg.get("parent_max_per_family", 0) or 0),
+                include_unknown=bool(family_div_cfg.get("include_unknown", False)),
+            )
+        existing_sigs = {str((item[3] or {}).get("family_signature") or _builder_family_signature(item[2])) for item in ranked_parents}
+        if len(existing_sigs) < 2:
+            supplements = [_ref_builder_ir()] + _make_builtin_builder_irs(rng, max(2, int(parent_p)))
+            for sup_idx, ir0 in enumerate(supplements):
+                sig0 = _builder_family_signature(ir0)
+                if sig0 in existing_sigs:
+                    continue
+                ranked_parents.append(
+                    (
+                        0.0,
+                        f"builder_sup_{sup_idx:03d}_{sig0[:12]}",
+                        ir0,
+                        {"id": f"builder_sup_{sup_idx:03d}_{sig0[:12]}", "fitness": 0.0, "ir": asdict(ir0), "family_signature": sig0},
+                    )
+                )
+                existing_sigs.add(sig0)
+                if len(existing_sigs) >= 2:
+                    break
+        ranked_parents.sort(key=lambda x: float(x[0]))
 
         # Operator plan: either explicit counts (preferred) or legacy budget+random choice.
         def _op_plan() -> List[str]:
             init = int(generation) <= 0
+            plan = _expand_operator_bank(builder_cfg, int(generation), rng, side="builder")
+            if plan:
+                return plan
             keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
             if any(builder_cfg.get(k) is not None for k in keys):
                 nE1 = int(builder_cfg.get("init_num_E1" if init else "num_E1", builder_cfg.get("num_E1", 0)) or 0)
@@ -1942,19 +2457,22 @@ def _propose_builders_for_generation(
             parents_ir: List[PreferenceBuilderIR] = []
             parents_fit: List[Mapping[str, Any]] = []
             parents_ids: List[str] = []
+            parent_entries_used: List[Mapping[str, Any]] = []
 
             # Map high-level EoH ops to concrete LLM ops.
-            llm_op = str(op).strip().upper()
-            if llm_op == "E1":
-                # E1 uses generation when parent pool is small; otherwise crossover or generation.
+            raw_op = _normalize_operator_name(str(op).strip().upper(), side="builder")
+            llm_op = str(raw_op)
+            if llm_op in {"XOVER", "E1"}:
                 if len(ranked_parents) >= 2 and p_x:
                     llm_op = "E1"
                 else:
                     llm_op = "E1_GENERATE"
-            elif llm_op == "E2":
-                llm_op = "E2"
-            elif llm_op == "M2":
+            elif llm_op in {"GEN", "E2"}:
+                llm_op = "E2" if str(raw_op) == "E2" else "E1_GENERATE"
+            elif llm_op in {"TUNE", "M2"}:
                 llm_op = "M2"
+            elif llm_op in {"PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT"}:
+                llm_op = str(raw_op)
             else:
                 llm_op = "M1"
 
@@ -1963,17 +2481,33 @@ def _propose_builders_for_generation(
                 parents_ir = [c[2] for c in chosen]
                 parents_fit = [{"fitness": float(c[0])} for c in chosen]
                 parents_ids = [str(c[1]) for c in chosen]
-            elif llm_op in {"M1", "M2"} and len(ranked_parents) >= 1:
+                parent_entries_used = [c[3] for c in chosen]
+            elif llm_op in {"M1", "M2", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT"} and len(ranked_parents) >= 1:
                 chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
                 parents_ir = [chosen1[2]]
                 parents_fit = [{"fitness": float(chosen1[0])}]
                 parents_ids = [str(chosen1[1])]
+                parent_entries_used = [chosen1[3]]
+            elif llm_op == "PARADIGM_SHIFT" and len(ranked_parents) >= 2:
+                chosen, shortage = _sample_cross_family_parents(
+                    rng,
+                    ranked_parents,
+                    side="builder",
+                    k=max(2, min(parent_p, len(ranked_parents))),
+                )
+                parents_ir = [c[2] for c in chosen]
+                parents_fit = [{"fitness": float(c[0])} for c in chosen]
+                parents_ids = [str(c[1]) for c in chosen]
+                parent_entries_used = [c[3] for c in chosen]
             else:
                 llm_op = "E1_GENERATE"
+                shortage = False
 
             llm_seed = int(rng.randint(0, 2**31 - 1))
             call_feedback = dict(global_feedback or {})
             call_feedback["llm_call"] = {"side": "builder", "op_type": str(llm_op), "seed": llm_seed}
+            if llm_op == "PARADIGM_SHIFT":
+                call_feedback["llm_call"]["parent_family_shortage"] = bool(locals().get("shortage", False))
 
             history: List[Dict[str, Any]] = []
             try:
@@ -1986,6 +2520,7 @@ def _propose_builders_for_generation(
                     base_origin = "E1"
                     op_type = "E1_GENERATE"
                     parent_ids = []
+                    parent_entries_used = []
                 elif llm_op == "E1":
                     ir, meta = builder_llm_ops.crossover_pref_builder_with_meta(
                         p_x,
@@ -2005,6 +2540,36 @@ def _propose_builders_for_generation(
                     )
                     base_origin = "E2"
                     op_type = "E2"
+                    parent_ids = parents_ids
+                elif llm_op == "PARADIGM_SHIFT":
+                    ir, meta = builder_llm_ops.paradigm_shift_builder_with_meta(
+                        p_shift,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "PARADIGM_SHIFT"
+                    op_type = "BUILDER_PARADIGM_SHIFT"
+                    parent_ids = parents_ids
+                elif llm_op == "STRUCTURE_SHIFT":
+                    ir, meta = builder_llm_ops.structure_shift_builder_with_meta(
+                        p_structure,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "STRUCTURE_SHIFT"
+                    op_type = "BUILDER_STRUCTURE_SHIFT"
+                    parent_ids = parents_ids
+                elif llm_op == "CONSTRAINT_INJECT":
+                    ir, meta = builder_llm_ops.constraint_inject_builder_with_meta(
+                        p_constraint,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    base_origin = "CONSTRAINT_INJECT"
+                    op_type = "BUILDER_CONSTRAINT_INJECT"
                     parent_ids = parents_ids
                 elif llm_op == "M2":
                     ir, meta = builder_llm_ops.m2_tune_builder_with_meta(
@@ -2041,6 +2606,9 @@ def _propose_builders_for_generation(
                     "semantic_tolerance": sem_tol,
                     "semantic_min_pass_rate": sem_min_pass,
                 },
+                op_type=str(op_type),
+                parent_irs=parents_ir,
+                parent_entries=parent_entries_used,
             )
 
             origin = base_origin
@@ -2060,6 +2628,9 @@ def _propose_builders_for_generation(
                         "semantic_tolerance": sem_tol,
                         "semantic_min_pass_rate": sem_min_pass,
                     },
+                    op_type=str(op_type),
+                    parent_irs=parents_ir,
+                    parent_entries=parent_entries_used,
                     llm_prompts={"builder_m3": p_m3, "builder_repair": p_rep},
                     global_feedback=call_feedback,
                     max_attempts=max(0, int(repair_attempts)),
@@ -2231,6 +2802,9 @@ def _propose_losses_for_generation(
         p_x = str(prompts.get("loss_crossover", "") or "")
         p_m = str(prompts.get("loss_mutation", "") or "")
         p_e2 = str(prompts.get("loss_e2", "") or "")
+        p_shift = str(prompts.get("loss_paradigm_shift", "") or "")
+        p_structure = str(prompts.get("loss_structure_shift", "") or "")
+        p_constraint = str(prompts.get("loss_constraint_inject", "") or "")
         p_m2 = str(prompts.get("loss_m2", "") or "")
         p_m3 = str(prompts.get("loss_m3", "") or "")
         p_rep = str(prompts.get("loss_repair", "") or "")
@@ -2243,9 +2817,7 @@ def _propose_losses_for_generation(
         novelty_neighbors = int(novelty_cfg.get("neighbors", 3) or 3)
         novelty_apply_to_elites = bool(novelty_cfg.get("apply_to_elites", False))
 
-        family_div = loss_cfg.get("family_diversity", {}) or {}
-        if not isinstance(family_div, dict):
-            family_div = {}
+        family_div = _normalize_family_diversity_cfg(loss_cfg.get("family_diversity", {}))
         family_parent_div_enabled = bool(family_div.get("enabled", False))
         family_parent_max_per = int(family_div.get("parent_max_per_family", 1) or 1)
 
@@ -2266,12 +2838,52 @@ def _propose_losses_for_generation(
                 fit = float(item.get("fitness", float("inf")))
             except (TypeError, ValueError):
                 fit = float("inf")
-            ranked_parents.append((fit, str(item.get("id", "")), ir0, item))
+            item2 = dict(item)
+            item2["family_signature"] = _loss_family_signature(item2)
+            ranked_parents.append((fit, str(item.get("id", "")), ir0, item2))
         ranked_parents.sort(key=lambda x: float(x[0]))
         if not ranked_parents:
             bootstrap = _make_builtin_loss_irs(rng, max(2, int(parent_p)))
             for i, ir0 in enumerate(bootstrap):
-                ranked_parents.append((0.0, f"bootstrap_f_{i:03d}", ir0, {"id": f"bootstrap_f_{i:03d}", "fitness": 0.0, "ir": asdict(ir0)}))
+                ranked_parents.append(
+                    (
+                        0.0,
+                        f"bootstrap_f_{i:03d}",
+                        ir0,
+                        {
+                            "id": f"bootstrap_f_{i:03d}",
+                            "fitness": 0.0,
+                            "ir": asdict(ir0),
+                            "family_signature": _loss_family_signature(ir0),
+                        },
+                    )
+                )
+        if bool(family_parent_div_enabled):
+            ranked_parents = _cap_parent_pool_by_family(
+                ranked_parents,
+                side="loss",
+                max_per_family=int(family_parent_max_per),
+                include_unknown=bool(family_div.get("include_unknown", False)),
+            )
+        existing_sigs = {str((item[3] or {}).get("family_signature") or _loss_family_signature(item[2])) for item in ranked_parents}
+        if len(existing_sigs) < 2:
+            supplements = [_ref_loss_ir()] + _make_builtin_loss_irs(rng, max(2, int(parent_p)))
+            for sup_idx, ir0 in enumerate(supplements):
+                sig0 = _loss_family_signature(ir0)
+                if sig0 in existing_sigs:
+                    continue
+                ranked_parents.append(
+                    (
+                        0.0,
+                        f"loss_sup_{sup_idx:03d}_{sig0[:12]}",
+                        ir0,
+                        {"id": f"loss_sup_{sup_idx:03d}_{sig0[:12]}", "fitness": 0.0, "ir": asdict(ir0), "family_signature": sig0},
+                    )
+                )
+                existing_sigs.add(sig0)
+                if len(existing_sigs) >= 2:
+                    break
+        ranked_parents.sort(key=lambda x: float(x[0]))
 
         novelty_bank: List[Dict[str, Any]] = []
         novelty_seen: set[str] = set()
@@ -2297,6 +2909,9 @@ def _propose_losses_for_generation(
 
         def _op_plan() -> List[str]:
             init = int(generation) <= 0
+            plan = _expand_operator_bank(loss_cfg, int(generation), rng, side="loss")
+            if plan:
+                return plan
             keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
             if any(loss_cfg.get(k) is not None for k in keys):
                 nE1 = int(loss_cfg.get("init_num_E1" if init else "num_E1", loss_cfg.get("num_E1", 0)) or 0)
@@ -2309,7 +2924,7 @@ def _propose_losses_for_generation(
                     # Bias away from consensus (E2) and hyperparam-tuning (M2) when stagnating.
                     plan2: List[str] = []
                     for op in plan:
-                        if op in {"E2", "M2"} and rng.random() < float(explore_replace_p):
+                        if op in {"E2", "M2", "GEN", "TUNE"} and rng.random() < float(explore_replace_p):
                             plan2.append("E1")
                         else:
                             plan2.append(op)
@@ -2325,55 +2940,56 @@ def _propose_losses_for_generation(
             parents_ir: List[FreeLossIR] = []
             parents_fit: List[Mapping[str, Any]] = []
             parents_ids: List[str] = []
-
-            llm_op = str(op).strip().upper()
-            if llm_op == "E1":
+            parent_entries_used: List[Mapping[str, Any]] = []
+            raw_op = _normalize_operator_name(str(op).strip().upper(), side="loss")
+            llm_op = str(raw_op)
+            if llm_op in {"XOVER", "E1"}:
                 if len(ranked_parents) >= 2 and p_x:
                     llm_op = "E1"
                 else:
                     llm_op = "E1_GENERATE"
-            elif llm_op == "E2":
-                llm_op = "E2"
-            elif llm_op == "M2":
+            elif llm_op in {"GEN", "E2"}:
+                llm_op = "E2" if str(raw_op) == "E2" else "E1_GENERATE"
+            elif llm_op in {"TUNE", "M2"}:
                 llm_op = "M2"
+            elif llm_op in {"PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT"}:
+                llm_op = str(raw_op)
             else:
                 llm_op = "M1"
 
             if llm_op in {"E1", "E2"} and len(ranked_parents) >= 2:
                 k = max(2, min(parent_p, len(ranked_parents)))
-                if family_parent_div_enabled:
-                    chosen = _rank_weighted_sample_without_replacement_diverse(
-                        rng,
-                        ranked_parents,
-                        k=k,
-                        key_fn=lambda x: str((x[3] or {}).get("family") or _loss_family_id(x[2])),
-                        max_per_key=int(family_parent_max_per),
-                    )
-                else:
-                    chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=k)
+                chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=k)
                 parents_ir = [c[2] for c in chosen]
                 parents_fit = [{"fitness": float(c[0])} for c in chosen]
                 parents_ids = [str(c[1]) for c in chosen]
-            elif llm_op in {"M1", "M2"} and len(ranked_parents) >= 1:
-                if family_parent_div_enabled:
-                    chosen1 = _rank_weighted_sample_without_replacement_diverse(
-                        rng,
-                        ranked_parents,
-                        k=1,
-                        key_fn=lambda x: str((x[3] or {}).get("family") or _loss_family_id(x[2])),
-                        max_per_key=int(family_parent_max_per),
-                    )[0]
-                else:
-                    chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
+                parent_entries_used = [c[3] for c in chosen]
+            elif llm_op in {"M1", "M2", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT"} and len(ranked_parents) >= 1:
+                chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
                 parents_ir = [chosen1[2]]
                 parents_fit = [{"fitness": float(chosen1[0])}]
                 parents_ids = [str(chosen1[1])]
+                parent_entries_used = [chosen1[3]]
+            elif llm_op == "PARADIGM_SHIFT" and len(ranked_parents) >= 2:
+                chosen, shortage = _sample_cross_family_parents(
+                    rng,
+                    ranked_parents,
+                    side="loss",
+                    k=max(2, min(parent_p, len(ranked_parents))),
+                )
+                parents_ir = [c[2] for c in chosen]
+                parents_fit = [{"fitness": float(c[0])} for c in chosen]
+                parents_ids = [str(c[1]) for c in chosen]
+                parent_entries_used = [c[3] for c in chosen]
             else:
                 llm_op = "E1_GENERATE"
+                shortage = False
 
             llm_seed = int(rng.randint(0, 2**31 - 1))
             call_feedback = dict(global_feedback or {})
             call_feedback["llm_call"] = {"side": "loss", "op_type": str(llm_op), "seed": llm_seed}
+            if llm_op == "PARADIGM_SHIFT":
+                call_feedback["llm_call"]["parent_family_shortage"] = bool(locals().get("shortage", False))
             if explore_enabled:
                 call_feedback["loss_search"] = dict(call_feedback.get("loss_search") or {})
                 call_feedback["loss_search"]["explore_mode"] = bool(explore_mode)
@@ -2413,6 +3029,7 @@ def _propose_losses_for_generation(
                     base_origin = "E1"
                     op_type = "E1_GENERATE"
                     parent_ids = []
+                    parent_entries_used = []
                 elif llm_op == "E1":
                     _, sha = _build_free_loss_parents_prompt(
                         p_x,
@@ -2439,6 +3056,66 @@ def _propose_losses_for_generation(
                     ir = loss_llm_ops.e2_free_loss(p_e2, parents=parents_ir, parents_fitness=parents_fit, global_feedback=call_feedback)
                     base_origin = "E2"
                     op_type = "E2"
+                elif llm_op == "PARADIGM_SHIFT":
+                    _, sha = _build_free_loss_parents_prompt(
+                        p_shift,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENTS_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_shift)
+                    ir, meta = loss_llm_ops.paradigm_shift_free_loss_with_meta(
+                        p_shift,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                    )
+                    prompt_sha1 = str(meta.get("prompt_sha1", prompt_sha1))
+                    prompt_path = str(meta.get("prompt_path", prompt_path))
+                    base_origin = "PARADIGM_SHIFT"
+                    op_type = "LOSS_PARADIGM_SHIFT"
+                elif llm_op == "STRUCTURE_SHIFT":
+                    _, sha = _build_free_loss_parent_prompt(
+                        p_structure,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENT_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_structure)
+                    ir, meta = loss_llm_ops.structure_shift_free_loss_with_meta(
+                        p_structure,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    prompt_sha1 = str(meta.get("prompt_sha1", prompt_sha1))
+                    prompt_path = str(meta.get("prompt_path", prompt_path))
+                    base_origin = "STRUCTURE_SHIFT"
+                    op_type = "LOSS_STRUCTURE_SHIFT"
+                elif llm_op == "CONSTRAINT_INJECT":
+                    _, sha = _build_free_loss_parent_prompt(
+                        p_constraint,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                        parent_block_name="PARENT_JSON",
+                    )
+                    prompt_sha1 = sha
+                    prompt_path = str(p_constraint)
+                    ir, meta = loss_llm_ops.constraint_inject_free_loss_with_meta(
+                        p_constraint,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                    )
+                    prompt_sha1 = str(meta.get("prompt_sha1", prompt_sha1))
+                    prompt_path = str(meta.get("prompt_path", prompt_path))
+                    base_origin = "CONSTRAINT_INJECT"
+                    op_type = "LOSS_CONSTRAINT_INJECT"
                 elif llm_op == "M2":
                     _, sha = _build_free_loss_parent_prompt(
                         p_m2,
@@ -2493,7 +3170,16 @@ def _propose_losses_for_generation(
                 else:
                     _ = compile_free_loss(ir, operator_whitelist=operator_whitelist)
                     ok = True
-                    if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                    contract_ok, contract_fail = _validate_loss_operator_contract(
+                        ir,
+                        str(op_type),
+                        parents_ir,
+                        parent_entries_used,
+                    )
+                    if not bool(contract_ok):
+                        ok = False
+                        fail_reason = dict(contract_fail)
+                    elif novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
                         nov_ok, nov_payload = _check_loss_novelty(
                             candidate=ir,
                             bank=novelty_bank,
@@ -2521,7 +3207,11 @@ def _propose_losses_for_generation(
                     except Exception:  # noqa: BLE001
                         pass
                     try:
-                        if bool(repair_cfg.get("simplify_first", True)) and p_m3 and fail_reason.get("stage") in {"static_gate", "compile"}:
+                        if (
+                            bool(repair_cfg.get("simplify_first", True))
+                            and p_m3
+                            and fail_reason.get("stage") in {"static_gate", "compile"}
+                        ):
                             history.append(
                                 {
                                     "attempt": int(_ra),
@@ -2576,6 +3266,16 @@ def _propose_losses_for_generation(
                             fail_reason = {"stage": "static_gate", "reason": str(static_res.reason), "trace": static_res.trace}
                             continue
                         _ = compile_free_loss(repaired, operator_whitelist=operator_whitelist)
+                        contract_ok, contract_fail = _validate_loss_operator_contract(
+                            repaired,
+                            str(op_type if str(op_type).startswith("LOSS_") else base_origin),
+                            parents_ir,
+                            parent_entries_used,
+                        )
+                        if not bool(contract_ok):
+                            fail_reason = dict(contract_fail)
+                            ir = repaired
+                            continue
                         if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
                             nov_ok, nov_payload = _check_loss_novelty(
                                 candidate=repaired,
@@ -3062,6 +3762,13 @@ def _ref_builder_ir() -> PreferenceBuilderIR:
             returns="PrefBatch",
             mode="pairwise",
         ),
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "uniform_none",
+            "constraint_family": "none",
+        },
+        operators_used=["ref_all_pairs"],
         code=code,
     )
 
@@ -3081,7 +3788,14 @@ def _ref_loss_ir() -> FreeLossIR:
         name="ref_logsigmoid",
         intuition="Reference loss: negative logsigmoid on log-prob winner-loser gap.",
         pseudocode="loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
-        hyperparams={"alpha": 1.0},
+        hyperparams={
+            "alpha": 1.0,
+            "paradigm_family": "pairwise_margin",
+            "signal_family": "logprob_gap",
+            "link_family": "logsigmoid",
+            "agg_family": "mean",
+            "constraint_family": "weight_optional",
+        },
         operators_used=["logsigmoid"],
         implementation_hint=FreeLossImplementationHint(
             expects=["cost_a", "cost_b", "log_prob_w", "log_prob_l", "weight"],
@@ -4240,6 +4954,9 @@ def run_pref_loss_coevo(
         "builder_crossover": "PTP/prompts/pref_builder_crossover.txt",
         "builder_mutation": "PTP/prompts/pref_builder_mutation.txt",
         "builder_e2": "PTP/prompts/pref_builder_e2.txt",
+        "builder_paradigm_shift": "PTP/prompts/pref_builder_paradigm_shift.txt",
+        "builder_structure_shift": "PTP/prompts/pref_builder_structure_shift.txt",
+        "builder_constraint_inject": "PTP/prompts/pref_builder_constraint_inject.txt",
         "builder_m2": "PTP/prompts/pref_builder_m2.txt",
         "builder_m3": "PTP/prompts/pref_builder_m3.txt",
         "builder_repair": "PTP/prompts/pref_builder_repair.txt",
@@ -4247,6 +4964,9 @@ def run_pref_loss_coevo(
         "loss_crossover": "PTP/prompts/free_loss_crossover.txt",
         "loss_mutation": "PTP/prompts/free_loss_mutation.txt",
         "loss_e2": "PTP/prompts/free_loss_e2.txt",
+        "loss_paradigm_shift": "PTP/prompts/free_loss_paradigm_shift.txt",
+        "loss_structure_shift": "PTP/prompts/free_loss_structure_shift.txt",
+        "loss_constraint_inject": "PTP/prompts/free_loss_constraint_inject.txt",
         "loss_m2": "PTP/prompts/free_loss_m2.txt",
         "loss_m3": "PTP/prompts/free_loss_m3.txt",
         "loss_repair": "PTP/prompts/free_loss_repair.txt",
@@ -4271,6 +4991,11 @@ def run_pref_loss_coevo(
         "enabled": bool(builder_llm_enabled),
         "parent_p": int(builder_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
         "seed_reserve": int(builder_llm_raw.get("seed_reserve", cfg_yaml.get("builder_seed_reserve", 2)) or 2),
+        "operator_bank": dict(builder_llm_raw.get("operator_bank") or {}) if isinstance(builder_llm_raw.get("operator_bank"), dict) else (
+            dict((cfg_yaml.get("builder", {}) or {}).get("operator_bank") or {})
+            if isinstance((cfg_yaml.get("builder", {}) or {}).get("operator_bank"), dict)
+            else {}
+        ),
         # New-style per-op counts (optional).
         "init_num_E1": builder_llm_raw.get("init_num_E1"),
         "init_num_E2": builder_llm_raw.get("init_num_E2"),
@@ -4294,11 +5019,19 @@ def run_pref_loss_coevo(
             ),
             "simplify_first": bool(builder_repair_raw.get("simplify_first", True)),
         },
+        "family_diversity": _normalize_family_diversity_cfg(
+            builder_llm_raw.get("family_diversity", (cfg_yaml.get("builder", {}) or {}).get("family_diversity", {}))
+        ),
     }
     loss_cfg: Dict[str, Any] = {
         "enabled": bool(loss_llm_enabled),
         "parent_p": int(loss_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
         "seed_reserve": int(loss_llm_raw.get("seed_reserve", cfg_yaml.get("loss_seed_reserve", 2)) or 2),
+        "operator_bank": dict(loss_llm_raw.get("operator_bank") or {}) if isinstance(loss_llm_raw.get("operator_bank"), dict) else (
+            dict((cfg_yaml.get("loss", {}) or {}).get("operator_bank") or {})
+            if isinstance((cfg_yaml.get("loss", {}) or {}).get("operator_bank"), dict)
+            else {}
+        ),
         "init_num_E1": loss_llm_raw.get("init_num_E1"),
         "init_num_E2": loss_llm_raw.get("init_num_E2"),
         "init_num_M1": loss_llm_raw.get("init_num_M1"),
@@ -4322,7 +5055,9 @@ def run_pref_loss_coevo(
         },
         "novelty": dict(loss_llm_raw.get("novelty") or {}) if isinstance(loss_llm_raw.get("novelty"), dict) else {},
         "exploration": dict(loss_llm_raw.get("exploration") or {}) if isinstance(loss_llm_raw.get("exploration"), dict) else {},
-        "family_diversity": dict(loss_llm_raw.get("family_diversity") or {}) if isinstance(loss_llm_raw.get("family_diversity"), dict) else {},
+        "family_diversity": _normalize_family_diversity_cfg(
+            loss_llm_raw.get("family_diversity", (cfg_yaml.get("loss", {}) or {}).get("family_diversity", {}))
+        ),
     }
 
     llm_cfg: Dict[str, Any] = {
@@ -4657,6 +5392,8 @@ def run_pref_loss_coevo(
             "best_phase": (best_so_far.get("phase") if isinstance(best_so_far, dict) else None),
         }
 
+    stagnation_generations = int(resume_state.get("stagnation_generations", 0) or 0) if resume_state else 0
+
     def _checkpoint_state(next_generation: int) -> Dict[str, Any]:
         return {
             "config_path": os.path.abspath(config_path),
@@ -4704,7 +5441,6 @@ def run_pref_loss_coevo(
     _atomic_write_json(summary_json, _summary_state(gen_start - 1))
 
     llm_feedback_state: Dict[str, Any] = {}
-    stagnation_generations = int(resume_state.get("stagnation_generations", 0) or 0) if resume_state else 0
     phase_block_label: str | None = None
     phase_block_best_score: float | None = None
     # Treat baseline as the "last phase" before generation-0 search.
@@ -5006,11 +5742,13 @@ def run_pref_loss_coevo(
         for idx, proposal in enumerate(proposed_g):
             ir: PreferenceBuilderIR = proposal["ir"]
             sig = _sig_pref_builder(ir)
+            family_signature = _builder_family_signature(ir)
             entry: Dict[str, Any] = {
                 "generation": int(gen),
                 "index": int(idx),
                 "id": f"g{gen:03d}_{idx:03d}_{sig[:8]}",
                 "signature": sig,
+                "family_signature": str(family_signature),
                 "origin": str(proposal.get("origin", "unknown")),
                 "origin_base": proposal.get("origin_base"),
                 "op_type": proposal.get("op_type"),
@@ -5057,12 +5795,14 @@ def run_pref_loss_coevo(
             sig = _sig_free_loss(ir)
             static_res = run_static_gates(ir, operator_whitelist=operator_whitelist)
             family = _loss_family_id(ir)
+            family_signature = _loss_family_signature(ir)
             entry: Dict[str, Any] = {
                 "generation": int(gen),
                 "index": int(idx),
                 "id": f"f{gen:03d}_{idx:03d}_{sig[:8]}",
                 "signature": sig,
                 "family": str(family),
+                "family_signature": str(family_signature),
                 "origin": str(proposal.get("origin", "unknown")),
                 "origin_base": proposal.get("origin_base"),
                 "op_type": proposal.get("op_type"),
@@ -7197,6 +7937,20 @@ def run_pref_loss_coevo(
                 e2 = dict(e)
                 e2["fitness"] = float(fit_map.get(eid, float("inf")))
                 e2["descriptor"] = _candidate_descriptor(eid, kind=kind)
+                if kind == "g" and "family_signature" not in e2:
+                    try:
+                        irj = e2.get("ir")
+                        if isinstance(irj, dict):
+                            e2["family_signature"] = str(_builder_family_signature(pref_builder_ir_from_json(irj)))
+                    except Exception:  # noqa: BLE001
+                        e2["family_signature"] = "unknown"
+                if kind == "f" and "family_signature" not in e2:
+                    try:
+                        irj = e2.get("ir")
+                        if isinstance(irj, dict):
+                            e2["family_signature"] = str(_loss_family_signature(free_loss_ir_from_json(irj)))
+                    except Exception:  # noqa: BLE001
+                        e2["family_signature"] = "unknown"
                 if kind == "f" and "family" not in e2:
                     try:
                         irj = e2.get("ir")
@@ -7213,18 +7967,39 @@ def run_pref_loss_coevo(
 
         ranked_g = _rank_entries(list(g_map.values()), fitness_g, kind="g")
         ranked_f = _rank_entries(list(f_map.values()), fitness_f, kind="f")
-        elites_g = ranked_g[: max(0, elite_g)]
+        builder_family_div = _normalize_family_diversity_cfg((cfg_yaml.get("builder_llm", {}) or {}).get("family_diversity", {}))  # type: ignore[union-attr]
+        loss_family_div = _normalize_family_diversity_cfg((cfg_yaml.get("loss_llm", {}) or {}).get("family_diversity", {}))  # type: ignore[union-attr]
+        if bool(builder_family_div.get("enabled", False)):
+            elites_g = _select_elites_with_family_quota(
+                ranked_g,
+                max(0, elite_g),
+                metric_mode=metric_mode,
+                min_per_family=int(builder_family_div.get("min_per_family", 1) or 1),
+                max_per_family=(
+                    int(builder_family_div.get("elite_max_per_family", 0) or 0)
+                    if int(builder_family_div.get("elite_max_per_family", 0) or 0) > 0
+                    else None
+                ),
+                include_unknown=bool(builder_family_div.get("include_unknown", False)),
+            )
+        else:
+            elites_g = ranked_g[: max(0, elite_g)]
 
-        family_div = (cfg_yaml.get("loss_llm", {}) or {}).get("family_diversity", {})  # type: ignore[union-attr]
-        if not isinstance(family_div, dict):
-            family_div = {}
-        elites_f = _select_elites_by_family(
-            ranked=ranked_f,
-            total=max(0, elite_f),
-            enabled=bool(family_div.get("enabled", False)),
-            elite_per_family=int(family_div.get("elite_per_family", 1) or 1),
-            elite_max_per_family=int(family_div.get("elite_max_per_family", max(1, elite_f)) or max(1, elite_f)),
-        )
+        if bool(loss_family_div.get("enabled", False)):
+            elites_f = _select_elites_with_family_quota(
+                ranked_f,
+                max(0, elite_f),
+                metric_mode=metric_mode,
+                min_per_family=int(loss_family_div.get("min_per_family", 1) or 1),
+                max_per_family=(
+                    int(loss_family_div.get("elite_max_per_family", 0) or 0)
+                    if int(loss_family_div.get("elite_max_per_family", 0) or 0) > 0
+                    else None
+                ),
+                include_unknown=bool(loss_family_div.get("include_unknown", False)),
+            )
+        else:
+            elites_f = ranked_f[: max(0, elite_f)]
 
         # MAP-Elites archive update (8x8 default, top2 per cell).
         archive_bins = int(cfg_yaml.get("archive_bins", 8) or 8)
