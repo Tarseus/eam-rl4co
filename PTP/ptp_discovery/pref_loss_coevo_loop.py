@@ -446,17 +446,70 @@ def _loss_fingerprint(ir: FreeLossIR) -> Dict[str, Any]:
         except Exception:  # noqa: BLE001
             tokens = []
 
+    unigrams: set[str] = set(tokens)
     bigrams: set[str] = set()
     for a, b in zip(tokens, tokens[1:]):
         bigrams.add(f"{a}->{b}")
 
+    call_set: set[str] = set(call_names)
     fp = {
         "sig": sig,
+        "token_unigrams": unigrams,
         "token_bigrams": bigrams,
+        "call_names_set": call_set,
         "call_names_top": sorted(set(call_names))[:32],
     }
     _LOSS_FINGERPRINT_CACHE[sig] = fp
     return fp
+
+
+def _loss_family_id(ir: FreeLossIR) -> str:
+    """Coarse 'family' label for diversity quotas and parent sampling."""
+
+    mode = "pairwise"
+    expects: List[str] = []
+    try:
+        hint = getattr(ir, "implementation_hint", None)
+        if hint is not None:
+            mode = str(getattr(hint, "mode", mode) or mode)
+            exp = getattr(hint, "expects", None)
+            if isinstance(exp, (list, tuple)):
+                expects = [str(x) for x in exp if str(x)]
+    except Exception:  # noqa: BLE001
+        expects = []
+
+    fp = _loss_fingerprint(ir)
+    calls = fp.get("call_names_set") or set()
+    if not isinstance(calls, set):
+        calls = set()
+
+    ops_calls = {c[4:] for c in calls if isinstance(c, str) and c.startswith("ops.")}
+    link = "other"
+    for cand in ("logsigmoid", "softplus", "sigmoid", "tanh"):
+        if cand in ops_calls:
+            link = cand
+            break
+    if link == "other" and "relu" in ops_calls:
+        link = "hinge"
+
+    signal = "none"
+    exp_set = set(expects)
+    if any(k in exp_set for k in ("delta_z", "obj_z")):
+        signal = "delta_z"
+    elif "delta_rank" in exp_set or "rank" in exp_set:
+        signal = "delta_rank"
+    elif any(k in exp_set for k in ("delta_regret", "regret")):
+        signal = "delta_regret"
+    elif ("cost_a" in exp_set) or ("cost_b" in exp_set) or ("objective" in exp_set):
+        signal = "cost_or_obj"
+
+    norm = "raw"
+    for cand in ("zscore", "normalize", "standardize"):
+        if cand in ops_calls:
+            norm = cand
+            break
+
+    return f"{mode}:{link}:{signal}:{norm}"
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -481,24 +534,38 @@ def _check_loss_novelty(
         return True, {"max_similarity": 0.0, "neighbors": []}
 
     cand_fp = _loss_fingerprint(candidate)
-    cand_tokens = cand_fp.get("token_bigrams") or set()
-    if not isinstance(cand_tokens, set):
-        cand_tokens = set()
+    cand_bigrams = cand_fp.get("token_bigrams") or set()
+    cand_unigrams = cand_fp.get("token_unigrams") or set()
+    cand_calls = cand_fp.get("call_names_set") or set()
+    if not isinstance(cand_bigrams, set):
+        cand_bigrams = set()
+    if not isinstance(cand_unigrams, set):
+        cand_unigrams = set()
+    if not isinstance(cand_calls, set):
+        cand_calls = set()
 
     scored: List[Dict[str, Any]] = []
     best = 0.0
+    best_parts = {"bigram": 0.0, "unigram": 0.0, "call": 0.0}
     for e in bank:
         bt = e.get("token_bigrams")
-        if not isinstance(bt, set):
+        ut = e.get("token_unigrams")
+        ct = e.get("call_names_set")
+        if not isinstance(bt, set) or not isinstance(ut, set) or not isinstance(ct, set):
             continue
-        sim = _jaccard(cand_tokens, bt)
+        sim_big = _jaccard(cand_bigrams, bt)
+        sim_uni = _jaccard(cand_unigrams, ut)
+        sim_call = _jaccard(cand_calls, ct)
+        sim = float(max(sim_big, sim_uni, sim_call))
         if sim > best:
             best = float(sim)
+            best_parts = {"bigram": float(sim_big), "unigram": float(sim_uni), "call": float(sim_call)}
         scored.append(
             {
                 "sig": str(e.get("sig", "")),
                 "name": str(e.get("name", "")),
                 "similarity": float(sim),
+                "similarity_parts": {"bigram": float(sim_big), "unigram": float(sim_uni), "call": float(sim_call)},
                 "call_names_top": list(e.get("call_names_top") or [])[:16],
             }
         )
@@ -513,11 +580,71 @@ def _check_loss_novelty(
                 "stage": "novelty",
                 "max_similarity": float(max_similarity),
                 "best_similarity": float(best),
+                "best_similarity_parts": dict(best_parts),
                 "too_similar_to": top,
             },
         )
 
-    return True, {"max_similarity": float(best), "neighbors": top}
+    return True, {"max_similarity": float(best), "best_similarity_parts": dict(best_parts), "neighbors": top}
+
+
+def _select_elites_by_family(
+    *,
+    ranked: Sequence[Mapping[str, Any]],
+    total: int,
+    enabled: bool,
+    elite_per_family: int,
+    elite_max_per_family: int,
+) -> List[Dict[str, Any]]:
+    total = max(0, int(total))
+    if total <= 0:
+        return []
+    if not bool(enabled):
+        return [dict(x) for x in list(ranked)[:total]]
+
+    elite_per_family = max(1, int(elite_per_family))
+    elite_max_per_family = max(1, int(elite_max_per_family))
+
+    fam_order: List[str] = []
+    fam_to_items: Dict[str, List[Dict[str, Any]]] = {}
+    for e in ranked:
+        fam = str(e.get("family") or "unknown")
+        if fam not in fam_to_items:
+            fam_to_items[fam] = []
+            fam_order.append(fam)
+        fam_to_items[fam].append(dict(e))
+
+    selected: List[Dict[str, Any]] = []
+    selected_ids: set[str] = set()
+    fam_counts: collections.Counter[str] = collections.Counter()
+
+    for fam in fam_order:
+        for e in fam_to_items.get(fam, [])[:elite_per_family]:
+            if len(selected) >= total:
+                break
+            eid = str(e.get("id") or "")
+            if eid and eid in selected_ids:
+                continue
+            selected.append(e)
+            selected_ids.add(eid)
+            fam_counts[fam] += 1
+        if len(selected) >= total:
+            break
+
+    for e in ranked:
+        if len(selected) >= total:
+            break
+        fam = str(e.get("family") or "unknown")
+        if int(fam_counts.get(fam, 0)) >= int(elite_max_per_family):
+            continue
+        eid = str(e.get("id") or "")
+        if eid and eid in selected_ids:
+            continue
+        selected.append(dict(e))
+        selected_ids.add(eid)
+        fam_counts[fam] += 1
+
+    return selected[:total]
 
 
 def _sig_pref_builder(ir: PreferenceBuilderIR) -> str:
@@ -1101,6 +1228,60 @@ def _rank_weighted_sample_without_replacement(
                     break
         chosen.append(pool.pop(idx))
         w.pop(idx)
+    return chosen
+
+
+def _rank_weighted_sample_without_replacement_diverse(
+    rng: random.Random,
+    items: Sequence[Any],
+    *,
+    k: int,
+    key_fn,
+    max_per_key: int,
+) -> List[Any]:
+    """Rank-weighted sampling while limiting repeats per key (best-effort)."""
+
+    k = max(0, min(int(k), len(items)))
+    if k <= 0:
+        return []
+    if k >= len(items):
+        return list(items)
+
+    max_per_key = max(1, int(max_per_key))
+
+    weights = [1.0 / (i + 1.0) for i in range(len(items))]
+    chosen: List[Any] = []
+    pool = list(items)
+    w = list(weights)
+    key_counts: collections.Counter[str] = collections.Counter()
+
+    for _ in range(k):
+        eligible = [j for j, it in enumerate(pool) if int(key_counts[str(key_fn(it))]) < int(max_per_key)]
+        if not eligible:
+            eligible = list(range(len(pool)))
+
+        s = float(sum(w[j] for j in eligible))
+        if s <= 0:
+            idx = rng.choice(eligible)
+        else:
+            r = rng.random() * s
+            acc = 0.0
+            idx = eligible[-1]
+            for j in eligible:
+                acc += float(w[j])
+                if acc >= r:
+                    idx = j
+                    break
+
+        it = pool.pop(idx)
+        ww = w.pop(idx)
+        chosen.append(it)
+        _ = ww
+        try:
+            key_counts[str(key_fn(it))] += 1
+        except Exception:  # noqa: BLE001
+            key_counts["?"] += 1
+
     return chosen
 
 
@@ -2062,6 +2243,19 @@ def _propose_losses_for_generation(
         novelty_neighbors = int(novelty_cfg.get("neighbors", 3) or 3)
         novelty_apply_to_elites = bool(novelty_cfg.get("apply_to_elites", False))
 
+        family_div = loss_cfg.get("family_diversity", {}) or {}
+        if not isinstance(family_div, dict):
+            family_div = {}
+        family_parent_div_enabled = bool(family_div.get("enabled", False))
+        family_parent_max_per = int(family_div.get("parent_max_per_family", 1) or 1)
+
+        explore_cfg = loss_cfg.get("exploration", {}) or {}
+        if not isinstance(explore_cfg, dict):
+            explore_cfg = {}
+        explore_enabled = bool(explore_cfg.get("enabled", False))
+        explore_replace_p = float(explore_cfg.get("replace_p", 0.7) or 0.7)
+        explore_mode = bool((global_feedback or {}).get("loss_search", {}).get("explore_mode", False))
+
         ranked_parents: List[Tuple[float, str, FreeLossIR, Mapping[str, Any]]] = []
         for item in parent_pool:
             try:
@@ -2111,6 +2305,15 @@ def _propose_losses_for_generation(
                 nM2 = int(loss_cfg.get("init_num_M2" if init else "num_M2", loss_cfg.get("num_M2", 0)) or 0)
                 plan = (["E1"] * max(0, nE1)) + (["E2"] * max(0, nE2)) + (["M1"] * max(0, nM1)) + (["M2"] * max(0, nM2))
                 rng.shuffle(plan)
+                if explore_enabled and explore_mode:
+                    # Bias away from consensus (E2) and hyperparam-tuning (M2) when stagnating.
+                    plan2: List[str] = []
+                    for op in plan:
+                        if op in {"E2", "M2"} and rng.random() < float(explore_replace_p):
+                            plan2.append("E1")
+                        else:
+                            plan2.append(op)
+                    plan = plan2
                 return plan
 
             llm_budget = int(loss_cfg.get("init_llm_f", 0) or 0) if init else int(loss_cfg.get("llm_per_gen_f", 0) or 0)
@@ -2137,12 +2340,31 @@ def _propose_losses_for_generation(
                 llm_op = "M1"
 
             if llm_op in {"E1", "E2"} and len(ranked_parents) >= 2:
-                chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=max(2, min(parent_p, len(ranked_parents))))
+                k = max(2, min(parent_p, len(ranked_parents)))
+                if family_parent_div_enabled:
+                    chosen = _rank_weighted_sample_without_replacement_diverse(
+                        rng,
+                        ranked_parents,
+                        k=k,
+                        key_fn=lambda x: str((x[3] or {}).get("family") or _loss_family_id(x[2])),
+                        max_per_key=int(family_parent_max_per),
+                    )
+                else:
+                    chosen = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=k)
                 parents_ir = [c[2] for c in chosen]
                 parents_fit = [{"fitness": float(c[0])} for c in chosen]
                 parents_ids = [str(c[1]) for c in chosen]
             elif llm_op in {"M1", "M2"} and len(ranked_parents) >= 1:
-                chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
+                if family_parent_div_enabled:
+                    chosen1 = _rank_weighted_sample_without_replacement_diverse(
+                        rng,
+                        ranked_parents,
+                        k=1,
+                        key_fn=lambda x: str((x[3] or {}).get("family") or _loss_family_id(x[2])),
+                        max_per_key=int(family_parent_max_per),
+                    )[0]
+                else:
+                    chosen1 = _rank_weighted_sample_without_replacement(rng, ranked_parents, k=1)[0]
                 parents_ir = [chosen1[2]]
                 parents_fit = [{"fitness": float(chosen1[0])}]
                 parents_ids = [str(chosen1[1])]
@@ -2152,6 +2374,24 @@ def _propose_losses_for_generation(
             llm_seed = int(rng.randint(0, 2**31 - 1))
             call_feedback = dict(global_feedback or {})
             call_feedback["llm_call"] = {"side": "loss", "op_type": str(llm_op), "seed": llm_seed}
+            if explore_enabled:
+                call_feedback["loss_search"] = dict(call_feedback.get("loss_search") or {})
+                call_feedback["loss_search"]["explore_mode"] = bool(explore_mode)
+                call_feedback["loss_search"]["stagnation_generations"] = int(
+                    (global_feedback or {}).get("loss_search", {}).get("stagnation_generations", 0) or 0
+                )
+                if bool(explore_mode):
+                    # Provide lightweight guidance without changing prompts.
+                    try:
+                        avoid_fams = list((global_feedback or {}).get("loss_search", {}).get("avoid_families", []) or [])[:16]
+                    except Exception:  # noqa: BLE001
+                        avoid_fams = []
+                    call_feedback["loss_search"]["avoid_families"] = avoid_fams
+                    call_feedback["loss_search"]["exploration_instructions"] = [
+                        "Avoid the dominant family patterns from avoid_families.",
+                        "Change the objective decomposition/statistic/normalization/contrast (not just variable order).",
+                        "Prefer switching signal source (delta_z vs delta_rank vs delta_regret vs cost/objective) when possible.",
+                    ]
 
             history: List[Dict[str, Any]] = []
             base_origin = "E1"
@@ -4081,6 +4321,8 @@ def run_pref_loss_coevo(
             "simplify_first": bool(loss_repair_raw.get("simplify_first", True)),
         },
         "novelty": dict(loss_llm_raw.get("novelty") or {}) if isinstance(loss_llm_raw.get("novelty"), dict) else {},
+        "exploration": dict(loss_llm_raw.get("exploration") or {}) if isinstance(loss_llm_raw.get("exploration"), dict) else {},
+        "family_diversity": dict(loss_llm_raw.get("family_diversity") or {}) if isinstance(loss_llm_raw.get("family_diversity"), dict) else {},
     }
 
     llm_cfg: Dict[str, Any] = {
@@ -4455,12 +4697,14 @@ def run_pref_loss_coevo(
             "hof_f": list(hof_f),
             "archive_g": dict(archive_g),
             "archive_f": dict(archive_f),
+            "stagnation_generations": int(stagnation_generations),
         }
 
     _save_checkpoint(run_dir, _checkpoint_state(gen_start))
     _atomic_write_json(summary_json, _summary_state(gen_start - 1))
 
     llm_feedback_state: Dict[str, Any] = {}
+    stagnation_generations = int(resume_state.get("stagnation_generations", 0) or 0) if resume_state else 0
     phase_block_label: str | None = None
     phase_block_best_score: float | None = None
     # Treat baseline as the "last phase" before generation-0 search.
@@ -4577,6 +4821,30 @@ def run_pref_loss_coevo(
             )
 
         global_feedback: Dict[str, Any] = dict(llm_feedback_state)
+        loss_llm_cfg_raw = cfg_yaml.get("loss_llm", {}) or {}
+        if not isinstance(loss_llm_cfg_raw, dict):
+            loss_llm_cfg_raw = {}
+        explore_cfg = loss_llm_cfg_raw.get("exploration", {}) or {}
+        if not isinstance(explore_cfg, dict):
+            explore_cfg = {}
+        explore_enabled = bool(explore_cfg.get("enabled", False))
+        stagnation_trigger = int(explore_cfg.get("stagnation_generations", 0) or 0)
+        explore_mode = bool(explore_enabled and stagnation_trigger > 0 and int(stagnation_generations) >= int(stagnation_trigger))
+        avoid_families: List[str] = []
+        try:
+            fam_ctr = collections.Counter(str(e.get("family") or "unknown") for e in (elites_f or []) if isinstance(e, dict))
+            avoid_families = [f for f, _ in fam_ctr.most_common(8)]
+        except Exception:  # noqa: BLE001
+            avoid_families = []
+        if bool(explore_enabled) and int(stagnation_trigger) > 0:
+            LOGGER.info(
+                "Loss exploration schedule gen=%d: stagnation=%d trigger=%d explore_mode=%s avoid_families=%s",
+                int(gen),
+                int(stagnation_generations),
+                int(stagnation_trigger),
+                str(bool(explore_mode)),
+                list(avoid_families),
+            )
         global_feedback.update(
             {
                 "generation": int(gen),
@@ -4592,6 +4860,11 @@ def run_pref_loss_coevo(
                 "best_loss": best_loss_ir,
                 "best_builder_summary": best_builder_summary,
                 "best_loss_summary": best_loss_summary,
+                "loss_search": {
+                    "explore_mode": bool(explore_mode),
+                    "stagnation_generations": int(stagnation_generations),
+                    "avoid_families": list(avoid_families),
+                },
             }
         )
 
@@ -4783,11 +5056,13 @@ def run_pref_loss_coevo(
             ir: FreeLossIR = proposal["ir"]
             sig = _sig_free_loss(ir)
             static_res = run_static_gates(ir, operator_whitelist=operator_whitelist)
+            family = _loss_family_id(ir)
             entry: Dict[str, Any] = {
                 "generation": int(gen),
                 "index": int(idx),
                 "id": f"f{gen:03d}_{idx:03d}_{sig[:8]}",
                 "signature": sig,
+                "family": str(family),
                 "origin": str(proposal.get("origin", "unknown")),
                 "origin_base": proposal.get("origin_base"),
                 "op_type": proposal.get("op_type"),
@@ -6648,6 +6923,14 @@ def run_pref_loss_coevo(
                     float(improve_eps),
                 )
 
+        improved_this_gen = False
+        if isinstance(best_so_far, dict):
+            try:
+                improved_this_gen = int(best_so_far.get("generation", -999)) == int(gen)
+            except (TypeError, ValueError):
+                improved_this_gen = False
+        stagnation_generations = 0 if improved_this_gen else int(stagnation_generations) + 1
+
         gen_phase_best_score: float | None = None
         for rec in pair_records:
             if (
@@ -6770,6 +7053,12 @@ def run_pref_loss_coevo(
                 "top_gate_failure_kinds": list(gate_kind_ctr.most_common(8)),
             }
         }
+        llm_feedback_state["stagnation_generations"] = int(stagnation_generations)
+        try:
+            fam_ctr = collections.Counter(str(e.get("family") or "unknown") for e in elites_f if isinstance(e, dict))
+            llm_feedback_state["prev_gen_loss_families"] = list(fam_ctr.most_common(10))
+        except Exception:  # noqa: BLE001
+            llm_feedback_state["prev_gen_loss_families"] = []
         llm_feedback_state["prev_gen_candidates"] = {
             "g_fail_compile": int(g_fail_compile),
             "g_fail_gate": int(g_fail_gate),
@@ -6908,6 +7197,13 @@ def run_pref_loss_coevo(
                 e2 = dict(e)
                 e2["fitness"] = float(fit_map.get(eid, float("inf")))
                 e2["descriptor"] = _candidate_descriptor(eid, kind=kind)
+                if kind == "f" and "family" not in e2:
+                    try:
+                        irj = e2.get("ir")
+                        if isinstance(irj, dict):
+                            e2["family"] = str(_loss_family_id(free_loss_ir_from_json(irj)))
+                    except Exception:  # noqa: BLE001
+                        e2["family"] = "unknown"
                 out.append(e2)
             out.sort(
                 key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
@@ -6918,7 +7214,17 @@ def run_pref_loss_coevo(
         ranked_g = _rank_entries(list(g_map.values()), fitness_g, kind="g")
         ranked_f = _rank_entries(list(f_map.values()), fitness_f, kind="f")
         elites_g = ranked_g[: max(0, elite_g)]
-        elites_f = ranked_f[: max(0, elite_f)]
+
+        family_div = (cfg_yaml.get("loss_llm", {}) or {}).get("family_diversity", {})  # type: ignore[union-attr]
+        if not isinstance(family_div, dict):
+            family_div = {}
+        elites_f = _select_elites_by_family(
+            ranked=ranked_f,
+            total=max(0, elite_f),
+            enabled=bool(family_div.get("enabled", False)),
+            elite_per_family=int(family_div.get("elite_per_family", 1) or 1),
+            elite_max_per_family=int(family_div.get("elite_max_per_family", max(1, elite_f)) or max(1, elite_f)),
+        )
 
         # MAP-Elites archive update (8x8 default, top2 per cell).
         archive_bins = int(cfg_yaml.get("archive_bins", 8) or 8)
@@ -6945,7 +7251,14 @@ def run_pref_loss_coevo(
             _archive_add(
                 archive_f,
                 cell=cell_t,
-                entry={"id": e.get("id"), "signature": e.get("signature"), "ir": e.get("ir"), "descriptor": e.get("descriptor"), "fitness": e.get("fitness")},
+                entry={
+                    "id": e.get("id"),
+                    "signature": e.get("signature"),
+                    "family": e.get("family"),
+                    "ir": e.get("ir"),
+                    "descriptor": e.get("descriptor"),
+                    "fitness": e.get("fitness"),
+                },
                 score=float(e.get("fitness", float("inf"))),
                 per_cell=archive_per_cell,
             )
