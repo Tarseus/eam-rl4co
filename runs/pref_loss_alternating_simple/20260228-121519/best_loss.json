@@ -1,37 +1,39 @@
 {
-  "generation": 0,
-  "index": 3,
-  "id": "f000_003_5c8558ad",
-  "signature": "5c8558ade0458744d42300c7a5be7d02554c05e3",
+  "generation": 7,
+  "index": 1,
+  "id": "f007_001_1aa5ca35",
+  "signature": "1aa5ca357f22113ad58592d7cddf42e8700dd7e1",
   "origin": "M2",
   "origin_base": "M2",
   "op_type": "M2",
   "parents": [
-    "bootstrap_f_000"
+    "f003_005_84c55ae7"
   ],
   "attempt": 0,
-  "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b",
+  "prompt_sha1": "eec94ec3b9867117bfabcd78359a37b989a30e48",
   "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
-  "llm_seed": 327422443,
+  "llm_seed": 1045372894,
   "history": [
     {
       "attempt": 0,
       "side": "loss",
       "llm_op": "M2",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
-      "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b"
+      "prompt_sha1": "eec94ec3b9867117bfabcd78359a37b989a30e48"
     }
   ],
   "ir": {
-    "name": "loss_logsigmoid_000_cost_tuned_scale",
-    "intuition": "This loss is a pairwise logistic objective with an added cost-gap term: x = alpha*scale*(lpw-lpl) - 0.1*gap, then -logsigmoid(x). The clamp to [-20, 20] means overly large scale can push many examples into saturation, shrinking gradients and making learning less sensitive to nuanced lpw-lpl differences (especially when the gap term already shifts x). Reducing scale slightly keeps more pairs in the informative (non-saturated) region of logsigmoid, improving gradient signal while still providing a clear margin between winner and loser log-probs.",
-    "pseudocode": "gap = detach(cost_b - cost_a)\nx = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+    "name": "loss_logsigmoid_001_cost_normgap_softplus_tuned",
+    "intuition": "Increase `scale` slightly to strengthen the preference logit (lpw-lpl) relative to the detached cost shaping, which can reduce underfitting when the cost term is small due to normalization. Decrease `gap_coef` modestly to avoid over-penalizing the margin with the bounded normalized gap; since ngap is already squashed, a smaller coefficient typically preserves stability while letting the preference signal dominate more consistently.",
+    "pseudocode": "gap = detach(cost_b - cost_a)\nngap = gap / (1 + abs(gap))\nx = clamp(alpha*scale*(lpw-lpl) - gap_coef*ngap, -20, 20)\nloss = softplus(-x)\nloss = mean(loss * weight if weight else loss)",
     "hyperparams": {
-      "scale": 1.423
+      "scale": 1.55,
+      "gap_coef": 0.07
     },
     "operators_used": [
-      "logsigmoid",
-      "clamp"
+      "softplus",
+      "clamp",
+      "abs"
     ],
     "implementation_hint": {
       "expects": [
@@ -44,7 +46,7 @@
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 1.423))\n    gap_coef = float(hp.get('gap_coef', 0.1))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    # Smoothly damp very large gaps so they don't dominate the logit.\n    ngap = gap / (1.0 + ops.abs(gap))\n\n    x = alpha * scale * (lpw - lpl) - gap_coef * ngap\n    x = ops.clamp(x, -20.0, 20.0)\n\n    # Numerically stable equivalent of -logsigmoid(x).\n    loss = ops.softplus(-x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
     "theoretical_basis": ""
   },
   "static_ok": true,
@@ -52,7 +54,7 @@
   "static_trace": null,
   "compile_ok": true,
   "compile_reason": "ok",
-  "fitness": -0.011105592052141825,
+  "fitness": -0.020985782146453857,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
