@@ -1,0 +1,64 @@
+{
+  "generation": 0,
+  "index": 3,
+  "id": "f000_003_5c8558ad",
+  "signature": "5c8558ade0458744d42300c7a5be7d02554c05e3",
+  "origin": "M2",
+  "origin_base": "M2",
+  "op_type": "M2",
+  "parents": [
+    "bootstrap_f_000"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+  "llm_seed": 327422443,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b"
+    }
+  ],
+  "ir": {
+    "name": "loss_logsigmoid_000_cost_tuned_scale",
+    "intuition": "This loss is a pairwise logistic objective with an added cost-gap term: x = alpha*scale*(lpw-lpl) - 0.1*gap, then -logsigmoid(x). The clamp to [-20, 20] means overly large scale can push many examples into saturation, shrinking gradients and making learning less sensitive to nuanced lpw-lpl differences (especially when the gap term already shifts x). Reducing scale slightly keeps more pairs in the informative (non-saturated) region of logsigmoid, improving gradient signal while still providing a clear margin between winner and loser log-probs.",
+    "pseudocode": "gap = detach(cost_b - cost_a)\nx = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+    "hyperparams": {
+      "scale": 1.423
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "cost_a",
+        "cost_b",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.011105592052141825,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

@@ -1,0 +1,1266 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/alternating_simple.yaml",
+  "seed": 1234,
+  "next_generation": 2,
+  "preset": "simple",
+  "search_mode": "alternating",
+  "alternating_schedule": {
+    "enabled": true,
+    "loss_generations": 10,
+    "builder_generations": 10,
+    "rounds": 1
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "best_so_far": {
+    "score": -0.014504358172416687,
+    "builder_id": "g_ref",
+    "loss_id": "f000_003_5c8558ad",
+    "stage_final": "high_fidelity",
+    "generation": 0,
+    "phase": "loss"
+  },
+  "best_score": -0.014504358172416687,
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "f000_003_5c8558ad"
+  },
+  "best_stage_final": "high_fidelity",
+  "best_gen": 0,
+  "best_phase": "loss",
+  "rng_state_b64": "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",
+  "seen_g": [],
+  "seen_f": [
+    "1adee1124d93b54d9eb056cd3ea5231ddc4bea7d",
+    "1babe3255da251816fa60910890d92861bb0b142",
+    "3e02cebcbc4e571e3bfaa5fdc0aa7f9bfe8d17b9",
+    "41d85865bfb96677ce3571b1c991fa6737887580",
+    "45050b881153f6f1863159c6ee28c81bdf9ec111",
+    "51891a8d88be958592d94bcbde024dbe5f27a3ed",
+    "5c8558ade0458744d42300c7a5be7d02554c05e3",
+    "5d40fc796380a3113eecb039e9b8266972ce59d1",
+    "5d94e86a5929c6606b3f59d63dca8084335eca17",
+    "75e34caa98eb15f33b3239ba472bac58efc070ab",
+    "9991af1f5b536a613672de5f5ed562eba8887492",
+    "d18a73c91591e6f3412490dbbc42cebd72bae27b",
+    "d923cc215ba4868630375b8706c481c8ee13eadb"
+  ],
+  "elites_g": [],
+  "elites_f": [
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_5c8558ad",
+      "signature": "5c8558ade0458744d42300c7a5be7d02554c05e3",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 327422443,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale",
+        "intuition": "This loss is a pairwise logistic objective with an added cost-gap term: x = alpha*scale*(lpw-lpl) - 0.1*gap, then -logsigmoid(x). The clamp to [-20, 20] means overly large scale can push many examples into saturation, shrinking gradients and making learning less sensitive to nuanced lpw-lpl differences (especially when the gap term already shifts x). Reducing scale slightly keeps more pairs in the informative (non-saturated) region of logsigmoid, improving gradient signal while still providing a clear margin between winner and loser log-probs.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nx = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.011105592052141825,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_d18a73c9",
+      "signature": "d18a73c91591e6f3412490dbbc42cebd72bae27b",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "41d02c04fd19e8afb70b410527522e2b584a7892",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 2001019095,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "41d02c04fd19e8afb70b410527522e2b584a7892"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_1p30",
+        "intuition": "The parent loss has an extra cost-gap term (-0.1*gap) added inside the logits before logsigmoid, which can already shift margins. With limited pairing signal, a slightly smaller `scale` reduces overconfident saturation after the clamp and keeps gradients in a healthier range, improving stability while still preserving the ordering pressure from (lpw-lpl).",
+        "pseudocode": "scale=1.30; x = clamp(alpha*scale*(lpw-lpl) - 0.1*stopgrad(cost_b-cost_a), -20, 20); loss = -logsigmoid(x); return mean(weight*loss)",
+        "hyperparams": {
+          "scale": 1.3
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.009656970699628195,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 2,
+      "id": "f001_002_5d40fc79",
+      "signature": "5d40fc796380a3113eecb039e9b8266972ce59d1",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "f000_003_5c8558ad"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "cf6bcf3bc82630f65b39a7ea385a32fbc7cb290c",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+      "llm_seed": 1880646080,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+          "prompt_sha1": "cf6bcf3bc82630f65b39a7ea385a32fbc7cb290c"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_001_cost_smooth_tanhgap",
+        "intuition": "Replace the raw cost gap term with a bounded tanh-shaped gap: tanh(gap / gap_scale). This keeps the cost influence monotonic but prevents rare large cost differences from dominating or pushing x into the clamp saturation region, preserving informative gradients on lpw-lpl while still penalizing higher-cost winners. A small hyperparam (gap_scale) controls when the cost term saturates, improving stability and generalization.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\ngap_term = tanh(gap / gap_scale)\nx = clamp(alpha*scale*(lpw-lpl) - cost_weight*gap_term, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423,
+          "gap_scale": 2.0,
+          "cost_weight": 0.1
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "tanh"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0)))\n    scale = float(hp.get('scale', 1.423))\n    gap_scale = float(hp.get('gap_scale', 2.0))\n    cost_weight = float(hp.get('cost_weight', 0.1))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    # Bound the cost effect to avoid clamp/logsigmoid saturation from rare large gaps.\n    gap_term = ops.tanh(gap / (gap_scale + 1e-6))\n\n    x = alpha * scale * (lpw - lpl) - cost_weight * gap_term\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.008801321188608805,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 8,
+      "id": "f001_008_1adee112",
+      "signature": "1adee1124d93b54d9eb056cd3ea5231ddc4bea7d",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1",
+      "parents": [
+        "f000_003_5c8558ad",
+        "f000_003_5c8558ad",
+        "f000_000_d18a73c9",
+        "f000_002_45050b88",
+        "f000_001_1babe325"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "64ac4acd00eba0760f5c7a5c22f2533b1488fd31",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "llm_seed": 2083923089,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+          "prompt_sha1": "64ac4acd00eba0760f5c7a5c22f2533b1488fd31"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_cost_gap_softplus_margin",
+        "intuition": "Combine the stable pairwise logistic core (winner vs loser log-prob margin) with the cost-gap shaping from the parents, but use a softplus on the signed margin instead of -logsigmoid. softplus(-x) is algebraically equivalent to -logsigmoid(x) while being a very standard, numerically stable margin loss; keeping the same clamp window and detached cost gap preserves the original stable behavior while slightly smoothing gradients near the decision boundary. Use a moderate default scale (between the parents’ 1.25–1.423 region) to avoid saturation while maintaining ranking pressure.",
+        "pseudocode": "gap = stopgrad(cost_b - cost_a)\nmargin = alpha*scale*(log_prob_w - log_prob_l) - cost_weight*gap\nmargin = clamp(margin, -clamp_val, clamp_val)\nloss = softplus(-margin)\nif weight exists: loss = loss * weight\nreturn mean(loss)",
+        "hyperparams": {
+          "scale": 1.35,
+          "cost_weight": 0.1,
+          "clamp_val": 20.0
+        },
+        "operators_used": [
+          "softplus",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 1.35))\n    cost_weight = float(hp.get('cost_weight', 0.1))\n    clamp_val = float(hp.get('clamp_val', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    margin = alpha * scale * (lpw - lpl) - cost_weight * gap\n    margin = ops.clamp(margin, -clamp_val, clamp_val)\n\n    loss = ops.softplus(-margin)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": "Pairwise logistic preference objective with detached auxiliary cost-gap shaping. Using softplus(-margin) provides a numerically stable convex surrogate for maximizing the margin between preferred and dispreferred log-probabilities, equivalent to -logsigmoid(margin) up to standard identities, while clamp bounds extreme logits to prevent overflow/saturation."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.007786025603612264,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 7,
+      "id": "f001_007_5d94e86a",
+      "signature": "5d94e86a5929c6606b3f59d63dca8084335eca17",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "f000_001_1babe325"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "4ecf3b658e74c2a643d2b207ce92520a48ec158e",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 442781074,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "4ecf3b658e74c2a643d2b207ce92520a48ec158e"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_v2",
+        "intuition": "The loss forms x = alpha*scale*(lpw-lpl) - 0.1*gap and then applies clamp([-20,20]) before -logsigmoid(x). If `scale` is a bit too high, many pairs with moderate (lpw-lpl) get pushed toward the clamp edges, where logsigmoid gradients are tiny and learning becomes less responsive; if too low, separation is weak and optimization slows. The previous best centered scale around ~1.42, so I nudge `scale` slightly downward to keep more mass of x in the high-slope region of logsigmoid after the fixed -0.1*gap shift, improving gradient flow without changing any operators or semantics.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nx = alpha * scale * (log_prob_w - log_prob_l) - 0.1 * gap\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nif weight exists: loss = loss * weight\nreturn mean(loss)",
+        "hyperparams": {
+          "scale": 1.36
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.005476211508115132,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 4,
+      "id": "f001_004_41d85865",
+      "signature": "41d85865bfb96677ce3571b1c991fa6737887580",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "f000_003_5c8558ad"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "fb90925b55b9ec91884e177dbf4e98876990a210",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+      "llm_seed": 797239823,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+          "prompt_sha1": "fb90925b55b9ec91884e177dbf4e98876990a210"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_001_cost_normgap",
+        "intuition": "Keep the same pairwise logistic core but make the cost-gap term self-normalizing to prevent occasional large cost differences from dominating and pushing x into clamp saturation. Specifically, scale the detached gap by a smooth inverse magnitude 1/(1+|gap|), so small gaps behave almost unchanged while large gaps are damped, improving stability and preserving gradient signal from (lpw-lpl).",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nngap = gap / (1 + abs(gap))\nx = clamp(alpha*scale*(lpw-lpl) - gap_coef*ngap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423,
+          "gap_coef": 0.1
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "abs"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 1.423))\n    gap_coef = float(hp.get('gap_coef', 0.1))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    # Smoothly damp very large gaps so they don't dominate the logit.\n    ngap = gap / (1.0 + ops.abs(gap))\n\n    x = alpha * scale * (lpw - lpl) - gap_coef * ngap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.004363412658373515,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 0,
+      "id": "f001_000_d923cc21",
+      "signature": "d923cc215ba4868630375b8706c481c8ee13eadb",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "f000_000_d18a73c9"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "b52b45f60f65db238803b65f7a7e293bf17b4ae4",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 2022242938,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "b52b45f60f65db238803b65f7a7e293bf17b4ae4"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_1p36",
+        "intuition": "The loss already includes a fixed cost-gap shift (-0.1*gap) and clamps logits to [-20, 20], so too-large `scale` can push many pairs into the saturated region of logsigmoid where gradients vanish. The previous best scale (around 1.423) suggests moderate scaling is helpful; nudging slightly lower to 1.36 should keep more examples in the informative slope region (especially when alpha>1 or gap is sizable), improving gradient signal while preserving clear ordering pressure from (lpw-lpl).",
+        "pseudocode": "scale=1.36; gap = detach(cost_b - cost_a); x = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20); loss = -logsigmoid(x); return mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.36
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.003944600621859233,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "f000_002_45050b88",
+      "signature": "45050b881153f6f1863159c6ee28c81bdf9ec111",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "3efb3dffb7ccf0c29e24f78149f21905e95fa163",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 617480673,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "3efb3dffb7ccf0c29e24f78149f21905e95fa163"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_268",
+        "intuition": "The parent loss had no effective evaluation signal (pair_count=0), so tuning focuses on making the logits less saturated and more responsive when pairs exist. I reduce `scale` from ~1.95 to 1.25 to avoid driving `x` into the clamp/logsigmoid saturation region too often (|x|>>0), which can yield near-zero gradients and unstable optimization when combined with the fixed `-0.1*gap` cost term. A moderate scale keeps gradients healthier across typical (lpw-lpl) magnitudes while preserving the same ranking direction and cost shaping.",
+        "pseudocode": "x = clamp(alpha*scale*(lpw-lpl) - 0.1*detach(cost_b-cost_a), -20, 20); loss = -logsigmoid(x); return mean(weight*loss)",
+        "hyperparams": {
+          "scale": 1.25
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.0035080015659332275,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "diverse_elites_g": [],
+  "diverse_elites_f": [
+    {
+      "id": "f000_003_5c8558ad",
+      "signature": "5c8558ade0458744d42300c7a5be7d02554c05e3",
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale",
+        "intuition": "This loss is a pairwise logistic objective with an added cost-gap term: x = alpha*scale*(lpw-lpl) - 0.1*gap, then -logsigmoid(x). The clamp to [-20, 20] means overly large scale can push many examples into saturation, shrinking gradients and making learning less sensitive to nuanced lpw-lpl differences (especially when the gap term already shifts x). Reducing scale slightly keeps more pairs in the informative (non-saturated) region of logsigmoid, improving gradient signal while still providing a clear margin between winner and loser log-probs.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nx = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "fitness": -0.014504358172416687,
+      "archive_cell": [
+        0,
+        0
+      ],
+      "archive_score": -0.014504358172416687
+    }
+  ],
+  "hof_g": [],
+  "hof_f": [
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_5c8558ad",
+      "signature": "5c8558ade0458744d42300c7a5be7d02554c05e3",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 327422443,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "6247410c6423f4c69f636981ac5dfcbd8de67e3b"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale",
+        "intuition": "This loss is a pairwise logistic objective with an added cost-gap term: x = alpha*scale*(lpw-lpl) - 0.1*gap, then -logsigmoid(x). The clamp to [-20, 20] means overly large scale can push many examples into saturation, shrinking gradients and making learning less sensitive to nuanced lpw-lpl differences (especially when the gap term already shifts x). Reducing scale slightly keeps more pairs in the informative (non-saturated) region of logsigmoid, improving gradient signal while still providing a clear margin between winner and loser log-probs.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nx = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.014504358172416687,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 2,
+      "id": "f001_002_5d40fc79",
+      "signature": "5d40fc796380a3113eecb039e9b8266972ce59d1",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "f000_003_5c8558ad"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "cf6bcf3bc82630f65b39a7ea385a32fbc7cb290c",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+      "llm_seed": 1880646080,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+          "prompt_sha1": "cf6bcf3bc82630f65b39a7ea385a32fbc7cb290c"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_001_cost_smooth_tanhgap",
+        "intuition": "Replace the raw cost gap term with a bounded tanh-shaped gap: tanh(gap / gap_scale). This keeps the cost influence monotonic but prevents rare large cost differences from dominating or pushing x into the clamp saturation region, preserving informative gradients on lpw-lpl while still penalizing higher-cost winners. A small hyperparam (gap_scale) controls when the cost term saturates, improving stability and generalization.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\ngap_term = tanh(gap / gap_scale)\nx = clamp(alpha*scale*(lpw-lpl) - cost_weight*gap_term, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423,
+          "gap_scale": 2.0,
+          "cost_weight": 0.1
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "tanh"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0)))\n    scale = float(hp.get('scale', 1.423))\n    gap_scale = float(hp.get('gap_scale', 2.0))\n    cost_weight = float(hp.get('cost_weight', 0.1))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    # Bound the cost effect to avoid clamp/logsigmoid saturation from rare large gaps.\n    gap_term = ops.tanh(gap / (gap_scale + 1e-6))\n\n    x = alpha * scale * (lpw - lpl) - cost_weight * gap_term\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.008801321188608805,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 8,
+      "id": "f001_008_1adee112",
+      "signature": "1adee1124d93b54d9eb056cd3ea5231ddc4bea7d",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1",
+      "parents": [
+        "f000_003_5c8558ad",
+        "f000_003_5c8558ad",
+        "f000_000_d18a73c9",
+        "f000_002_45050b88",
+        "f000_001_1babe325"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "64ac4acd00eba0760f5c7a5c22f2533b1488fd31",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "llm_seed": 2083923089,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+          "prompt_sha1": "64ac4acd00eba0760f5c7a5c22f2533b1488fd31"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_cost_gap_softplus_margin",
+        "intuition": "Combine the stable pairwise logistic core (winner vs loser log-prob margin) with the cost-gap shaping from the parents, but use a softplus on the signed margin instead of -logsigmoid. softplus(-x) is algebraically equivalent to -logsigmoid(x) while being a very standard, numerically stable margin loss; keeping the same clamp window and detached cost gap preserves the original stable behavior while slightly smoothing gradients near the decision boundary. Use a moderate default scale (between the parents’ 1.25–1.423 region) to avoid saturation while maintaining ranking pressure.",
+        "pseudocode": "gap = stopgrad(cost_b - cost_a)\nmargin = alpha*scale*(log_prob_w - log_prob_l) - cost_weight*gap\nmargin = clamp(margin, -clamp_val, clamp_val)\nloss = softplus(-margin)\nif weight exists: loss = loss * weight\nreturn mean(loss)",
+        "hyperparams": {
+          "scale": 1.35,
+          "cost_weight": 0.1,
+          "clamp_val": 20.0
+        },
+        "operators_used": [
+          "softplus",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 1.35))\n    cost_weight = float(hp.get('cost_weight', 0.1))\n    clamp_val = float(hp.get('clamp_val', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    margin = alpha * scale * (lpw - lpl) - cost_weight * gap\n    margin = ops.clamp(margin, -clamp_val, clamp_val)\n\n    loss = ops.softplus(-margin)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": "Pairwise logistic preference objective with detached auxiliary cost-gap shaping. Using softplus(-margin) provides a numerically stable convex surrogate for maximizing the margin between preferred and dispreferred log-probabilities, equivalent to -logsigmoid(margin) up to standard identities, while clamp bounds extreme logits to prevent overflow/saturation."
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.007786025603612264,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 7,
+      "id": "f001_007_5d94e86a",
+      "signature": "5d94e86a5929c6606b3f59d63dca8084335eca17",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "f000_001_1babe325"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "4ecf3b658e74c2a643d2b207ce92520a48ec158e",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 442781074,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "4ecf3b658e74c2a643d2b207ce92520a48ec158e"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_v2",
+        "intuition": "The loss forms x = alpha*scale*(lpw-lpl) - 0.1*gap and then applies clamp([-20,20]) before -logsigmoid(x). If `scale` is a bit too high, many pairs with moderate (lpw-lpl) get pushed toward the clamp edges, where logsigmoid gradients are tiny and learning becomes less responsive; if too low, separation is weak and optimization slows. The previous best centered scale around ~1.42, so I nudge `scale` slightly downward to keep more mass of x in the high-slope region of logsigmoid after the fixed -0.1*gap shift, improving gradient flow without changing any operators or semantics.",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nx = alpha * scale * (log_prob_w - log_prob_l) - 0.1 * gap\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nif weight exists: loss = loss * weight\nreturn mean(loss)",
+        "hyperparams": {
+          "scale": 1.36
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.005476211508115132,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 4,
+      "id": "f001_004_41d85865",
+      "signature": "41d85865bfb96677ce3571b1c991fa6737887580",
+      "origin": "M1",
+      "origin_base": "M1",
+      "op_type": "M1",
+      "parents": [
+        "f000_003_5c8558ad"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "fb90925b55b9ec91884e177dbf4e98876990a210",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+      "llm_seed": 797239823,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_mutation.txt",
+          "prompt_sha1": "fb90925b55b9ec91884e177dbf4e98876990a210"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_001_cost_normgap",
+        "intuition": "Keep the same pairwise logistic core but make the cost-gap term self-normalizing to prevent occasional large cost differences from dominating and pushing x into clamp saturation. Specifically, scale the detached gap by a smooth inverse magnitude 1/(1+|gap|), so small gaps behave almost unchanged while large gaps are damped, improving stability and preserving gradient signal from (lpw-lpl).",
+        "pseudocode": "gap = detach(cost_b - cost_a)\nngap = gap / (1 + abs(gap))\nx = clamp(alpha*scale*(lpw-lpl) - gap_coef*ngap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.423,
+          "gap_coef": 0.1
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "abs"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0))) if isinstance(extra, dict) else 1.0\n    scale = float(hp.get('scale', 1.423))\n    gap_coef = float(hp.get('gap_coef', 0.1))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n\n    # Smoothly damp very large gaps so they don't dominate the logit.\n    ngap = gap / (1.0 + ops.abs(gap))\n\n    x = alpha * scale * (lpw - lpl) - gap_coef * ngap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.004363412658373515,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 1,
+      "index": 0,
+      "id": "f001_000_d923cc21",
+      "signature": "d923cc215ba4868630375b8706c481c8ee13eadb",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "f000_000_d18a73c9"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "b52b45f60f65db238803b65f7a7e293bf17b4ae4",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 2022242938,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "b52b45f60f65db238803b65f7a7e293bf17b4ae4"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_1p36",
+        "intuition": "The loss already includes a fixed cost-gap shift (-0.1*gap) and clamps logits to [-20, 20], so too-large `scale` can push many pairs into the saturated region of logsigmoid where gradients vanish. The previous best scale (around 1.423) suggests moderate scaling is helpful; nudging slightly lower to 1.36 should keep more examples in the informative slope region (especially when alpha>1 or gap is sizable), improving gradient signal while preserving clear ordering pressure from (lpw-lpl).",
+        "pseudocode": "scale=1.36; gap = detach(cost_b - cost_a); x = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20); loss = -logsigmoid(x); return mean(loss * weight if weight else loss)",
+        "hyperparams": {
+          "scale": 1.36
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.003944600621859233,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_d18a73c9",
+      "signature": "d18a73c91591e6f3412490dbbc42cebd72bae27b",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "41d02c04fd19e8afb70b410527522e2b584a7892",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 2001019095,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "41d02c04fd19e8afb70b410527522e2b584a7892"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_1p30",
+        "intuition": "The parent loss has an extra cost-gap term (-0.1*gap) added inside the logits before logsigmoid, which can already shift margins. With limited pairing signal, a slightly smaller `scale` reduces overconfident saturation after the clamp and keeps gradients in a healthier range, improving stability while still preserving the ordering pressure from (lpw-lpl).",
+        "pseudocode": "scale=1.30; x = clamp(alpha*scale*(lpw-lpl) - 0.1*stopgrad(cost_b-cost_a), -20, 20); loss = -logsigmoid(x); return mean(weight*loss)",
+        "hyperparams": {
+          "scale": 1.3
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.001931304732958476,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "f000_002_45050b88",
+      "signature": "45050b881153f6f1863159c6ee28c81bdf9ec111",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "3efb3dffb7ccf0c29e24f78149f21905e95fa163",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 617480673,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "3efb3dffb7ccf0c29e24f78149f21905e95fa163"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale_268",
+        "intuition": "The parent loss had no effective evaluation signal (pair_count=0), so tuning focuses on making the logits less saturated and more responsive when pairs exist. I reduce `scale` from ~1.95 to 1.25 to avoid driving `x` into the clamp/logsigmoid saturation region too often (|x|>>0), which can yield near-zero gradients and unstable optimization when combined with the fixed `-0.1*gap` cost term. A moderate scale keeps gradients healthier across typical (lpw-lpl) magnitudes while preserving the same ranking direction and cost shaping.",
+        "pseudocode": "x = clamp(alpha*scale*(lpw-lpl) - 0.1*detach(cost_b-cost_a), -20, 20); loss = -logsigmoid(x); return mean(weight*loss)",
+        "hyperparams": {
+          "scale": 1.25
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": -0.00010876357555389404,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "f000_001_1babe325",
+      "signature": "1babe3255da251816fa60910890d92861bb0b142",
+      "origin": "M2",
+      "origin_base": "M2",
+      "op_type": "M2",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "8ccc1863b247ce6e93de5473fc90cb0d0dd72ade",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 859131847,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "8ccc1863b247ce6e93de5473fc90cb0d0dd72ade"
+        }
+      ],
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_tuned_scale",
+        "intuition": "The parent loss uses a logsigmoid on a clamped margin x = alpha*scale*(lpw-lpl) - 0.1*gap. With clamp to [-20, 20], too-large scale quickly saturates logsigmoid and yields near-zero gradients for confidently-correct pairs, while too-small scale underseparates and slows learning. I reduce `scale` to keep typical margins in the sensitive (non-saturated) region of logsigmoid after the fixed -0.1*gap shift, improving gradient flow and stability without changing the code path or operators.",
+        "pseudocode": "x = clamp(alpha*scale*(lpw-lpl) - 0.1*(cost_b-cost_a), -20, 20); loss = -logsigmoid(x); return mean(loss*weight?)",
+        "hyperparams": {
+          "scale": 1.25
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": 0.005333632230758667,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "archive_g": {},
+  "archive_f": {
+    "0,0": [
+      {
+        "id": "f000_003_5c8558ad",
+        "signature": "5c8558ade0458744d42300c7a5be7d02554c05e3",
+        "ir": {
+          "name": "loss_logsigmoid_000_cost_tuned_scale",
+          "intuition": "This loss is a pairwise logistic objective with an added cost-gap term: x = alpha*scale*(lpw-lpl) - 0.1*gap, then -logsigmoid(x). The clamp to [-20, 20] means overly large scale can push many examples into saturation, shrinking gradients and making learning less sensitive to nuanced lpw-lpl differences (especially when the gap term already shifts x). Reducing scale slightly keeps more pairs in the informative (non-saturated) region of logsigmoid, improving gradient signal while still providing a clear margin between winner and loser log-probs.",
+          "pseudocode": "gap = detach(cost_b - cost_a)\nx = clamp(alpha*scale*(lpw-lpl) - 0.1*gap, -20, 20)\nloss = -logsigmoid(x)\nloss = mean(loss * weight if weight else loss)",
+          "hyperparams": {
+            "scale": 1.423
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "cost_a",
+              "cost_b",
+              "weight"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+          "theoretical_basis": ""
+        },
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "fitness": -0.014504358172416687,
+        "archive_cell": [
+          0,
+          0
+        ],
+        "archive_score": -0.014504358172416687
+      }
+    ]
+  },
+  "schema_version": 1,
+  "saved_at": "2026-02-28 12:49:04"
+}
