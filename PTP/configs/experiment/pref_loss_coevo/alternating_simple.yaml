@@ -52,7 +52,7 @@ valid_problem_sizes: [20, 100]
 train_batch_size: 64
 num_validation_episodes: 512
 validation_batch_size: 64
-pomo_size: 20
+pomo_size: null
 scratch_init_seed: 12345
 policy_name: pomo
 policy_kwargs:
@@ -104,6 +104,15 @@ loss_llm:
   offline_mode: false
   parent_p: 5
   seed_reserve: 0
+  exploration:
+    enabled: true
+    stagnation_generations: 3
+    replace_p: 0.7
+  family_diversity:
+    enabled: true
+    elite_per_family: 1
+    elite_max_per_family: 2
+    parent_max_per_family: 1
   novelty:
     enabled: true
     max_similarity: 0.92
