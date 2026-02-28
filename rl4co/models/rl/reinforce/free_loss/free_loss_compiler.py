@@ -257,8 +257,23 @@ def compile_free_loss(ir: FreeLossIR, *, operator_whitelist: Sequence[str] | Non
 
         # Execute in a tightly restricted namespace. We deliberately strip
         # builtins to avoid access to filesystem, subprocesses, etc.
+        # NOTE: Keep a small allowlist aligned with the search-time compiler so
+        # artifacts that pass discovery also remain executable in RL4CO training.
         safe_globals: Dict[str, Any] = {
-            "__builtins__": {},
+            "__builtins__": {
+                "float": float,
+                "int": int,
+                "bool": bool,
+                "dict": dict,
+                "list": list,
+                "tuple": tuple,
+                "set": set,
+                "min": min,
+                "max": max,
+                "abs": abs,
+                "len": len,
+                "isinstance": isinstance,
+            },
             "torch": torch,
             "F": F,
             "ops": ops_accessor,
