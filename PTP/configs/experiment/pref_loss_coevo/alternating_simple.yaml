@@ -19,9 +19,9 @@ mp:
 
 eval_stages:
   stage0_gate: true
-  stage1_proxy: true
-  stage2_micro_unroll: true
-  stage3_high_fidelity: false
+  stage1_proxy: false
+  stage2_micro_unroll: false
+  stage3_high_fidelity: true
 
 proxy_gate_repair:
   enabled: true
@@ -35,28 +35,37 @@ drop_pref_cache_before_micro_unroll: true
 budgets:
   generations: 20
   pairing_budget_per_gen: 128
-  proxy_batches: 10
-  proxy_batch_size: 64
-  micro_unroll_top_k: 8
-  micro_unroll_steps: 32
-  micro_unroll_max_pairs: 8192
-  micro_unroll_timeout_s: 120
-  high_fidelity_top_m: 8
-  hf_epochs: 10
+  high_fidelity_top_m: 999999
+  hf_epochs: 0
 
 alternating_schedule:
   loss_generations: 10
   pair_generations: 10
   rounds: 1
 
-# Keep HF split evaluation enabled by default (scratch + warmstart).
-scratch_hf_epochs: 5
-warmstart_hf_epochs: 5
+# Stage3 offline mini-train protocol (explicit, used by eval_signature).
+f1_steps: 200
+hf_epochs: 0
+hf_instances_per_epoch: 0
+train_problem_size: 20
+valid_problem_sizes: [20, 100]
+train_batch_size: 64
+num_validation_episodes: 512
+validation_batch_size: 64
+scratch_init_seed: 12345
+
 baseline:
-  metrics_csv: baseline/metrics.csv
-  checkpoint: baseline/epoch_409.ckpt
-  checkpoint_epoch: 409
-  val_column: val/max_reward
+  mini_eval_path: baseline/mini_eval/baseline_minitrain_tsp20_K200.json
+  checkpoints:
+    - baseline/epoch_135.ckpt
+    - baseline/epoch_409.ckpt
+  include_scratch: true
+
+generator_params:
+  offline_train_path: offline_data/tsp20_train.pt
+  offline_val_paths:
+    "20": offline_data/tsp20_val.pt
+    "100": offline_data/tsp100_val.pt
 
 builder_pair_budget:
   per_instance: 8192

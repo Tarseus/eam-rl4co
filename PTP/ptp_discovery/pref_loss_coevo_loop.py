@@ -177,6 +177,121 @@ def _abs_from_repo_root(path: str) -> str:
     return os.path.abspath(os.path.join(_repo_root_dir(), path))
 
 
+_FILE_SHA1_CACHE: Dict[str, str] = {}
+_BASELINE_MINI_EVAL_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _file_sha1_cached(path: str, *, chunk_size: int = 8 * 1024 * 1024) -> str:
+    p = _abs_from_repo_root(str(path))
+    cached = _FILE_SHA1_CACHE.get(p)
+    if cached is not None:
+        return str(cached)
+    h = sha1()
+    with open(p, "rb") as f:
+        while True:
+            b = f.read(int(chunk_size))
+            if not b:
+                break
+            h.update(b)
+    out = h.hexdigest()
+    _FILE_SHA1_CACHE[p] = out
+    return str(out)
+
+
+def _load_baseline_mini_eval(path: str) -> Dict[str, Any]:
+    p = _abs_from_repo_root(str(path))
+    cached = _BASELINE_MINI_EVAL_CACHE.get(p)
+    if isinstance(cached, dict):
+        return cached
+    with open(p, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+    if not isinstance(payload, dict):
+        raise ValueError(f"Invalid baseline mini-eval JSON (expected dict): {path}")
+    _BASELINE_MINI_EVAL_CACHE[p] = dict(payload)
+    return dict(payload)
+
+
+def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    generator_params = cfg_yaml.get("generator_params", {}) or {}
+
+    offline_train = generator_params.get("offline_train_path")
+    offline_val_paths = generator_params.get("offline_val_paths") or {}
+
+    ckpts = baseline_cfg.get("checkpoints") or []
+    ckpt_150 = ckpts[0] if len(ckpts) > 0 else None
+    ckpt_409 = ckpts[1] if len(ckpts) > 1 else None
+
+    if not offline_train or not offline_val_paths:
+        raise ValueError(
+            "stage3 requires offline_train_path and offline_val_paths in generator_params"
+        )
+    if not ckpt_150 or not ckpt_409:
+        raise ValueError(
+            "stage3 requires baseline.checkpoints=[ckpt_150, ckpt_409] (two paths)"
+        )
+
+    env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
+    policy_name = str(cfg_yaml.get("policy_name") or "")
+    rollout_strategy = str(cfg_yaml.get("rollout_strategy", "auto") or "auto")
+    objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
+
+    pomo_size = cfg_yaml.get("pomo_size", 64)
+    pomo_size_out = int(pomo_size) if pomo_size is not None else None
+
+    validation_batch_size = int(cfg_yaml.get("validation_batch_size", 64) or 64)
+    alpha = float(cfg_yaml.get("alpha", 0.05) or 0.05)
+    lr = float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4)
+    wd = float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6)
+    size_aggregation = str(cfg_yaml.get("size_aggregation", "mean") or "mean")
+    size_cvar_alpha = float(cfg_yaml.get("size_cvar_alpha", 0.2) or 0.2)
+
+    K = int(cfg_yaml.get("f1_steps", 32) or 32)
+    train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
+    valid_problem_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
+    train_batch_size = int(cfg_yaml.get("train_batch_size", 64) or 64)
+    num_validation_episodes = int(cfg_yaml.get("num_validation_episodes", 128) or 128)
+    scratch_init_seed = int(cfg_yaml.get("scratch_init_seed", 0) or 0)
+
+    offline_train_sha1 = _file_sha1_cached(str(offline_train))
+    offline_val_sig: Dict[str, Any] = {}
+    if isinstance(offline_val_paths, dict):
+        for size_s, pth in sorted(((str(k), v) for k, v in offline_val_paths.items()), key=lambda kv: int(kv[0])):
+            offline_val_sig[str(size_s)] = {
+                "path": str(pth),
+                "sha1": _file_sha1_cached(str(pth)),
+            }
+
+    return {
+        "protocol": "stage3_offline_minitrain_v1",
+        "env_name": env_name,
+        "policy_name": policy_name,
+        "rollout_strategy": rollout_strategy,
+        "objective_sign": objective_sign,
+        "alpha": alpha,
+        "K": int(K),
+        "train_problem_size": int(train_problem_size),
+        "valid_problem_sizes": [int(x) for x in valid_problem_sizes],
+        "train_batch_size": int(train_batch_size),
+        "num_validation_episodes": int(num_validation_episodes),
+        "validation_batch_size": int(validation_batch_size),
+        "pomo_size": pomo_size_out,
+        "learning_rate": lr,
+        "weight_decay": wd,
+        "size_aggregation": size_aggregation,
+        "size_cvar_alpha": size_cvar_alpha,
+        "scratch_init_seed": int(scratch_init_seed),
+        "offline": {
+            "train": {"path": str(offline_train), "sha1": str(offline_train_sha1)},
+            "val": offline_val_sig,
+        },
+        "checkpoints": {
+            "ckpt_150": {"path": str(ckpt_150), "sha1": _file_sha1_cached(str(ckpt_150))},
+            "ckpt_409": {"path": str(ckpt_409), "sha1": _file_sha1_cached(str(ckpt_409))},
+        },
+    }
+
+
 def _infer_baseline_epoch_from_path(path: str) -> int | None:
     name = os.path.basename(str(path))
     m = re.search(r"(?:^|[._-])epoch_(\d+)(?:\D|$)", name)
@@ -3195,13 +3310,68 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         record["elapsed_s"] = float(time.time() - t0)
         return record
 
-    seed = int(cfg.get("seed", 0))
-    hf_cfg = _build_hf_cfg(cfg, seed=seed, device_str=device_str)
-    free_cfg = _build_free_cfg(cfg, hf_cfg=hf_cfg)
-    adapter = _CompiledBuilderAdapter(compiled_g)
+    # Stage3: discovery-style offline mini-train fitness, compared against a precomputed baseline JSON.
+    baseline_cfg = cfg.get("baseline", {}) or {}
+    mini_eval_path = baseline_cfg.get("mini_eval_path")
+    if not mini_eval_path:
+        record["pair_ok"] = False
+        record["pair_reason"] = "stage3_fatal"
+        record["fatal_error"] = "baseline.mini_eval_path is required for stage3"
+        record["score"] = float("inf")
+        record["elapsed_s"] = float(time.time() - t0)
+        return record
+
     try:
-        # Route high-fidelity training logs to a per-pair file (like free_loss_discovery).
+        baseline_payload = _load_baseline_mini_eval(str(mini_eval_path))
+        expected_sig = _build_stage3_eval_signature(cfg)
+        got_sig = baseline_payload.get("eval_signature")
+        if got_sig != expected_sig:
+            record["pair_ok"] = False
+            record["pair_reason"] = "stage3_fatal"
+            record["fatal_error"] = "baseline eval_signature mismatch (re-run scripts/eval_baseline_minitrain.py)"
+            record["expected_eval_signature"] = expected_sig
+            record["got_eval_signature"] = got_sig
+            record["score"] = float("inf")
+            record["elapsed_s"] = float(time.time() - t0)
+            return record
+
+        per_init_base = baseline_payload.get("per_init")
+        if not isinstance(per_init_base, dict):
+            raise ValueError("baseline JSON missing per_init dict")
+
+        ckpts = baseline_cfg.get("checkpoints") or []
+        if not isinstance(ckpts, list) or len(ckpts) < 2:
+            raise ValueError("baseline.checkpoints must contain [ckpt_150, ckpt_409]")
+        ckpt_150 = _abs_from_repo_root(str(ckpts[0]))
+        ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
+
+        include_scratch = bool(baseline_cfg.get("include_scratch", True))
+        scratch_init_seed = int(cfg.get("scratch_init_seed", 0) or 0)
+        if scratch_init_seed <= 0:
+            raise ValueError("scratch_init_seed must be set (>0) for reproducible stage3 scratch init")
+
+        # Force step-budget mode: K=f1_steps is the only mini-train budget.
+        K = int(cfg.get("f1_steps", 32) or 32)
+        cfg_hf = dict(cfg)
+        cfg_hf["f1_steps"] = int(K)
+        cfg_hf["hf_epochs"] = 0
+        cfg_hf["hf_instances_per_epoch"] = 0
+        hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=device_str)
+
+        valid_sizes = [int(v) for v in cfg_hf.get("valid_problem_sizes", list(hf_cfg.valid_problem_sizes))]
+        if not valid_sizes:
+            valid_sizes = [int(hf_cfg.train_problem_size)]
+        valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
+
+        init_specs: List[Tuple[str, str | None]] = []
+        if include_scratch:
+            init_specs.append(("scratch", None))
+        init_specs.append(("ckpt_150", str(ckpt_150)))
+        init_specs.append(("ckpt_409", str(ckpt_409)))
+
+        # Route stage3 mini-train logs to a per-pair file (like free_loss_discovery).
         file_handler: logging.Handler | None = None
+        fl_logger = logging.getLogger("fitness.free_loss_fidelity")
         if run_dir_s:
             safe_gid = str(record.get("g_id", "g")).replace(os.sep, "_").replace(":", "_")[:24]
             safe_fid = str(record.get("f_id", "f")).replace(os.sep, "_").replace(":", "_")[:24]
@@ -3217,7 +3387,6 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 root_logger.removeHandler(handler)
             root_logger.setLevel(logging.INFO)
 
-            fl_logger = logging.getLogger("fitness.free_loss_fidelity")
             for handler in list(fl_logger.handlers):
                 try:
                     fl_logger.removeHandler(handler)
@@ -3234,33 +3403,112 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 fl_logger.addHandler(file_handler)
                 root_logger.addHandler(file_handler)
                 record["hf_log_file"] = os.path.basename(log_path)
-                fl_logger.info(
-                    "HF start gen=%d pair_index=%d device=%s g_id=%s f_id=%s",
-                    int(generation),
-                    int(pair_index),
-                    str(device_str),
-                    str(record.get("g_id")),
-                    str(record.get("f_id")),
-                )
             except Exception as exc:  # noqa: BLE001
                 print(
-                    f"[pref_loss_coevo][worker] failed to open HF log file: {log_path}: {exc}",
+                    f"[pref_loss_coevo][worker] failed to open stage3 log file: {log_path}: {exc}",
                     flush=True,
                 )
                 file_handler = None
 
-        fitness = evaluate_free_loss_candidate(
-            compiled_f,
-            free_cfg,
-            pref_builder=adapter,
-            baseline_early_valid=baseline_early_valid_f,
-            early_eval_steps=early_eval_steps_i,
-            baseline_epoch_objectives=baseline_epoch_objectives,
+        adapter = _CompiledBuilderAdapter(compiled_g)
+        per_init: Dict[str, Any] = {}
+        deltas: List[float] = []
+
+        fl_logger.info(
+            "Stage3 offline mini-train start gen=%d pair_index=%d K=%d seed=%d valid_sizes=%s baseline_json=%s",
+            int(generation),
+            int(pair_index),
+            int(K),
+            int(scratch_init_seed),
+            list(valid_sizes),
+            str(mini_eval_path),
         )
+
+        for init_name, init_ckpt in init_specs:
+            base_entry = per_init_base.get(str(init_name))
+            if not isinstance(base_entry, dict):
+                raise ValueError(f"baseline JSON missing per_init[{init_name}]")
+            try:
+                base_agg = float(base_entry.get("aggregated_objective"))
+            except (TypeError, ValueError):
+                raise ValueError(f"baseline per_init[{init_name}].aggregated_objective is invalid")
+            base_by_size_raw = base_entry.get("val_objective_by_size", {})
+            base_by_size: Dict[int, float] = {}
+            if isinstance(base_by_size_raw, dict):
+                for k, v in base_by_size_raw.items():
+                    try:
+                        base_by_size[int(k)] = float(v)
+                    except Exception:  # noqa: BLE001
+                        continue
+
+            cand_by_size: Dict[int, float] = {}
+            cand_agg: float
+            error: str | None = None
+            try:
+                free_cfg = FreeLossFidelityConfig(
+                    hf=hf_cfg,
+                    f1_steps=int(K),
+                    f2_steps=0,
+                    f3_enabled=False,
+                    init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
+                    init_checkpoint_epoch=None,
+                )
+                fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+                size_objectives_raw = fitness.get("size_objectives", {})
+                size_objectives: Dict[int, float] = {}
+                if isinstance(size_objectives_raw, dict):
+                    for k, v in size_objectives_raw.items():
+                        try:
+                            size_objectives[int(k)] = float(v)
+                        except Exception:  # noqa: BLE001
+                            continue
+                for sz in valid_sizes:
+                    if int(sz) not in size_objectives:
+                        raise RuntimeError(f"Missing fitness.size_objectives[{int(sz)}]")
+                    cand_by_size[int(sz)] = float(size_objectives[int(sz)])
+                cand_agg = float(sum(float(cand_by_size[int(sz)]) for sz in valid_sizes) / float(len(valid_sizes)))
+                if not math.isfinite(cand_agg):
+                    raise RuntimeError("Non-finite candidate aggregated objective")
+            except Exception as exc:  # noqa: BLE001
+                error = str(exc)
+                cand_by_size = {int(sz): 1.0e9 for sz in valid_sizes}
+                cand_agg = 1.0e9
+
+            delta = float(cand_agg) - float(base_agg)
+            deltas.append(float(delta))
+            per_init[str(init_name)] = {
+                "obj_cand_by_size": {str(int(k)): float(v) for k, v in cand_by_size.items()},
+                "obj_base_by_size": {str(int(k)): float(base_by_size.get(int(k), float("nan"))) for k in valid_sizes},
+                "obj_cand": float(cand_agg),
+                "obj_base": float(base_agg),
+                "delta": float(delta),
+                "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+                "error": error,
+            }
+
+        delta_mean = float(sum(deltas) / float(len(deltas))) if deltas else float("inf")
+        delta_worst = float(max(deltas)) if deltas else float("inf")
+
+        record["pair_ok"] = True
+        record["pair_reason"] = "ok_stage3_offline_minitrain"
+        record["fitness"] = {
+            "per_init": per_init,
+            "delta_mean": float(delta_mean),
+            "delta_worst": float(delta_worst),
+            "baseline_mini_eval_path": str(mini_eval_path),
+            "eval_signature": expected_sig,
+            "valid_problem_sizes": list(valid_sizes),
+            "K": int(K),
+        }
+        record["score"] = float(delta_mean)
+        record["better_than_baseline_mean"] = bool(delta_mean < 0.0)
+        record["better_than_baseline_strict"] = bool(deltas and all(float(d) < 0.0 for d in deltas))
+        record["elapsed_s"] = float(time.time() - t0)
+        return record
     except Exception as exc:  # noqa: BLE001
         record["pair_ok"] = False
-        record["pair_reason"] = "high_fidelity_failed"
-        record["high_fidelity_error"] = str(exc)
+        record["pair_reason"] = "stage3_fatal"
+        record["fatal_error"] = str(exc)
         record["score"] = float("inf")
         record["elapsed_s"] = float(time.time() - t0)
         return record
@@ -3278,33 +3526,6 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 file_handler.close()
             except Exception:  # noqa: BLE001
                 pass
-
-    record["pair_ok"] = True
-    record["pair_reason"] = "ok"
-    record["fitness"] = dict(fitness)
-    if isinstance(record.get("fitness"), dict):
-        fit = record["fitness"]
-        for old_k, new_k in (
-            ("better_than_baseline", "better_than_incumbent"),
-            ("tail_better_than_baseline", "tail_better_than_incumbent"),
-            ("epoch_better_than_baseline", "epoch_better_than_incumbent"),
-            ("epoch_tail_better_than_baseline", "epoch_tail_better_than_incumbent"),
-            ("epoch_window_better_than_baseline", "epoch_window_better_than_incumbent"),
-        ):
-            if old_k in fit:
-                fit[new_k] = fit.get(old_k)
-                fit.pop(old_k, None)
-    try:
-        record["score"] = float(
-            fitness.get(
-                "hf_like_score",
-                fitness.get("fitness_score", fitness.get("validation_objective", float("inf"))),
-            )
-        )
-    except (TypeError, ValueError):
-        record["score"] = float("inf")
-    record["elapsed_s"] = float(time.time() - t0)
-    return record
 
 
 def _hf_pinned_device_worker(  # noqa: PLR0912
@@ -5400,30 +5621,83 @@ def run_pref_loss_coevo(
                     scope="after_cheap",
                 )
         else:
+            # Proxy is disabled: still run stage0_gate (dummy-feature gates) so stage3 can
+            # filter strictly by gate outcomes without relying on proxy/micro metrics.
+            t_gate0 = time.time()
+            LOGGER.info(
+                "Gate-only eval (proxy disabled) gen=%d: pairs=%d cheap_gate_on=%s",
+                int(gen),
+                int(len(pairs)),
+                str(bool(stage0_gate_enabled)),
+            )
             for p_idx, (gid, fid) in enumerate(pairs):
-                base = dict(pair_records_map.get((str(gid), str(fid)), {}))
-                base.update(
-                    {
-                        "generation": int(gen),
-                        "pair_index": int(p_idx),
-                        "g_id": str(gid),
-                        "f_id": str(fid),
-                        "eval_budget_signature": str(eval_sig),
-                        "seed_signature": str(base_seed_sig),
-                        "seed_used": int(base_seed),
-                        "device": str(proxy_device_str),
-                        "stage": str(base.get("stage", "scheduled")),
-                        "reasons": list(reasons_by_pair.get((gid, fid), ["scheduled"])),
-                        "pair_ok": True,
-                        "pair_reason": "proxy_disabled",
-                        "score": base.get("score"),
-                        "proxy_score": base.get("proxy_score"),
-                        "proxy_metrics": base.get("proxy_metrics"),
-                        "descriptor": base.get("descriptor"),
-                        "phase": pair_phase_by_pair.get((str(gid), str(fid)), "coevo"),
-                    }
+                if (gid, fid) in pair_records_map and pair_records_map[(gid, fid)].get("stage") == "anchor":
+                    pair_records_map[(gid, fid)]["phase"] = pair_phase_by_pair.get((gid, fid), "coevo")
+                    continue
+
+                cache_key = (str(gid), str(fid), str(eval_sig))
+                cached = caches.get_pair(cache_key)
+                if isinstance(cached, dict) and str(cached.get("stage")) == "gate":
+                    rec = dict(cached)
+                    rec["generation"] = int(gen)
+                    rec["pair_index"] = int(p_idx)
+                else:
+                    g_entry = g_map.get(str(gid))
+                    if not isinstance(g_entry, dict) and str(gid) == G_REF_ID:
+                        g_entry = {"id": str(G_REF_ID), "ir": asdict(_ref_builder_ir())}
+                    f_entry = f_map.get(str(fid))
+                    if not isinstance(f_entry, dict) and str(fid) == F_REF_ID:
+                        f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
+                    if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
+                        LOGGER.warning(
+                            "Gate-only skip gen=%d pair_index=%d missing entry for pair (%s,%s): g=%s f=%s",
+                            int(gen),
+                            int(p_idx),
+                            str(gid),
+                            str(fid),
+                            str(isinstance(g_entry, dict)),
+                            str(isinstance(f_entry, dict)),
+                        )
+                        continue
+
+                    rec = _evaluate_pair_worker(
+                        {
+                            "generation": int(gen),
+                            "pair_index": int(p_idx),
+                            "g_entry": dict(g_entry),
+                            "f_entry": dict(f_entry),
+                            "cfg_yaml": dict(cfg_yaml),
+                            "device_str": str(proxy_device_str),
+                            "operator_whitelist": list(operator_whitelist),
+                            "run_dir": str(run_dir),
+                            "cheap_gate_on": bool(stage0_gate_enabled),
+                            "high_fidelity_on": False,
+                            "eval_budget_signature": str(eval_sig),
+                        }
+                    )
+                rec["stage"] = "gate"
+                rec["phase"] = pair_phase_by_pair.get((str(gid), str(fid)), "coevo")
+                caches.set_pair(cache_key, dict(rec))
+                pair_records_map[(str(gid), str(fid))] = rec
+
+                if progress_every_pairs > 0 and (
+                    (p_idx + 1) in (1, int(len(pairs))) or ((p_idx + 1) % progress_every_pairs == 0)
+                ):
+                    LOGGER.info(
+                        "Gate-only progress gen=%d: %d/%d %s",
+                        int(gen),
+                        int(p_idx + 1),
+                        int(len(pairs)),
+                        _cache_brief(caches),
+                    )
+            if pairs:
+                LOGGER.info(
+                    "Gate-only eval done gen=%d: pairs=%d elapsed_s=%.1f %s",
+                    int(gen),
+                    int(len(pairs)),
+                    float(time.time() - t_gate0),
+                    _cache_brief(caches),
                 )
-                pair_records_map[(str(gid), str(fid))] = base
 
         # 2-seed recheck: best_pair + elite-boundary pairs (cheap stage only).
         recheck_enabled = bool(cfg_yaml.get("recheck_enabled", True))
@@ -5773,12 +6047,8 @@ def run_pref_loss_coevo(
         # High-fidelity stage: evaluate only top-m by cheap proxy `score`.
         if stage3_hf_enabled:
             top_m = int(cfg_yaml.get("high_fidelity_top_m", max(1, min(len(pair_records), pairing_budget // 4))) or 1)
-            candidates = [
-                r
-                for r in pair_records
-                if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
-                and str(r.get("stage")) != "anchor"
-            ]
+            # Stage3 must include *all* gate-passed pairs (no top-m truncation).
+            candidates = [r for r in pair_records if bool(r.get("pair_ok")) and str(r.get("stage")) != "anchor"]
             if str(search_mode) == "alternating":
                 if alternating_active_phase == "loss" and alternating_fixed_builder_id:
                     candidates = [
@@ -5788,22 +6058,17 @@ def run_pref_loss_coevo(
                     candidates = [
                         r for r in candidates if str(r.get("f_id")) == str(alternating_fixed_loss_id)
                     ]
-            if micro_enabled:
-                candidates = [r for r in candidates if isinstance(r.get("micro_metrics"), dict)]
-            if micro_enabled or stage1_proxy_enabled:
-                candidates.sort(key=lambda r: float(r.get("score", float("inf"))))
-            else:
-                candidates.sort(
-                    key=lambda r: (
-                        _safe_int(r.get("pair_index", 10**9), 10**9),
-                        str(r.get("g_id", "")),
-                        str(r.get("f_id", "")),
-                    )
+            candidates.sort(
+                key=lambda r: (
+                    _safe_int(r.get("pair_index", 10**9), 10**9),
+                    str(r.get("g_id", "")),
+                    str(r.get("f_id", "")),
                 )
+            )
 
-            selected = candidates[: max(0, top_m)]
+            selected = list(candidates)
             LOGGER.info(
-                "HF selection gen=%d: eligible=%d selected=%d (top_m=%d)",
+                "HF selection gen=%d: eligible=%d selected=%d (top_m=%d ignored)",
                 int(gen),
                 int(len(candidates)),
                 int(len(selected)),
@@ -5916,6 +6181,13 @@ def run_pref_loss_coevo(
                 else:
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))
+
+                fatal = [r for r in hf_results if isinstance(r, dict) and r.get("fatal_error")]
+                if fatal:
+                    first = dict(fatal[0])
+                    raise RuntimeError(
+                        f"Stage3 fatal error (pair={first.get('g_id')},{first.get('f_id')}): {first.get('fatal_error')}"
+                    )
                 try:
                     incumbent_ref_for_hf = None
                     if isinstance(best_so_far, dict):

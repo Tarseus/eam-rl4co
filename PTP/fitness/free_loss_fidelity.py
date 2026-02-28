@@ -26,6 +26,100 @@ from ptp_discovery.free_loss_compiler import CompiledFreeLoss
 logger = logging.getLogger(__name__)
 
 
+_OFFLINE_TENSORDICT_CACHE: dict[str, Any] = {}
+
+
+def _abs_path(path: str) -> str:
+    if not path:
+        return path
+    return os.path.abspath(os.path.expanduser(str(path)))
+
+
+def _load_offline_tensordict(path: str):
+    """Load an offline instance TensorDict/dict to CPU with a global in-process cache."""
+
+    from tensordict import TensorDict, TensorDictBase
+
+    p = _abs_path(str(path))
+    cached = _OFFLINE_TENSORDICT_CACHE.get(p)
+    if cached is not None:
+        return cached
+
+    if not os.path.exists(p):
+        raise FileNotFoundError(f"Offline instances file not found: {path} (abs={p})")
+
+    obj = torch.load(p, map_location="cpu")
+    if isinstance(obj, TensorDictBase):
+        td = obj.to("cpu")
+    elif isinstance(obj, dict):
+        # Best-effort: wrap dict[str, Tensor] into a TensorDict.
+        if not obj:
+            raise ValueError(f"Offline instances dict is empty: {path}")
+        first = next(iter(obj.values()))
+        if not isinstance(first, torch.Tensor):
+            raise TypeError(f"Offline instances dict must contain tensors: {path}")
+        n = int(first.shape[0])
+        td = TensorDict({str(k): v.to("cpu") for k, v in obj.items()}, batch_size=[n])
+    else:
+        raise TypeError(
+            f"Offline instances must be a TensorDict or dict[str, Tensor], got {type(obj)}: {path}"
+        )
+
+    _OFFLINE_TENSORDICT_CACHE[p] = td
+    return td
+
+
+class OfflineSplitGenerator:
+    """Offline generator wrapper with deterministic, no-shuffle sequential batches.
+
+    This is used to fully offline-ize RL4CO training/validation in stage3 mini-train.
+
+    - Each new generator instance starts cursors at 0, ensuring identical batch sequences
+      across different candidates.
+    - Data is always loaded to CPU; callers can move the returned TensorDict to GPU.
+    """
+
+    def __init__(self, train_path: str, val_path: str, device: str = "cpu") -> None:
+        self.train_path = str(train_path)
+        self.val_path = str(val_path)
+        self.device = str(device or "cpu")
+
+        self._train_td = _load_offline_tensordict(self.train_path)
+        self._val_td = _load_offline_tensordict(self.val_path)
+
+        self.train_cursor = 0
+        self.val_cursor = 0
+        self._split = "train"
+
+    def set_split(self, phase: str) -> None:
+        p = str(phase or "train").strip().lower()
+        self._split = "train" if p == "train" else "val"
+
+    def _slice_wrap(self, td, cursor: int, batch_size: int):
+        n = int(getattr(td, "batch_size", [0])[0] if hasattr(td, "batch_size") else 0)
+        if n <= 0:
+            raise ValueError("OfflineSplitGenerator got empty dataset")
+        b = max(int(batch_size), 1)
+        cur = int(cursor) % n
+        end = cur + b
+        if end <= n:
+            out = td[cur:end]
+            new_cursor = end % n
+        else:
+            first = td[cur:n]
+            second = td[0 : (end - n)]
+            out = torch.cat([first, second], dim=0)
+            new_cursor = (end - n) % n
+        return out.to(self.device) if self.device else out, int(new_cursor)
+
+    def __call__(self, batch_size: int):
+        if self._split == "train":
+            out, self.train_cursor = self._slice_wrap(self._train_td, self.train_cursor, batch_size)
+            return out
+        out, self.val_cursor = self._slice_wrap(self._val_td, self.val_cursor, batch_size)
+        return out
+
+
 @dataclass
 class PrefBatch:
     """Intermediate preference batch built from a fixed feature_cache.
@@ -480,6 +574,16 @@ def _rl4co_build_env(
     env_name = _rl4co_env_name(cfg)
     env_kwargs = dict(getattr(cfg, "env_kwargs", {}) or {})
     generator_params = dict(getattr(cfg, "generator_params", {}) or {})
+
+    offline_train_path = generator_params.pop("offline_train_path", None)
+    offline_val_path = generator_params.pop("offline_val_path", None)
+    offline_val_paths = generator_params.pop("offline_val_paths", None)
+    if offline_val_paths and isinstance(offline_val_paths, Mapping):
+        try:
+            offline_val_path = offline_val_paths.get(str(problem_size), offline_val_path)
+        except Exception:  # noqa: BLE001
+            pass
+
     size_key = _rl4co_size_key(env_name)
     if size_key is not None:
         generator_params[size_key] = int(problem_size)
@@ -494,7 +598,21 @@ def _rl4co_build_env(
     if env_name not in env_map:
         raise ValueError(f"Unsupported env_name for RL4CO backend: {env_name}")
 
-    return env_map[env_name](generator_params=generator_params, **env_kwargs)
+    env = env_map[env_name](generator_params=generator_params, **env_kwargs)
+
+    if offline_train_path or offline_val_path:
+        if not offline_train_path or not offline_val_path:
+            raise ValueError(
+                "Offline generator requires both offline_train_path and offline_val_path "
+                f"(got train={offline_train_path!r} val={offline_val_path!r})"
+            )
+        env.generator = OfflineSplitGenerator(
+            train_path=str(offline_train_path),
+            val_path=str(offline_val_path),
+            device="cpu",
+        )
+
+    return env
 
 
 def _rl4co_build_policy(cfg: HighFidelityConfig, env):
@@ -573,7 +691,16 @@ def _rl4co_rollout(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     from rl4co.utils.ops import batchify, unbatchify
 
-    batch = env.generator(batch_size)
+    gen = getattr(env, "generator", None)
+    if gen is None:
+        raise RuntimeError("RL4CO env has no generator")
+    if hasattr(gen, "set_split") and callable(getattr(gen, "set_split")):
+        try:
+            gen.set_split(str(phase))
+        except Exception:  # noqa: BLE001
+            pass
+
+    batch = gen(batch_size)
     batch = batch.to(device)
     td = env.reset(batch)
 
@@ -657,6 +784,8 @@ def _train_one_batch_with_free_loss_rl4co(
     score_mean = _rl4co_objective_from_reward(max_reward, hf_cfg).float().mean()
 
     optimizer.zero_grad()
+    if not torch.isfinite(loss).all():
+        raise RuntimeError("Non-finite loss encountered during mini-train")
     loss.backward()
     optimizer.step()
 
