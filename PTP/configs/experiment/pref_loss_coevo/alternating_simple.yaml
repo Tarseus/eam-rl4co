@@ -52,7 +52,11 @@ valid_problem_sizes: [20, 100]
 train_batch_size: 64
 num_validation_episodes: 512
 validation_batch_size: 64
+pomo_size: 20
 scratch_init_seed: 12345
+policy_name: pomo
+policy_kwargs:
+  po4cops_compat: true
 
 baseline:
   mini_eval_path: baseline/mini_eval/baseline_minitrain_tsp20_K200.json
