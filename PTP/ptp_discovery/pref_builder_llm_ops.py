@@ -36,6 +36,8 @@ Return ONLY a JSON object. It must match this schema:
 {
   "name": "...",
   "intuition": "...",
+  "hyperparams": {},
+  "operators_used": ["..."],
   "implementation_hint": {
     "expects": ["objective", "log_prob"],
     "returns": "PrefBatch",
@@ -133,6 +135,8 @@ def build_crossover_prompt(
                 "index": idx,
                 "name": parent.name,
                 "intuition": parent.intuition,
+                "hyperparams": parent.hyperparams,
+                "operators_used": parent.operators_used,
                 "implementation_hint": asdict(parent.implementation_hint),
                 "code": parent.code,
                 "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
@@ -161,6 +165,8 @@ def build_e2_prompt(
                 "index": idx,
                 "name": parent.name,
                 "intuition": parent.intuition,
+                "hyperparams": parent.hyperparams,
+                "operators_used": parent.operators_used,
                 "implementation_hint": asdict(parent.implementation_hint),
                 "code": parent.code,
                 "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
@@ -183,6 +189,8 @@ def build_mutation_prompt(
     blob = {
         "name": parent.name,
         "intuition": parent.intuition,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
         "implementation_hint": asdict(parent.implementation_hint),
         "code": parent.code,
         "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
@@ -204,6 +212,84 @@ def build_m2_prompt(
     blob = {
         "name": parent.name,
         "intuition": parent.intuition,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "implementation_hint": asdict(parent.implementation_hint),
+        "code": parent.code,
+        "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(blob, indent=2, ensure_ascii=False)
+    prompt = _append_global_feedback(prompt, global_feedback)
+    return prompt, _sha1(prompt)
+
+
+def build_paradigm_shift_prompt(
+    prompt_path: str,
+    *,
+    parents: Sequence[PreferenceBuilderIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[str, str]:
+    prompt = _read_prompt(prompt_path)
+    blobs = []
+    for idx, parent in enumerate(parents):
+        metrics: Mapping[str, Any] = {}
+        if parents_fitness is not None and idx < len(parents_fitness):
+            metrics = parents_fitness[idx]
+        blobs.append(
+            {
+                "index": idx,
+                "name": parent.name,
+                "intuition": parent.intuition,
+                "hyperparams": parent.hyperparams,
+                "operators_used": parent.operators_used,
+                "implementation_hint": asdict(parent.implementation_hint),
+                "code": parent.code,
+                "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
+            }
+        )
+    prompt = prompt + "\n\nPARENTS_JSON:\n" + json.dumps(blobs, indent=2, ensure_ascii=False)
+    prompt = _append_global_feedback(prompt, global_feedback)
+    return prompt, _sha1(prompt)
+
+
+def build_structure_shift_prompt(
+    prompt_path: str,
+    *,
+    parent: PreferenceBuilderIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[str, str]:
+    prompt = _read_prompt(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
+        "implementation_hint": asdict(parent.implementation_hint),
+        "code": parent.code,
+        "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
+    }
+    prompt = prompt + "\n\nPARENT_JSON:\n" + json.dumps(blob, indent=2, ensure_ascii=False)
+    prompt = _append_global_feedback(prompt, global_feedback)
+    return prompt, _sha1(prompt)
+
+
+def build_constraint_inject_prompt(
+    prompt_path: str,
+    *,
+    parent: PreferenceBuilderIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[str, str]:
+    prompt = _read_prompt(prompt_path)
+    metrics: Mapping[str, Any] = parent_fitness or {}
+    blob = {
+        "name": parent.name,
+        "intuition": parent.intuition,
+        "hyperparams": parent.hyperparams,
+        "operators_used": parent.operators_used,
         "implementation_hint": asdict(parent.implementation_hint),
         "code": parent.code,
         "metrics": {"fitness": float(metrics.get("fitness", float("inf"))) if metrics else None},
@@ -225,6 +311,8 @@ def build_m3_prompt(
         "candidate": {
             "name": candidate.name,
             "intuition": candidate.intuition,
+            "hyperparams": candidate.hyperparams,
+            "operators_used": candidate.operators_used,
             "implementation_hint": asdict(candidate.implementation_hint),
             "code": candidate.code,
         },
@@ -247,6 +335,8 @@ def build_repair_prompt(
         "candidate": {
             "name": failed_ir.name,
             "intuition": failed_ir.intuition,
+            "hyperparams": failed_ir.hyperparams,
+            "operators_used": failed_ir.operators_used,
             "implementation_hint": asdict(failed_ir.implementation_hint),
             "code": failed_ir.code,
         },
@@ -334,6 +424,57 @@ def m2_tune_builder(
         global_feedback=global_feedback,
     )
     raw = _call_llm(prompt, llm_op="M2", prompt_path=m2_prompt_path)
+    json_str = _extract_json_object(raw)
+    return _parse_pref_builder_from_text(json_str)
+
+
+def paradigm_shift_builder(
+    prompt_path: str,
+    parents: Sequence[PreferenceBuilderIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> PreferenceBuilderIR:
+    prompt, _ = build_paradigm_shift_prompt(
+        prompt_path,
+        parents=parents,
+        parents_fitness=parents_fitness,
+        global_feedback=global_feedback,
+    )
+    raw = _call_llm(prompt, llm_op="BUILDER_PARADIGM_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return _parse_pref_builder_from_text(json_str)
+
+
+def structure_shift_builder(
+    prompt_path: str,
+    parent: PreferenceBuilderIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> PreferenceBuilderIR:
+    prompt, _ = build_structure_shift_prompt(
+        prompt_path,
+        parent=parent,
+        parent_fitness=parent_fitness,
+        global_feedback=global_feedback,
+    )
+    raw = _call_llm(prompt, llm_op="BUILDER_STRUCTURE_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    return _parse_pref_builder_from_text(json_str)
+
+
+def constraint_inject_builder(
+    prompt_path: str,
+    parent: PreferenceBuilderIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> PreferenceBuilderIR:
+    prompt, _ = build_constraint_inject_prompt(
+        prompt_path,
+        parent=parent,
+        parent_fitness=parent_fitness,
+        global_feedback=global_feedback,
+    )
+    raw = _call_llm(prompt, llm_op="BUILDER_CONSTRAINT_INJECT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
     return _parse_pref_builder_from_text(json_str)
 
@@ -495,6 +636,84 @@ def m2_tune_builder_with_meta(
         {
             "llm_op": "M2",
             "prompt_path": str(m2_prompt_path),
+            "prompt_sha1": str(prompt_sha1),
+        },
+    )
+
+
+def paradigm_shift_builder_with_meta(
+    prompt_path: str,
+    *,
+    parents: Sequence[PreferenceBuilderIR],
+    parents_fitness: Sequence[Mapping[str, Any]] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
+    prompt, prompt_sha1 = build_paradigm_shift_prompt(
+        prompt_path,
+        parents=parents,
+        parents_fitness=parents_fitness,
+        global_feedback=global_feedback,
+    )
+    raw = _call_llm(prompt, llm_op="BUILDER_PARADIGM_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    ir = _parse_pref_builder_from_text(json_str)
+    return (
+        ir,
+        {
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": str(prompt_path),
+            "prompt_sha1": str(prompt_sha1),
+        },
+    )
+
+
+def structure_shift_builder_with_meta(
+    prompt_path: str,
+    *,
+    parent: PreferenceBuilderIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
+    prompt, prompt_sha1 = build_structure_shift_prompt(
+        prompt_path,
+        parent=parent,
+        parent_fitness=parent_fitness,
+        global_feedback=global_feedback,
+    )
+    raw = _call_llm(prompt, llm_op="BUILDER_STRUCTURE_SHIFT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    ir = _parse_pref_builder_from_text(json_str)
+    return (
+        ir,
+        {
+            "llm_op": "BUILDER_STRUCTURE_SHIFT",
+            "prompt_path": str(prompt_path),
+            "prompt_sha1": str(prompt_sha1),
+        },
+    )
+
+
+def constraint_inject_builder_with_meta(
+    prompt_path: str,
+    *,
+    parent: PreferenceBuilderIR,
+    parent_fitness: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
+    prompt, prompt_sha1 = build_constraint_inject_prompt(
+        prompt_path,
+        parent=parent,
+        parent_fitness=parent_fitness,
+        global_feedback=global_feedback,
+    )
+    raw = _call_llm(prompt, llm_op="BUILDER_CONSTRAINT_INJECT", prompt_path=prompt_path)
+    json_str = _extract_json_object(raw)
+    ir = _parse_pref_builder_from_text(json_str)
+    return (
+        ir,
+        {
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": str(prompt_path),
             "prompt_sha1": str(prompt_sha1),
         },
     )

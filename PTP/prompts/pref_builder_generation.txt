@@ -6,6 +6,13 @@ The JSON MUST be parseable by `ptp_discovery.pref_builder_ir.ir_from_json` and M
 {
   "name": "short_unique_name",
   "intuition": "short explanation of what pairs/weights it constructs and why",
+  "hyperparams": {
+    "geometry_family": "...",
+    "cap_family": "...",
+    "weight_family": "...",
+    "constraint_family": "..."
+  },
+  "operators_used": ["..."],
   "implementation_hint": {
     "expects": ["objective", "log_prob"],
     "returns": "PrefBatch",
@@ -17,8 +24,10 @@ The JSON MUST be parseable by `ptp_discovery.pref_builder_ir.ir_from_json` and M
 Hard constraints:
 - Output JSON only.
 - `intuition` must be non-empty and specific to the constructed preferences.
-- `implementation_hint.mode` is one of: pairwise, setwise, listwise (prefer pairwise).
-- `implementation_hint.expects` must be a non-empty list and must include objective and log_prob when in pairwise.
+- Emit all four family tags as non-empty strings in `hyperparams`.
+- `operators_used` must be a non-empty list describing the main builder operations.
+- `implementation_hint.mode` must be "pairwise".
+- `implementation_hint.expects` must be a non-empty list and must include objective and log_prob.
 - `code` must define `generated_builder(feature_cache, extra)` and return a PrefBatch.
 - Do NOT use import, open, eval, exec, filesystem/network, randomness, or global state.
 - You may use torch, F, ops, and PrefBatch (already provided in the sandbox).

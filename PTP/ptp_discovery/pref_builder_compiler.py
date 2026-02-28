@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Sequence
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence
 
 import torch
 import torch.nn.functional as F
@@ -12,7 +12,7 @@ from .free_loss_compiler import _OpsAccessor, _build_operator_table, _validate_u
 from .pref_builder_ir import PreferenceBuilderIR
 
 
-BuildFn = Callable[[Mapping[str, torch.Tensor], Mapping[str, Any] | None], PrefBatch]
+BuildFn = Callable[[Mapping[str, torch.Tensor], Optional[Mapping[str, Any]]], PrefBatch]
 
 
 class PreferenceBuilderCompileError(Exception):

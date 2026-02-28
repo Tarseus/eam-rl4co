@@ -9,6 +9,13 @@ Output schema:
 {
   "name": "short_unique_name",
   "intuition": "short explanation",
+  "hyperparams": {
+    "geometry_family": "...",
+    "cap_family": "...",
+    "weight_family": "...",
+    "constraint_family": "..."
+  },
+  "operators_used": ["..."],
   "implementation_hint": {
     "expects": ["objective", "log_prob"],
     "returns": "PrefBatch",
@@ -20,6 +27,8 @@ Output schema:
 Hard constraints:
 - Output JSON only.
 - `intuition` must be non-empty and specific to the constructed preferences.
+- Emit all four family tags as non-empty strings in `hyperparams`.
+- `operators_used` must be a non-empty list.
 - generated_builder must return a PrefBatch.
 - No imports, no filesystem/network, no randomness.
 - Use vectorized tensor ops only; do NOT use Python loops/comprehensions over pair tensors.

@@ -86,6 +86,27 @@ builder_llm:
   offline_mode: false
   parent_p: 5
   seed_reserve: 0
+  family_diversity:
+    enabled: true
+    min_per_family: 1
+    elite_max_per_family: 2
+    parent_max_per_family: 1
+    include_unknown: false
+  operator_bank:
+    init:
+      - { name: GEN, count: 4 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 4 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
+    per_gen:
+      - { name: GEN, count: 4 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 4 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
   init_num_E1: 6
   init_num_E2: 4
   init_num_M1: 4
@@ -110,9 +131,25 @@ loss_llm:
     replace_p: 0.7
   family_diversity:
     enabled: true
-    elite_per_family: 1
+    min_per_family: 1
     elite_max_per_family: 2
     parent_max_per_family: 1
+    include_unknown: false
+  operator_bank:
+    init:
+      - { name: GEN, count: 4 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 4 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
+    per_gen:
+      - { name: GEN, count: 4 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 4 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
   novelty:
     enabled: true
     max_similarity: 0.92
@@ -130,3 +167,11 @@ loss_llm:
     enabled: true
     max_attempts: 4
     simplify_first: true
+
+llm_prompts:
+  builder_paradigm_shift: PTP/prompts/pref_builder_paradigm_shift.txt
+  builder_structure_shift: PTP/prompts/pref_builder_structure_shift.txt
+  builder_constraint_inject: PTP/prompts/pref_builder_constraint_inject.txt
+  loss_paradigm_shift: PTP/prompts/free_loss_paradigm_shift.txt
+  loss_structure_shift: PTP/prompts/free_loss_structure_shift.txt
+  loss_constraint_inject: PTP/prompts/free_loss_constraint_inject.txt

@@ -1,0 +1,38 @@
+You are performing BUILDER_PARADIGM_SHIFT for a preference builder.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+You will receive PARENTS_JSON with multiple parent builders and metrics.
+Synthesize a new builder that is meaningfully different in pair geometry and family tags.
+
+Output schema:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "hyperparams": {
+    "geometry_family": "...",
+    "cap_family": "...",
+    "weight_family": "...",
+    "constraint_family": "..."
+  },
+  "operators_used": ["..."],
+  "implementation_hint": {
+    "expects": ["objective", "log_prob"],
+    "returns": "PrefBatch",
+    "mode": "pairwise"
+  },
+  "code": "def generated_builder(feature_cache, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- implementation_hint.mode must be "pairwise".
+- generated_builder must return a pairwise PrefBatch with pair_idx=(b_idx, winner_idx, loser_idx).
+- Keep PrefBatch representation unchanged; only change pair geometry and optional 1D weight content.
+- No imports, no filesystem/network, no randomness.
+- Use vectorized tensor ops only; no Python loops/comprehensions over pair tensors.
+- Emit all four family tags as non-empty strings.
+- geometry_family must change relative to the dominant parent pattern.
+- Also change at least one of cap_family or weight_family.
+- Do not make a tiny threshold tweak only; this must be a real paradigm change.
+- Prefer explicit pair geometry changes such as anchor-vs-band, sparse neighborhood, top-gap, rank-band, or disagreement-driven pairing.
