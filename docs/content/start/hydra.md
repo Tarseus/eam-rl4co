@@ -28,12 +28,15 @@ POMO can swap the training loss to preference-based variants that compare multi-
 - `model.alpha`: scales log-likelihood (acts like a preference temperature).
 - `model.pl_impl`: `stable` (default, O(B*P)) or `ptp` (legacy one-hot; formulation name only).
 - `model.free_loss_ir_json_path`: required if `loss_type=free_loss`.
+- `model.pref_builder_ir_json_path`: optional preference-builder artifact used to choose training pairs before applying `free_loss`.
+- `model.pref_pair_json_path`: optional co-evolution `best_pair.json`; resolves sibling `best_builder.json` and `best_loss.json`.
 
 Examples:
 ```bash
 python run.py experiment=routing/pomo model.loss_type=po_loss model.alpha=1.0
 python run.py experiment=routing/pomo model.loss_type=pl_loss model.pl_impl=stable
 python run.py experiment=routing/pomo model.loss_type=free_loss model.free_loss_ir_json_path=examples/free_loss_minimal.json
+python run.py experiment=routing/pomo model.loss_type=free_loss model.pref_pair_json_path=runs/pref_loss_alternating_simple/<run>/best_pair.json
 ```
 
 Note: RL4CO routing environments typically define `reward = -cost`, so larger reward indicates better solutions.

@@ -2,6 +2,7 @@ from typing import Any, Callable
 
 import json
 from pathlib import Path
+import sys
 
 import torch
 import torch.nn as nn
@@ -48,6 +49,10 @@ class POMO(REINFORCE):
         loss_kwargs: Optional keyword args reserved for preference losses.
         pl_impl: Implementation choice for listwise loss, {"ptp", "stable"}.
         free_loss_ir_json_path: Path to JSON IR for free_loss (required if loss_type="free_loss").
+        pref_builder_ir_json_path: Optional path to a preference-builder JSON artifact.
+        pref_pair_json_path: Optional path to a co-evolution `best_pair.json`; when set, the model
+            resolves sibling `best_builder.json` and `best_loss.json` artifacts automatically.
+        pref_builder_kwargs: Optional extra kwargs forwarded to `generated_builder(..., extra)`.
         **kwargs: Keyword arguments passed to the superclass
     """
 
@@ -67,6 +72,9 @@ class POMO(REINFORCE):
         loss_kwargs: dict | None = None,
         pl_impl: str = "stable",
         free_loss_ir_json_path: str | None = None,
+        pref_builder_ir_json_path: str | None = None,
+        pref_pair_json_path: str | None = None,
+        pref_builder_kwargs: dict | None = None,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
@@ -124,9 +132,25 @@ class POMO(REINFORCE):
         self.loss_kwargs = {} if loss_kwargs is None else dict(loss_kwargs)
         self.pl_impl = pl_impl
         self.free_loss_ir_json_path = free_loss_ir_json_path
+        self.pref_builder_ir_json_path = pref_builder_ir_json_path
+        self.pref_pair_json_path = pref_pair_json_path
+        self.pref_builder_kwargs = {} if pref_builder_kwargs is None else dict(pref_builder_kwargs)
         self.free_loss = None
+        self.pref_builder = None
+        self._pref_extract_feature_cache = None
+        self._resolve_pref_pair_artifacts()
+        if self.pref_pair_json_path and self.loss_type == "rl_loss" and self.free_loss_ir_json_path:
+            self.loss_type = "free_loss"
+            log.info("Resolved loss from pref_pair_json_path; switching loss_type to free_loss")
+        if self.pref_builder_ir_json_path:
+            self._load_pref_builder()
         if self.loss_type == "free_loss":
             self._load_free_loss()
+        elif self.pref_builder is not None:
+            log.warning(
+                "pref_builder_ir_json_path is set but loss_type=%s; the builder will be ignored",
+                self.loss_type,
+            )
         if self.loss_kwargs:
             log.warning(
                 "loss_kwargs is currently unused and will be ignored: %s",
@@ -257,6 +281,93 @@ class POMO(REINFORCE):
         ir = ir_from_json(ir_obj)
         self.free_loss = compile_free_loss(ir)
 
+    def _resolve_pref_pair_artifacts(self) -> None:
+        if self.pref_pair_json_path is None:
+            return
+
+        pair_path = Path(self.pref_pair_json_path).expanduser()
+        if not pair_path.is_file():
+            raise FileNotFoundError(f"pref_pair_json_path does not exist: {pair_path.as_posix()}")
+
+        run_dir = pair_path.parent
+        builder_path = run_dir / "best_builder.json"
+        loss_path = run_dir / "best_loss.json"
+        if self.pref_builder_ir_json_path is None:
+            if not builder_path.is_file():
+                raise FileNotFoundError(
+                    f"best_builder.json not found next to pref_pair_json_path: {builder_path.as_posix()}"
+                )
+            self.pref_builder_ir_json_path = builder_path.as_posix()
+        if self.free_loss_ir_json_path is None:
+            if not loss_path.is_file():
+                raise FileNotFoundError(
+                    f"best_loss.json not found next to pref_pair_json_path: {loss_path.as_posix()}"
+                )
+            self.free_loss_ir_json_path = loss_path.as_posix()
+
+        try:
+            with pair_path.open("r", encoding="utf-8") as f:
+                pair_payload = json.load(f)
+            pair_gid = str(pair_payload.get("g_id", "")).strip()
+            pair_fid = str(pair_payload.get("f_id", "")).strip()
+        except Exception:
+            return
+
+        for expected_id, artifact_path, key in (
+            (pair_gid, self.pref_builder_ir_json_path, "id"),
+            (pair_fid, self.free_loss_ir_json_path, "id"),
+        ):
+            if not expected_id or not artifact_path:
+                continue
+            try:
+                with Path(artifact_path).expanduser().open("r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                actual_id = str(payload.get(key, "")).strip()
+            except Exception:
+                continue
+            if actual_id and actual_id != expected_id:
+                log.warning(
+                    "Resolved artifact %s id=%s does not match pref_pair expected id=%s",
+                    artifact_path,
+                    actual_id,
+                    expected_id,
+                )
+
+    @staticmethod
+    def _ensure_ptp_root_on_path() -> None:
+        repo_root = Path(__file__).resolve().parents[4]
+        ptp_root = repo_root / "PTP"
+        ptp_root_str = str(ptp_root.resolve())
+        if ptp_root.is_dir() and ptp_root_str not in sys.path:
+            sys.path.insert(0, ptp_root_str)
+
+    def _load_pref_builder(self) -> None:
+        if self.pref_builder_ir_json_path is None:
+            raise ValueError("pref_builder_ir_json_path must be set before loading a preference builder.")
+
+        self._ensure_ptp_root_on_path()
+        try:
+            from fitness.free_loss_fidelity import extract_feature_cache
+            from ptp_discovery.pref_builder_compiler import compile_preference_builder
+            from ptp_discovery.pref_builder_ir import ir_from_json as pref_builder_ir_from_json
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import PTP preference-builder modules. "
+                "Ensure the repository still contains the PTP/ directory."
+            ) from exc
+
+        path = Path(self.pref_builder_ir_json_path).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"pref_builder_ir_json_path does not exist: {path.as_posix()}"
+            )
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        ir_obj = payload.get("ir", payload)
+        ir = pref_builder_ir_from_json(ir_obj)
+        self.pref_builder = compile_preference_builder(ir)
+        self._pref_extract_feature_cache = extract_feature_cache
+
     def _free_loss_loss_fn(
         self, reward: torch.Tensor, log_likelihood: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
@@ -266,28 +377,62 @@ class POMO(REINFORCE):
             )
 
         objective = -reward
-        mask = objective[:, :, None] < objective[:, None, :]
-        b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)
+        loss_batch: dict[str, torch.Tensor]
+        pair_count_value = 0
+
+        if self.pref_builder is not None:
+            if self._pref_extract_feature_cache is None:
+                raise RuntimeError("Preference builder feature-cache extractor is not initialized.")
+            feature_cache = self._pref_extract_feature_cache(
+                objective=objective,
+                log_prob=log_likelihood,
+            )
+            pref_batch = self.pref_builder.build_fn(
+                feature_cache,
+                {
+                    "alpha": self.alpha,
+                    "hyperparams": dict(self.pref_builder_kwargs),
+                    **self.pref_builder_kwargs,
+                },
+            )
+            pair_count_value = int(pref_batch.num_examples())
+            if pair_count_value > 0:
+                loss_batch = pref_batch.to_pairwise_loss_batch(feature_cache)
+            else:
+                loss_batch = {}
+        else:
+            loss_batch = {}
+
+        if not loss_batch:
+            mask = objective[:, :, None] < objective[:, None, :]
+            b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)
+            pair_count_value = int(b_idx.numel())
+            if pair_count_value > 0:
+                cost_a = objective[b_idx, winner_idx]
+                cost_b = objective[b_idx, loser_idx]
+                logp_w = log_likelihood[b_idx, winner_idx]
+                logp_l = log_likelihood[b_idx, loser_idx]
+                weight = torch.ones_like(cost_a)
+                loss_batch = {
+                    "cost_a": cost_a,
+                    "cost_b": cost_b,
+                    "log_prob_w": logp_w,
+                    "log_prob_l": logp_l,
+                    "weight": weight,
+                }
+
         pair_count = torch.tensor(
-            float(b_idx.numel()), device=reward.device, dtype=reward.dtype
+            float(pair_count_value), device=reward.device, dtype=reward.dtype
         )
 
-        if b_idx.numel() == 0:
+        if pair_count_value == 0:
             advantage = reward - reward.float().mean(dim=1, keepdim=True)
             loss = -(advantage * log_likelihood).mean()
             return loss, pair_count
 
-        cost_a = objective[b_idx, winner_idx]
-        cost_b = objective[b_idx, loser_idx]
-        logp_w = log_likelihood[b_idx, winner_idx]
-        logp_l = log_likelihood[b_idx, loser_idx]
-        weight = torch.ones_like(cost_a)
-        batch = {
-            "cost_a": cost_a,
-            "cost_b": cost_b,
-            "log_prob_w": logp_w,
-            "log_prob_l": logp_l,
-            "weight": weight,
-        }
-        loss = self.free_loss.loss_fn(batch=batch, model_output={}, extra={"alpha": self.alpha})
+        loss = self.free_loss.loss_fn(
+            batch=loss_batch,
+            model_output={},
+            extra={"alpha": self.alpha},
+        )
         return loss, pair_count

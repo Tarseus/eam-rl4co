@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 
 import pytest
 
@@ -218,6 +219,86 @@ def test_pomo_po4cops_compat_po_loss_smoke():
             "tanh_clipping": 50,
             "eval_type": "argmax",
         },
+    )
+    trainer = RL4COTrainer(
+        max_epochs=1,
+        devices=1,
+        accelerator=accelerator,
+        precision="32-true",
+        gradient_clip_val=None,
+        limit_train_batches=1,
+        limit_val_batches=1,
+        limit_test_batches=1,
+    )
+    trainer.fit(model)
+    trainer.test(model)
+
+
+def test_pomo_pref_pair_artifact_smoke(tmp_path):
+    builder_payload = {
+        "id": "g_unit",
+        "ir": {
+            "name": "all_pairs_builder",
+            "intuition": "use all improving pairs",
+            "implementation_hint": {
+                "expects": ["objective", "log_prob"],
+                "returns": "PrefBatch",
+                "mode": "pairwise",
+            },
+            "code": (
+                "def generated_builder(feature_cache, extra):\n"
+                "    objective = feature_cache['objective']\n"
+                "    mask = objective[:, :, None] < objective[:, None, :]\n"
+                "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+                "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs'})\n"
+            ),
+        },
+    }
+    loss_payload = {
+        "id": "f_unit",
+        "ir": {
+            "name": "bt_loss",
+            "intuition": "stable Bradley-Terry pairwise loss",
+            "pseudocode": "loss = -logsigmoid(alpha * (log_prob_w - log_prob_l))",
+            "hyperparams": {},
+            "operators_used": ["logsigmoid"],
+            "implementation_hint": {
+                "expects": ["log_prob_w", "log_prob_l", "cost_a", "cost_b", "weight"],
+                "returns": "scalar",
+                "mode": "pairwise",
+            },
+            "code": (
+                "def generated_loss(batch, model_output, extra):\n"
+                "    alpha = float(extra.get('alpha', 1.0)) if isinstance(extra, dict) else 1.0\n"
+                "    margin = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n"
+                "    loss = -ops.logsigmoid(margin)\n"
+                "    weight = batch.get('weight', None)\n"
+                "    if weight is not None:\n"
+                "        loss = loss * weight\n"
+                "    return loss.mean()\n"
+            ),
+            "theoretical_basis": "Pairwise logistic preference loss.",
+        },
+    }
+    pair_payload = {"g_id": "g_unit", "f_id": "f_unit"}
+
+    builder_path = tmp_path / "best_builder.json"
+    loss_path = tmp_path / "best_loss.json"
+    pair_path = tmp_path / "best_pair.json"
+    builder_path.write_text(json.dumps(builder_payload), encoding="utf-8")
+    loss_path.write_text(json.dumps(loss_payload), encoding="utf-8")
+    pair_path.write_text(json.dumps(pair_payload), encoding="utf-8")
+
+    env = TSPEnv(generator_params=dict(num_loc=20))
+    model = POMO(
+        env,
+        loss_type="free_loss",
+        pref_pair_json_path=str(pair_path),
+        num_augment=1,
+        batch_size=4,
+        train_data_size=8,
+        val_data_size=8,
+        test_data_size=8,
     )
     trainer = RL4COTrainer(
         max_epochs=1,
