@@ -52,6 +52,98 @@ def _mean(xs: Sequence[float]) -> float:
     return float(sum(values) / len(values))
 
 
+def _objective_to_reward(obj: float, *, objective_sign: str) -> float:
+    sign = str(objective_sign or "neg_reward").strip().lower()
+    if sign == "neg_reward":
+        return -float(obj)
+    return float(obj)
+
+
+@torch.no_grad()
+def _pre_minitrain_eval(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    init_checkpoint: str | None,
+    train_problem_size: int,
+    valid_problem_sizes: Sequence[int],
+    num_validation_episodes: int,
+    train_batch_size: int,
+    scratch_init_seed: int,
+    offline_train: str,
+    offline_val_by_size: Mapping[int, str],
+) -> Tuple[Dict[int, float], float]:
+    from fitness.free_loss_fidelity import (
+        _evaluate_rl4co_model,
+        _load_policy_weights_from_checkpoint,
+        _rl4co_build_env,
+        _rl4co_build_policy,
+    )
+    from fitness.ptp_high_fidelity import HighFidelityConfig, _set_seed
+
+    generator_params = dict(cfg_yaml.get("generator_params", {}) or {})
+    generator_params["offline_train_path"] = str(offline_train)
+    generator_params["offline_val_paths"] = {str(int(k)): str(v) for k, v in offline_val_by_size.items()}
+
+    hf_cfg = HighFidelityConfig(
+        problem=str(cfg_yaml.get("problem", "tsp")),
+        backend=str(cfg_yaml.get("backend", "rl4co") or "rl4co"),
+        env_name=str(cfg_yaml.get("env_name") or cfg_yaml.get("problem", "tsp")),
+        env_kwargs=dict(cfg_yaml.get("env_kwargs", {}) or {}),
+        generator_params=generator_params,
+        policy_name=str(cfg_yaml.get("policy_name", "") or ""),
+        policy_kwargs=dict(cfg_yaml.get("policy_kwargs", {}) or {}),
+        rollout_strategy=str(cfg_yaml.get("rollout_strategy", "auto") or "auto"),
+        objective_sign=str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward"),
+        hf_steps=1,
+        hf_epochs=0,
+        hf_instances_per_epoch=0,
+        train_problem_size=int(train_problem_size),
+        valid_problem_sizes=tuple(int(x) for x in valid_problem_sizes),
+        train_batch_size=int(train_batch_size),
+        pomo_size=(int(cfg_yaml.get("pomo_size")) if cfg_yaml.get("pomo_size", None) is not None else None),
+        learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
+        weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
+        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        device=str(cfg_yaml.get("device", "cuda") or "cuda"),
+        seed=int(scratch_init_seed),
+        num_validation_episodes=int(num_validation_episodes),
+        validation_batch_size=int(cfg_yaml.get("validation_batch_size", 64) or 64),
+        generalization_penalty_weight=float(cfg_yaml.get("generalization_penalty_weight", 1.0) or 1.0),
+        size_aggregation=str(cfg_yaml.get("size_aggregation", "mean") or "mean"),
+        size_cvar_alpha=float(cfg_yaml.get("size_cvar_alpha", 0.2) or 0.2),
+        pool_version=str(cfg_yaml.get("pool_version", "v0") or "v0"),
+    )
+
+    _set_seed(int(hf_cfg.seed))
+    device_str = str(hf_cfg.device)
+    if device_str == "cuda" and not torch.cuda.is_available():
+        device_str = "cpu"
+    device = torch.device(device_str)
+
+    env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
+    policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
+    if init_checkpoint:
+        _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
+    policy = policy.to(device)
+    policy.eval()
+
+    by_size: Dict[int, float] = {}
+    for sz in valid_problem_sizes:
+        obj = _evaluate_rl4co_model(
+            policy=policy,
+            cfg=hf_cfg,
+            problem_size=int(sz),
+            device=device,
+            num_episodes=int(num_validation_episodes),
+            batch_size=int(hf_cfg.validation_batch_size),
+            rollout_strategy=str(rollout_strategy),
+        )
+        by_size[int(sz)] = float(obj)
+
+    aggregated = _mean([by_size[int(sz)] for sz in valid_problem_sizes])
+    return by_size, float(aggregated)
+
+
 class _CompiledBuilderAdapter:
     def __init__(self, compiled_builder) -> None:
         self._compiled = compiled_builder
@@ -352,6 +444,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         ("ckpt_409", str(args.ckpt_409)),
     ]:
         t0 = time.time()
+        objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
+
+        t_pre0 = time.time()
+        pre_by_size, pre_agg = _pre_minitrain_eval(
+            cfg_yaml=cfg_yaml,
+            init_checkpoint=ckpt,
+            train_problem_size=int(args.train_problem_size),
+            valid_problem_sizes=valid_sizes,
+            num_validation_episodes=int(args.num_validation_episodes),
+            train_batch_size=int(args.train_batch_size),
+            scratch_init_seed=int(args.scratch_init_seed),
+            offline_train=str(args.offline_train),
+            offline_val_by_size=offline_val_by_size,
+        )
+        pre_elapsed_s = float(time.time() - t_pre0)
+
+        t_post0 = time.time()
         by_size, agg = _evaluate_one_init(
             cfg_yaml=cfg_yaml,
             compiled_builder=compiled_builder,
@@ -366,12 +475,39 @@ def main(argv: Sequence[str] | None = None) -> int:
             offline_train=str(args.offline_train),
             offline_val_by_size=offline_val_by_size,
         )
+        post_elapsed_s = float(time.time() - t_post0)
         per_init[name] = {
+            "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
+            "pre_val_reward_by_size": {
+                str(int(k)): float(_objective_to_reward(v, objective_sign=objective_sign))
+                for k, v in pre_by_size.items()
+            },
+            "pre_aggregated_objective": float(pre_agg),
+            "pre_aggregated_reward": float(_objective_to_reward(pre_agg, objective_sign=objective_sign)),
             "val_objective_by_size": {str(int(k)): float(v) for k, v in by_size.items()},
+            "val_reward_by_size": {
+                str(int(k)): float(_objective_to_reward(v, objective_sign=objective_sign))
+                for k, v in by_size.items()
+            },
             "aggregated_objective": float(agg),
+            "aggregated_reward": float(_objective_to_reward(agg, objective_sign=objective_sign)),
+            "delta_objective_post_minus_pre": float(float(agg) - float(pre_agg)),
+            "delta_reward_post_minus_pre": float(
+                _objective_to_reward(agg, objective_sign=objective_sign)
+                - _objective_to_reward(pre_agg, objective_sign=objective_sign)
+            ),
             "elapsed_s": float(time.time() - t0),
+            "elapsed_pre_s": float(pre_elapsed_s),
+            "elapsed_post_s": float(post_elapsed_s),
+            "init_checkpoint": str(ckpt) if ckpt else None,
         }
-        print(f"[baseline] init={name} aggregated_objective={float(agg):.6f} elapsed_s={float(time.time()-t0):.1f}", flush=True)
+        print(
+            f"[baseline] init={name} pre_obj={float(pre_agg):.6f} post_obj={float(agg):.6f} "
+            f"pre_reward={float(_objective_to_reward(pre_agg, objective_sign=objective_sign)):.6f} "
+            f"post_reward={float(_objective_to_reward(agg, objective_sign=objective_sign)):.6f} "
+            f"delta_obj={float(agg - pre_agg):+.6f} elapsed_s={float(time.time()-t0):.1f}",
+            flush=True,
+        )
 
     payload: Dict[str, Any] = {
         "schema_version": 1,
