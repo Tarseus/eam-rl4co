@@ -3,8 +3,10 @@ from __future__ import annotations
 """Co-evolution loop for preference builders (g) and preference losses (f)."""
 
 import base64
+import ast
 import collections
 import gc
+import io
 import json
 import logging
 import math
@@ -13,6 +15,7 @@ import pickle
 import random
 import re
 import time
+import tokenize
 from dataclasses import asdict
 from hashlib import sha1
 from typing import Any, Dict, List, Mapping, Sequence, Tuple
@@ -363,6 +366,158 @@ def _sig(obj: Mapping[str, Any]) -> str:
 
 def _sig_free_loss(ir: FreeLossIR) -> str:
     return _sig(asdict(ir))
+
+
+_LOSS_FINGERPRINT_CACHE: Dict[str, Dict[str, Any]] = {}
+
+
+def _loss_fingerprint(ir: FreeLossIR) -> Dict[str, Any]:
+    """Compute a compact structural fingerprint for novelty checks.
+
+    Detect near-duplicates at the operator/structure level (AST first, tokenize fallback).
+    """
+
+    sig = _sig_free_loss(ir)
+    cached = _LOSS_FINGERPRINT_CACHE.get(sig)
+    if isinstance(cached, dict):
+        return cached
+
+    code = str(getattr(ir, "code", "") or "")
+    tokens: List[str] = []
+    call_names: List[str] = []
+
+    def _call_name(expr: ast.AST) -> str | None:
+        if isinstance(expr, ast.Name):
+            return str(expr.id)
+        if isinstance(expr, ast.Attribute):
+            parts: List[str] = []
+            cur: ast.AST | None = expr
+            while isinstance(cur, ast.Attribute):
+                parts.append(str(cur.attr))
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                parts.append(str(cur.id))
+            if parts:
+                return ".".join(reversed(parts))
+        return None
+
+    try:
+        tree = ast.parse(code)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                name = _call_name(node.func)
+                if name:
+                    tokens.append(f"call:{name}")
+                    call_names.append(name)
+            elif isinstance(node, ast.BinOp):
+                tokens.append(f"binop:{type(node.op).__name__}")
+            elif isinstance(node, ast.UnaryOp):
+                tokens.append(f"unop:{type(node.op).__name__}")
+            elif isinstance(node, ast.Compare):
+                for op in node.ops:
+                    tokens.append(f"cmp:{type(op).__name__}")
+            elif isinstance(node, ast.BoolOp):
+                tokens.append(f"bool:{type(node.op).__name__}")
+            elif isinstance(node, (ast.IfExp, ast.If)):
+                tokens.append("if")
+            elif isinstance(node, (ast.For, ast.While)):
+                tokens.append("loop")
+            elif isinstance(node, ast.Return):
+                tokens.append("return")
+    except Exception:  # noqa: BLE001
+        try:
+            keep_ops = {"+", "-", "*", "/", "**", "<", ">", "<=", ">=", "==", "!=", "%"}
+            for tok in tokenize.generate_tokens(io.StringIO(code).readline):
+                if tok.type in {
+                    tokenize.COMMENT,
+                    tokenize.NL,
+                    tokenize.NEWLINE,
+                    tokenize.INDENT,
+                    tokenize.DEDENT,
+                    tokenize.ENDMARKER,
+                }:
+                    continue
+                if tok.type in {tokenize.STRING, tokenize.NUMBER}:
+                    continue
+                if tok.type == tokenize.OP and tok.string not in keep_ops:
+                    continue
+                if tok.string:
+                    tokens.append(tok.string)
+        except Exception:  # noqa: BLE001
+            tokens = []
+
+    bigrams: set[str] = set()
+    for a, b in zip(tokens, tokens[1:]):
+        bigrams.add(f"{a}->{b}")
+
+    fp = {
+        "sig": sig,
+        "token_bigrams": bigrams,
+        "call_names_top": sorted(set(call_names))[:32],
+    }
+    _LOSS_FINGERPRINT_CACHE[sig] = fp
+    return fp
+
+
+def _jaccard(a: set[str], b: set[str]) -> float:
+    if not a or not b:
+        return 0.0
+    u = len(a | b)
+    if u <= 0:
+        return 0.0
+    return float(len(a & b)) / float(u)
+
+
+def _check_loss_novelty(
+    *,
+    candidate: FreeLossIR,
+    bank: Sequence[Mapping[str, Any]],
+    max_similarity: float,
+    neighbors: int = 3,
+) -> tuple[bool, Dict[str, Any]]:
+    """Return (ok, meta_or_failure_payload)."""
+
+    if not bank:
+        return True, {"max_similarity": 0.0, "neighbors": []}
+
+    cand_fp = _loss_fingerprint(candidate)
+    cand_tokens = cand_fp.get("token_bigrams") or set()
+    if not isinstance(cand_tokens, set):
+        cand_tokens = set()
+
+    scored: List[Dict[str, Any]] = []
+    best = 0.0
+    for e in bank:
+        bt = e.get("token_bigrams")
+        if not isinstance(bt, set):
+            continue
+        sim = _jaccard(cand_tokens, bt)
+        if sim > best:
+            best = float(sim)
+        scored.append(
+            {
+                "sig": str(e.get("sig", "")),
+                "name": str(e.get("name", "")),
+                "similarity": float(sim),
+                "call_names_top": list(e.get("call_names_top") or [])[:16],
+            }
+        )
+
+    scored.sort(key=lambda x: float(x.get("similarity", 0.0)), reverse=True)
+    top = scored[: max(1, int(neighbors))]
+
+    if float(best) >= float(max_similarity):
+        return (
+            False,
+            {
+                "stage": "novelty",
+                "max_similarity": float(max_similarity),
+                "best_similarity": float(best),
+                "too_similar_to": top,
+            },
+        )
+
+    return True, {"max_similarity": float(best), "neighbors": top}
 
 
 def _sig_pref_builder(ir: PreferenceBuilderIR) -> str:
@@ -1513,6 +1668,7 @@ def _propose_builders_for_generation(
                 "prompt_sha1": None,
                 "prompt_path": None,
                 "history": [],
+                "novelty": None,
             }
         )
 
@@ -1772,6 +1928,7 @@ def _propose_builders_for_generation(
                     "prompt_sha1": None,
                     "prompt_path": None,
                     "history": [],
+                    "novelty": None,
                 }
             )
             continue
@@ -1791,6 +1948,7 @@ def _propose_builders_for_generation(
                     "prompt_sha1": None,
                     "prompt_path": None,
                     "history": [],
+                    "novelty": None,
                 }
             )
             continue
@@ -1810,6 +1968,7 @@ def _propose_builders_for_generation(
                 "prompt_sha1": None,
                 "prompt_path": None,
                 "history": [],
+                "novelty": None,
             }
         )
 
@@ -1895,6 +2054,14 @@ def _propose_losses_for_generation(
         p_m3 = str(prompts.get("loss_m3", "") or "")
         p_rep = str(prompts.get("loss_repair", "") or "")
 
+        novelty_cfg = loss_cfg.get("novelty", {}) or {}
+        if not isinstance(novelty_cfg, dict):
+            novelty_cfg = {}
+        novelty_enabled = bool(novelty_cfg.get("enabled", False))
+        novelty_max_sim = float(novelty_cfg.get("max_similarity", 0.92) or 0.92)
+        novelty_neighbors = int(novelty_cfg.get("neighbors", 3) or 3)
+        novelty_apply_to_elites = bool(novelty_cfg.get("apply_to_elites", False))
+
         ranked_parents: List[Tuple[float, str, FreeLossIR, Mapping[str, Any]]] = []
         for item in parent_pool:
             try:
@@ -1911,6 +2078,28 @@ def _propose_losses_for_generation(
             bootstrap = _make_builtin_loss_irs(rng, max(2, int(parent_p)))
             for i, ir0 in enumerate(bootstrap):
                 ranked_parents.append((0.0, f"bootstrap_f_{i:03d}", ir0, {"id": f"bootstrap_f_{i:03d}", "fitness": 0.0, "ir": asdict(ir0)}))
+
+        novelty_bank: List[Dict[str, Any]] = []
+        novelty_seen: set[str] = set()
+
+        def _bank_add(ir_in: FreeLossIR) -> None:
+            try:
+                fp = _loss_fingerprint(ir_in)
+                sig0 = str(fp.get("sig", "")) or _sig_free_loss(ir_in)
+                if sig0 in novelty_seen:
+                    return
+                novelty_seen.add(sig0)
+                novelty_bank.append({"sig": sig0, "name": str(getattr(ir_in, "name", "") or ""), **fp})
+            except Exception:  # noqa: BLE001
+                return
+
+        # Compare novelty against carried elites + parent pool, so new children cannot be
+        # near-duplicates of incumbent structures.
+        for carried in out:
+            if isinstance(carried, dict) and isinstance(carried.get("ir"), FreeLossIR):
+                _bank_add(carried["ir"])
+        for _, _, pir, _ in ranked_parents:
+            _bank_add(pir)
 
         def _op_plan() -> List[str]:
             init = int(generation) <= 0
@@ -2055,6 +2244,7 @@ def _propose_losses_for_generation(
 
             ok = False
             fail_reason: Dict[str, Any] = {}
+            novelty_meta: Dict[str, Any] | None = None
             try:
                 static_res = run_static_gates(ir, operator_whitelist=operator_whitelist)
                 if not bool(static_res.ok):
@@ -2063,6 +2253,18 @@ def _propose_losses_for_generation(
                 else:
                     _ = compile_free_loss(ir, operator_whitelist=operator_whitelist)
                     ok = True
+                    if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                        nov_ok, nov_payload = _check_loss_novelty(
+                            candidate=ir,
+                            bank=novelty_bank,
+                            max_similarity=float(novelty_max_sim),
+                            neighbors=int(novelty_neighbors),
+                        )
+                        if not bool(nov_ok):
+                            ok = False
+                            fail_reason = dict(nov_payload)
+                        else:
+                            novelty_meta = dict(nov_payload)
             except Exception as exc:  # noqa: BLE001
                 ok = False
                 fail_reason = {"stage": "compile", "error": str(exc)}
@@ -2134,6 +2336,18 @@ def _propose_losses_for_generation(
                             fail_reason = {"stage": "static_gate", "reason": str(static_res.reason), "trace": static_res.trace}
                             continue
                         _ = compile_free_loss(repaired, operator_whitelist=operator_whitelist)
+                        if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                            nov_ok, nov_payload = _check_loss_novelty(
+                                candidate=repaired,
+                                bank=novelty_bank,
+                                max_similarity=float(novelty_max_sim),
+                                neighbors=int(novelty_neighbors),
+                            )
+                            if not bool(nov_ok):
+                                fail_reason = dict(nov_payload)
+                                ir = repaired
+                                continue
+                            novelty_meta = dict(nov_payload)
                         ir = repaired
                         ok = True
                         op_type = "REPAIR"
@@ -2143,6 +2357,8 @@ def _propose_losses_for_generation(
                         continue
 
             if ok:
+                if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                    _bank_add(ir)
                 out.append(
                     {
                         "ir": ir,
@@ -2155,6 +2371,7 @@ def _propose_losses_for_generation(
                         "prompt_path": prompt_path,
                         "history": history,
                         "llm_seed": llm_seed,
+                        "novelty": novelty_meta,
                     }
                 )
 
@@ -3404,7 +3621,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             try:
                 file_handler = logging.FileHandler(log_path, mode="w", encoding="utf-8")
                 file_handler.setFormatter(fmt)
-                fl_logger.addHandler(file_handler)
+                # Attach the handler to the root logger only. Since
+                # fitness.free_loss_fidelity propagates to root by default, attaching
+                # to both root and the module logger would duplicate every line.
+                fl_logger.propagate = True
                 root_logger.addHandler(file_handler)
                 record["hf_log_file"] = os.path.basename(log_path)
             except Exception as exc:  # noqa: BLE001
@@ -3860,6 +4080,7 @@ def run_pref_loss_coevo(
             ),
             "simplify_first": bool(loss_repair_raw.get("simplify_first", True)),
         },
+        "novelty": dict(loss_llm_raw.get("novelty") or {}) if isinstance(loss_llm_raw.get("novelty"), dict) else {},
     }
 
     llm_cfg: Dict[str, Any] = {
@@ -4576,6 +4797,7 @@ def run_pref_loss_coevo(
                 "prompt_path": proposal.get("prompt_path"),
                 "llm_seed": proposal.get("llm_seed"),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
+                "novelty": proposal.get("novelty"),
                 "ir": asdict(ir),
                 "static_ok": bool(static_res.ok),
                 "static_reason": str(static_res.reason),
