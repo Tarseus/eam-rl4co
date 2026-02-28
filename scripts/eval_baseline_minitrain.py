@@ -97,7 +97,7 @@ def _build_eval_signature(
     scratch_init_seed: int,
     offline_train: str,
     offline_val_by_size: Mapping[int, str],
-    ckpt_150: str,
+    ckpt_135: str,
     ckpt_409: str,
 ) -> Dict[str, Any]:
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
@@ -124,7 +124,7 @@ def _build_eval_signature(
         p_abs = _abs_from_repo_root(path)
         offline_val_sig[str(size)] = {"path": str(path), "sha1": _file_sha1(p_abs)}
 
-    ckpt_150_abs = _abs_from_repo_root(str(ckpt_150))
+    ckpt_135_abs = _abs_from_repo_root(str(ckpt_135))
     ckpt_409_abs = _abs_from_repo_root(str(ckpt_409))
 
     return {
@@ -153,7 +153,7 @@ def _build_eval_signature(
             "val": offline_val_sig,
         },
         "checkpoints": {
-            "ckpt_150": {"path": str(ckpt_150), "sha1": _file_sha1(ckpt_150_abs)},
+            "ckpt_135": {"path": str(ckpt_135), "sha1": _file_sha1(ckpt_135_abs)},
             "ckpt_409": {"path": str(ckpt_409), "sha1": _file_sha1(ckpt_409_abs)},
         },
     }
@@ -259,7 +259,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     p.add_argument("--offline_train", required=True, type=str)
     p.add_argument("--offline_val", action="append", nargs=2, metavar=("SIZE", "PATH"), default=[])
     p.add_argument("--scratch_init_seed", required=True, type=int)
-    p.add_argument("--ckpt_150", required=True, type=str)
+    p.add_argument("--ckpt_135", required=True, type=str)
     p.add_argument("--ckpt_409", required=True, type=str)
     p.add_argument("--out", required=True, type=str)
     return p.parse_args(argv)
@@ -312,7 +312,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         p_abs = _abs_from_repo_root(p)
         if not os.path.exists(p_abs):
             raise FileNotFoundError(f"Offline data file not found: {p} (abs={p_abs})")
-    for p in [str(args.ckpt_150), str(args.ckpt_409)]:
+    for p in [str(args.ckpt_135), str(args.ckpt_409)]:
         p_abs = _abs_from_repo_root(p)
         if not os.path.exists(p_abs):
             raise FileNotFoundError(f"Checkpoint not found: {p} (abs={p_abs})")
@@ -341,14 +341,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         scratch_init_seed=int(args.scratch_init_seed),
         offline_train=str(args.offline_train),
         offline_val_by_size=offline_val_by_size,
-        ckpt_150=str(args.ckpt_150),
+        ckpt_135=str(args.ckpt_135),
         ckpt_409=str(args.ckpt_409),
     )
 
     per_init: Dict[str, Any] = {}
     for name, ckpt in [
         ("scratch", None),
-        ("ckpt_150", str(args.ckpt_150)),
+        ("ckpt_135", str(args.ckpt_135)),
         ("ckpt_409", str(args.ckpt_409)),
     ]:
         t0 = time.time()

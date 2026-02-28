@@ -219,16 +219,16 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     offline_val_paths = generator_params.get("offline_val_paths") or {}
 
     ckpts = baseline_cfg.get("checkpoints") or []
-    ckpt_150 = ckpts[0] if len(ckpts) > 0 else None
+    ckpt_135 = ckpts[0] if len(ckpts) > 0 else None
     ckpt_409 = ckpts[1] if len(ckpts) > 1 else None
 
     if not offline_train or not offline_val_paths:
         raise ValueError(
             "stage3 requires offline_train_path and offline_val_paths in generator_params"
         )
-    if not ckpt_150 or not ckpt_409:
+    if not ckpt_135 or not ckpt_409:
         raise ValueError(
-            "stage3 requires baseline.checkpoints=[ckpt_150, ckpt_409] (two paths)"
+            "stage3 requires baseline.checkpoints=[ckpt_135, ckpt_409] (two paths)"
         )
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
@@ -290,7 +290,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
             "val": offline_val_sig,
         },
         "checkpoints": {
-            "ckpt_150": {"path": str(ckpt_150), "sha1": _file_sha1_cached(str(ckpt_150))},
+            "ckpt_135": {"path": str(ckpt_135), "sha1": _file_sha1_cached(str(ckpt_135))},
             "ckpt_409": {"path": str(ckpt_409), "sha1": _file_sha1_cached(str(ckpt_409))},
         },
     }
@@ -3345,8 +3345,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
         ckpts = baseline_cfg.get("checkpoints") or []
         if not isinstance(ckpts, list) or len(ckpts) < 2:
-            raise ValueError("baseline.checkpoints must contain [ckpt_150, ckpt_409]")
-        ckpt_150 = _abs_from_repo_root(str(ckpts[0]))
+            raise ValueError("baseline.checkpoints must contain [ckpt_135, ckpt_409]")
+        ckpt_135 = _abs_from_repo_root(str(ckpts[0]))
         ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
 
         include_scratch = bool(baseline_cfg.get("include_scratch", True))
@@ -3370,7 +3370,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         init_specs: List[Tuple[str, str | None]] = []
         if include_scratch:
             init_specs.append(("scratch", None))
-        init_specs.append(("ckpt_150", str(ckpt_150)))
+        init_specs.append(("ckpt_135", str(ckpt_135)))
         init_specs.append(("ckpt_409", str(ckpt_409)))
 
         # Route stage3 mini-train logs to a per-pair file (like free_loss_discovery).
