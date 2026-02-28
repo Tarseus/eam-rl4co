@@ -1,0 +1,361 @@
+{
+  "generation": 5,
+  "pair_index": 16,
+  "g_id": "g_ref",
+  "f_id": "f002_005_fb14665c",
+  "eval_budget_signature": "31a0ee5bb9df3e37",
+  "seed_signature": [
+    "1928fd076aa5594e"
+  ],
+  "seed_used": 1234,
+  "device": "cuda:0",
+  "stage": "micro_unroll",
+  "reasons": [
+    "alternating_loss_phase"
+  ],
+  "cached": true,
+  "proxy_score": 2.1847812535058684,
+  "score": 0.28969669342041016,
+  "proxy_metrics": {
+    "proxy_loss_mean": 1.7608389377593994,
+    "proxy_effective_grad_ratio_mean": 0.6755543291568756,
+    "proxy_ess_ratio_mean": 0.005033550966553078,
+    "proxy_weights": {
+      "effective_grad_ratio": 1.0,
+      "ess_ratio": 0.1
+    },
+    "batches": [
+      {
+        "loss": 2.1159610748291016,
+        "effective_grad_ratio": 0.6189899444580078,
+        "ess_ratio": 0.005343763784333386,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.7065621614456177,
+        "effective_grad_ratio": 0.7355555891990662,
+        "ess_ratio": 9.96998419253687e-05,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.6080994606018066,
+        "effective_grad_ratio": 0.8080984950065613,
+        "ess_ratio": 3.2434771342800485e-05,
+        "pair_count": 316798,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.3308436870574951,
+        "effective_grad_ratio": 0.6707481145858765,
+        "ess_ratio": 0.0003205245175451125,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 2.2405354976654053,
+        "effective_grad_ratio": 0.6486963629722595,
+        "ess_ratio": 0.003226114146133946,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.2775914669036865,
+        "effective_grad_ratio": 0.6380240321159363,
+        "ess_ratio": 0.0012787460225562224,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.1724106073379517,
+        "effective_grad_ratio": 0.6195675730705261,
+        "ess_ratio": 0.0005947150387708794,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 3.0216493606567383,
+        "effective_grad_ratio": 0.581253170967102,
+        "ess_ratio": 0.03865798457089311,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.400991678237915,
+        "effective_grad_ratio": 0.7296510338783264,
+        "ess_ratio": 0.00031205351493792934,
+        "pair_count": 316798,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      },
+      {
+        "loss": 1.7337443828582764,
+        "effective_grad_ratio": 0.704958975315094,
+        "ess_ratio": 0.00046947345709202383,
+        "pair_count": 316800,
+        "joint_ok": true,
+        "joint_reason": "ok",
+        "joint_failure_kind": null
+      }
+    ],
+    "joint_ok_batches": 10,
+    "joint_total_batches": 10,
+    "joint_pass_rate": 1.0,
+    "joint_batch_pass_rate_threshold": 0.9
+  },
+  "descriptor": {
+    "g": {
+      "coverage": 0.0,
+      "pair_count": 0,
+      "semantic_pass_rate": 0.0,
+      "x": 0.0,
+      "y": 0.0,
+      "cell": [
+        0,
+        0
+      ]
+    },
+    "f": {
+      "effective_grad_ratio": 0.6755543291568756,
+      "ess_ratio": 0.005033550966553078,
+      "proxy_loss_mean": 1.7608389377593994,
+      "x": 0.6755543291568756,
+      "y": 0.3521677875518799,
+      "cell": [
+        5,
+        2
+      ]
+    }
+  },
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 316800,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 4950,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": null,
+  "pair_ok": true,
+  "pair_reason": "ok_micro_unroll",
+  "seed_records": {
+    "1928fd076aa5594e": {
+      "score": 0.28969669342041016,
+      "proxy_metrics": {
+        "proxy_loss_mean": 1.7608389377593994,
+        "proxy_effective_grad_ratio_mean": 0.6755543291568756,
+        "proxy_ess_ratio_mean": 0.005033550966553078,
+        "proxy_weights": {
+          "effective_grad_ratio": 1.0,
+          "ess_ratio": 0.1
+        },
+        "batches": [
+          {
+            "loss": 2.1159610748291016,
+            "effective_grad_ratio": 0.6189899444580078,
+            "ess_ratio": 0.005343763784333386,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.7065621614456177,
+            "effective_grad_ratio": 0.7355555891990662,
+            "ess_ratio": 9.96998419253687e-05,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.6080994606018066,
+            "effective_grad_ratio": 0.8080984950065613,
+            "ess_ratio": 3.2434771342800485e-05,
+            "pair_count": 316798,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.3308436870574951,
+            "effective_grad_ratio": 0.6707481145858765,
+            "ess_ratio": 0.0003205245175451125,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 2.2405354976654053,
+            "effective_grad_ratio": 0.6486963629722595,
+            "ess_ratio": 0.003226114146133946,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.2775914669036865,
+            "effective_grad_ratio": 0.6380240321159363,
+            "ess_ratio": 0.0012787460225562224,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.1724106073379517,
+            "effective_grad_ratio": 0.6195675730705261,
+            "ess_ratio": 0.0005947150387708794,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 3.0216493606567383,
+            "effective_grad_ratio": 0.581253170967102,
+            "ess_ratio": 0.03865798457089311,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.400991678237915,
+            "effective_grad_ratio": 0.7296510338783264,
+            "ess_ratio": 0.00031205351493792934,
+            "pair_count": 316798,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          },
+          {
+            "loss": 1.7337443828582764,
+            "effective_grad_ratio": 0.704958975315094,
+            "ess_ratio": 0.00046947345709202383,
+            "pair_count": 316800,
+            "joint_ok": true,
+            "joint_reason": "ok",
+            "joint_failure_kind": null
+          }
+        ],
+        "joint_ok_batches": 10,
+        "joint_total_batches": 10,
+        "joint_pass_rate": 1.0,
+        "joint_batch_pass_rate_threshold": 0.9
+      },
+      "descriptor": {
+        "g": {
+          "coverage": 0.0,
+          "pair_count": 0,
+          "semantic_pass_rate": 0.0,
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "f": {
+          "effective_grad_ratio": 0.6755543291568756,
+          "ess_ratio": 0.005033550966553078,
+          "proxy_loss_mean": 1.7608389377593994,
+          "x": 0.6755543291568756,
+          "y": 0.3521677875518799,
+          "cell": [
+            5,
+            2
+          ]
+        }
+      }
+    }
+  },
+  "phase": "loss",
+  "micro_score": 0.28969669342041016,
+  "micro_metrics": {
+    "micro_unroll_steps": 32,
+    "micro_unroll_lr": 0.05,
+    "micro_unroll_alpha": 0.05,
+    "micro_unroll_init_loss": 0.32673582434654236,
+    "micro_unroll_final_loss": 0.28969669342041016,
+    "micro_unroll_delta_loss": -0.0370391309261322,
+    "micro_unroll_reuse_pref_batch": true,
+    "micro_unroll_max_pairs": 8192,
+    "micro_unroll_timeout_s": null,
+    "mode": "pairwise",
+    "batches": 10,
+    "device": "cuda:0"
+  },
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": true,
+    "stage2_micro_unroll": true,
+    "stage3_high_fidelity": false
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage1_proxy",
+    "stage2_micro_unroll"
+  ],
+  "stages_skipped": {
+    "stage3_high_fidelity": "disabled"
+  },
+  "stage_final": "micro_unroll",
+  "final_score": 0.28969669342041016,
+  "metric_mode": "minimize",
+  "compare_target": "incumbent",
+  "improve_eps": 0.0,
+  "last_phase_label": null,
+  "last_phase_reference_score": null,
+  "better_than_incumbent_note": "stage2_micro_unroll compares final_score (micro_score) against incumbent score.",
+  "reference_score": 0.28969669342041016,
+  "better_than_incumbent": false,
+  "delta_vs_incumbent": 0.0,
+  "better_than_last_phase": null,
+  "delta_vs_last_phase": null
+}

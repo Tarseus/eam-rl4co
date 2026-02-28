@@ -1,0 +1,80 @@
+{
+  "generation": 16,
+  "index": 6,
+  "id": "g016_006_2cce1d97",
+  "signature": "2cce1d970981b0496f4e3a4df5027406cf18bb1b",
+  "origin": "M1",
+  "origin_base": "M1",
+  "op_type": "M1",
+  "parents": [
+    "g014_003_65f2493a"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "837812f0ce0b6f97106ee097d28a567b66f0eb70",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+  "llm_seed": 274661054,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "M1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_mutation.txt",
+      "prompt_sha1": "837812f0ce0b6f97106ee097d28a567b66f0eb70"
+    }
+  ],
+  "ir": {
+    "name": "rank_ring_anchor_mix_v4_topk_gap_per_instance",
+    "intuition": "After enforcing the objective gap threshold, keep the strongest (largest-gap) comparisons per instance rather than an arbitrary rank-lexicographic cap. This concentrates training signal on clearer wins/losses while still preserving the ring/jump/anchor coverage, improving robustness to small noisy objective differences.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N], lower is better\n    B, N = objective.shape\n    device = objective.device\n\n    if N <= 1:\n        empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None,\n                         meta={'builder': 'rank_ring_anchor_mix_v4_topk_gap_per_instance', 'note': 'N<=1'})\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n\n    max_pairs_per_instance = 32\n    if isinstance(extra, dict):\n        max_pairs_per_instance = int(extra.get('max_pairs_per_instance', hp.get('max_pairs_per_instance', 32)))\n    if max_pairs_per_instance < 1:\n        max_pairs_per_instance = 1\n\n    jump = 3\n    if isinstance(extra, dict):\n        jump = int(extra.get('jump', hp.get('jump', 3)))\n    if jump < 1:\n        jump = 1\n    if jump >= N:\n        jump = N - 1\n\n    gap_threshold = 1e-3\n    if isinstance(extra, dict):\n        gap_threshold = float(extra.get('gap_threshold', hp.get('gap_threshold', 1e-3)))\n\n    gap_scale = 2.0\n    if isinstance(extra, dict):\n        gap_scale = float(extra.get('gap_scale', hp.get('gap_scale', 2.0)))\n    if gap_scale <= 0.0:\n        gap_scale = 1.0\n\n    anchors_div = 8\n    if isinstance(extra, dict):\n        anchors_div = int(extra.get('anchors_div', hp.get('anchors_div', 8)))\n    if anchors_div < 2:\n        anchors_div = 2\n\n    rankdist_scale = 4.0\n    if isinstance(extra, dict):\n        rankdist_scale = float(extra.get('rankdist_scale', hp.get('rankdist_scale', 4.0)))\n    if rankdist_scale <= 0.0:\n        rankdist_scale = 1.0\n\n    order = objective.argsort(dim=1)  # [B, N] best->worst\n    bmat = torch.arange(B, device=device, dtype=torch.long)[:, None].expand(B, N)\n\n    # Ring pairs: adjacent and fixed jump.\n    w_adj = order[:, :-1]\n    l_adj = order[:, 1:]\n    b_adj = bmat[:, :-1]\n\n    w_jmp = order[:, :N - jump]\n    l_jmp = order[:, jump:]\n    b_jmp = bmat[:, :N - jump]\n\n    # Deterministic anchors spread over ranks.\n    anchors = max_pairs_per_instance // anchors_div\n    if anchors < 1:\n        anchors = 1\n    if anchors > N:\n        anchors = N\n\n    anchor_pos = torch.linspace(0, N - 1, steps=anchors, device=device).round().to(torch.long)  # [A]\n    near_pos = (anchor_pos + 1).clamp(max=N - 1)\n    tail_pos = torch.full_like(anchor_pos, N - 1)\n    mid_off = ((N - 1 - anchor_pos).clamp(min=1) // 2)\n    mid_pos = (anchor_pos + mid_off).clamp(max=N - 1)\n\n    anc = order.index_select(1, anchor_pos)  # [B, A]\n    opp_near = order.index_select(1, near_pos)\n    opp_mid = order.index_select(1, mid_pos)\n    opp_tail = order.index_select(1, tail_pos)\n\n    opp = torch.stack([opp_near, opp_mid, opp_tail], dim=2)  # [B, A, 3]\n    anc3 = anc[:, :, None].expand_as(opp)                    # [B, A, 3]\n    b_anc = torch.arange(B, device=device, dtype=torch.long)[:, None, None].expand_as(anc3)\n\n    # Flatten all candidate pairs.\n    bc = torch.cat([b_adj.reshape(-1), b_jmp.reshape(-1), b_anc.reshape(-1)], dim=0)\n    wc = torch.cat([w_adj.reshape(-1), w_jmp.reshape(-1), anc3.reshape(-1)], dim=0)\n    lc = torch.cat([l_adj.reshape(-1), l_jmp.reshape(-1), opp.reshape(-1)], dim=0)\n\n    # Drop self-pairs.\n    m0 = wc != lc\n    bc = bc[m0]\n    wc = wc[m0]\n    lc = lc[m0]\n\n    if bc.numel() == 0:\n        empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None,\n                         meta={'builder': 'rank_ring_anchor_mix_v4_topk_gap_per_instance', 'max_pairs_per_instance': max_pairs_per_instance, 'jump': jump, 'anchors': int(anchors)})\n\n    # Winner/loser by objective.\n    ow = objective[bc, wc]\n    ol = objective[bc, lc]\n    better_w = ow < ol\n    better_l = ol < ow\n    valid = (better_w | better_l)\n\n    bc = bc[valid]\n    w0 = wc[valid]\n    l0 = lc[valid]\n\n    winner = torch.where(better_w[valid], w0, l0)\n    loser = torch.where(better_w[valid], l0, w0)\n\n    if bc.numel() == 0:\n        empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None,\n                         meta={'builder': 'rank_ring_anchor_mix_v4_topk_gap_per_instance', 'max_pairs_per_instance': max_pairs_per_instance, 'jump': jump, 'anchors': int(anchors)})\n\n    gap = (objective[bc, loser] - objective[bc, winner])\n    if gap_threshold > 0.0:\n        mg = gap >= gap_threshold\n        bc = bc[mg]\n        winner = winner[mg]\n        loser = loser[mg]\n        gap = gap[mg]\n\n    if bc.numel() == 0:\n        empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None,\n                         meta={'builder': 'rank_ring_anchor_mix_v4_topk_gap_per_instance', 'max_pairs_per_instance': max_pairs_per_instance, 'jump': jump, 'anchors': int(anchors), 'gap_threshold': gap_threshold})\n\n    # Rank distance for weighting.\n    inv = order.argsort(dim=1)\n    rw = inv[bc, winner]\n    rl = inv[bc, loser]\n\n    # Per-instance top-k by gap (deterministic, no Python loops over pairs).\n    # Stable tiebreak: prefer larger rank distance, then smaller winner rank.\n    base = int(N + 1)\n    eps = torch.finfo(objective.dtype).eps\n    score = gap.to(objective.dtype) + eps * ((rl - rw).abs().to(objective.dtype) / (base + 1.0)) - eps * (rw.to(objective.dtype) / (base + 1.0))\n\n    # Sort by (b asc, score desc).\n    key = (bc.to(torch.long) * (1 << 31) - torch.argsort(score, descending=True).to(torch.long))\n    perm = key.argsort()\n    bc = bc[perm]\n    winner = winner[perm]\n    loser = loser[perm]\n    gap = gap[perm]\n    rw = rw[perm]\n    rl = rl[perm]\n\n    head = torch.ones((1,), device=device, dtype=torch.bool)\n    change = (bc[1:] != bc[:-1])\n    seg_start = torch.cat([head, change], dim=0)\n    gid = seg_start.to(torch.long).cumsum(0) - 1\n    num_groups = int(gid.max().item()) + 1\n\n    idx = torch.arange(bc.numel(), device=device, dtype=torch.long)\n    starts = torch.full((num_groups,), bc.numel(), device=device, dtype=torch.long)\n    starts.scatter_reduce_(0, gid, idx, reduce='amin', include_self=True)\n    pos = idx - starts[gid]\n\n    keep = pos < max_pairs_per_instance\n    b_out = bc[keep].to(torch.long)\n    w_out = winner[keep].to(torch.long)\n    l_out = loser[keep].to(torch.long)\n    gap_out = gap[keep].clamp_min(0.0)\n    rd_out = (rl[keep] - rw[keep]).abs().to(objective.dtype)\n\n    w_gap = gap_out / (gap_out + gap_scale)\n    w_rd = rd_out / (rd_out + rankdist_scale)\n    weight = (w_gap * w_rd).clamp_min(0.0)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_out, w_out, l_out), weight=weight,\n                     meta={'builder': 'rank_ring_anchor_mix_v4_topk_gap_per_instance', 'max_pairs_per_instance': max_pairs_per_instance, 'jump': jump, 'anchors': int(anchors), 'anchors_div': anchors_div, 'gap_threshold': gap_threshold, 'gap_scale': gap_scale, 'rankdist_scale': rankdist_scale})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 256,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 32,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 0.009286859072744846,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

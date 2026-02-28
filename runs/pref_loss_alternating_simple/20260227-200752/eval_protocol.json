@@ -1,0 +1,36 @@
+{
+  "preset": "simple",
+  "search_mode": "alternating",
+  "alternating_schedule": {
+    "enabled": true,
+    "loss_generations": 10,
+    "builder_generations": 10,
+    "rounds": 1
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": true,
+    "stage2_micro_unroll": true,
+    "stage3_high_fidelity": false
+  },
+  "budgets": {
+    "generations": 20,
+    "pairing_budget_per_gen": 128,
+    "pairing_budget_loss": 64,
+    "pairing_budget_builder": 64,
+    "proxy_batches": 10,
+    "proxy_batch_size": 64,
+    "micro_unroll_steps": 32,
+    "micro_unroll_max_pairs": 8192,
+    "high_fidelity_top_m": 8,
+    "hf_epochs": 10
+  },
+  "builder_pair_budget": {
+    "per_instance": 8192,
+    "total": 8192
+  },
+  "pair_score_selection_policy": "HF > micro > proxy > none",
+  "eval_budget_signature": "31a0ee5bb9df3e37"
+}

@@ -1,0 +1,70 @@
+{
+  "generation": 2,
+  "index": 8,
+  "id": "f002_008_c575c824",
+  "signature": "c575c8247c9ecf56bb272315f5b714c3f8a01cf5",
+  "origin": "E1",
+  "origin_base": "E1",
+  "op_type": "E1",
+  "parents": [
+    "f001_008_1c6f9943",
+    "f001_005_52948fe7",
+    "f001_004_4dbac0be",
+    "f001_005_52948fe7",
+    "f001_007_3ed66ac7"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "133d9424e023a1f1df50a85fa9e734900aaa4d2b",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+  "llm_seed": 1892169706,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "prompt_sha1": "133d9424e023a1f1df50a85fa9e734900aaa4d2b"
+    }
+  ],
+  "ir": {
+    "name": "loss_logsigmoid_cost_tanh_softcap_blend",
+    "intuition": "Keep the proven stable Bradley-Terry/DPO-style core (-logsigmoid of a scaled log-prob margin) while combining both parents' bounded cost shaping via tanh(cost_b-cost_a). Instead of a hard clamp, use a smooth tanh soft-cap on the final logit so extreme margins cannot explode or fully saturate, preserving gradients better in micro-unroll. Hyperparameters are blended toward the more conservative scale/cost_coef to reduce proxy gate risk while still providing useful signal.",
+    "pseudocode": "d = log_prob_w - log_prob_l\ncost_gap = cost_b - cost_a\nx_raw = alpha*scale*d - cost_coef*tanh(cost_gap)\nx = x_cap * tanh(x_raw / x_cap)\nloss = -logsigmoid(x)\nreturn mean(loss*weight if weight else loss)",
+    "hyperparams": {
+      "scale": 1.7,
+      "cost_coef": 0.06,
+      "x_cap": 20.0
+    },
+    "operators_used": [
+      "logsigmoid",
+      "tanh"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "cost_a",
+        "cost_b",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n\n    hp = extra.get('hyperparams', {}) if isinstance(extra, dict) else {}\n    alpha = 1.0\n    if isinstance(extra, dict):\n        alpha = extra.get('alpha', hp.get('alpha', 1.0))\n    alpha = float(alpha)\n\n    scale = float(hp.get('scale', 1.7))\n    cost_coef = float(hp.get('cost_coef', 0.06))\n    x_cap = float(hp.get('x_cap', 20.0))\n\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n\n    pref_margin = lpw - lpl\n    cost_gap = cost_b - cost_a\n\n    x_raw = alpha * scale * pref_margin - cost_coef * ops.tanh(cost_gap)\n    x = x_cap * ops.tanh(x_raw / x_cap)\n\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "theoretical_basis": "Pairwise logistic (Bradley-Terry / DPO-style) loss on the log-probability difference. A bounded tanh(cost_b-cost_a) term smoothly shifts the decision logit by relative cost without allowing large cost gaps to dominate. A tanh soft-cap on the final logit replaces hard clamping to improve numerical stability and retain nonzero gradients for large-magnitude margins."
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.308872127758281,
+  "descriptor": {
+    "x": 0.8470759826321759,
+    "y": 0.19268636177984935,
+    "cell": [
+      7,
+      4
+    ]
+  }
+}

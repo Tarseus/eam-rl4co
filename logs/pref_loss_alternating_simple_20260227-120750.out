@@ -1,0 +1,389 @@
+[2026-02-27 20:07:52,393] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260227-200752
+[2026-02-27 20:07:52,394] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:07:52,394] INFO:ptp_discovery.pref_loss_coevo: Alternating schedule enabled: loss_generations=10 builder_generations=10 rounds=1
+[2026-02-27 20:07:52,394] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-02-27 20:07:52,633] INFO:ptp_discovery.pref_loss_coevo: External baseline loaded for HF comparisons: metrics=/data1/gushengda/eam-rl4co/baseline/metrics.csv warmstart_epoch_start=410 epochs=10 val_column=val/max_reward split=True scratch_start_epoch=0 early_eval_steps=100
+[2026-02-27 20:07:52,633] INFO:ptp_discovery.pref_loss_coevo: Initialized incumbent from baseline: score=inf pair=(g_ref,f_ref) stage=baseline gen=-1
+[2026-02-27 20:07:52,634] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=0 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:07:52,634] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 0/19 ===
+[2026-02-27 20:07:52,634] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:07:52,634] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:07:52,634] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:07:52,635] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-02-27 20:24:20,463] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=0: proposed_g=0/12 proposed_f=5/12 (seen_g=0 seen_f=5)
+[2026-02-27 20:24:20,472] INFO:ptp_discovery.pref_loss_coevo: Gen 0 LLM ops: builders={} (repairs=0) losses={'M2': 4, 'E1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 70, 'cache_hits': 0, 'cache_misses': 70}
+[2026-02-27 20:24:20,472] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-27 20:24:28,450] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts progress: 1/10 cache_hit=False caches(rollout=1 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.13G))
+[2026-02-27 20:24:29,773] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts progress: 10/10 cache_hit=False caches(rollout=10 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:24:29,773] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts done: elapsed_s=9.3 caches(rollout=10 pref=0 pair=0) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:24:29,776] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=False loss_on_fail=True
+[2026-02-27 20:24:29,776] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=0/20 budgets(loss=128,builder=0)
+[2026-02-27 20:24:29,777] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-02-27 20:24:29,777] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-27 20:24:29,777] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:24:29,778] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-02-27 20:24:29,778] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:25:17,402] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=0 pair=(g_ref,f000_003_8d5e4cb5): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=ok_proxy,bg=ok,jg=ok) events=1 elapsed_s=47.6
+[2026-02-27 20:25:17,403] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 1/5 caches(rollout=10 pref=10 pair=1) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:27:33,628] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=0 pair=(g_ref,f000_004_55689e85): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) events=1 elapsed_s=136.2
+[2026-02-27 20:27:33,725] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=0: 5/5 caches(rollout=10 pref=10 pair=5) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:27:33,726] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=0: pairs=5 elapsed_s=183.9 caches(rollout=10 pref=10 pair=5) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:27:33,727] INFO:ptp_discovery.pref_loss_coevo: Gen 0 pref_cache drop before micro-unroll: dropped=10 kept=0 caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:27:33,727] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=0: tasks=4 steps=32 lr=0.05 alpha=0.05 (proxy_batches=10)
+[2026-02-27 20:27:33,727] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=0: 1/4 g_id=g_ref f_id=f000_002_6d13a174 proxy_score=2.941
+[2026-02-27 20:27:34,648] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=0: 1/4 g_id=g_ref f_id=f000_002_6d13a174 score=0.7272 elapsed_s=0.9
+[2026-02-27 20:27:34,649] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=0: 1/4 elapsed_s=0.9 caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:27:34,649] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=0: 2/4 g_id=g_ref f_id=f000_001_63277b5c proxy_score=2.941
+[2026-02-27 20:27:35,439] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=0: 2/4 g_id=g_ref f_id=f000_001_63277b5c score=0.7272 elapsed_s=0.8
+[2026-02-27 20:27:35,439] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=0: 3/4 g_id=g_ref f_id=f000_000_12fba841 proxy_score=4.548
+[2026-02-27 20:27:36,336] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=0: 3/4 g_id=g_ref f_id=f000_000_12fba841 score=0.7159 elapsed_s=0.9
+[2026-02-27 20:27:36,336] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=0: 4/4 g_id=g_ref f_id=f000_003_8d5e4cb5 proxy_score=4.625
+[2026-02-27 20:27:37,086] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=0: 4/4 g_id=g_ref f_id=f000_003_8d5e4cb5 score=0.561 elapsed_s=0.8
+[2026-02-27 20:27:37,087] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=0: 4/4 elapsed_s=3.4 caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:27:37,087] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:27:37,087] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=None reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:27:37,087] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=0.5610357522964478 ref=inf delta=inf pair=(g_ref,f000_003_8d5e4cb5) stage=micro_unroll gen=0 phase=loss threshold=inf compare_target=incumbent improve_eps=0.0
+[2026-02-27 20:27:37,088] INFO:ptp_discovery.pref_loss_coevo: Gen 0 summary: g_pool=0 f_pool=5 pairs=5 ok=4 stages={'micro_unroll': 4, 'cheap': 1} top_reasons=[('ok_micro_unroll', 4), ('cheap_proxy_gate_failed', 1)]
+[2026-02-27 20:27:37,088] INFO:ptp_discovery.pref_loss_coevo: Gen 0 gate-repair summary: attempted_pairs=2 applied=1 post_pair_ok=1 events={'loss:repaired': 1, 'loss:failed': 1}
+[2026-02-27 20:27:37,094] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=1 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:27:37,094] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 1/19 ===
+[2026-02-27 20:27:37,094] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:27:37,094] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=0.5610357522964478 best_pair=(g_ref,f000_003_8d5e4cb5) best_stage=micro_unroll metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:27:37,095] INFO:ptp_discovery.pref_loss_coevo: Gen 1 start: caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:27:37,095] INFO:ptp_discovery.pref_loss_coevo: Gen 1 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=504 chars
+[2026-02-27 20:30:24,816] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=1: proposed_g=0/12 proposed_f=10/12 (seen_g=0 seen_f=15)
+[2026-02-27 20:30:24,835] INFO:ptp_discovery.pref_loss_coevo: Gen 1 LLM ops: builders={} (repairs=0) losses={'M2': 1, 'E1': 4, 'E2': 2, 'M1': 2} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 90, 'cache_hits': 0, 'cache_misses': 90}
+[2026-02-27 20:30:24,835] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-27 20:30:24,836] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:30:24,836] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:30:24,836] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=0 pair=5) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:30:24,851] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=False loss_on_fail=True
+[2026-02-27 20:30:24,851] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=1/20 budgets(loss=128,builder=0)
+[2026-02-27 20:30:24,852] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f000_003_8d5e4cb5
+[2026-02-27 20:30:24,852] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-27 20:30:24,852] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:30:24,853] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f000_003_8d5e4cb5 budget=0
+[2026-02-27 20:30:24,853] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:31:25,690] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=1 pair=(g_ref,f001_005_b91c9c00): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=ok_proxy,bg=ok,jg=ok) events=1 elapsed_s=60.8
+[2026-02-27 20:31:25,690] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=1: 1/15 caches(rollout=10 pref=10 pair=6) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:32:20,387] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=1 pair=(g_ref,f000_004_55689e85): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) events=1 elapsed_s=54.6
+[2026-02-27 20:33:50,984] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=1 pair=(g_ref,f001_007_e434716f): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=ok_proxy,bg=ok,jg=ok) events=1 elapsed_s=90.6
+[2026-02-27 20:33:50,985] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=1: 10/15 caches(rollout=10 pref=10 pair=11) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:35:00,396] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=1 pair=(g_ref,f001_008_4bca5533): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) events=1 elapsed_s=69.3
+[2026-02-27 20:37:48,432] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=1 pair=(g_ref,f001_009_2dfaf7e5): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) events=1 elapsed_s=168.0
+[2026-02-27 20:37:48,434] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=1: 15/15 caches(rollout=10 pref=10 pair=15) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:37:48,435] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=1: pairs=15 elapsed_s=443.6 caches(rollout=10 pref=10 pair=15) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:37:48,436] INFO:ptp_discovery.pref_loss_coevo: Gen 1 pref_cache drop before micro-unroll: dropped=10 kept=0 caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:37:48,437] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=1: tasks=12 steps=32 lr=0.05 alpha=0.05 (proxy_batches=10)
+[2026-02-27 20:37:48,437] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 1/12 g_id=g_ref f_id=f000_003_8d5e4cb5 proxy_score=4.625
+[2026-02-27 20:37:49,272] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 1/12 g_id=g_ref f_id=f000_003_8d5e4cb5 score=0.561 elapsed_s=0.8
+[2026-02-27 20:37:49,273] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=1: 1/12 elapsed_s=0.8 caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:37:49,274] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 2/12 g_id=g_ref f_id=f000_000_12fba841 proxy_score=4.548
+[2026-02-27 20:37:50,109] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 2/12 g_id=g_ref f_id=f000_000_12fba841 score=0.7159 elapsed_s=0.8
+[2026-02-27 20:37:50,109] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 3/12 g_id=g_ref f_id=f000_001_63277b5c proxy_score=2.941
+[2026-02-27 20:37:50,939] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 3/12 g_id=g_ref f_id=f000_001_63277b5c score=0.7272 elapsed_s=0.8
+[2026-02-27 20:37:50,940] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 4/12 g_id=g_ref f_id=f000_002_6d13a174 proxy_score=2.941
+[2026-02-27 20:37:51,766] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 4/12 g_id=g_ref f_id=f000_002_6d13a174 score=0.7272 elapsed_s=0.8
+[2026-02-27 20:37:51,767] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 5/12 g_id=g_ref f_id=f001_006_6a24e0d1 proxy_score=2.557
+[2026-02-27 20:37:52,545] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 5/12 g_id=g_ref f_id=f001_006_6a24e0d1 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:37:52,546] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 6/12 g_id=g_ref f_id=f001_002_ca59f9a0 proxy_score=2.557
+[2026-02-27 20:37:53,335] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 6/12 g_id=g_ref f_id=f001_002_ca59f9a0 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:37:53,335] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 7/12 g_id=g_ref f_id=f001_005_b91c9c00 proxy_score=2.81
+[2026-02-27 20:37:54,322] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 7/12 g_id=g_ref f_id=f001_005_b91c9c00 score=0.6535 elapsed_s=1.0
+[2026-02-27 20:37:54,323] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 8/12 g_id=g_ref f_id=f001_007_e434716f proxy_score=3.477
+[2026-02-27 20:37:55,047] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 8/12 g_id=g_ref f_id=f001_007_e434716f score=0.5924 elapsed_s=0.7
+[2026-02-27 20:37:55,048] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=1: 8/12 elapsed_s=6.6 caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:37:55,048] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 9/12 g_id=g_ref f_id=f001_003_e813e5a3 proxy_score=3.518
+[2026-02-27 20:37:55,957] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 9/12 g_id=g_ref f_id=f001_003_e813e5a3 score=0.5873 elapsed_s=0.9
+[2026-02-27 20:37:55,957] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 10/12 g_id=g_ref f_id=f001_001_73416931 proxy_score=3.631
+[2026-02-27 20:37:56,720] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 10/12 g_id=g_ref f_id=f001_001_73416931 score=0.5335 elapsed_s=0.8
+[2026-02-27 20:37:56,721] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 11/12 g_id=g_ref f_id=f001_000_eb2fc921 proxy_score=4.625
+[2026-02-27 20:37:57,480] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 11/12 g_id=g_ref f_id=f001_000_eb2fc921 score=0.561 elapsed_s=0.8
+[2026-02-27 20:37:57,481] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=1: 12/12 g_id=g_ref f_id=f001_004_b53a567b proxy_score=4.673
+[2026-02-27 20:37:58,276] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=1: 12/12 g_id=g_ref f_id=f001_004_b53a567b score=0.5636 elapsed_s=0.8
+[2026-02-27 20:37:58,276] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=1: 12/12 elapsed_s=9.8 caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:37:58,277] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=0.5610357522964478 threshold=0.5610357522964478 metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:37:58,277] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=None reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:37:58,277] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=0.5334959030151367 ref=0.5610357522964478 delta=0.027539849281311035 pair=(g_ref,f001_001_73416931) stage=micro_unroll gen=1 phase=loss threshold=0.5610357522964478 compare_target=incumbent improve_eps=0.0
+[2026-02-27 20:37:58,277] INFO:ptp_discovery.pref_loss_coevo: Gen 1 summary: g_pool=0 f_pool=10 pairs=15 ok=12 stages={'micro_unroll': 12, 'cheap': 3} top_reasons=[('ok_micro_unroll', 12), ('cheap_proxy_gate_failed', 3)]
+[2026-02-27 20:37:58,278] INFO:ptp_discovery.pref_loss_coevo: Gen 1 gate-repair summary: attempted_pairs=5 applied=4 post_pair_ok=2 events={'loss:repaired': 4, 'loss:failed': 1}
+[2026-02-27 20:37:58,289] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=2 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:37:58,289] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 2/19 ===
+[2026-02-27 20:37:58,289] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:37:58,289] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=0.5334959030151367 best_pair=(g_ref,f001_001_73416931) best_stage=micro_unroll metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:37:58,291] INFO:ptp_discovery.pref_loss_coevo: Gen 2 start: caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:37:58,291] INFO:ptp_discovery.pref_loss_coevo: Gen 2 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=504 chars
+[2026-02-27 20:40:41,428] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=2: proposed_g=0/12 proposed_f=9/12 (seen_g=0 seen_f=24)
+[2026-02-27 20:40:41,447] INFO:ptp_discovery.pref_loss_coevo: Gen 2 LLM ops: builders={} (repairs=0) losses={'M2': 2, 'E2': 3, 'M1': 3, 'E1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 121, 'cache_hits': 0, 'cache_misses': 121}
+[2026-02-27 20:40:41,447] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-27 20:40:41,448] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:40:41,448] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:40:41,449] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=0 pair=15) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:40:41,465] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=False loss_on_fail=True
+[2026-02-27 20:40:41,469] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=2/20 budgets(loss=128,builder=0)
+[2026-02-27 20:40:41,470] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f001_001_73416931
+[2026-02-27 20:40:41,470] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-27 20:40:41,470] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:40:41,470] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f001_001_73416931 budget=0
+[2026-02-27 20:40:41,470] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:40:41,532] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 1/21 caches(rollout=10 pref=10 pair=16) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:41:38,216] INFO:ptp_discovery.pref_loss_coevo: Gate-repair retry gen=2 pair=(g_ref,f000_004_55689e85): pre(pair=cheap_proxy_gate_failed,bg=ok,jg=joint_failed:joint_batch_pass_rate_below_threshold) post(pair=ok_proxy,bg=ok,jg=ok) events=1 elapsed_s=56.7
+[2026-02-27 20:41:38,351] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 10/21 caches(rollout=10 pref=10 pair=19) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:41:38,567] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 20/21 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:41:38,567] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=2: 21/21 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:41:38,568] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=2: pairs=21 elapsed_s=57.1 caches(rollout=10 pref=10 pair=24) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:41:38,568] INFO:ptp_discovery.pref_loss_coevo: Gen 2 pref_cache drop before micro-unroll: dropped=10 kept=0 caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:41:38,568] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=2: tasks=16 steps=32 lr=0.05 alpha=0.05 (proxy_batches=10)
+[2026-02-27 20:41:38,569] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 1/16 g_id=g_ref f_id=f001_001_73416931 proxy_score=3.631
+[2026-02-27 20:41:39,385] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 1/16 g_id=g_ref f_id=f001_001_73416931 score=0.5335 elapsed_s=0.8
+[2026-02-27 20:41:39,386] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=2: 1/16 elapsed_s=0.8 caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:41:39,386] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 2/16 g_id=g_ref f_id=f001_000_eb2fc921 proxy_score=4.625
+[2026-02-27 20:41:40,209] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 2/16 g_id=g_ref f_id=f001_000_eb2fc921 score=0.561 elapsed_s=0.8
+[2026-02-27 20:41:40,209] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 3/16 g_id=g_ref f_id=f000_003_8d5e4cb5 proxy_score=4.625
+[2026-02-27 20:41:41,024] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 3/16 g_id=g_ref f_id=f000_003_8d5e4cb5 score=0.561 elapsed_s=0.8
+[2026-02-27 20:41:41,024] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 4/16 g_id=g_ref f_id=f001_004_b53a567b proxy_score=4.673
+[2026-02-27 20:41:41,867] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 4/16 g_id=g_ref f_id=f001_004_b53a567b score=0.5636 elapsed_s=0.8
+[2026-02-27 20:41:41,867] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 5/16 g_id=g_ref f_id=f001_006_6a24e0d1 proxy_score=2.557
+[2026-02-27 20:41:42,695] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 5/16 g_id=g_ref f_id=f001_006_6a24e0d1 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:41:42,695] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 6/16 g_id=g_ref f_id=f001_002_ca59f9a0 proxy_score=2.557
+[2026-02-27 20:41:43,532] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 6/16 g_id=g_ref f_id=f001_002_ca59f9a0 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:41:43,533] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 7/16 g_id=g_ref f_id=f001_003_e813e5a3 proxy_score=3.518
+[2026-02-27 20:41:44,453] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 7/16 g_id=g_ref f_id=f001_003_e813e5a3 score=0.5873 elapsed_s=0.9
+[2026-02-27 20:41:44,454] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 8/16 g_id=g_ref f_id=f001_007_e434716f proxy_score=3.477
+[2026-02-27 20:41:45,275] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 8/16 g_id=g_ref f_id=f001_007_e434716f score=0.5924 elapsed_s=0.8
+[2026-02-27 20:41:45,276] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=2: 8/16 elapsed_s=6.7 caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:41:45,276] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 9/16 g_id=g_ref f_id=f000_000_12fba841 proxy_score=4.548
+[2026-02-27 20:41:46,154] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 9/16 g_id=g_ref f_id=f000_000_12fba841 score=0.7159 elapsed_s=0.9
+[2026-02-27 20:41:46,154] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 10/16 g_id=g_ref f_id=f000_002_6d13a174 proxy_score=2.941
+[2026-02-27 20:41:47,024] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 10/16 g_id=g_ref f_id=f000_002_6d13a174 score=0.7272 elapsed_s=0.9
+[2026-02-27 20:41:47,024] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 11/16 g_id=g_ref f_id=f000_001_63277b5c proxy_score=2.941
+[2026-02-27 20:41:47,898] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 11/16 g_id=g_ref f_id=f000_001_63277b5c score=0.7272 elapsed_s=0.9
+[2026-02-27 20:41:47,899] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 12/16 g_id=g_ref f_id=f002_005_fb14665c proxy_score=2.185
+[2026-02-27 20:41:48,741] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 12/16 g_id=g_ref f_id=f002_005_fb14665c score=0.2897 elapsed_s=0.8
+[2026-02-27 20:41:48,741] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 13/16 g_id=g_ref f_id=f000_004_55689e85 proxy_score=2.613
+[2026-02-27 20:41:49,895] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 13/16 g_id=g_ref f_id=f000_004_55689e85 score=1.641 elapsed_s=1.2
+[2026-02-27 20:41:49,895] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 14/16 g_id=g_ref f_id=f002_001_0ef513a5 proxy_score=3.441
+[2026-02-27 20:41:50,720] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 14/16 g_id=g_ref f_id=f002_001_0ef513a5 score=0.5557 elapsed_s=0.8
+[2026-02-27 20:41:50,720] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 15/16 g_id=g_ref f_id=f002_002_4491c2fb proxy_score=3.488
+[2026-02-27 20:41:51,630] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 15/16 g_id=g_ref f_id=f002_002_4491c2fb score=0.5347 elapsed_s=0.9
+[2026-02-27 20:41:51,630] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=2: 16/16 g_id=g_ref f_id=f002_006_3b9d25c4 proxy_score=3.502
+[2026-02-27 20:41:52,477] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=2: 16/16 g_id=g_ref f_id=f002_006_3b9d25c4 score=0.5352 elapsed_s=0.8
+[2026-02-27 20:41:52,478] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=2: 16/16 elapsed_s=13.9 caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:41:52,478] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=0.5334959030151367 threshold=0.5334959030151367 metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:41:52,478] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=None reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:41:52,479] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=0.28969669342041016 ref=0.5334959030151367 delta=0.24379920959472656 pair=(g_ref,f002_005_fb14665c) stage=micro_unroll gen=2 phase=loss threshold=0.5334959030151367 compare_target=incumbent improve_eps=0.0
+[2026-02-27 20:41:52,479] INFO:ptp_discovery.pref_loss_coevo: Gen 2 summary: g_pool=0 f_pool=9 pairs=21 ok=21 stages={'cheap': 5, 'micro_unroll': 16} top_reasons=[('ok_micro_unroll', 16), ('ok_proxy', 5)]
+[2026-02-27 20:41:52,479] INFO:ptp_discovery.pref_loss_coevo: Gen 2 gate-repair summary: attempted_pairs=1 applied=1 post_pair_ok=1 events={'loss:repaired': 1}
+[2026-02-27 20:41:52,492] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=3 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:41:52,492] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 3/19 ===
+[2026-02-27 20:41:52,492] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:41:52,492] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=0.28969669342041016 best_pair=(g_ref,f002_005_fb14665c) best_stage=micro_unroll metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:41:52,493] INFO:ptp_discovery.pref_loss_coevo: Gen 3 start: caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:41:52,493] INFO:ptp_discovery.pref_loss_coevo: Gen 3 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=504 chars
+[2026-02-27 20:44:42,222] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=3: proposed_g=0/12 proposed_f=9/12 (seen_g=0 seen_f=33)
+[2026-02-27 20:44:42,240] INFO:ptp_discovery.pref_loss_coevo: Gen 3 LLM ops: builders={} (repairs=0) losses={'M1': 2, 'M2': 3, 'E1': 2, 'E2': 2} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 133, 'cache_hits': 0, 'cache_misses': 133}
+[2026-02-27 20:44:42,240] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-27 20:44:42,241] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:42,241] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:42,242] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:42,264] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=False loss_on_fail=True
+[2026-02-27 20:44:42,272] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=3/20 budgets(loss=128,builder=0)
+[2026-02-27 20:44:42,273] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f002_005_fb14665c
+[2026-02-27 20:44:42,273] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-27 20:44:42,273] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:44:42,273] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f002_005_fb14665c budget=0
+[2026-02-27 20:44:42,273] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:44:42,274] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 1/25 caches(rollout=10 pref=0 pair=24) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:42,471] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 10/25 caches(rollout=10 pref=10 pair=28) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:44:42,601] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 20/25 caches(rollout=10 pref=10 pair=31) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:44:42,693] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=3: 25/25 caches(rollout=10 pref=10 pair=33) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:44:42,693] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=3: pairs=25 elapsed_s=0.4 caches(rollout=10 pref=10 pair=33) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:44:42,694] INFO:ptp_discovery.pref_loss_coevo: Gen 3 pref_cache drop before micro-unroll: dropped=10 kept=0 caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:42,694] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=3: tasks=16 steps=32 lr=0.05 alpha=0.05 (proxy_batches=10)
+[2026-02-27 20:44:42,694] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 1/16 g_id=g_ref f_id=f002_005_fb14665c proxy_score=2.185
+[2026-02-27 20:44:43,541] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 1/16 g_id=g_ref f_id=f002_005_fb14665c score=0.2897 elapsed_s=0.8
+[2026-02-27 20:44:43,542] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=3: 1/16 elapsed_s=0.8 caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:43,542] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 2/16 g_id=g_ref f_id=f001_001_73416931 proxy_score=3.631
+[2026-02-27 20:44:44,374] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 2/16 g_id=g_ref f_id=f001_001_73416931 score=0.5335 elapsed_s=0.8
+[2026-02-27 20:44:44,375] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 3/16 g_id=g_ref f_id=f002_002_4491c2fb proxy_score=3.488
+[2026-02-27 20:44:45,280] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 3/16 g_id=g_ref f_id=f002_002_4491c2fb score=0.5347 elapsed_s=0.9
+[2026-02-27 20:44:45,281] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 4/16 g_id=g_ref f_id=f002_006_3b9d25c4 proxy_score=3.502
+[2026-02-27 20:44:46,128] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 4/16 g_id=g_ref f_id=f002_006_3b9d25c4 score=0.5352 elapsed_s=0.8
+[2026-02-27 20:44:46,128] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 5/16 g_id=g_ref f_id=f002_001_0ef513a5 proxy_score=3.441
+[2026-02-27 20:44:46,952] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 5/16 g_id=g_ref f_id=f002_001_0ef513a5 score=0.5557 elapsed_s=0.8
+[2026-02-27 20:44:46,953] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 6/16 g_id=g_ref f_id=f001_000_eb2fc921 proxy_score=4.625
+[2026-02-27 20:44:47,783] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 6/16 g_id=g_ref f_id=f001_000_eb2fc921 score=0.561 elapsed_s=0.8
+[2026-02-27 20:44:47,783] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 7/16 g_id=g_ref f_id=f000_003_8d5e4cb5 proxy_score=4.625
+[2026-02-27 20:44:48,609] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 7/16 g_id=g_ref f_id=f000_003_8d5e4cb5 score=0.561 elapsed_s=0.8
+[2026-02-27 20:44:48,609] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 8/16 g_id=g_ref f_id=f001_004_b53a567b proxy_score=4.673
+[2026-02-27 20:44:49,453] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 8/16 g_id=g_ref f_id=f001_004_b53a567b score=0.5636 elapsed_s=0.8
+[2026-02-27 20:44:49,454] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=3: 8/16 elapsed_s=6.8 caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:49,454] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 9/16 g_id=g_ref f_id=f001_002_ca59f9a0 proxy_score=2.557
+[2026-02-27 20:44:50,285] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 9/16 g_id=g_ref f_id=f001_002_ca59f9a0 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:44:50,285] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 10/16 g_id=g_ref f_id=f001_006_6a24e0d1 proxy_score=2.557
+[2026-02-27 20:44:51,120] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 10/16 g_id=g_ref f_id=f001_006_6a24e0d1 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:44:51,121] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 11/16 g_id=g_ref f_id=f001_003_e813e5a3 proxy_score=3.518
+[2026-02-27 20:44:52,033] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 11/16 g_id=g_ref f_id=f001_003_e813e5a3 score=0.5873 elapsed_s=0.9
+[2026-02-27 20:44:52,033] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 12/16 g_id=g_ref f_id=f001_007_e434716f proxy_score=3.477
+[2026-02-27 20:44:52,843] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 12/16 g_id=g_ref f_id=f001_007_e434716f score=0.5924 elapsed_s=0.8
+[2026-02-27 20:44:52,843] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 13/16 g_id=g_ref f_id=f000_000_12fba841 proxy_score=4.548
+[2026-02-27 20:44:53,716] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 13/16 g_id=g_ref f_id=f000_000_12fba841 score=0.7159 elapsed_s=0.9
+[2026-02-27 20:44:53,717] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 14/16 g_id=g_ref f_id=f000_001_63277b5c proxy_score=2.941
+[2026-02-27 20:44:54,434] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 14/16 g_id=g_ref f_id=f000_001_63277b5c score=0.7272 elapsed_s=0.7
+[2026-02-27 20:44:54,434] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 15/16 g_id=g_ref f_id=f000_002_6d13a174 proxy_score=2.941
+[2026-02-27 20:44:55,147] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=3: 15/16 g_id=g_ref f_id=f000_002_6d13a174 score=0.7272 elapsed_s=0.7
+[2026-02-27 20:44:55,148] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=3: 16/16 g_id=g_ref f_id=f000_004_55689e85 proxy_score=2.613
+[2026-02-27 20:44:55,158] ERROR:ptp_discovery.pref_loss_coevo: Micro-unroll failed gen=3: 16/16 g_id=g_ref f_id=f000_004_55689e85
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 5591, in run_pref_loss_coevo
+    mu_score, mu_metrics = micro_unroll_score_for_pair(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/pref_loss_fidelity.py", line 640, in micro_unroll_score_for_pair
+    init_loss_t = _forward_mean_loss()
+                  ^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/pref_loss_fidelity.py", line 630, in _forward_mean_loss
+    loss_t = f.loss_fn(batch=batch, model_output={}, extra={"alpha": float(alpha)})
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py", line 327, in loss_fn
+    return fn(batch, model_output, merged_extra)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 21, in generated_loss
+TypeError: abs(): argument 'input' (position 1) must be Tensor, not float
+[2026-02-27 20:44:55,165] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=3: 16/16 elapsed_s=12.5 caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:44:55,165] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=0.28969669342041016 threshold=0.28969669342041016 metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:44:55,165] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=None reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:44:55,166] INFO:ptp_discovery.pref_loss_coevo: Gen 3 summary: g_pool=0 f_pool=9 pairs=25 ok=24 stages={'micro_unroll': 16, 'cheap': 9} top_reasons=[('ok_micro_unroll', 15), ('ok_proxy', 9), ('micro_unroll_failed', 1)]
+[2026-02-27 20:44:55,179] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=4 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:44:55,179] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 4/19 ===
+[2026-02-27 20:44:55,180] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:44:55,180] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=0.28969669342041016 best_pair=(g_ref,f002_005_fb14665c) best_stage=micro_unroll metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:44:55,181] INFO:ptp_discovery.pref_loss_coevo: Gen 4 start: caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:44:55,181] INFO:ptp_discovery.pref_loss_coevo: Gen 4 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=504 chars
+[2026-02-27 20:47:37,870] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=4: proposed_g=0/12 proposed_f=9/12 (seen_g=0 seen_f=42)
+[2026-02-27 20:47:37,885] INFO:ptp_discovery.pref_loss_coevo: Gen 4 LLM ops: builders={} (repairs=0) losses={'E2': 3, 'M1': 1, 'M2': 4, 'E1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 142, 'cache_hits': 0, 'cache_misses': 142}
+[2026-02-27 20:47:37,886] INFO:ptp_discovery.pref_loss_coevo: Gen 4 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-27 20:47:37,886] INFO:ptp_discovery.pref_loss_coevo: Gen 4 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:37,887] INFO:ptp_discovery.pref_loss_coevo: Gen 4 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:37,887] INFO:ptp_discovery.pref_loss_coevo: Gen 4 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=0 pair=33) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:37,904] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=False loss_on_fail=True
+[2026-02-27 20:47:37,911] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=4/20 budgets(loss=128,builder=0)
+[2026-02-27 20:47:37,912] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f002_005_fb14665c
+[2026-02-27 20:47:37,912] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-27 20:47:37,912] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:47:37,913] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f002_005_fb14665c budget=0
+[2026-02-27 20:47:37,913] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:47:37,989] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=4: 1/25 caches(rollout=10 pref=10 pair=34) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:47:38,197] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=4: 10/25 caches(rollout=10 pref=10 pair=39) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:47:38,286] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=4: 20/25 caches(rollout=10 pref=10 pair=41) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:47:38,329] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=4: 25/25 caches(rollout=10 pref=10 pair=42) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:47:38,329] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=4: pairs=25 elapsed_s=0.4 caches(rollout=10 pref=10 pair=42) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:47:38,330] INFO:ptp_discovery.pref_loss_coevo: Gen 4 pref_cache drop before micro-unroll: dropped=10 kept=0 caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:38,330] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=4: tasks=16 steps=32 lr=0.05 alpha=0.05 (proxy_batches=10)
+[2026-02-27 20:47:38,330] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 1/16 g_id=g_ref f_id=f002_005_fb14665c proxy_score=2.185
+[2026-02-27 20:47:39,174] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 1/16 g_id=g_ref f_id=f002_005_fb14665c score=0.2897 elapsed_s=0.8
+[2026-02-27 20:47:39,174] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=4: 1/16 elapsed_s=0.8 caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:39,174] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 2/16 g_id=g_ref f_id=f001_001_73416931 proxy_score=3.631
+[2026-02-27 20:47:40,000] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 2/16 g_id=g_ref f_id=f001_001_73416931 score=0.5335 elapsed_s=0.8
+[2026-02-27 20:47:40,000] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 3/16 g_id=g_ref f_id=f002_002_4491c2fb proxy_score=3.488
+[2026-02-27 20:47:40,898] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 3/16 g_id=g_ref f_id=f002_002_4491c2fb score=0.5347 elapsed_s=0.9
+[2026-02-27 20:47:40,898] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 4/16 g_id=g_ref f_id=f002_006_3b9d25c4 proxy_score=3.502
+[2026-02-27 20:47:41,736] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 4/16 g_id=g_ref f_id=f002_006_3b9d25c4 score=0.5352 elapsed_s=0.8
+[2026-02-27 20:47:41,736] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 5/16 g_id=g_ref f_id=f002_001_0ef513a5 proxy_score=3.441
+[2026-02-27 20:47:42,557] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 5/16 g_id=g_ref f_id=f002_001_0ef513a5 score=0.5557 elapsed_s=0.8
+[2026-02-27 20:47:42,557] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 6/16 g_id=g_ref f_id=f000_003_8d5e4cb5 proxy_score=4.625
+[2026-02-27 20:47:43,370] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 6/16 g_id=g_ref f_id=f000_003_8d5e4cb5 score=0.561 elapsed_s=0.8
+[2026-02-27 20:47:43,370] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 7/16 g_id=g_ref f_id=f001_000_eb2fc921 proxy_score=4.625
+[2026-02-27 20:47:44,200] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 7/16 g_id=g_ref f_id=f001_000_eb2fc921 score=0.561 elapsed_s=0.8
+[2026-02-27 20:47:44,201] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 8/16 g_id=g_ref f_id=f001_004_b53a567b proxy_score=4.673
+[2026-02-27 20:47:45,042] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 8/16 g_id=g_ref f_id=f001_004_b53a567b score=0.5636 elapsed_s=0.8
+[2026-02-27 20:47:45,042] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=4: 8/16 elapsed_s=6.7 caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:45,043] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 9/16 g_id=g_ref f_id=f001_006_6a24e0d1 proxy_score=2.557
+[2026-02-27 20:47:45,866] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 9/16 g_id=g_ref f_id=f001_006_6a24e0d1 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:47:45,867] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 10/16 g_id=g_ref f_id=f001_002_ca59f9a0 proxy_score=2.557
+[2026-02-27 20:47:46,701] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 10/16 g_id=g_ref f_id=f001_002_ca59f9a0 score=0.5656 elapsed_s=0.8
+[2026-02-27 20:47:46,701] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 11/16 g_id=g_ref f_id=f001_003_e813e5a3 proxy_score=3.518
+[2026-02-27 20:47:47,619] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 11/16 g_id=g_ref f_id=f001_003_e813e5a3 score=0.5873 elapsed_s=0.9
+[2026-02-27 20:47:47,619] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 12/16 g_id=g_ref f_id=f001_007_e434716f proxy_score=3.477
+[2026-02-27 20:47:48,428] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 12/16 g_id=g_ref f_id=f001_007_e434716f score=0.5924 elapsed_s=0.8
+[2026-02-27 20:47:48,428] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 13/16 g_id=g_ref f_id=f000_000_12fba841 proxy_score=4.548
+[2026-02-27 20:47:49,292] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 13/16 g_id=g_ref f_id=f000_000_12fba841 score=0.7159 elapsed_s=0.9
+[2026-02-27 20:47:49,293] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 14/16 g_id=g_ref f_id=f000_001_63277b5c proxy_score=2.941
+[2026-02-27 20:47:50,160] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 14/16 g_id=g_ref f_id=f000_001_63277b5c score=0.7272 elapsed_s=0.9
+[2026-02-27 20:47:50,160] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 15/16 g_id=g_ref f_id=f000_002_6d13a174 proxy_score=2.941
+[2026-02-27 20:47:51,026] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 15/16 g_id=g_ref f_id=f000_002_6d13a174 score=0.7272 elapsed_s=0.9
+[2026-02-27 20:47:51,026] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=4: 16/16 g_id=g_ref f_id=f004_002_039d37b3 proxy_score=2.035
+[2026-02-27 20:47:51,868] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=4: 16/16 g_id=g_ref f_id=f004_002_039d37b3 score=0.295 elapsed_s=0.8
+[2026-02-27 20:47:51,868] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=4: 16/16 elapsed_s=13.5 caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:47:51,869] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=0.28969669342041016 threshold=0.28969669342041016 metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:47:51,869] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=None reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:47:51,869] INFO:ptp_discovery.pref_loss_coevo: Gen 4 summary: g_pool=0 f_pool=9 pairs=25 ok=24 stages={'micro_unroll': 16, 'cheap': 9} top_reasons=[('ok_micro_unroll', 16), ('ok_proxy', 8), ('micro_unroll_failed', 1)]
+[2026-02-27 20:47:51,883] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=5 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:47:51,883] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 5/19 ===
+[2026-02-27 20:47:51,883] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:47:51,884] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=0.28969669342041016 best_pair=(g_ref,f002_005_fb14665c) best_stage=micro_unroll metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:47:51,885] INFO:ptp_discovery.pref_loss_coevo: Gen 5 start: caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:47:51,885] INFO:ptp_discovery.pref_loss_coevo: Gen 5 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=504 chars
+[2026-02-27 20:50:40,773] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=5: proposed_g=0/12 proposed_f=9/12 (seen_g=0 seen_f=51)
+[2026-02-27 20:50:40,792] INFO:ptp_discovery.pref_loss_coevo: Gen 5 LLM ops: builders={} (repairs=0) losses={'E2': 5, 'M2': 1, 'M1': 2, 'E1': 1} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260227-200752/llm_cache.jsonl', 'cache_entries': 151, 'cache_hits': 0, 'cache_misses': 151}
+[2026-02-27 20:50:40,792] INFO:ptp_discovery.pref_loss_coevo: Gen 5 proxy rollouts: device=cuda:0 batches=10 batch_size=64 problem_size=100
+[2026-02-27 20:50:40,793] INFO:ptp_discovery.pref_loss_coevo: Gen 5 proxy rollouts progress: 1/10 cache_hit=True caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:40,793] INFO:ptp_discovery.pref_loss_coevo: Gen 5 proxy rollouts progress: 10/10 cache_hit=True caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:40,794] INFO:ptp_discovery.pref_loss_coevo: Gen 5 proxy rollouts done: elapsed_s=0.0 caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:40,811] INFO:ptp_discovery.pref_loss_coevo: Proxy gate-repair enabled: max_repairs_per_gen=32 max_attempts_per_pair=4 builder_on_fail=False loss_on_fail=True
+[2026-02-27 20:50:40,819] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=5/20 budgets(loss=128,builder=0)
+[2026-02-27 20:50:40,821] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f002_005_fb14665c
+[2026-02-27 20:50:40,821] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-02-27 20:50:40,821] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:50:40,821] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f002_005_fb14665c budget=0
+[2026-02-27 20:50:40,821] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:50:40,822] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=5: 1/26 caches(rollout=10 pref=0 pair=42) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:41,012] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=5: 10/26 caches(rollout=10 pref=10 pair=45) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:50:41,162] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=5: 20/26 caches(rollout=10 pref=10 pair=48) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:50:41,293] INFO:ptp_discovery.pref_loss_coevo: Cheap eval progress gen=5: 26/26 caches(rollout=10 pref=10 pair=51) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:50:41,293] INFO:ptp_discovery.pref_loss_coevo: Cheap eval done gen=5: pairs=26 elapsed_s=0.5 caches(rollout=10 pref=10 pair=51) cuda(cuda:0(alloc=0.10G,resv=0.16G))
+[2026-02-27 20:50:41,294] INFO:ptp_discovery.pref_loss_coevo: Gen 5 pref_cache drop before micro-unroll: dropped=10 kept=0 caches(rollout=10 pref=0 pair=51) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:41,294] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll gen=5: tasks=16 steps=32 lr=0.05 alpha=0.05 (proxy_batches=10)
+[2026-02-27 20:50:41,294] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 1/16 g_id=g_ref f_id=f002_005_fb14665c proxy_score=2.185
+[2026-02-27 20:50:42,152] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 1/16 g_id=g_ref f_id=f002_005_fb14665c score=0.2897 elapsed_s=0.9
+[2026-02-27 20:50:42,153] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=5: 1/16 elapsed_s=0.9 caches(rollout=10 pref=0 pair=51) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:42,153] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 2/16 g_id=g_ref f_id=f004_002_039d37b3 proxy_score=2.035
+[2026-02-27 20:50:43,002] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 2/16 g_id=g_ref f_id=f004_002_039d37b3 score=0.295 elapsed_s=0.8
+[2026-02-27 20:50:43,002] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 3/16 g_id=g_ref f_id=f001_001_73416931 proxy_score=3.631
+[2026-02-27 20:50:43,828] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 3/16 g_id=g_ref f_id=f001_001_73416931 score=0.5335 elapsed_s=0.8
+[2026-02-27 20:50:43,828] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 4/16 g_id=g_ref f_id=f002_002_4491c2fb proxy_score=3.488
+[2026-02-27 20:50:44,729] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 4/16 g_id=g_ref f_id=f002_002_4491c2fb score=0.5347 elapsed_s=0.9
+[2026-02-27 20:50:44,730] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 5/16 g_id=g_ref f_id=f002_006_3b9d25c4 proxy_score=3.502
+[2026-02-27 20:50:45,578] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 5/16 g_id=g_ref f_id=f002_006_3b9d25c4 score=0.5352 elapsed_s=0.8
+[2026-02-27 20:50:45,579] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 6/16 g_id=g_ref f_id=f002_001_0ef513a5 proxy_score=3.441
+[2026-02-27 20:50:46,405] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 6/16 g_id=g_ref f_id=f002_001_0ef513a5 score=0.5557 elapsed_s=0.8
+[2026-02-27 20:50:46,406] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 7/16 g_id=g_ref f_id=f000_003_8d5e4cb5 proxy_score=4.625
+[2026-02-27 20:50:47,074] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 7/16 g_id=g_ref f_id=f000_003_8d5e4cb5 score=0.561 elapsed_s=0.7
+[2026-02-27 20:50:47,074] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 8/16 g_id=g_ref f_id=f001_000_eb2fc921 proxy_score=4.625
+[2026-02-27 20:50:47,732] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 8/16 g_id=g_ref f_id=f001_000_eb2fc921 score=0.561 elapsed_s=0.7
+[2026-02-27 20:50:47,733] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=5: 8/16 elapsed_s=6.4 caches(rollout=10 pref=0 pair=51) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:47,733] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 9/16 g_id=g_ref f_id=f001_004_b53a567b proxy_score=4.673
+[2026-02-27 20:50:48,388] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 9/16 g_id=g_ref f_id=f001_004_b53a567b score=0.5636 elapsed_s=0.7
+[2026-02-27 20:50:48,388] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 10/16 g_id=g_ref f_id=f001_006_6a24e0d1 proxy_score=2.557
+[2026-02-27 20:50:49,037] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 10/16 g_id=g_ref f_id=f001_006_6a24e0d1 score=0.5656 elapsed_s=0.6
+[2026-02-27 20:50:49,037] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 11/16 g_id=g_ref f_id=f001_002_ca59f9a0 proxy_score=2.557
+[2026-02-27 20:50:49,696] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 11/16 g_id=g_ref f_id=f001_002_ca59f9a0 score=0.5656 elapsed_s=0.7
+[2026-02-27 20:50:49,697] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 12/16 g_id=g_ref f_id=f001_003_e813e5a3 proxy_score=3.518
+[2026-02-27 20:50:50,477] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 12/16 g_id=g_ref f_id=f001_003_e813e5a3 score=0.5873 elapsed_s=0.8
+[2026-02-27 20:50:50,477] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 13/16 g_id=g_ref f_id=f001_007_e434716f proxy_score=3.477
+[2026-02-27 20:50:51,110] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 13/16 g_id=g_ref f_id=f001_007_e434716f score=0.5924 elapsed_s=0.6
+[2026-02-27 20:50:51,110] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 14/16 g_id=g_ref f_id=f000_000_12fba841 proxy_score=4.548
+[2026-02-27 20:50:51,806] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 14/16 g_id=g_ref f_id=f000_000_12fba841 score=0.7159 elapsed_s=0.7
+[2026-02-27 20:50:51,807] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 15/16 g_id=g_ref f_id=f000_002_6d13a174 proxy_score=2.941
+[2026-02-27 20:50:52,505] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 15/16 g_id=g_ref f_id=f000_002_6d13a174 score=0.7272 elapsed_s=0.7
+[2026-02-27 20:50:52,506] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll start gen=5: 16/16 g_id=g_ref f_id=f000_001_63277b5c proxy_score=2.941
+[2026-02-27 20:50:53,203] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll done gen=5: 16/16 g_id=g_ref f_id=f000_001_63277b5c score=0.7272 elapsed_s=0.7
+[2026-02-27 20:50:53,204] INFO:ptp_discovery.pref_loss_coevo: Micro-unroll progress gen=5: 16/16 elapsed_s=11.9 caches(rollout=10 pref=0 pair=51) cuda(cuda:0(alloc=0.03G,resv=0.16G))
+[2026-02-27 20:50:53,204] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=0.28969669342041016 threshold=0.28969669342041016 metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:50:53,204] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=None reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:50:53,205] INFO:ptp_discovery.pref_loss_coevo: Gen 5 summary: g_pool=0 f_pool=9 pairs=26 ok=25 stages={'micro_unroll': 16, 'cheap': 10} top_reasons=[('ok_micro_unroll', 16), ('ok_proxy', 9), ('micro_unroll_failed', 1)]
+[2026-02-27 20:50:53,219] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=6 phase=loss llm_enabled(builder=False,loss=True)
+[2026-02-27 20:50:53,219] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 6/19 ===
+[2026-02-27 20:50:53,219] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=1 stage2_micro_unroll=1 stage3_high_fidelity=0
+[2026-02-27 20:50:53,219] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=0.28969669342041016 best_pair=(g_ref,f002_005_fb14665c) best_stage=micro_unroll metric_mode=minimize improve_eps=0.0
+[2026-02-27 20:50:53,220] INFO:ptp_discovery.pref_loss_coevo: Gen 6 start: caches(rollout=10 pref=0 pair=51) cuda(cuda:0(alloc=0.03G,resv=0.16G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-02-27 20:50:53,220] INFO:ptp_discovery.pref_loss_coevo: Gen 6 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=504 chars
