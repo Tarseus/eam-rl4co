@@ -1,6 +1,6 @@
 {
-  "generation": 8,
-  "pair_index": 7,
+  "generation": 9,
+  "pair_index": 1,
   "g_id": "g_ref",
   "f_id": "f007_001_1aa5ca35",
   "g_ir": {
@@ -47,7 +47,7 @@
   "cheap_gate_on": false,
   "high_fidelity_on": true,
   "eval_budget_signature": "c8c80b32a53883ac",
-  "score": -0.020985782146453857,
+  "score": 0.004543433586756389,
   "proxy_metrics": {
     "cheap_effective_grad_ratio": 1.0,
     "cheap_semantic_pass_rate": 1.0
@@ -118,61 +118,61 @@
   },
   "pair_ok": true,
   "pair_reason": "ok_stage3_offline_minitrain",
-  "elapsed_s": 175.9315025806427,
+  "elapsed_s": 208.33984088897705,
   "stage": "high_fidelity",
   "phase": "loss",
   "proxy_score": 0.0,
-  "hf_log_file": "gen008_pair007_cuda_3_g_ref_f007_001_1aa5ca35.log",
+  "hf_log_file": "gen009_pair001_cuda_3_g_ref_f007_001_1aa5ca35.log",
   "fitness": {
     "per_init": {
       "scratch": {
         "obj_cand_by_size": {
-          "20": 3.9086414575576782,
-          "100": 8.467383742332458
+          "20": 3.914882868528366,
+          "100": 8.608193159103394
         },
         "obj_base_by_size": {
           "20": 3.9320041239261627,
           "100": 8.56600821018219
         },
-        "obj_cand": 6.188012599945068,
+        "obj_cand": 6.26153801381588,
         "obj_base": 6.249006167054176,
-        "delta": -0.06099356710910797,
+        "delta": 0.012531846761703491,
         "init_checkpoint": null,
         "error": null
       },
       "ckpt_135": {
         "obj_cand_by_size": {
-          "20": 3.8659179508686066,
-          "100": 7.845732390880585
+          "20": 3.8722144961357117,
+          "100": 7.841932594776154
         },
         "obj_base_by_size": {
           "20": 3.8643740117549896,
           "100": 7.842130959033966
         },
-        "obj_cand": 5.855825170874596,
+        "obj_cand": 5.857073545455933,
         "obj_base": 5.853252485394478,
-        "delta": 0.002572685480117798,
+        "delta": 0.003821060061454773,
         "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/epoch_135.ckpt",
         "error": null
       },
       "ckpt_409": {
         "obj_cand_by_size": {
-          "20": 3.8640023469924927,
-          "100": 7.83685976266861
+          "20": 3.861834764480591,
+          "100": 7.842655062675476
         },
         "obj_base_by_size": {
           "20": 3.866926223039627,
           "100": 7.843008816242218
         },
-        "obj_cand": 5.850431054830551,
+        "obj_cand": 5.8522449135780334,
         "obj_base": 5.8549675196409225,
-        "delta": -0.004536464810371399,
+        "delta": -0.002722606062889099,
         "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/epoch_409.ckpt",
         "error": null
       }
     },
-    "delta_mean": -0.020985782146453857,
-    "delta_worst": 0.002572685480117798,
+    "delta_mean": 0.004543433586756389,
+    "delta_worst": 0.012531846761703491,
     "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
     "eval_signature": {
       "protocol": "stage3_offline_minitrain_v1",
@@ -235,9 +235,9 @@
     "cheap_only": false,
     "proxy_score": 0.0
   },
-  "better_than_baseline_mean": true,
+  "better_than_baseline_mean": false,
   "better_than_baseline_strict": false,
-  "better_than_incumbent": true,
+  "better_than_incumbent": false,
   "stages_enabled": {
     "stage0_gate": true,
     "stage1_proxy": false,
@@ -254,15 +254,15 @@
     "stage2_micro_unroll": "disabled"
   },
   "stage_final": "high_fidelity",
-  "final_score": -0.020985782146453857,
+  "final_score": 0.004543433586756389,
   "metric_mode": "minimize",
   "compare_target": "incumbent",
   "improve_eps": 0.0,
   "last_phase_label": "baseline",
   "last_phase_reference_score": Infinity,
   "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
-  "reference_score": -0.01641330122947693,
-  "delta_vs_incumbent": 0.004572480916976929,
+  "reference_score": -0.020985782146453857,
+  "delta_vs_incumbent": -0.025529215733210247,
   "delta_vs_last_phase": Infinity,
   "better_than_last_phase": true
 }
