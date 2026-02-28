@@ -480,9 +480,20 @@ def _load_policy_weights_from_checkpoint(policy, ckpt_path: str) -> None:
             best_sd = cand_sd
 
     if best_sd is None or best_score <= 0:
+        hint = ""
+        try:
+            # Common mismatch: RL4CO POMO checkpoints trained with the PO4COPs-compatible policy
+            # (keys like `policy.encoder.layers.0.Wq.weight`) loaded into an AttentionModelPolicy.
+            if any(
+                isinstance(k, str) and k.startswith("policy.encoder.layers.0.Wq")
+                for k in state_dict.keys()
+            ):
+                hint = " Hint: set policy_kwargs.po4cops_compat=true to build a checkpoint-compatible POMO policy."
+        except Exception:  # noqa: BLE001
+            hint = ""
         raise ValueError(
             f"Could not match checkpoint weights to policy state_dict (ckpt={ckpt_path}). "
-            f"state_dict_keys={len(state_dict)} policy_keys={len(target_sd)}"
+            f"state_dict_keys={len(state_dict)} policy_keys={len(target_sd)}.{hint}"
         )
 
     missing, unexpected = policy.load_state_dict(best_sd, strict=False)

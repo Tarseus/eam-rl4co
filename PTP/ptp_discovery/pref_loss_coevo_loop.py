@@ -233,6 +233,8 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
     policy_name = str(cfg_yaml.get("policy_name") or "")
+    policy_kwargs = dict(cfg_yaml.get("policy_kwargs", {}) or {})
+    env_kwargs = dict(cfg_yaml.get("env_kwargs", {}) or {})
     rollout_strategy = str(cfg_yaml.get("rollout_strategy", "auto") or "auto")
     objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
 
@@ -266,6 +268,8 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         "protocol": "stage3_offline_minitrain_v1",
         "env_name": env_name,
         "policy_name": policy_name,
+        "policy_kwargs": policy_kwargs,
+        "env_kwargs": env_kwargs,
         "rollout_strategy": rollout_strategy,
         "objective_sign": objective_sign,
         "alpha": alpha,
