@@ -998,6 +998,7 @@ def _evaluate_free_loss_candidate_rl4co(
             "early_stopped": early_stopped,
         }
         scratch_epoch_eval = None
+        warmstart_epoch_eval = None
         train_score_mean = float(score_meter.avg)
         train_loss_mean = float(loss_meter.avg)
         pair_count = int(total_pairs)
