@@ -101,8 +101,28 @@ CMD=(
   "experiment=${experiment}"
   "model.loss_type=free_loss"
   "model.pref_pair_json_path=${best_pair_path}"
-  "$@"
 )
+
+# Lightning raises if enable_progress_bar=false but RichProgressBar is still in callbacks.
+# Some experiment configs disable the progress bar but keep the callback via callbacks/default.yaml.
+# Default to disabling the RichProgressBar callback unless the user explicitly overrides it or
+# explicitly enables the progress bar.
+disable_rich_progress_bar=true
+for arg in "$@"; do
+  case "$arg" in
+    trainer.enable_progress_bar=true|trainer.enable_progress_bar=True)
+      disable_rich_progress_bar=false
+      ;;
+    callbacks.rich_progress_bar=*|~callbacks.rich_progress_bar)
+      disable_rich_progress_bar=false
+      ;;
+  esac
+done
+if [[ "$disable_rich_progress_bar" == "true" ]]; then
+  CMD+=("~callbacks.rich_progress_bar")
+fi
+
+CMD+=("$@")
 
 echo "Latest search run: ${runs_root}/${latest}"
 echo "Using best_pair: ${best_pair_path}"
