@@ -251,7 +251,13 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     size_aggregation = str(cfg_yaml.get("size_aggregation", "mean") or "mean")
     size_cvar_alpha = float(cfg_yaml.get("size_cvar_alpha", 0.2) or 0.2)
 
+    # Budget signature:
+    # - Legacy step-mode uses K=f1_steps and keeps the original signature keys for backward compatibility
+    #   with existing baseline mini-eval JSONs.
+    # - Optional epoch-mode (hf_epochs + hf_instances_per_epoch) adds additional keys.
     K = int(cfg_yaml.get("f1_steps", 32) or 32)
+    hf_epochs = int(cfg_yaml.get("hf_epochs", 0) or 0)
+    hf_instances_per_epoch = int(cfg_yaml.get("hf_instances_per_epoch", 0) or 0)
     train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
     valid_problem_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
     train_batch_size = int(cfg_yaml.get("train_batch_size", 64) or 64)
@@ -267,7 +273,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
                 "sha1": _file_sha1_cached(str(pth)),
             }
 
-    return {
+    sig = {
         "protocol": "stage3_offline_minitrain_v1",
         "env_name": env_name,
         "policy_name": policy_name,
@@ -297,6 +303,56 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
             "ckpt_409": {"path": str(ckpt_409), "sha1": _file_sha1_cached(str(ckpt_409))},
         },
     }
+    if hf_epochs > 0 and hf_instances_per_epoch > 0:
+        sig["budget_mode"] = "epochs"
+        sig["hf_epochs"] = int(hf_epochs)
+        sig["hf_instances_per_epoch"] = int(hf_instances_per_epoch)
+    return sig
+
+
+def _stage3_fidelity_key(cfg_yaml: Mapping[str, Any]) -> str:
+    hf_epochs = int(cfg_yaml.get("hf_epochs", 0) or 0)
+    hf_instances = int(cfg_yaml.get("hf_instances_per_epoch", 0) or 0)
+    if hf_epochs > 0 and hf_instances > 0:
+        return f"epoch{int(hf_epochs)}_inst{int(hf_instances)}"
+    K = int(cfg_yaml.get("f1_steps", 32) or 32)
+    return f"K{int(K)}"
+
+
+def _resolve_stage3_baseline_mini_eval_path(cfg_yaml: Mapping[str, Any], baseline_cfg: Mapping[str, Any]) -> str | None:
+    raw = baseline_cfg.get("mini_eval_paths", None)
+    if raw is None:
+        raw = baseline_cfg.get("mini_eval_path", None)
+
+    if isinstance(raw, Mapping):
+        key = _stage3_fidelity_key(cfg_yaml)
+        for cand in (
+            key,
+            str(key).replace("K", ""),
+            str(key).lower(),
+            str(key).upper(),
+        ):
+            if cand in raw and raw.get(cand):
+                return str(raw.get(cand))
+        # Also accept integer-ish keys for step-mode.
+        if key.startswith("K"):
+            try:
+                k_int = int(key[1:])
+            except Exception:  # noqa: BLE001
+                k_int = None
+            if k_int is not None:
+                for cand in (k_int, str(k_int)):
+                    if cand in raw and raw.get(cand):
+                        return str(raw.get(cand))
+        # Optional fallback entry.
+        for cand in ("default", "DEFAULT", "_default_", "*"):
+            if cand in raw and raw.get(cand):
+                return str(raw.get(cand))
+        return None
+
+    if isinstance(raw, str) and raw.strip():
+        return str(raw)
+    return None
 
 
 def _infer_baseline_epoch_from_path(path: str) -> int | None:
@@ -535,6 +591,64 @@ def _maybe_coarsen_family_signature_str(sig: Any, *, keep_axes: Sequence[str]) -
         if axis in keep:
             out_parts.append(f"{axis}={_normalize_family_value(value)}")
     return "|".join(out_parts) if out_parts else text
+
+
+def _best_pair_artifact_entry(
+    *,
+    cid: str,
+    best_pair: Mapping[str, Any] | None,
+    cid_key: str,
+    ir_key: str,
+    candidate_map: Mapping[str, Any],
+    compiled_map: Mapping[str, Any],
+    ref_ir_fn: Any,
+) -> Dict[str, Any] | None:
+    """Resolve a stable artifact entry (with at least {id, ir}) for best_pair ids.
+
+    Priority:
+      1) Use embedded IR from best_pair record (g_ir / f_ir) when present.
+      2) Use a full stored entry from candidate_map (g_map / f_map).
+      3) Use compiled_map[cid].ir (most reliable during a live run).
+      4) Fallback to reference IR for g_ref / f_ref when applicable.
+    """
+
+    cid_s = str(cid or "").strip()
+    if not cid_s:
+        return None
+
+    if isinstance(best_pair, Mapping) and str(best_pair.get(cid_key, "")).strip() == cid_s:
+        ir = best_pair.get(ir_key)
+        if isinstance(ir, Mapping) and isinstance(ir.get("code"), str):
+            return {"id": cid_s, "ir": dict(ir)}
+
+    entry = candidate_map.get(cid_s) if isinstance(candidate_map, Mapping) else None
+    if isinstance(entry, Mapping) and entry.get("id"):
+        ir = entry.get("ir")
+        if isinstance(ir, Mapping) and isinstance(ir.get("code"), str):
+            out = dict(entry)
+            out["id"] = str(out.get("id") or cid_s)
+            return out
+
+    comp = compiled_map.get(cid_s) if isinstance(compiled_map, Mapping) else None
+    ir = getattr(comp, "ir", None)
+    if ir is not None:
+        try:
+            irj = asdict(ir)
+        except Exception:  # noqa: BLE001
+            irj = None
+        if isinstance(irj, Mapping) and isinstance(irj.get("code"), str):
+            return {"id": cid_s, "ir": dict(irj)}
+
+    try:
+        ref_ir = ref_ir_fn() if callable(ref_ir_fn) else None
+        if ref_ir is not None:
+            irj = asdict(ref_ir)
+            if isinstance(irj, Mapping) and isinstance(irj.get("code"), str):
+                return {"id": cid_s, "ir": dict(irj)}
+    except Exception:  # noqa: BLE001
+        pass
+
+    return None
 
 
 def _builder_family_signature(ir_or_entry: Any) -> str:
@@ -822,6 +936,174 @@ def _safe_float(value: Any, default: float) -> float:
         return float(default)
 
 
+def _std(xs: Sequence[float]) -> float:
+    vals = [float(x) for x in xs if x is not None and math.isfinite(float(x))]
+    if len(vals) < 2:
+        return 0.0
+    mu = sum(vals) / len(vals)
+    var = sum((v - mu) ** 2 for v in vals) / float(len(vals) - 1)
+    return float(math.sqrt(max(var, 0.0)))
+
+
+def _calibrate_improve_eps_from_baseline_noise(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    operator_whitelist: Sequence[str],
+    device_str: str,
+) -> Dict[str, Any] | None:
+    """Estimate baseline mini-train noise and return a calibrated improve_eps.
+
+    Runs the *reference* (g_ref,f_ref) mini-train protocol N times with different seeds and
+    compares against the configured baseline mini-eval JSON. The sample std of delta_mean is used
+    as sigma_delta; improve_eps is set to sigma_mult * sigma_delta.
+    """
+
+    calib_raw = cfg_yaml.get("improve_eps_calibration", {}) or {}
+    if not isinstance(calib_raw, dict):
+        return None
+    if not bool(calib_raw.get("enabled", False)):
+        return None
+
+    N = int(calib_raw.get("N", calib_raw.get("n", 8)) or 8)
+    N = max(0, min(N, 128))
+    if N < 2:
+        return None
+
+    sigma_mult = float(calib_raw.get("sigma_mult", calib_raw.get("mult", 2.0)) or 2.0)
+    sigma_mult = max(float(sigma_mult), 0.0)
+    eps_floor = float(calib_raw.get("eps_floor", calib_raw.get("min_eps", 0.0)) or 0.0)
+
+    seed0 = calib_raw.get("seed0", calib_raw.get("seed", None))
+    if seed0 is None:
+        seed0 = int(cfg_yaml.get("scratch_init_seed", 12345) or 12345) + 999
+    seed0 = int(seed0)
+    seed_stride = int(calib_raw.get("seed_stride", 997) or 997)
+    if seed_stride == 0:
+        seed_stride = 997
+
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, dict):
+        baseline_cfg = {}
+    mini_eval_path = _resolve_stage3_baseline_mini_eval_path(cfg_yaml, baseline_cfg)
+    if not mini_eval_path:
+        LOGGER.warning("improve_eps calibration skipped: baseline mini_eval_path missing for fidelity=%s", _stage3_fidelity_key(cfg_yaml))
+        return None
+
+    try:
+        baseline_payload = _load_baseline_mini_eval(str(mini_eval_path))
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("improve_eps calibration skipped: failed to load baseline mini_eval_path=%s: %s", str(mini_eval_path), str(exc))
+        return None
+
+    per_init_base = baseline_payload.get("per_init")
+    if not isinstance(per_init_base, dict):
+        LOGGER.warning("improve_eps calibration skipped: baseline JSON missing per_init dict: %s", str(mini_eval_path))
+        return None
+
+    expected_sig = _build_stage3_eval_signature(cfg_yaml)
+    got_sig = baseline_payload.get("eval_signature")
+    if got_sig != expected_sig:
+        LOGGER.warning(
+            "improve_eps calibration skipped: baseline eval_signature mismatch (fidelity=%s).",
+            _stage3_fidelity_key(cfg_yaml),
+        )
+        return None
+
+    ckpts = baseline_cfg.get("checkpoints") or []
+    if not isinstance(ckpts, list) or len(ckpts) < 2:
+        LOGGER.warning("improve_eps calibration skipped: baseline.checkpoints invalid (need [ckpt_135, ckpt_409]).")
+        return None
+    ckpt_135 = _abs_from_repo_root(str(ckpts[0]))
+    ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
+    include_scratch = bool(baseline_cfg.get("include_scratch", True))
+
+    valid_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
+    if not valid_sizes:
+        valid_sizes = [int(cfg_yaml.get("train_problem_size", 20) or 20)]
+    valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
+
+    init_specs: List[Tuple[str, str | None]] = []
+    if include_scratch:
+        init_specs.append(("scratch", None))
+    init_specs.append(("ckpt_135", str(ckpt_135)))
+    init_specs.append(("ckpt_409", str(ckpt_409)))
+
+    # Compile reference pair (g_ref,f_ref).
+    try:
+        ref_builder = compile_preference_builder(_ref_builder_ir(), operator_whitelist=list(operator_whitelist))
+        ref_loss_ir = _ref_loss_ir()
+        static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+        if not static_ref.ok:
+            raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
+        ref_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("improve_eps calibration skipped: failed to compile reference pair: %s", str(exc))
+        return None
+
+    adapter = _CompiledBuilderAdapter(ref_builder)
+    samples: List[float] = []
+    used_seeds: List[int] = []
+    for i in range(int(N)):
+        seed_i = int(seed0 + i * seed_stride)
+        used_seeds.append(int(seed_i))
+        # Build a per-seed HF config, keeping the same budget fields as cfg_yaml.
+        hf_cfg = _build_hf_cfg(dict(cfg_yaml), seed=int(seed_i), device_str=str(device_str))
+
+        deltas: List[float] = []
+        for init_name, init_ckpt in init_specs:
+            base_entry = per_init_base.get(str(init_name))
+            if not isinstance(base_entry, dict):
+                continue
+            try:
+                base_agg = float(base_entry.get("aggregated_objective"))
+            except (TypeError, ValueError):
+                continue
+
+            free_cfg = FreeLossFidelityConfig(
+                hf=hf_cfg,
+                f1_steps=int(cfg_yaml.get("f1_steps", 32) or 32),
+                f2_steps=0,
+                f3_enabled=False,
+                init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
+                init_checkpoint_epoch=None,
+            )
+            try:
+                fit = evaluate_free_loss_candidate(ref_loss, free_cfg, pref_builder=adapter)
+                size_objectives_raw = fit.get("size_objectives", {})
+                size_objectives: Dict[int, float] = {}
+                if isinstance(size_objectives_raw, dict):
+                    for k, v in size_objectives_raw.items():
+                        try:
+                            size_objectives[int(k)] = float(v)
+                        except Exception:  # noqa: BLE001
+                            continue
+                cand_agg = float(sum(float(size_objectives[int(sz)]) for sz in valid_sizes) / float(len(valid_sizes)))
+                if not math.isfinite(cand_agg):
+                    continue
+                deltas.append(float(cand_agg - float(base_agg)))
+            except Exception:  # noqa: BLE001
+                continue
+
+        if deltas:
+            samples.append(float(sum(deltas) / float(len(deltas))))
+
+    sigma = _std(samples)
+    eps = max(float(eps_floor), float(sigma_mult) * float(sigma))
+    return {
+        "enabled": True,
+        "fidelity": _stage3_fidelity_key(cfg_yaml),
+        "baseline_mini_eval_path": str(mini_eval_path),
+        "N": int(N),
+        "sigma_mult": float(sigma_mult),
+        "seed0": int(seed0),
+        "seed_stride": int(seed_stride),
+        "used_seeds": used_seeds,
+        "sigma_delta": float(sigma),
+        "improve_eps": float(eps),
+        "samples": samples[: min(len(samples), 32)],
+    }
+
+
 def _safe_bool(value: Any, default: bool) -> bool:
     if value is None:
         return bool(default)
@@ -906,6 +1188,107 @@ def _normalize_family_diversity_cfg(raw: Any) -> Dict[str, Any]:
         "parent_max_per_family": int(cfg.get("parent_max_per_family", 0) or 0),
         "include_unknown": bool(cfg.get("include_unknown", False)),
     }
+
+
+def _normalize_stage3_multifidelity_cfg(raw: Any) -> Dict[str, Any]:
+    cfg = dict(raw) if isinstance(raw, dict) else {}
+    enabled = bool(cfg.get("enabled", False))
+    rounds_raw = cfg.get("rounds", cfg.get("fidelities", [])) or []
+    if not isinstance(rounds_raw, list):
+        rounds_raw = []
+    rounds: List[Dict[str, Any]] = []
+    for r in rounds_raw:
+        if not isinstance(r, dict):
+            continue
+        rr = dict(r)
+        rounds.append(rr)
+    if enabled and not rounds:
+        # Default: quick filter then a stronger confirmation.
+        rounds = [
+            {"name": "K200", "f1_steps": 200, "promote_top_m": 32, "promote_if_better_than_incumbent": True, "always_include_incumbent": True},
+            {"name": "K1000", "f1_steps": 1000, "promote_top_m": 0},
+        ]
+    return {"enabled": bool(enabled), "rounds": rounds}
+
+
+def _apply_stage3_round_overrides(cfg_yaml: Mapping[str, Any], round_cfg: Mapping[str, Any]) -> Dict[str, Any]:
+    out = dict(cfg_yaml)
+    # Budget overrides (step-mode and/or epoch-mode).
+    if "f1_steps" in round_cfg and round_cfg.get("f1_steps") is not None:
+        out["f1_steps"] = int(round_cfg.get("f1_steps") or out.get("f1_steps", 32) or 32)
+    if "hf_epochs" in round_cfg and round_cfg.get("hf_epochs") is not None:
+        out["hf_epochs"] = int(round_cfg.get("hf_epochs") or 0)
+    if "hf_instances_per_epoch" in round_cfg and round_cfg.get("hf_instances_per_epoch") is not None:
+        out["hf_instances_per_epoch"] = int(round_cfg.get("hf_instances_per_epoch") or 0)
+
+    # Convenience: allow a round to specify K via "K".
+    if "K" in round_cfg and round_cfg.get("K") is not None:
+        out["f1_steps"] = int(round_cfg.get("K") or out.get("f1_steps", 32) or 32)
+        out["hf_epochs"] = 0
+        out["hf_instances_per_epoch"] = 0
+
+    return out
+
+
+def _select_stage3_promotions(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    promote_top_m: int,
+    promote_if_better_than_incumbent: bool,
+    incumbent_ref_score: float | None,
+    metric_mode: str,
+    improve_eps: float,
+    always_include_pair: Tuple[str, str] | None,
+) -> List[Tuple[str, str]]:
+    scored: List[Tuple[float, str, str]] = []
+    better: List[Tuple[str, str]] = []
+    for r in records:
+        if not bool(r.get("pair_ok")):
+            continue
+        gid = str(r.get("g_id", ""))
+        fid = str(r.get("f_id", ""))
+        try:
+            s = float(r.get("final_score", r.get("score")))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(s):
+            continue
+        scored.append((float(s), gid, fid))
+        if promote_if_better_than_incumbent:
+            if _is_better_than_reference(
+                cand_score=float(s),
+                reference_score=incumbent_ref_score,
+                metric_mode=str(metric_mode),
+                improve_eps=float(improve_eps),
+            ):
+                better.append((gid, fid))
+
+    scored.sort(key=lambda x: float(x[0]), reverse=bool(str(metric_mode) == "maximize"))
+    promoted: List[Tuple[str, str]] = []
+    seen: set[Tuple[str, str]] = set()
+
+    if always_include_pair is not None:
+        if always_include_pair not in seen:
+            promoted.append(always_include_pair)
+            seen.add(always_include_pair)
+
+    for gid, fid in better:
+        k = (gid, fid)
+        if k in seen:
+            continue
+        promoted.append(k)
+        seen.add(k)
+
+    m = max(int(promote_top_m), 0)
+    if m > 0:
+        for s, gid, fid in scored[:m]:
+            k = (gid, fid)
+            if k in seen:
+                continue
+            promoted.append(k)
+            seen.add(k)
+
+    return promoted
 
 
 def _cap_parent_pool_by_family(
@@ -4525,11 +4908,14 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
     # Stage3: discovery-style offline mini-train fitness, compared against a precomputed baseline JSON.
     baseline_cfg = cfg.get("baseline", {}) or {}
-    mini_eval_path = baseline_cfg.get("mini_eval_path")
+    mini_eval_path = _resolve_stage3_baseline_mini_eval_path(cfg, baseline_cfg)
     if not mini_eval_path:
         record["pair_ok"] = False
         record["pair_reason"] = "stage3_fatal"
-        record["fatal_error"] = "baseline.mini_eval_path is required for stage3"
+        record["fatal_error"] = (
+            "baseline mini_eval_path is required for stage3 "
+            f"(fidelity={_stage3_fidelity_key(cfg)}; set baseline.mini_eval_path or baseline.mini_eval_paths)"
+        )
         record["score"] = float("inf")
         record["elapsed_s"] = float(time.time() - t0)
         return record
@@ -4563,12 +4949,16 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         if scratch_init_seed <= 0:
             raise ValueError("scratch_init_seed must be set (>0) for reproducible stage3 scratch init")
 
-        # Force step-budget mode: K=f1_steps is the only mini-train budget.
+        hf_epochs_cfg = int(cfg.get("hf_epochs", 0) or 0)
+        hf_inst_cfg = int(cfg.get("hf_instances_per_epoch", 0) or 0)
+
+        # Budget: step-mode uses K=f1_steps; epoch-mode uses hf_epochs/hf_instances_per_epoch.
         K = int(cfg.get("f1_steps", 32) or 32)
         cfg_hf = dict(cfg)
         cfg_hf["f1_steps"] = int(K)
-        cfg_hf["hf_epochs"] = 0
-        cfg_hf["hf_instances_per_epoch"] = 0
+        if not (hf_epochs_cfg > 0 and hf_inst_cfg > 0):
+            cfg_hf["hf_epochs"] = 0
+            cfg_hf["hf_instances_per_epoch"] = 0
         hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=device_str)
 
         valid_sizes = [int(v) for v in cfg_hf.get("valid_problem_sizes", list(hf_cfg.valid_problem_sizes))]
@@ -4850,6 +5240,7 @@ def run_pref_loss_coevo(
     metric_mode = _normalize_metric_mode(cfg_yaml.get("metric_mode", "minimize"))
     improve_eps = float(cfg_yaml.get("improve_eps", 0.0) or 0.0)
     eval_stages = _normalize_eval_stages(cfg_yaml)
+    stage3_multifidelity_cfg = _normalize_stage3_multifidelity_cfg(cfg_yaml.get("stage3_multifidelity", {}))
 
     cheap_gate_on = bool(cfg_yaml.get("cheap_gate_on", True))
     high_fidelity_on = bool(cfg_yaml.get("high_fidelity_on", True))
@@ -4936,6 +5327,61 @@ def run_pref_loss_coevo(
 
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
     LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+
+    improve_eps_calibration: Dict[str, Any] | None = None
+    if resume_state is not None:
+        raw_calib = resume_state.get("improve_eps_calibration")
+        if isinstance(raw_calib, dict):
+            improve_eps_calibration = dict(raw_calib)
+    else:
+        # Optional: calibrate `improve_eps` from baseline mini-train noise.
+        calib_cfg_yaml: Mapping[str, Any] = cfg_yaml
+        try:
+            if bool(stage3_multifidelity_cfg.get("enabled")) and stage3_multifidelity_cfg.get("rounds"):
+                calib_cfg_yaml = _apply_stage3_round_overrides(cfg_yaml, stage3_multifidelity_cfg["rounds"][-1])
+        except Exception:  # noqa: BLE001
+            calib_cfg_yaml = cfg_yaml
+        try:
+            improve_eps_calibration = _calibrate_improve_eps_from_baseline_noise(
+                cfg_yaml=calib_cfg_yaml,
+                operator_whitelist=operator_whitelist,
+                device_str=str(device_list[0] if device_list else "cuda"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("improve_eps calibration failed (ignored): %s", str(exc))
+            improve_eps_calibration = None
+        if isinstance(improve_eps_calibration, dict) and improve_eps_calibration.get("improve_eps") is not None:
+            try:
+                improve_eps = float(improve_eps_calibration["improve_eps"])
+                cfg_yaml["improve_eps"] = float(improve_eps)
+                LOGGER.info(
+                    "improve_eps calibrated: sigma_delta=%s improve_eps=%s fidelity=%s N=%s",
+                    improve_eps_calibration.get("sigma_delta"),
+                    float(improve_eps),
+                    improve_eps_calibration.get("fidelity"),
+                    improve_eps_calibration.get("N"),
+                )
+                _atomic_write_json(os.path.join(run_dir, "improve_eps_calibration.json"), improve_eps_calibration)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("Failed to apply calibrated improve_eps (ignored): %s", str(exc))
+
+    if bool(eval_stages.get("stage3_high_fidelity", True)) and bool(stage3_multifidelity_cfg.get("enabled")):
+        rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
+        rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
+        if len(rounds) >= 2:
+            baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+            if not isinstance(baseline_cfg, dict):
+                baseline_cfg = {}
+            missing: List[str] = []
+            for rc in rounds:
+                cfg_r = _apply_stage3_round_overrides(cfg_yaml, rc)
+                if not _resolve_stage3_baseline_mini_eval_path(cfg_r, baseline_cfg):
+                    missing.append(str(rc.get("name") or _stage3_fidelity_key(cfg_r)))
+            if missing:
+                raise RuntimeError(
+                    "stage3_multifidelity enabled but missing baseline.mini_eval_paths entries for: "
+                    + ", ".join(missing)
+                )
     if preset == "simple":
         ignored_keys = list(runtime_meta.get("ignored_advanced_keys", []))
         if ignored_keys:
@@ -5369,8 +5815,27 @@ def run_pref_loss_coevo(
                 int(early_eval_steps),
             )
     if resume_state is not None:
-        loaded = load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=eval_sig)
-        LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sig=%s)", loaded, eval_sig)
+        eval_sigs_to_load: List[str] = [str(eval_sig)]
+        if bool(stage3_multifidelity_cfg.get("enabled")) and stage3_multifidelity_cfg.get("rounds"):
+            rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
+            rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
+            for rc in rounds:
+                cfg_r = _apply_stage3_round_overrides(cfg_yaml, rc)
+                sig_hf_r = _build_hf_cfg(cfg_r, seed=int(seed), device_str="cpu")
+                sig_r = eval_budget_signature(
+                    cfg=sig_hf_r,
+                    proxy_problem_size=proxy_problem_size,
+                    proxy_batch_size=proxy_batch_size,
+                    proxy_batches=proxy_batches,
+                    proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
+                    extra_budget=micro_budget,
+                )
+                eval_sigs_to_load.append(str(sig_r))
+        eval_sigs_to_load = list(dict.fromkeys([str(s) for s in eval_sigs_to_load if str(s)]))
+        loaded_total = 0
+        for sig in eval_sigs_to_load:
+            loaded_total += int(load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=sig))
+        LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sigs=%s)", loaded_total, eval_sigs_to_load)
 
     if best_so_far is None:
         if baseline_early_valid is not None:
@@ -5413,6 +5878,7 @@ def run_pref_loss_coevo(
             },
             "metric_mode": str(metric_mode),
             "improve_eps": float(improve_eps),
+            "improve_eps_calibration": (dict(improve_eps_calibration) if isinstance(improve_eps_calibration, dict) else None),
             "eval_stages": dict(eval_stages),
             "last_generation": int(last_generation),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
@@ -5447,6 +5913,7 @@ def run_pref_loss_coevo(
             },
             "metric_mode": str(metric_mode),
             "improve_eps": float(improve_eps),
+            "improve_eps_calibration": (dict(improve_eps_calibration) if isinstance(improve_eps_calibration, dict) else None),
             "eval_stages": dict(eval_stages),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
             "best_score": (float(best_so_far.get("score")) if isinstance(best_so_far, dict) else None),
@@ -6327,13 +6794,13 @@ def run_pref_loss_coevo(
                     str(exc),
                 )
 
-            # Fixed builder for loss-search: prefer current best builder; fallback to g_ref.
-            if elites_g:
-                cand_g = str(elites_g[0].get("id") or "")
-                if cand_g and cand_g in compiled_g:
-                    fixed_builder_id = cand_g
             if (not fixed_builder_id) and isinstance(best_so_far, dict):
                 cand_g = str(best_so_far.get("builder_id") or "")
+                if cand_g and cand_g in compiled_g:
+                    fixed_builder_id = cand_g
+            # Fixed builder for loss-search: prefer current best (incumbent) builder; fallback to elites then g_ref.
+            if (not fixed_builder_id) and elites_g:
+                cand_g = str(elites_g[0].get("id") or "")
                 if cand_g and cand_g in compiled_g:
                     fixed_builder_id = cand_g
             if not fixed_builder_id and G_REF_ID in compiled_g:
@@ -6344,13 +6811,13 @@ def run_pref_loss_coevo(
                         fixed_builder_id = str(gid0)
                         break
 
-            # Fixed loss for pair-search: prefer current best loss; fallback to f_ref.
-            if elites_f:
-                cand_f = str(elites_f[0].get("id") or "")
-                if cand_f and cand_f in compiled_f:
-                    fixed_loss_id = cand_f
+            # Fixed loss for builder-search: prefer current best (incumbent) loss; fallback to elites then f_ref.
             if (not fixed_loss_id) and isinstance(best_so_far, dict):
                 cand_f = str(best_so_far.get("loss_id") or "")
+                if cand_f and cand_f in compiled_f:
+                    fixed_loss_id = cand_f
+            if (not fixed_loss_id) and elites_f:
+                cand_f = str(elites_f[0].get("id") or "")
                 if cand_f and cand_f in compiled_f:
                     fixed_loss_id = cand_f
             if not fixed_loss_id and F_REF_ID in compiled_f:
@@ -7323,7 +7790,7 @@ def run_pref_loss_coevo(
                     k = (str(rec.get("g_id")), str(rec.get("f_id")))
                     rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
 
-        # High-fidelity stage: evaluate only top-m by cheap proxy `score`.
+        # High-fidelity stage: offline mini-train.
         if stage3_hf_enabled:
             top_m = int(cfg_yaml.get("high_fidelity_top_m", max(1, min(len(pair_records), pairing_budget // 4))) or 1)
             # Stage3 must include *all* gate-passed pairs (no top-m truncation).
@@ -7540,6 +8007,253 @@ def run_pref_loss_coevo(
             for rec in pair_records:
                 k = (str(rec.get("g_id")), str(rec.get("f_id")))
                 rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
+
+            # Stage3 multi-fidelity promotion: re-run HF on a smaller pool with higher budgets.
+            if bool(stage3_multifidelity_cfg.get("enabled")):
+                rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
+                rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
+                if len(rounds) >= 2:
+                    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+                    if not isinstance(baseline_cfg, dict):
+                        baseline_cfg = {}
+
+                    base_fidelity = _stage3_fidelity_key(cfg_yaml)
+                    base_idx: int | None = None
+                    for i, rc in enumerate(rounds):
+                        cfg_i = _apply_stage3_round_overrides(cfg_yaml, rc)
+                        if _stage3_fidelity_key(cfg_i) == base_fidelity:
+                            base_idx = int(i)
+                            break
+                    if base_idx is None:
+                        LOGGER.warning(
+                            "stage3_multifidelity enabled but current fidelity=%s not found in rounds; assuming rounds[0] is the filter round.",
+                            str(base_fidelity),
+                        )
+                        base_idx = 0
+
+                    missing: List[str] = []
+                    for rc in rounds[base_idx:]:
+                        cfg_r = _apply_stage3_round_overrides(cfg_yaml, rc)
+                        if not _resolve_stage3_baseline_mini_eval_path(cfg_r, baseline_cfg):
+                            missing.append(str(rc.get("name") or _stage3_fidelity_key(cfg_r)))
+                    if missing:
+                        raise RuntimeError(
+                            "stage3_multifidelity enabled but missing baseline.mini_eval_paths entries for: "
+                            + ", ".join(missing)
+                        )
+
+                    pool_pairs: List[Tuple[str, str]] = [(str(r.get("g_id")), str(r.get("f_id"))) for r in selected]
+                    pool_pairs = [p for p in pool_pairs if p[0] and p[1]]
+
+                    for i in range(int(base_idx), int(len(rounds) - 1)):
+                        curr_round = dict(rounds[i])
+                        next_round = dict(rounds[i + 1])
+
+                        pool_records: List[Dict[str, Any]] = []
+                        for gid, fid in pool_pairs:
+                            rec = pair_records_map.get((str(gid), str(fid)))
+                            if isinstance(rec, dict):
+                                pool_records.append(rec)
+
+                        incumbent_ref_score = None
+                        if isinstance(best_so_far, dict):
+                            try:
+                                incumbent_ref_score = float(best_so_far.get("score"))
+                            except (TypeError, ValueError):
+                                incumbent_ref_score = None
+
+                        promote_top_m = int(curr_round.get("promote_top_m", 0) or 0)
+                        promote_if_better = bool(curr_round.get("promote_if_better_than_incumbent", False))
+                        always_include_inc = bool(curr_round.get("always_include_incumbent", True))
+                        always_pair = None
+                        if always_include_inc and isinstance(best_so_far, dict):
+                            inc_pair = (str(best_so_far.get("builder_id")), str(best_so_far.get("loss_id")))
+                            if inc_pair in set(pool_pairs):
+                                always_pair = inc_pair
+
+                        promoted = _select_stage3_promotions(
+                            pool_records,
+                            promote_top_m=int(promote_top_m),
+                            promote_if_better_than_incumbent=bool(promote_if_better),
+                            incumbent_ref_score=incumbent_ref_score,
+                            metric_mode=str(metric_mode),
+                            improve_eps=float(improve_eps),
+                            always_include_pair=always_pair,
+                        )
+                        always_promote_best = True if curr_round.get("always_promote_best") is None else bool(
+                            curr_round.get("always_promote_best")
+                        )
+                        if always_promote_best and pool_records:
+                            best_rec = None
+                            best_score = None
+                            for rec in pool_records:
+                                try:
+                                    s = float(rec.get("score", float("inf")))
+                                except (TypeError, ValueError):
+                                    continue
+                                if not math.isfinite(s):
+                                    continue
+                                if best_score is None or _is_better_than_reference(
+                                    cand_score=float(s),
+                                    reference_score=best_score,
+                                    metric_mode=str(metric_mode),
+                                    improve_eps=0.0,
+                                ):
+                                    best_score = float(s)
+                                    best_rec = rec
+                            if best_rec is not None:
+                                best_pair = (str(best_rec.get("g_id")), str(best_rec.get("f_id")))
+                                if best_pair not in promoted:
+                                    promoted.insert(0, best_pair)
+
+                        uniq: List[Tuple[str, str]] = []
+                        seen_prom: set[Tuple[str, str]] = set()
+                        for p in promoted:
+                            if p in seen_prom:
+                                continue
+                            uniq.append(p)
+                            seen_prom.add(p)
+                        promoted = uniq
+
+                        LOGGER.info(
+                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d promote_if_better=%s include_incumbent=%s",
+                            int(gen),
+                            str(curr_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, curr_round))),
+                            str(next_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, next_round))),
+                            int(len(promoted)),
+                            int(len(pool_pairs)),
+                            int(promote_top_m),
+                            str(bool(promote_if_better)),
+                            str(bool(always_include_inc)),
+                        )
+                        if not promoted:
+                            break
+
+                        cfg_round = _apply_stage3_round_overrides(cfg_yaml, next_round)
+                        fidelity_key = _stage3_fidelity_key(cfg_round)
+                        round_name = str(next_round.get("name") or fidelity_key)
+                        sig_hf_round = _build_hf_cfg(cfg_round, seed=int(seed), device_str="cpu")
+                        eval_sig_round = eval_budget_signature(
+                            cfg=sig_hf_round,
+                            proxy_problem_size=proxy_problem_size,
+                            proxy_batch_size=proxy_batch_size,
+                            proxy_batches=proxy_batches,
+                            proxy_weights={str(k): float(v) for k, v in dict(proxy_weights).items()},
+                            extra_budget=micro_budget,
+                        )
+
+                        hf_tasks2: List[Dict[str, Any]] = []
+                        for gid, fid in promoted:
+                            cache_key = (str(gid), str(fid), str(eval_sig_round))
+                            cached = caches.get_pair(cache_key)
+                            if isinstance(cached, dict) and str(cached.get("stage")) == "high_fidelity" and cached.get("fitness"):
+                                continue
+                            g_entry = g_map.get(str(gid))
+                            if not isinstance(g_entry, dict) and str(gid) == G_REF_ID:
+                                g_entry = {"id": str(G_REF_ID), "ir": asdict(_ref_builder_ir())}
+                            f_entry = f_map.get(str(fid))
+                            if not isinstance(f_entry, dict) and str(fid) == F_REF_ID:
+                                f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
+                            if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
+                                continue
+                            proxy_rec = pair_records_map.get((str(gid), str(fid)))
+                            device_str = device_list[int(len(hf_tasks2)) % len(device_list)]
+                            hf_tasks2.append(
+                                {
+                                    "generation": int(gen),
+                                    "pair_index": _safe_int((proxy_rec or {}).get("pair_index", -1), -1),
+                                    "g_entry": dict(g_entry),
+                                    "f_entry": dict(f_entry),
+                                    "cfg_yaml": dict(cfg_round),
+                                    "device_str": device_str,
+                                    "operator_whitelist": list(operator_whitelist),
+                                    "run_dir": str(run_dir),
+                                    "cheap_gate_on": False,
+                                    "high_fidelity_on": True,
+                                    "eval_budget_signature": str(eval_sig_round),
+                                    "proxy_record": dict(proxy_rec) if isinstance(proxy_rec, dict) else None,
+                                    "baseline_epoch_objectives": list(baseline_epoch_objectives) if baseline_epoch_objectives else None,
+                                    "baseline_early_valid": baseline_early_valid,
+                                    "early_eval_steps": int(early_eval_steps),
+                                }
+                            )
+
+                        hf_results2: List[Dict[str, Any]] = []
+                        if hf_tasks2:
+                            LOGGER.info(
+                                "HF MF round gen=%d: %s fidelity=%s pool=%d tasks=%d mp=%s procs=%d devices=%s",
+                                int(gen),
+                                str(round_name),
+                                str(fidelity_key),
+                                int(len(promoted)),
+                                int(len(hf_tasks2)),
+                                str(mp_enabled),
+                                int(mp_processes),
+                                dict(collections.Counter(str(t.get("device_str", "")) for t in hf_tasks2)),
+                            )
+                            if mp_enabled and mp_processes > 0 and len(hf_tasks2) > 1:
+                                import multiprocessing as mp
+
+                                ctx = mp.get_context(mp_start_method)
+                                procs = min(int(mp_processes), max(1, len(hf_tasks2)), max(1, len(device_list)))
+                                task_queue: Any = ctx.Queue()
+                                result_queue: Any = ctx.Queue()
+                                workers: List[Any] = []
+                                try:
+                                    for task in hf_tasks2:
+                                        task_queue.put(dict(task))
+                                    for _ in range(int(procs)):
+                                        task_queue.put(None)
+                                    for w_idx in range(int(procs)):
+                                        dev = device_list[int(w_idx) % len(device_list)]
+                                        p = ctx.Process(
+                                            target=_hf_pinned_device_worker,
+                                            args=(str(dev), task_queue, result_queue),
+                                        )
+                                        p.daemon = False
+                                        p.start()
+                                        workers.append(p)
+                                    for _ in range(int(len(hf_tasks2))):
+                                        hf_results2.append(dict(result_queue.get()))
+                                finally:
+                                    for p in workers:
+                                        p.join()
+                            else:
+                                for task in hf_tasks2:
+                                    hf_results2.append(_evaluate_pair_worker(task))
+
+                            fatal2 = [r for r in hf_results2 if isinstance(r, dict) and r.get("fatal_error")]
+                            if fatal2:
+                                first = dict(fatal2[0])
+                                raise RuntimeError(
+                                    f"Stage3 fatal error (round={round_name} pair={first.get('g_id')},{first.get('f_id')}): {first.get('fatal_error')}"
+                                )
+
+                        for hf_rec in hf_results2:
+                            gid = str(hf_rec.get("g_id"))
+                            fid = str(hf_rec.get("f_id"))
+                            cache_key = (gid, fid, str(eval_sig_round))
+                            merged = dict(pair_records_map.get((gid, fid), {}))
+                            merged.update(dict(hf_rec))
+                            merged["eval_budget_signature"] = str(eval_sig_round)
+                            merged["stage"] = "high_fidelity"
+                            merged["hf_round_name"] = str(round_name)
+                            merged["hf_fidelity_key"] = str(fidelity_key)
+                            merged["phase"] = pair_phase_by_pair.get((gid, fid), merged.get("phase", "coevo"))
+                            if isinstance(merged.get("fitness"), dict):
+                                merged["fitness"]["cheap_only"] = False
+                                merged["fitness"]["proxy_score"] = float(
+                                    merged.get("proxy_score", merged["fitness"].get("fitness_score", float("inf")))
+                                )
+                            caches.set_pair(cache_key, merged)
+                            pair_records_map[(gid, fid)] = merged
+
+                        pool_pairs = list(promoted)
+
+                        pair_records = [pair_records_map[(str(g), str(f))] for (g, f) in pairs]
+                        for rec in pair_records:
+                            k = (str(rec.get("g_id")), str(rec.get("f_id")))
+                            rec["phase"] = pair_phase_by_pair.get(k, rec.get("phase", "coevo"))
 
         # Stage annotations + incumbent-gating (better_than_incumbent).
         for rec in pair_records:
@@ -8085,9 +8799,9 @@ def run_pref_loss_coevo(
         hof_f = _update_hof(hof_f, candidates=elites_f, max_size=int(cfg_yaml.get("hof_size_f", 64) or 64))
 
         if elites_g:
-            _atomic_write_json(os.path.join(run_dir, "best_builder.json"), dict(elites_g[0]))
+            _atomic_write_json(os.path.join(run_dir, "best_elite_builder.json"), dict(elites_g[0]))
         if elites_f:
-            _atomic_write_json(os.path.join(run_dir, "best_loss.json"), dict(elites_f[0]))
+            _atomic_write_json(os.path.join(run_dir, "best_elite_loss.json"), dict(elites_f[0]))
 
         best_pair: Dict[str, Any] | None = None
         if isinstance(best_so_far, dict):
@@ -8114,6 +8828,36 @@ def run_pref_loss_coevo(
                 }
         if best_pair is not None:
             _atomic_write_json(os.path.join(run_dir, "best_pair.json"), best_pair)
+            gid_best = str(best_pair.get("g_id", "")).strip()
+            fid_best = str(best_pair.get("f_id", "")).strip()
+
+            best_builder = _best_pair_artifact_entry(
+                cid=gid_best,
+                best_pair=best_pair,
+                cid_key="g_id",
+                ir_key="g_ir",
+                candidate_map=g_map,
+                compiled_map=compiled_g,
+                ref_ir_fn=_ref_builder_ir if gid_best == G_REF_ID else None,
+            )
+            if best_builder is not None:
+                _atomic_write_json(os.path.join(run_dir, "best_builder.json"), dict(best_builder))
+            else:
+                LOGGER.warning("Failed to resolve best_builder.json for best_pair g_id=%s", gid_best)
+
+            best_loss = _best_pair_artifact_entry(
+                cid=fid_best,
+                best_pair=best_pair,
+                cid_key="f_id",
+                ir_key="f_ir",
+                candidate_map=f_map,
+                compiled_map=compiled_f,
+                ref_ir_fn=_ref_loss_ir if fid_best == F_REF_ID else None,
+            )
+            if best_loss is not None:
+                _atomic_write_json(os.path.join(run_dir, "best_loss.json"), dict(best_loss))
+            else:
+                LOGGER.warning("Failed to resolve best_loss.json for best_pair f_id=%s", fid_best)
 
         if bool(cfg_yaml.get("drop_pref_cache_after_generation", False)):
             dropped_end = caches.prune_pref_cache(keep_g_ids=[], keep_batch_ids=[])
