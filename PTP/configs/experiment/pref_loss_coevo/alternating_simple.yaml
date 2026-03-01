@@ -5,6 +5,19 @@ output_root: runs/pref_loss_alternating_simple
 
 metric_mode: minimize
 improve_eps: 0.0
+improve_eps_calibration:
+  enabled: true
+  N: 8
+  sigma_mult: 2.0
+  eps_floor: 0.0
+
+stage3_multifidelity:
+  enabled: true
+  rounds:
+    # Round-0: quick filter (淘汰明显差的)
+    - { name: K200, f1_steps: 200, promote_top_m: 32, promote_if_better_than_incumbent: true, always_include_incumbent: true }
+    # Round-1: confirmation (选真正的胜者)
+    - { name: K1000, f1_steps: 1000 }
 builder_min_coverage: 0.0
 seed_with_po4cops_default: false
 llm_init_only: true
@@ -59,7 +72,9 @@ policy_kwargs:
   po4cops_compat: true
 
 baseline:
-  mini_eval_path: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
+  mini_eval_paths:
+    200: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
+    1000: baseline/mini_eval/baseline_minitrain_tsp100_K1000.json
   checkpoints:
     - baseline/epoch_135.ckpt
     - baseline/epoch_409.ckpt
