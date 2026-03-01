@@ -1,0 +1,167 @@
+{
+  "generation": 2,
+  "index": 6,
+  "id": "f002_006_6b043c3e",
+  "signature": "6b043c3ef2a05abe7dbead8e243150e4b4f4bcf4",
+  "family": "rankgap_reweight_pairwise|delta_rank|logsigmoid|weighted_mean|clamp_stabilized",
+  "family_signature": "paradigm=rankgap_reweight_pairwise|signal=delta_rank|link=logsigmoid|agg=weighted_mean|constraint=clamp_stabilized",
+  "origin": "REPAIR",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "REPAIR",
+  "parents": [
+    "f001_006_48b06252"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "20e1910211dd944fb236b74c4d17aa4cb9b068b9",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+  "llm_seed": 398868574,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "prompt_sha1": "20e1910211dd944fb236b74c4d17aa4cb9b068b9"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "1c54c7b1da63ef6091f0291774cb0247851ecab5"
+    },
+    {
+      "attempt": 1,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "b85f10b18c52c1f924df3a676e568b3ac29e0075"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8888888888888888,
+    "best_similarity_parts": {
+      "bigram": 0.47368421052631576,
+      "unigram": 0.8888888888888888,
+      "call": 0.8
+    },
+    "neighbors": [
+      {
+        "sig": "48b06252c5f36b933189889e66482fe007e5029e",
+        "name": "loss_softplus_rankgap_zscore_weighted_mean_v1",
+        "similarity": 0.8888888888888888,
+        "similarity_parts": {
+          "bigram": 0.47368421052631576,
+          "unigram": 0.8888888888888888,
+          "call": 0.8
+        },
+        "call_names_top": [
+          "d_rank.detach",
+          "extra.get",
+          "float",
+          "hp.get",
+          "ops.clamp",
+          "ops.softplus",
+          "ops.zscore",
+          "sum",
+          "w_eff.sum"
+        ]
+      },
+      {
+        "sig": "c997d4542909dfd8fbabc628ea4324aa0837010f",
+        "name": "loss_softplus_margin_delta_regret_zclip",
+        "similarity": 0.6363636363636364,
+        "similarity_parts": {
+          "bigram": 0.16071428571428573,
+          "unigram": 0.6363636363636364,
+          "call": 0.42857142857142855
+        },
+        "call_names_top": [
+          "batch.get",
+          "dreg.detach",
+          "extra.get",
+          "float",
+          "hp.get",
+          "ops.clamp",
+          "ops.softplus",
+          "ops.zscore",
+          "per.mean",
+          "sum",
+          "w.sum"
+        ]
+      },
+      {
+        "sig": "3c7b2d7cbb768f24f478904c4f30af0f16fce322",
+        "name": "loss_logsigmoid_clamped_cost_gap_weighted_mean_m3",
+        "similarity": 0.6190476190476191,
+        "similarity_parts": {
+          "bigram": 0.20408163265306123,
+          "unigram": 0.6190476190476191,
+          "call": 0.38461538461538464
+        },
+        "call_names_top": [
+          "batch.get",
+          "detach",
+          "extra.get",
+          "hp.get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "per.mean",
+          "sum",
+          "w.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_rankgap_reweight_logsigmoid_clamped_weighted_mean_m3",
+    "intuition": "Fix the static gate by providing a non-empty `implementation_hint.expects`. Stabilize the original rank-gap reweighting by removing the swap-symmetry term (it cancels preference direction by making the loss even in the logit), and instead use a standard pairwise `-logsigmoid` on a clamped winner-minus-loser logit. Keep rank-based emphasis via a detached, z-scored `delta_rank` passed through `softplus`, and normalize nonnegative weights by their sum to prevent blow-ups when weights vary.",
+    "pseudocode": "x = clamp(alpha*scale*(lpw-lpl), -clamp_val, clamp_val)\nper = -logsigmoid(x)\nrn = clamp(zscore(detach(delta_rank)), -z_clip, z_clip)\nw_eff = clamp(weight,0,w_max) * softplus(rank_temp*rn)\nreturn sum(per*w_eff)/(sum(w_eff)+eps)",
+    "hyperparams": {
+      "paradigm_family": "rankgap_reweight_pairwise",
+      "signal_family": "delta_rank",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_mean",
+      "constraint_family": "clamp_stabilized",
+      "scale": 1.0,
+      "rank_temp": 1.0,
+      "z_clip": 3.0,
+      "clamp_val": 20.0,
+      "w_max": 1000000.0,
+      "weight_eps": 1e-12,
+      "alpha_default": 1.0
+    },
+    "operators_used": [
+      "logsigmoid",
+      "softplus",
+      "zscore",
+      "clamp"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "delta_rank",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    d_rank = batch['delta_rank']\n    weight = batch['weight']\n\n    hp = extra.get('hyperparams', {}) if extra is not None else {}\n\n    alpha = hp.get('alpha_default', 1.0)\n    if extra is not None:\n        alpha = extra.get('alpha', hp.get('alpha', alpha))\n\n    scale = hp.get('scale', 1.0)\n    rank_temp = hp.get('rank_temp', 1.0)\n    z_clip = hp.get('z_clip', 3.0)\n    clamp_val = hp.get('clamp_val', 20.0)\n    w_max = hp.get('w_max', 1.0e6)\n    weight_eps = hp.get('weight_eps', 1e-12)\n\n    x = alpha * scale * (lpw - lpl)\n    x = ops.clamp(x, -clamp_val, clamp_val)\n    per = -ops.logsigmoid(x)\n\n    rn = ops.zscore(d_rank.detach())\n    rn = ops.clamp(rn, -z_clip, z_clip)\n\n    w0 = ops.clamp(weight, 0.0, w_max)\n    w_rank = ops.softplus(rank_temp * rn)\n    w_eff = w0 * w_rank\n\n    denom = w_eff.sum() + weight_eps\n    return (per * w_eff).sum() / denom",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.019760218161140847,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

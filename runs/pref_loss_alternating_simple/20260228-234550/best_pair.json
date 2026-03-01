@@ -1,0 +1,269 @@
+{
+  "generation": 8,
+  "pair_index": 22,
+  "g_id": "g_ref",
+  "f_id": "f005_006_b7f93dcf",
+  "g_ir": {
+    "name": "ref_all_pairs_builder",
+    "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "ref_all_pairs"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+  },
+  "f_ir": {
+    "name": "loss_logsigmoid_ranktemp_center",
+    "intuition": "Use delta_rank as an ordinal preference-strength signal: pairs where the winner is much better (larger rank gap) should push a larger log-probability margin, while near-ties should be trained gently. Centering and clamping the rank gap makes the supervision robust to outliers and varying batch difficulty, and a temperature parameter controls how sharply rank differences translate into margin targets.",
+    "pseudocode": "dr = detach(delta_rank)\ndr_n = clamp(zscore(dr), -z_clip, z_clip)\ntarget = tau * tanh(dr_n)\nmargin = alpha * scale * (log_prob_w - log_prob_l) - target\nloss = mean_w( softplus(-margin) )",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "delta_rank",
+      "link_family": "softplus_margin",
+      "agg_family": "weighted_mean",
+      "constraint_family": "zscore_tanh_clamped",
+      "other_hparams": "scale=1.0,tau=0.5,z_clip=3.0,margin_clip=20.0,eps=1e-8"
+    },
+    "operators_used": [
+      "softplus",
+      "zscore",
+      "clamp",
+      "tanh"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_rank = batch['delta_rank']\n\n    hp = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0)))\n    scale = float(hp.get('scale', 1.0))\n    tau = float(hp.get('tau', 0.5))\n    z_clip = float(hp.get('z_clip', 3.0))\n    margin_clip = float(hp.get('margin_clip', 20.0))\n    eps = float(hp.get('eps', 1e-8))\n\n    dr = delta_rank.detach()\n    dr_n = ops.zscore(dr)\n    dr_n = ops.clamp(dr_n, -z_clip, z_clip)\n\n    target = tau * ops.tanh(dr_n)\n\n    margin = alpha * scale * (lpw - lpl) - target\n    margin = ops.clamp(margin, -margin_clip, margin_clip)\n\n    per = ops.softplus(-margin)\n    num = (per * weight).sum()\n    den = weight.sum() + eps\n    return num / den",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:0",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "e0ab3ab70b1ebd49",
+  "score": -0.009888947010040283,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 1.0,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": null,
+  "descriptor": null,
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": {
+    "failed_gate": null,
+    "failure_kind": null,
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 1.0,
+      "loss": 0.44109779596328735,
+      "loss_swap": 1.0330753326416016,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 0.44109779596328735
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [],
+    "variant": "visible"
+  },
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "elapsed_s": 187.4509994983673,
+  "stage": "high_fidelity",
+  "phase": "loss",
+  "proxy_score": 0.0,
+  "hf_log_file": "gen008_pair022_cuda_0_g_ref_f005_006_b7f93dcf.log",
+  "fitness": {
+    "per_init": {
+      "scratch": {
+        "obj_cand_by_size": {
+          "100": 8.193107724189758
+        },
+        "obj_base_by_size": {
+          "100": 8.219463229179382
+        },
+        "obj_cand": 8.193107724189758,
+        "obj_base": 8.219463229179382,
+        "delta": -0.026355504989624023,
+        "init_checkpoint": null,
+        "error": null
+      },
+      "ckpt_135": {
+        "obj_cand_by_size": {
+          "100": 7.805651068687439
+        },
+        "obj_base_by_size": {
+          "100": 7.806714296340942
+        },
+        "obj_cand": 7.805651068687439,
+        "obj_base": 7.806714296340942,
+        "delta": -0.001063227653503418,
+        "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/epoch_135.ckpt",
+        "error": null
+      },
+      "ckpt_409": {
+        "obj_cand_by_size": {
+          "100": 7.805609226226807
+        },
+        "obj_base_by_size": {
+          "100": 7.8078573346138
+        },
+        "obj_cand": 7.805609226226807,
+        "obj_base": 7.8078573346138,
+        "delta": -0.002248108386993408,
+        "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/epoch_409.ckpt",
+        "error": null
+      }
+    },
+    "delta_mean": -0.009888947010040283,
+    "delta_worst": -0.001063227653503418,
+    "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
+    "eval_signature": {
+      "protocol": "stage3_offline_minitrain_v1",
+      "env_name": "tsp",
+      "policy_name": "pomo",
+      "policy_kwargs": {
+        "po4cops_compat": true
+      },
+      "env_kwargs": {},
+      "rollout_strategy": "auto",
+      "objective_sign": "neg_reward",
+      "alpha": 0.05,
+      "K": 200,
+      "train_problem_size": 100,
+      "valid_problem_sizes": [
+        100
+      ],
+      "train_batch_size": 64,
+      "num_validation_episodes": 512,
+      "validation_batch_size": 64,
+      "pomo_size": null,
+      "learning_rate": 0.0003,
+      "weight_decay": 1e-06,
+      "size_aggregation": "mean",
+      "size_cvar_alpha": 0.2,
+      "scratch_init_seed": 12345,
+      "offline": {
+        "train": {
+          "path": "offline_data/tsp100_train.pt",
+          "sha1": "8b4a40df3e1b7214868960d948a12cfaa695ed9f"
+        },
+        "val": {
+          "100": {
+            "path": "offline_data/tsp100_val.pt",
+            "sha1": "3beabad5a248aa65eba00c1290aa947586c60361"
+          }
+        }
+      },
+      "checkpoints": {
+        "ckpt_135": {
+          "path": "baseline/epoch_135.ckpt",
+          "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+        },
+        "ckpt_409": {
+          "path": "baseline/epoch_409.ckpt",
+          "sha1": "a7cadfaaf32b0c8ae7930abc18775fb1b82864a0"
+        }
+      }
+    },
+    "valid_problem_sizes": [
+      100
+    ],
+    "K": 200,
+    "cheap_only": false,
+    "proxy_score": 0.0
+  },
+  "better_than_baseline_mean": true,
+  "better_than_baseline_strict": true,
+  "better_than_incumbent": true,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage1_proxy",
+    "stage3_high_fidelity"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled"
+  },
+  "stage_final": "high_fidelity",
+  "final_score": -0.009888947010040283,
+  "metric_mode": "minimize",
+  "compare_target": "incumbent",
+  "improve_eps": 0.0,
+  "last_phase_label": "baseline",
+  "last_phase_reference_score": Infinity,
+  "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
+  "reference_score": -0.009318053722381592,
+  "delta_vs_incumbent": 0.0005708932876586914,
+  "delta_vs_last_phase": Infinity,
+  "better_than_last_phase": true
+}

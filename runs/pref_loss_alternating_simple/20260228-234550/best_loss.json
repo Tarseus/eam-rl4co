@@ -1,0 +1,143 @@
+{
+  "generation": 5,
+  "index": 6,
+  "id": "f005_006_b7f93dcf",
+  "signature": "b7f93dcf1862edeb48237d4f8cf4368b66e1ee8c",
+  "family": "pairwise_margin|delta_rank|softplus_margin|weighted_mean|zscore_tanh_clamped",
+  "family_signature": "paradigm=pairwise_margin|signal=delta_rank|link=softplus_margin|agg=weighted_mean|constraint=zscore_tanh_clamped",
+  "origin": "E1",
+  "origin_base": "E1",
+  "op_type": "E1_GENERATE",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": "66bd2a3e12164b3084ef1d4a16c4de9178d292d3",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+  "llm_seed": 670375830,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1_GENERATE",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "prompt_sha1": "66bd2a3e12164b3084ef1d4a16c4de9178d292d3"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8235294117647058,
+    "best_similarity_parts": {
+      "bigram": 0.6129032258064516,
+      "unigram": 0.8235294117647058,
+      "call": 0.7272727272727273
+    },
+    "neighbors": [
+      {
+        "sig": "ad84516c4037c517449acd0dede7542caa7ea9da",
+        "name": "loss_softplus_centered_costgap_norm",
+        "similarity": 0.8235294117647058,
+        "similarity_parts": {
+          "bigram": 0.6129032258064516,
+          "unigram": 0.8235294117647058,
+          "call": 0.7272727272727273
+        },
+        "call_names_top": [
+          "detach",
+          "extra.get",
+          "float",
+          "hp.get",
+          "ops.clamp",
+          "ops.softplus",
+          "ops.zscore",
+          "sum",
+          "weight.sum"
+        ]
+      },
+      {
+        "sig": "c78ff59e7afe893160e5f87aaa3207ef1ce6dd03",
+        "name": "loss_logsigmoid_regret_tempnorm",
+        "similarity": 0.7777777777777778,
+        "similarity_parts": {
+          "bigram": 0.275,
+          "unigram": 0.7777777777777778,
+          "call": 0.6666666666666666
+        },
+        "call_names_top": [
+          "dreg.detach",
+          "extra.get",
+          "float",
+          "hp.get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.softplus",
+          "ops.zscore",
+          "sum",
+          "weight.sum"
+        ]
+      },
+      {
+        "sig": "5e66681041b3ef0b7c2b0f7b57b3775c73a7f5fa",
+        "name": "loss_logsigmoid_002_costmix_weighted_mean",
+        "similarity": 0.6666666666666666,
+        "similarity_parts": {
+          "bigram": 0.42424242424242425,
+          "unigram": 0.6666666666666666,
+          "call": 0.5
+        },
+        "call_names_top": [
+          "detach",
+          "extra.get",
+          "float",
+          "hp.get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "sum",
+          "weight.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_logsigmoid_ranktemp_center",
+    "intuition": "Use delta_rank as an ordinal preference-strength signal: pairs where the winner is much better (larger rank gap) should push a larger log-probability margin, while near-ties should be trained gently. Centering and clamping the rank gap makes the supervision robust to outliers and varying batch difficulty, and a temperature parameter controls how sharply rank differences translate into margin targets.",
+    "pseudocode": "dr = detach(delta_rank)\ndr_n = clamp(zscore(dr), -z_clip, z_clip)\ntarget = tau * tanh(dr_n)\nmargin = alpha * scale * (log_prob_w - log_prob_l) - target\nloss = mean_w( softplus(-margin) )",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "delta_rank",
+      "link_family": "softplus_margin",
+      "agg_family": "weighted_mean",
+      "constraint_family": "zscore_tanh_clamped",
+      "other_hparams": "scale=1.0,tau=0.5,z_clip=3.0,margin_clip=20.0,eps=1e-8"
+    },
+    "operators_used": [
+      "softplus",
+      "zscore",
+      "clamp",
+      "tanh"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_rank = batch['delta_rank']\n\n    hp = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hp.get('alpha', 1.0)))\n    scale = float(hp.get('scale', 1.0))\n    tau = float(hp.get('tau', 0.5))\n    z_clip = float(hp.get('z_clip', 3.0))\n    margin_clip = float(hp.get('margin_clip', 20.0))\n    eps = float(hp.get('eps', 1e-8))\n\n    dr = delta_rank.detach()\n    dr_n = ops.zscore(dr)\n    dr_n = ops.clamp(dr_n, -z_clip, z_clip)\n\n    target = tau * ops.tanh(dr_n)\n\n    margin = alpha * scale * (lpw - lpl) - target\n    margin = ops.clamp(margin, -margin_clip, margin_clip)\n\n    per = ops.softplus(-margin)\n    num = (per * weight).sum()\n    den = weight.sum() + eps\n    return num / den",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.009888947010040283,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
