@@ -373,13 +373,11 @@ _LOSS_FINGERPRINT_CACHE: Dict[str, Dict[str, Any]] = {}
 _BUILDER_FAMILY_KEYS = (
     "geometry_family",
     "cap_family",
-    "weight_family",
     "constraint_family",
 )
 _LOSS_FAMILY_KEYS = (
     "paradigm_family",
     "signal_family",
-    "link_family",
     "agg_family",
     "constraint_family",
 )
@@ -505,12 +503,44 @@ def _family_signature_from_tags(tags: Mapping[str, Any], *, ordered_keys: Sequen
     return "|".join(f"{str(key).replace('_family', '')}={_normalize_family_value(tags.get(str(key)))}" for key in ordered_keys)
 
 
+def _all_family_tags_unknown(tags: Mapping[str, Any], *, keys: Sequence[str]) -> bool:
+    if not isinstance(tags, Mapping):
+        return True
+    for key in keys:
+        if _normalize_family_value(tags.get(str(key))) != "unknown":
+            return False
+    return True
+
+
+def _maybe_coarsen_family_signature_str(sig: Any, *, keep_axes: Sequence[str]) -> str:
+    """Best-effort migration for older stored family_signature strings.
+
+    Expected format: 'axis=value|axis=value|...'. If parsing fails, returns the original string (or 'unknown').
+    """
+
+    text = str(sig or "").strip()
+    if not text:
+        return "unknown"
+    keep = {str(k).strip() for k in keep_axes if str(k).strip()}
+    if not keep:
+        return text
+
+    out_parts: list[str] = []
+    for part in text.split("|"):
+        part = str(part or "").strip()
+        if not part or "=" not in part:
+            continue
+        axis, value = part.split("=", 1)
+        axis = str(axis or "").strip()
+        if axis in keep:
+            out_parts.append(f"{axis}={_normalize_family_value(value)}")
+    return "|".join(out_parts) if out_parts else text
+
+
 def _builder_family_signature(ir_or_entry: Any) -> str:
     if isinstance(ir_or_entry, PreferenceBuilderIR):
         tags = _builder_family_tags(ir_or_entry)
     elif isinstance(ir_or_entry, Mapping):
-        if isinstance(ir_or_entry.get("family_signature"), str) and str(ir_or_entry.get("family_signature")).strip():
-            return str(ir_or_entry.get("family_signature"))
         ir_raw = ir_or_entry.get("ir")
         if isinstance(ir_raw, dict):
             try:
@@ -521,6 +551,12 @@ def _builder_family_signature(ir_or_entry: Any) -> str:
             tags = _family_tags_from_hparams(ir_or_entry.get("hyperparams", {}), keys=_BUILDER_FAMILY_KEYS)
     else:
         return "unknown"
+    if isinstance(ir_or_entry, Mapping) and _all_family_tags_unknown(tags, keys=_BUILDER_FAMILY_KEYS):
+        # Fallback for older checkpoints that only stored the signature string.
+        return _maybe_coarsen_family_signature_str(
+            ir_or_entry.get("family_signature"),
+            keep_axes=("geometry", "cap", "constraint"),
+        )
     return _family_signature_from_tags(tags, ordered_keys=_BUILDER_FAMILY_KEYS)
 
 
@@ -528,8 +564,6 @@ def _loss_family_signature(ir_or_entry: Any) -> str:
     if isinstance(ir_or_entry, FreeLossIR):
         tags = _loss_family_tags(ir_or_entry)
     elif isinstance(ir_or_entry, Mapping):
-        if isinstance(ir_or_entry.get("family_signature"), str) and str(ir_or_entry.get("family_signature")).strip():
-            return str(ir_or_entry.get("family_signature"))
         ir_raw = ir_or_entry.get("ir")
         if isinstance(ir_raw, dict):
             try:
@@ -540,6 +574,11 @@ def _loss_family_signature(ir_or_entry: Any) -> str:
             tags = _family_tags_from_hparams(ir_or_entry.get("hyperparams", {}), keys=_LOSS_FAMILY_KEYS)
     else:
         return "unknown"
+    if isinstance(ir_or_entry, Mapping) and _all_family_tags_unknown(tags, keys=_LOSS_FAMILY_KEYS):
+        return _maybe_coarsen_family_signature_str(
+            ir_or_entry.get("family_signature"),
+            keep_axes=("paradigm", "signal", "agg", "constraint"),
+        )
     return _family_signature_from_tags(tags, ordered_keys=_LOSS_FAMILY_KEYS)
 
 
@@ -552,7 +591,6 @@ def _loss_family_id(ir: FreeLossIR) -> str:
             [
                 _normalize_family_value(tags.get("paradigm_family")),
                 _normalize_family_value(tags.get("signal_family")),
-                _normalize_family_value(tags.get("link_family")),
                 _normalize_family_value(tags.get("agg_family")),
                 _normalize_family_value(tags.get("constraint_family")),
             ]
@@ -2030,18 +2068,18 @@ def _validate_builder_operator_contract(
                 reason="geometry_family_not_changed",
                 parent_tags=maj,
                 cand_tags=cand_tags,
-                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "weight_family"]},
+                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "constraint_family"]},
             )
         if (
             _normalize_family_value(cand_tags.get("cap_family")) == _normalize_family_value(maj.get("cap_family"))
-            and _normalize_family_value(cand_tags.get("weight_family")) == _normalize_family_value(maj.get("weight_family"))
+            and _normalize_family_value(cand_tags.get("constraint_family")) == _normalize_family_value(maj.get("constraint_family"))
         ):
             return False, _operator_contract_failure(
                 op_type=op,
                 reason="secondary_family_not_changed",
                 parent_tags=maj,
                 cand_tags=cand_tags,
-                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "weight_family"]},
+                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "constraint_family"]},
             )
     elif op == "BUILDER_STRUCTURE_SHIFT":
         parent = parent_irs[0] if parent_irs else None
@@ -2096,18 +2134,18 @@ def _validate_loss_operator_contract(
                 reason="paradigm_family_not_changed",
                 parent_tags=maj,
                 cand_tags=cand_tags,
-                required_change={"must_change": ["paradigm_family"], "must_also_change_one_of": ["signal_family", "link_family", "agg_family"]},
+                required_change={"must_change": ["paradigm_family"], "must_also_change_one_of": ["signal_family", "agg_family", "constraint_family"]},
             )
         if all(
             _normalize_family_value(cand_tags.get(key)) == _normalize_family_value(maj.get(key))
-            for key in ("signal_family", "link_family", "agg_family")
+            for key in ("signal_family", "agg_family", "constraint_family")
         ):
             return False, _operator_contract_failure(
                 op_type=op,
                 reason="secondary_family_not_changed",
                 parent_tags=maj,
                 cand_tags=cand_tags,
-                required_change={"must_change": ["paradigm_family"], "must_also_change_one_of": ["signal_family", "link_family", "agg_family"]},
+                required_change={"must_change": ["paradigm_family"], "must_also_change_one_of": ["signal_family", "agg_family", "constraint_family"]},
             )
     elif op == "LOSS_STRUCTURE_SHIFT":
         parent = parent_irs[0] if parent_irs else None
