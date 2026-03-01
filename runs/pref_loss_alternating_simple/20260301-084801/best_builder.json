@@ -1,35 +1,35 @@
 {
-  "generation": 13,
+  "generation": 17,
   "index": 4,
-  "id": "g013_004_c0b4eee5",
-  "signature": "c0b4eee5985f86f7b035c263949421a31a636ab2",
-  "family_signature": "geometry=dense_plus_anchor_star|cap=anchor_split_quantile_then_global_topk|weight=uniform_none|constraint=tie_zone_dedup_plus_normgap",
-  "origin": "E1",
-  "origin_base": "E1",
-  "op_type": "E1",
+  "id": "g017_004_01e3486f",
+  "signature": "01e3486feddd9ec2baa00dcd13de6a92cd90f4ca",
+  "family_signature": "geometry=rank_band_neighbors|cap=per_rank_band_budget|weight=soft_gap_sigmoid|constraint=rank_band_tie_zone_selfmask",
+  "origin": "PARADIGM_SHIFT",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "BUILDER_PARADIGM_SHIFT",
   "parents": [
+    "g013_007_eb87c942",
     "g012_000_fec925d1",
-    "g012_003_effc8fdf",
-    "g010_001_26a57220",
-    "g012_006_aa23c1b6",
-    "g012_002_089bc16f"
+    "g015_004_c2695b48",
+    "g013_004_c0b4eee5",
+    "g016_003_cf21ed7b"
   ],
   "attempt": 0,
-  "prompt_sha1": "b06ea06143d309f9189b81866ee90ccb506ce9fb",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
-  "llm_seed": 1824175633,
+  "prompt_sha1": "ffa8e2d3b56b20a81983c5d0d245c6a33e7eced6",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+  "llm_seed": 1296805983,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
-      "llm_op": "E1",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
-      "prompt_sha1": "b06ea06143d309f9189b81866ee90ccb506ce9fb"
+      "llm_op": "BUILDER_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "prompt_sha1": "ffa8e2d3b56b20a81983c5d0d245c6a33e7eced6"
     }
   ],
   "ir": {
-    "name": "builder_anchor_quantile_topk_normgap",
-    "intuition": "Combine a stable best-anchor star (always includes the clearest best-vs-worst comparisons) with dense all-pairs filtered by a tie-zone, then cap dense pairs via per-instance gap-quantile and a final global top-k on normalized gaps to keep supervision focused on decisive improvements while tightly controlling total pair count.",
+    "name": "builder_rank_band_neighbors_softw",
+    "intuition": "Paradigm shift from dense/all-pairs to rank-band neighbor pairing: compare each item only to a small window of nearby ranks (hard and semi-hard), yielding local ordering pressure with optional gap-shaped nonnegative weights.",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -39,25 +39,21 @@
       "mode": "pairwise"
     },
     "hyperparams": {
-      "geometry_family": "dense_plus_anchor_star",
-      "cap_family": "anchor_split_quantile_then_global_topk",
-      "weight_family": "uniform_none",
-      "constraint_family": "tie_zone_dedup_plus_normgap"
+      "geometry_family": "rank_band_neighbors",
+      "cap_family": "per_rank_band_budget",
+      "weight_family": "soft_gap_sigmoid",
+      "constraint_family": "rank_band_tie_zone_selfmask"
     },
     "operators_used": [
-      "all_pairs",
-      "tie_zone_filter",
-      "dedup",
-      "anchor_best",
-      "quantile",
+      "argsort",
+      "rank_band_neighbors",
+      "gather",
       "mask",
-      "topk_cap",
-      "normalize",
-      "clamp",
       "where",
-      "gather"
+      "clamp",
+      "sigmoid"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    hp = extra.get('hyperparams', {}) if extra is not None else {}\n\n    tie_eps = float(hp.get('tie_eps', 0.0))\n\n    # Total budget across batch (0 => uncapped). Split between anchor and dense.\n    max_pairs_total = int(hp.get('max_pairs_total', 0))\n    anchor_frac = float(hp.get('anchor_frac', 0.25))\n\n    # Anchor star controls (best beats up to anchor_k worst/most-separated).\n    anchor_k = int(hp.get('anchor_k', 4))\n    anchor_gap = float(hp.get('anchor_gap', tie_eps))\n\n    # Dense controls: per-instance quantile filter then global topk.\n    dense_keep_q = float(hp.get('dense_keep_q', 0.85))\n\n    # Normalization/clamping for stable scoring.\n    gap_clip = float(hp.get('gap_clip', 10.0))\n    eps = float(hp.get('eps', 1e-12))\n\n    B, N = objective.shape\n    device = objective.device\n\n    # Clamp helper values in Python scalars (deterministic, no randomness).\n    if anchor_frac < 0.0:\n        anchor_frac = 0.0\n    if anchor_frac > 1.0:\n        anchor_frac = 1.0\n    if dense_keep_q < 0.0:\n        dense_keep_q = 0.0\n    if dense_keep_q > 1.0:\n        dense_keep_q = 1.0\n\n    # -------- Dense all-pairs candidates (directed wins i -> j).\n    oi = objective[:, :, None]\n    oj = objective[:, None, :]\n    better = oi < oj\n    if tie_eps > 0.0:\n        better = better & ((oj - oi) > tie_eps)\n\n    b_d, i_d, j_d = better.nonzero(as_tuple=True)\n\n    # Symmetric de-dup: keep one representative per unordered pair.\n    keep = i_d < j_d\n    b_d = b_d[keep]\n    i_d = i_d[keep]\n    j_d = j_d[keep]\n\n    gap_d = objective[b_d, j_d] - objective[b_d, i_d]\n\n    # -------- Anchor star (best -> top-gap losers).\n    b_a = objective.new_empty((0,), dtype=torch.long)\n    i_a = objective.new_empty((0,), dtype=torch.long)\n    j_a = objective.new_empty((0,), dtype=torch.long)\n    gap_a = objective.new_empty((0,), dtype=objective.dtype)\n\n    if anchor_k > 0 and N > 1:\n        best = objective.argmin(dim=1)  # (B,)\n        best_obj = objective.gather(1, best[:, None])  # (B,1)\n        gap_to_best = objective - best_obj  # (B,N)\n\n        valid = gap_to_best > anchor_gap\n        valid.scatter_(1, best[:, None], False)\n\n        neg_inf = torch.finfo(objective.dtype).min\n        scores = torch.where(valid, gap_to_best, neg_inf)\n\n        k_eff = anchor_k\n        if k_eff < 1:\n            k_eff = 1\n        if k_eff > (N - 1):\n            k_eff = N - 1\n\n        top = torch.topk(scores, k=k_eff, dim=1, largest=True, sorted=False)\n        loser = top.indices  # (B,k_eff)\n        picked = top.values > (neg_inf / 2)\n\n        b2 = torch.arange(B, device=device)[:, None].expand(B, k_eff)\n        w2 = best[:, None].expand(B, k_eff)\n\n        b_a = b2[picked]\n        i_a = w2[picked]\n        j_a = loser[picked]\n        gap_a = objective[b_a, j_a] - objective[b_a, i_a]\n\n    # -------- Budgeting.\n    if max_pairs_total is not None and max_pairs_total > 0:\n        anchor_budget = int(round(max_pairs_total * anchor_frac))\n        if anchor_budget < 0:\n            anchor_budget = 0\n        if anchor_budget > max_pairs_total:\n            anchor_budget = max_pairs_total\n        dense_budget = max_pairs_total - anchor_budget\n\n        # Cap anchors by raw gap (already high-signal).\n        if anchor_budget <= 0:\n            b_a = b_a[:0]\n            i_a = i_a[:0]\n            j_a = j_a[:0]\n            gap_a = gap_a[:0]\n        elif b_a.numel() > anchor_budget:\n            vals, sel = torch.topk(gap_a, k=anchor_budget, largest=True, sorted=False)\n            ok = vals.isfinite()\n            sel = sel[ok]\n            b_a = b_a[sel]\n            i_a = i_a[sel]\n            j_a = j_a[sel]\n            gap_a = gap_a[sel]\n\n        # Dense: per-instance quantile filter on gap, then global topk on normalized gap.\n        if dense_budget <= 0:\n            b_d = b_d[:0]\n            i_d = i_d[:0]\n            j_d = j_d[:0]\n            gap_d = gap_d[:0]\n        elif b_d.numel() > 0:\n            # Per-instance thresholds: quantile over winners' positive gaps only.\n            # Build per-instance gap list in [B, Pmax] with -inf padding.\n            counts = torch.bincount(b_d, minlength=B)\n            Pmax = int(counts.max().item()) if B > 0 else 0\n            if Pmax > 0:\n                neg_inf = torch.finfo(objective.dtype).min\n                gmat = objective.new_full((B, Pmax), neg_inf)\n                # Compute positions within each batch via stable sort by b_d.\n                order = torch.argsort(b_d)\n                b_s = b_d[order]\n                i_s = i_d[order]\n                j_s = j_d[order]\n                g_s = gap_d[order]\n\n                new_grp = torch.ones(b_s.numel(), dtype=torch.bool, device=device)\n                if b_s.numel() > 1:\n                    new_grp[1:] = b_s[1:] != b_s[:-1]\n                grp = new_grp.long().cumsum(dim=0) - 1  # group id in sorted-by-b\n\n                starts = torch.zeros(B, dtype=torch.long, device=device)\n                if B > 1:\n                    starts[1:] = counts.cumsum(dim=0)[:-1]\n                pos = torch.arange(b_s.numel(), device=device, dtype=torch.long) - starts[b_s]\n\n                gmat[b_s, pos] = g_s\n\n                thr = torch.quantile(gmat, dense_keep_q, dim=1)  # (B,)\n                thr = thr.where(counts > 0, thr.new_full((), float('inf')))\n\n                keep_q = gap_d >= thr[b_d]\n                b_d = b_d[keep_q]\n                i_d = i_d[keep_q]\n                j_d = j_d[keep_q]\n                gap_d = gap_d[keep_q]\n\n            # Normalize gaps for stable global topk.\n            if b_d.numel() > dense_budget and dense_budget > 0:\n                mean = gap_d.mean()\n                var = (gap_d - mean).pow(2).mean()\n                std = (var + eps).sqrt()\n                gnorm = (gap_d - mean) / (std + eps)\n                gnorm = gnorm.clamp(-gap_clip, gap_clip)\n\n                vals, sel = torch.topk(gnorm, k=dense_budget, largest=True, sorted=False)\n                ok = vals.isfinite()\n                sel = sel[ok]\n                b_d = b_d[sel]\n                i_d = i_d[sel]\n                j_d = j_d[sel]\n\n    # Concatenate dense + anchor.\n    if b_a.numel() > 0:\n        b_out = torch.cat([b_d, b_a], dim=0)\n        i_out = torch.cat([i_d, i_a], dim=0)\n        j_out = torch.cat([j_d, j_a], dim=0)\n    else:\n        b_out, i_out, j_out = b_d, i_d, j_d\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_out, i_out, j_out),\n        weight=None,\n        meta={\n            'builder': 'anchor_quantile_topk_normgap',\n            'tie_eps': float(tie_eps),\n            'max_pairs_total': int(max_pairs_total) if max_pairs_total is not None else 0,\n            'anchor_k': int(anchor_k),\n            'anchor_gap': float(anchor_gap),\n            'anchor_frac': float(anchor_frac),\n            'dense_keep_q': float(dense_keep_q),\n            'gap_clip': float(gap_clip),\n        },\n    )"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    hp = extra.get('hyperparams', {}) if extra is not None else {}\n\n    tie_eps = float(hp.get('tie_eps', 0.0))\n\n    # Rank-band geometry: compare each rank position p to a few worse ranks p+d.\n    # hard_band => closest neighbors; semi_band => a bit further away.\n    hard_band = int(hp.get('hard_band', 2))\n    semi_band = int(hp.get('semi_band', 6))\n\n    # If >0, cap total emitted pairs per instance by taking top-k weights.\n    max_pairs_per_instance = int(hp.get('max_pairs_per_instance', 0))\n\n    # Optional soft weights based on gap in objective.\n    w_temp = float(hp.get('w_temp', 1.0))\n    w_clip = float(hp.get('w_clip', 50.0))\n\n    B, N = objective.shape\n    device = objective.device\n\n    if N <= 1:\n        b_empty = objective.new_empty((0,), dtype=torch.long)\n        i_empty = objective.new_empty((0,), dtype=torch.long)\n        j_empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(b_empty, i_empty, j_empty), weight=None, meta={'builder': 'rank_band_neighbors_softw', 'tie_eps': float(tie_eps), 'hard_band': int(hard_band), 'semi_band': int(semi_band), 'max_pairs_per_instance': int(max_pairs_per_instance)})\n\n    # Sort by objective ascending (lower is better). pos 0 is best.\n    order = torch.argsort(objective, dim=1, descending=False)  # (B,N)\n\n    # Rank positions for winners p and offsets d where loser is at p+d (worse).\n    d_hard = hard_band\n    d_semi = semi_band\n    if d_hard < 0:\n        d_hard = 0\n    if d_semi < d_hard:\n        d_semi = d_hard\n    if d_semi > (N - 1):\n        d_semi = N - 1\n\n    # Build offset vector: [1..d_hard] U [d_hard+2..d_semi+1] (skip immediate boundary to diversify).\n    # Implemented without Python loops over pairs: construct two arange blocks.\n    off1 = torch.arange(1, d_hard + 1, device=device, dtype=torch.long) if d_hard > 0 else torch.empty((0,), device=device, dtype=torch.long)\n    start2 = d_hard + 2\n    off2 = torch.arange(start2, d_semi + 2, device=device, dtype=torch.long) if d_semi + 1 >= start2 else torch.empty((0,), device=device, dtype=torch.long)\n    offsets = torch.cat([off1, off2], dim=0)\n\n    K = int(offsets.numel())\n    if K == 0:\n        b_empty = objective.new_empty((0,), dtype=torch.long)\n        i_empty = objective.new_empty((0,), dtype=torch.long)\n        j_empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(b_empty, i_empty, j_empty), weight=None, meta={'builder': 'rank_band_neighbors_softw', 'tie_eps': float(tie_eps), 'hard_band': int(hard_band), 'semi_band': int(semi_band), 'max_pairs_per_instance': int(max_pairs_per_instance)})\n\n    p = torch.arange(N, device=device, dtype=torch.long)  # (N,)\n    p2 = p[:, None]  # (N,1)\n    q = p2 + offsets[None, :]  # (N,K)\n\n    valid_pq = q < N  # (N,K)\n\n    # Map (rank positions) -> (item indices).\n    p_idx = p2.expand(N, K)\n    p_idx = torch.where(valid_pq, p_idx, p_idx.new_zeros(()))\n    q_idx = torch.where(valid_pq, q, q.new_zeros(()))\n\n    winners = order[:, p_idx]  # (B,N,K)\n    losers = order[:, q_idx]   # (B,N,K)\n\n    # Compute gap (loser - winner) in objective space.\n    obj_w = objective.gather(1, winners.reshape(B, -1)).reshape(B, N, K)\n    obj_l = objective.gather(1, losers.reshape(B, -1)).reshape(B, N, K)\n    gap = obj_l - obj_w  # (B,N,K)\n\n    # Keep only strict improvements and not near ties.\n    keep = valid_pq[None, :, :].expand(B, N, K) & (gap > 0)\n    if tie_eps > 0.0:\n        keep = keep & (gap > tie_eps)\n\n    # Flatten to pair list.\n    keep_f = keep.reshape(-1)\n    if keep_f.any():\n        # Build flattened indices without iterating pairs.\n        b_grid = torch.arange(B, device=device, dtype=torch.long)[:, None, None].expand(B, N, K)\n        b_idx = b_grid.reshape(-1)[keep_f]\n        i_idx = winners.reshape(-1)[keep_f]\n        j_idx = losers.reshape(-1)[keep_f]\n\n        # Optional nonnegative soft weights emphasizing larger gaps but saturating.\n        g = gap.reshape(-1)[keep_f]\n        if w_temp <= 0.0:\n            w_temp = 1.0\n        x = (g / w_temp).clamp(-w_clip, w_clip)\n        weight = torch.sigmoid(x)\n\n        # Optional per-instance cap: keep top-k weights per batch item.\n        if max_pairs_per_instance is not None and max_pairs_per_instance > 0:\n            score = objective.new_full((B, N, N), 0.0)\n            score[b_idx, i_idx, j_idx] = weight\n            flat = score.reshape(B, N * N)\n            k_eff = max_pairs_per_instance\n            if k_eff < 1:\n                k_eff = 1\n            if k_eff > flat.shape[1]:\n                k_eff = flat.shape[1]\n            vals, idx = flat.topk(k_eff, dim=1, largest=True, sorted=False)\n            valid = vals > 0\n            b2 = valid.nonzero(as_tuple=True)[0]\n            pos = idx[valid]\n            i2 = pos // N\n            j2 = pos - i2 * N\n            b_idx, i_idx, j_idx = b2, i2, j2\n            weight = vals[valid]\n\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx.to(torch.int64), i_idx.to(torch.int64), j_idx.to(torch.int64)),\n            weight=weight,\n            meta={\n                'builder': 'rank_band_neighbors_softw',\n                'tie_eps': float(tie_eps),\n                'hard_band': int(hard_band),\n                'semi_band': int(semi_band),\n                'max_pairs_per_instance': int(max_pairs_per_instance),\n                'w_temp': float(w_temp),\n                'w_clip': float(w_clip),\n            },\n        )\n    else:\n        b_empty = objective.new_empty((0,), dtype=torch.long)\n        i_empty = objective.new_empty((0,), dtype=torch.long)\n        j_empty = objective.new_empty((0,), dtype=torch.long)\n        return PrefBatch(mode='pairwise', pair_idx=(b_empty, i_empty, j_empty), weight=None, meta={'builder': 'rank_band_neighbors_softw', 'tie_eps': float(tie_eps), 'hard_band': int(hard_band), 'semi_band': int(semi_band), 'max_pairs_per_instance': int(max_pairs_per_instance)})"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -68,7 +64,7 @@
     "checks": [
       {
         "metric_name": "pair_count",
-        "observed_value": 992,
+        "observed_value": 568,
         "threshold": 1,
         "direction": ">="
       },
@@ -80,7 +76,7 @@
       },
       {
         "metric_name": "max_pairs_per_instance",
-        "observed_value": 124,
+        "observed_value": 71,
         "threshold": 8192,
         "direction": "<="
       },
@@ -92,7 +88,7 @@
       }
     ]
   },
-  "fitness": 0.0017569263776143391,
+  "fitness": -0.004857122898101807,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
