@@ -515,9 +515,27 @@ _PAIRWISE_SUPPORTED_KEYS: Set[str] = {
     "log_prob_l",
     "cost_a",
     "cost_b",
+    "cost_gap",
     "delta_z",
     "delta_rank",
     "delta_regret",
+    "seq_len_w",
+    "seq_len_l",
+    "seq_len_gap",
+    "log_prob_w_mean",
+    "log_prob_l_mean",
+    "log_prob_mean_gap",
+    "advantage_w",
+    "advantage_l",
+    "advantage_gap",
+    "entropy_w",
+    "entropy_l",
+    "entropy_gap",
+    "entropy_w_mean",
+    "entropy_l_mean",
+    "entropy_mean_gap",
+    "log_prob_step_w",
+    "log_prob_step_l",
     "weight",
 }
 
@@ -536,6 +554,10 @@ _PAIRWISE_REQUIRED_OBJECTIVE_SIGNAL: Set[str] = {
     "delta_regret",
     "cost_a",
     "cost_b",
+    "cost_gap",
+    "advantage_w",
+    "advantage_l",
+    "advantage_gap",
 }
 
 _SETWISE_REQUIRED_LOGPROB: Set[str] = {"log_prob"}
@@ -626,7 +648,8 @@ def run_static_gates(
                 ok=False,
                 reason=(
                     "implementation_hint.expects must include at least one objective signal "
-                    "from {delta_z, delta_rank, delta_regret, cost_a, cost_b}."
+                    "from {delta_z, delta_rank, delta_regret, cost_a, cost_b, cost_gap, "
+                    "advantage_w, advantage_l, advantage_gap}."
                 ),
             )
         extra = expects_set - _PAIRWISE_SUPPORTED_KEYS

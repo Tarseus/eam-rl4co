@@ -11,6 +11,12 @@ import torch
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_LOSS_OBSERVABLES: Tuple[str, ...] = (
+    "seq_len",
+    "log_prob_mean",
+    "advantage",
+)
+
 
 @dataclass
 class HighFidelityConfig:
@@ -56,6 +62,7 @@ class HighFidelityConfig:
     size_aggregation: str = "cvar"  # one of: legacy, mean, cvar, worst
     size_cvar_alpha: float = 0.2
     pool_version: str = "v0"
+    loss_observables: Sequence[str] = DEFAULT_LOSS_OBSERVABLES
 
 
 def resolve_pomo_size(pomo_size: int | None, problem_size: int) -> int:

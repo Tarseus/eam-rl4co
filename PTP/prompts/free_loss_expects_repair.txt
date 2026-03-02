@@ -10,8 +10,13 @@ Rules:
 - Keep the same `code` (do not rewrite unless necessary to align expects).
 - Ensure `intuition` is non-empty; if missing, add a short explanation consistent with the code.
 - Output a clean `implementation_hint.expects` list:
-  - If mode="pairwise": must include "log_prob_w" and "log_prob_l", and at least one of
-    ["delta_z","delta_rank","delta_regret","cost_a","cost_b"].
+  - If mode="pairwise": must include "log_prob_w", "log_prob_l", and "weight", and at least one of
+    ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+  - Pairwise supported keys are:
+    ["log_prob_w","log_prob_l","weight","cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret",
+     "seq_len_w","seq_len_l","seq_len_gap","log_prob_w_mean","log_prob_l_mean","log_prob_mean_gap",
+     "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
+     "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].
   - If mode="setwise": must include "log_prob", and at least one of
     ["objective","obj_z","rank","regret"].
 - Set `implementation_hint.returns` to "scalar".

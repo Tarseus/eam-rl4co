@@ -320,6 +320,8 @@ class PO4COPsTSPPolicy(nn.Module):
         phase: str = "train",
         num_starts: int = 0,
         return_actions: bool = True,
+        return_entropy: bool = False,
+        return_sum_log_likelihood: bool = True,
         **unused_kwargs,
     ) -> dict:
         if num_starts is None or num_starts <= 0:
@@ -345,6 +347,7 @@ class PO4COPsTSPPolicy(nn.Module):
 
         actions = [first_action]
         log_probs = [torch.zeros_like(first_action, dtype=encoded_nodes.dtype)]
+        entropies = [torch.zeros_like(first_action, dtype=encoded_nodes.dtype)]
 
         decode_type = getattr(self, f"{phase}_decode_type", "sampling")
         if decode_type.startswith("multistart_"):
@@ -374,6 +377,9 @@ class PO4COPsTSPPolicy(nn.Module):
 
             prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1).clamp_min(1e-12)
             log_probs.append(prob.log())
+            if return_entropy:
+                probs_safe = probs.clamp_min(1e-12)
+                entropies.append(-(probs_safe * probs_safe.log()).sum(dim=2))
             actions.append(selected)
 
             selected_flat = selected.transpose(0, 1).reshape(-1)
@@ -382,13 +388,20 @@ class PO4COPsTSPPolicy(nn.Module):
             done = td_flat["done"]
 
         actions_3d = torch.stack(actions, dim=2)  # [B, S, T]
-        log_likelihood_2d = torch.stack(log_probs, dim=2).sum(dim=2)  # [B, S]
+        log_probs_3d = torch.stack(log_probs, dim=2)  # [B, S, T]
+        log_likelihood_2d = log_probs_3d.sum(dim=2)  # [B, S]
 
         actions_flat = actions_3d.permute(1, 0, 2).reshape(base_batch * num_starts, -1)
-        log_likelihood = log_likelihood_2d.transpose(0, 1).reshape(-1)
+        if return_sum_log_likelihood:
+            log_likelihood = log_likelihood_2d.transpose(0, 1).reshape(-1)
+        else:
+            log_likelihood = log_probs_3d.permute(1, 0, 2).reshape(base_batch * num_starts, -1)
         reward = env.get_reward(td_flat, actions_flat)
 
         out = {"reward": reward, "log_likelihood": log_likelihood}
         if return_actions:
             out["actions"] = actions_flat
+        if return_entropy:
+            entropy_2d = torch.stack(entropies, dim=2).sum(dim=2)
+            out["entropy"] = entropy_2d.transpose(0, 1).reshape(-1)
         return out

@@ -13,6 +13,7 @@ from torch.optim import Adam
 
 from .co_features import build_model_output, gather_pairwise_deltas
 from .ptp_high_fidelity import (
+    DEFAULT_LOSS_OBSERVABLES,
     HighFidelityConfig,
     _set_seed,
     resolve_pomo_size,
@@ -175,14 +176,97 @@ class PrefBatch:
         if weight is None:
             weight = torch.ones_like(logp_w_tensor)
 
-        return {
+        batch = {
             "cost_a": cost_a_tensor,
             "cost_b": cost_b_tensor,
+            "cost_gap": cost_b_tensor - cost_a_tensor,
             "log_prob_w": logp_w_tensor,
             "log_prob_l": logp_l_tensor,
             **pairwise_deltas,
             "weight": weight,
         }
+        optional_pairwise_keys = {
+            "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
+            "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
+            "advantage": ("advantage_w", "advantage_l", "advantage_gap"),
+            "entropy": ("entropy_w", "entropy_l", "entropy_gap"),
+            "entropy_mean": ("entropy_w_mean", "entropy_l_mean", "entropy_mean_gap"),
+            "log_prob_ref": ("log_prob_ref_w", "log_prob_ref_l", "log_prob_ref_gap"),
+            "log_prob_ratio": ("log_prob_ratio_w", "log_prob_ratio_l", "log_prob_ratio_gap"),
+        }
+        for key, (winner_key, loser_key, gap_key) in optional_pairwise_keys.items():
+            value = feature_cache.get(key)
+            if not isinstance(value, torch.Tensor):
+                continue
+            winner_value = value[b_idx, winner_idx]
+            loser_value = value[b_idx, loser_idx]
+            batch[winner_key] = winner_value
+            batch[loser_key] = loser_value
+            batch[gap_key] = loser_value - winner_value
+
+        step_log_prob = feature_cache.get("log_prob_step")
+        if isinstance(step_log_prob, torch.Tensor):
+            batch["log_prob_step_w"] = step_log_prob[b_idx, winner_idx]
+            batch["log_prob_step_l"] = step_log_prob[b_idx, loser_idx]
+
+        return batch
+
+
+def normalize_loss_observables(observables: Sequence[str] | None) -> Tuple[str, ...]:
+    values = observables if observables else DEFAULT_LOSS_OBSERVABLES
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        key = str(raw or "").strip()
+        if not key or key in seen:
+            continue
+        out.append(key)
+        seen.add(key)
+    return tuple(out) if out else DEFAULT_LOSS_OBSERVABLES
+
+
+def build_runtime_observables(
+    reward: torch.Tensor,
+    log_prob: torch.Tensor,
+    *,
+    observables: Sequence[str] | None,
+    seq_len: torch.Tensor | None = None,
+    log_prob_step: torch.Tensor | None = None,
+    entropy: torch.Tensor | None = None,
+    seq_len_fallback: int | float | None = None,
+) -> Dict[str, torch.Tensor]:
+    obs_set = set(normalize_loss_observables(observables))
+    extra: Dict[str, torch.Tensor] = {}
+
+    need_seq_len = bool(obs_set & {"seq_len", "log_prob_mean", "entropy_mean"})
+    seq_len_tensor: torch.Tensor | None = None
+    if need_seq_len:
+        if isinstance(seq_len, torch.Tensor):
+            seq_len_tensor = seq_len.to(device=log_prob.device, dtype=log_prob.dtype)
+        else:
+            fallback = float(seq_len_fallback if seq_len_fallback is not None else 1.0)
+            seq_len_tensor = torch.full_like(log_prob, fallback)
+        if "seq_len" in obs_set:
+            extra["seq_len"] = seq_len_tensor
+
+    if "log_prob_mean" in obs_set:
+        seq_len_safe = seq_len_tensor.clamp_min(1.0) if seq_len_tensor is not None else torch.ones_like(log_prob)
+        extra["log_prob_mean"] = log_prob / seq_len_safe
+    if "advantage" in obs_set:
+        extra["advantage"] = reward - reward.mean(dim=1, keepdim=True)
+    if "log_prob_step" in obs_set and isinstance(log_prob_step, torch.Tensor):
+        extra["log_prob_step"] = log_prob_step
+    if isinstance(entropy, torch.Tensor):
+        if "entropy" in obs_set:
+            extra["entropy"] = entropy
+        if "entropy" in obs_set or "entropy_mean" in obs_set:
+            if seq_len_tensor is None:
+                fallback = float(seq_len_fallback if seq_len_fallback is not None else 1.0)
+                seq_len_tensor = torch.full_like(log_prob, fallback)
+                if "seq_len" in obs_set and "seq_len" not in extra:
+                    extra["seq_len"] = seq_len_tensor
+            extra["entropy_mean"] = entropy / seq_len_tensor.clamp_min(1.0)
+    return extra
 
 
 class PrefBuilder(Protocol):
@@ -690,7 +774,7 @@ def _rl4co_objective_from_reward(reward: torch.Tensor, cfg: HighFidelityConfig) 
     return -reward
 
 
-def _rl4co_rollout(
+def _rl4co_rollout_full(
     env,
     policy,
     batch_size: int,
@@ -699,7 +783,10 @@ def _rl4co_rollout(
     phase: str,
     rollout_strategy: str,
     device: torch.device,
-) -> Tuple[torch.Tensor, torch.Tensor]:
+    return_actions: bool = False,
+    return_entropy: bool = False,
+    return_step_logp: bool = False,
+) -> Dict[str, torch.Tensor | None]:
     from rl4co.utils.ops import batchify, unbatchify
 
     gen = getattr(env, "generator", None)
@@ -716,16 +803,83 @@ def _rl4co_rollout(
     td = env.reset(batch)
 
     if rollout_strategy == "policy_multistart":
-        out = policy(td, env, phase=phase, num_starts=num_rollouts)
+        out = policy(
+            td,
+            env,
+            phase=phase,
+            num_starts=num_rollouts,
+            return_actions=return_actions,
+            return_entropy=return_entropy,
+            return_sum_log_likelihood=not return_step_logp,
+        )
         reward = unbatchify(out["reward"], num_rollouts)
-        log_likelihood = unbatchify(out["log_likelihood"], num_rollouts)
     else:
         td_rep = batchify(td, num_rollouts) if num_rollouts > 1 else td
-        out = policy(td_rep, env, phase=phase)
+        out = policy(
+            td_rep,
+            env,
+            phase=phase,
+            return_actions=return_actions,
+            return_entropy=return_entropy,
+            return_sum_log_likelihood=not return_step_logp,
+        )
         reward = unbatchify(out["reward"], num_rollouts)
-        log_likelihood = unbatchify(out["log_likelihood"], num_rollouts)
 
-    return reward, log_likelihood
+    raw_log_likelihood = out["log_likelihood"]
+    log_likelihood_step = None
+    if return_step_logp:
+        log_likelihood_step = unbatchify(raw_log_likelihood, num_rollouts)
+        log_likelihood = log_likelihood_step.sum(dim=-1)
+    else:
+        log_likelihood = unbatchify(raw_log_likelihood, num_rollouts)
+
+    actions = None
+    if return_actions and isinstance(out.get("actions"), torch.Tensor):
+        actions = unbatchify(out["actions"], num_rollouts)
+
+    entropy = None
+    if return_entropy and isinstance(out.get("entropy"), torch.Tensor):
+        entropy = unbatchify(out["entropy"], num_rollouts)
+
+    seq_len = None
+    if isinstance(actions, torch.Tensor):
+        seq_len = torch.full_like(log_likelihood, float(actions.shape[-1]))
+    elif isinstance(log_likelihood_step, torch.Tensor):
+        seq_len = torch.full_like(log_likelihood, float(log_likelihood_step.shape[-1]))
+
+    return {
+        "reward": reward,
+        "log_likelihood": log_likelihood,
+        "log_likelihood_step": log_likelihood_step,
+        "entropy": entropy,
+        "actions": actions,
+        "seq_len": seq_len,
+    }
+
+
+def _rl4co_rollout(
+    env,
+    policy,
+    batch_size: int,
+    num_rollouts: int,
+    *,
+    phase: str,
+    rollout_strategy: str,
+    device: torch.device,
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    out = _rl4co_rollout_full(
+        env,
+        policy,
+        batch_size,
+        num_rollouts,
+        phase=phase,
+        rollout_strategy=rollout_strategy,
+        device=device,
+        return_actions=False,
+        return_entropy=False,
+        return_step_logp=False,
+    )
+    return out["reward"], out["log_likelihood"]
 
 
 def _train_one_batch_with_free_loss_rl4co(
@@ -741,9 +895,13 @@ def _train_one_batch_with_free_loss_rl4co(
 ) -> Tuple[float, float, int]:
     batch_size = hf_cfg.train_batch_size
     num_rollouts = resolve_pomo_size(hf_cfg.pomo_size, hf_cfg.train_problem_size)
+    observables = set(normalize_loss_observables(getattr(hf_cfg, "loss_observables", None)))
+    want_seq_len = bool(observables & {"seq_len", "log_prob_mean", "entropy_mean"})
+    want_entropy = bool(observables & {"entropy", "entropy_mean"})
+    want_step_logp = "log_prob_step" in observables
 
     policy.train()
-    reward, log_likelihood = _rl4co_rollout(
+    rollout = _rl4co_rollout_full(
         env,
         policy,
         batch_size,
@@ -751,12 +909,26 @@ def _train_one_batch_with_free_loss_rl4co(
         phase="train",
         rollout_strategy=rollout_strategy,
         device=device,
+        return_actions=want_seq_len or want_step_logp,
+        return_entropy=want_entropy,
+        return_step_logp=want_step_logp,
     )
+    reward = rollout["reward"]
+    log_likelihood = rollout["log_likelihood"]
 
     objective = _rl4co_objective_from_reward(reward, hf_cfg)
     log_prob = log_likelihood
 
-    feature_cache = extract_feature_cache(objective, log_prob)
+    extra = build_runtime_observables(
+        reward,
+        log_prob,
+        observables=tuple(observables),
+        seq_len=rollout["seq_len"],
+        log_prob_step=rollout["log_likelihood_step"],
+        entropy=rollout["entropy"],
+        seq_len_fallback=hf_cfg.train_problem_size,
+    )
+    feature_cache = extract_feature_cache(objective, log_prob, extra=extra)
     pair_count = 0
 
     mode = getattr(compiled_loss.ir.implementation_hint, "mode", "pairwise")

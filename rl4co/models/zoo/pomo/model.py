@@ -1,4 +1,4 @@
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 import json
 from pathlib import Path
@@ -18,6 +18,21 @@ from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
+
+_DEFAULT_FREE_LOSS_OBSERVABLES = ("seq_len", "log_prob_mean", "advantage")
+
+
+def _normalize_free_loss_observables(observables: Sequence[str] | None) -> tuple[str, ...]:
+    values = observables if observables else _DEFAULT_FREE_LOSS_OBSERVABLES
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        key = str(raw or "").strip()
+        if not key or key in seen:
+            continue
+        out.append(key)
+        seen.add(key)
+    return tuple(out) if out else _DEFAULT_FREE_LOSS_OBSERVABLES
 
 
 class POMO(REINFORCE):
@@ -75,6 +90,7 @@ class POMO(REINFORCE):
         pref_builder_ir_json_path: str | None = None,
         pref_pair_json_path: str | None = None,
         pref_builder_kwargs: dict | None = None,
+        free_loss_observables: Sequence[str] | None = None,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
@@ -135,9 +151,12 @@ class POMO(REINFORCE):
         self.pref_builder_ir_json_path = pref_builder_ir_json_path
         self.pref_pair_json_path = pref_pair_json_path
         self.pref_builder_kwargs = {} if pref_builder_kwargs is None else dict(pref_builder_kwargs)
+        self.free_loss_observables = _normalize_free_loss_observables(free_loss_observables)
         self.free_loss = None
         self.pref_builder = None
         self._pref_extract_feature_cache = None
+        self._pref_build_runtime_observables = None
+        self._pref_batch_cls = None
         self._resolve_pref_pair_artifacts()
         if self.pref_pair_json_path and self.loss_type == "rl_loss" and self.free_loss_ir_json_path:
             self.loss_type = "free_loss"
@@ -171,7 +190,20 @@ class POMO(REINFORCE):
             td = self.augment(td)
 
         # Evaluate policy
-        out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+        policy_kwargs: dict[str, Any] = {"phase": phase, "num_starts": n_start}
+        if phase == "train" and self.loss_type == "free_loss":
+            observables = set(self.free_loss_observables)
+            want_actions = bool(observables & {"seq_len", "log_prob_mean", "entropy_mean", "log_prob_step"})
+            want_entropy = bool(observables & {"entropy", "entropy_mean"})
+            want_step_logp = "log_prob_step" in observables
+            policy_kwargs.update(
+                {
+                    "return_actions": want_actions,
+                    "return_entropy": want_entropy,
+                    "return_sum_log_likelihood": not want_step_logp,
+                }
+            )
+        out = self.policy(td, self.env, **policy_kwargs)
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
         reward = unbatchify(out["reward"], (n_aug, n_start))
@@ -179,7 +211,19 @@ class POMO(REINFORCE):
         # Training phase
         if phase == "train":
             assert n_start > 1, "num_starts must be > 1 during training"
-            log_likelihood = unbatchify(out["log_likelihood"], (n_aug, n_start))
+            raw_log_likelihood = out["log_likelihood"]
+            if self.loss_type == "free_loss" and raw_log_likelihood.ndim > 1:
+                log_likelihood_step = unbatchify(raw_log_likelihood, (n_aug, n_start))
+                log_likelihood = log_likelihood_step.sum(dim=-1)
+                out["log_likelihood_step"] = log_likelihood_step
+                out["log_likelihood"] = log_likelihood
+            else:
+                log_likelihood = unbatchify(raw_log_likelihood, (n_aug, n_start))
+                out["log_likelihood"] = log_likelihood
+            if self.loss_type == "free_loss" and isinstance(out.get("entropy"), torch.Tensor):
+                out["entropy"] = unbatchify(out["entropy"], (n_aug, n_start))
+            if self.loss_type == "free_loss" and isinstance(out.get("actions"), torch.Tensor):
+                out["actions"] = unbatchify(out["actions"], (n_aug, n_start))
             self.calculate_loss(td, batch, out, reward, log_likelihood)
             max_reward, max_idxs = reward.max(dim=-1)
             out.update({"max_reward": max_reward})
@@ -253,7 +297,7 @@ class POMO(REINFORCE):
             policy_out.update({"loss": loss, "pl_loss": loss.detach()})
             return policy_out
         if self.loss_type == "free_loss":
-            loss, pair_count = self._free_loss_loss_fn(reward, log_likelihood)
+            loss, pair_count = self._free_loss_loss_fn(reward, log_likelihood, policy_out)
             policy_out.update(
                 {
                     "loss": loss,
@@ -280,6 +324,31 @@ class POMO(REINFORCE):
         ir_obj = payload.get("ir", payload)
         ir = ir_from_json(ir_obj)
         self.free_loss = compile_free_loss(ir)
+
+    def _load_free_loss_runtime_helpers(self) -> None:
+        if (
+            self._pref_extract_feature_cache is not None
+            and self._pref_build_runtime_observables is not None
+            and self._pref_batch_cls is not None
+        ):
+            return
+
+        self._ensure_ptp_root_on_path()
+        try:
+            from fitness.free_loss_fidelity import (
+                PrefBatch,
+                build_runtime_observables,
+                extract_feature_cache,
+            )
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import PTP free-loss runtime modules. "
+                "Ensure the repository still contains the PTP/ directory."
+            ) from exc
+
+        self._pref_extract_feature_cache = extract_feature_cache
+        self._pref_build_runtime_observables = build_runtime_observables
+        self._pref_batch_cls = PrefBatch
 
     def _resolve_pref_pair_artifacts(self) -> None:
         if self.pref_pair_json_path is None:
@@ -347,7 +416,6 @@ class POMO(REINFORCE):
 
         self._ensure_ptp_root_on_path()
         try:
-            from fitness.free_loss_fidelity import extract_feature_cache
             from ptp_discovery.pref_builder_compiler import compile_preference_builder
             from ptp_discovery.pref_builder_ir import ir_from_json as pref_builder_ir_from_json
         except ImportError as exc:
@@ -355,6 +423,7 @@ class POMO(REINFORCE):
                 "Failed to import PTP preference-builder modules. "
                 "Ensure the repository still contains the PTP/ directory."
             ) from exc
+        self._load_free_loss_runtime_helpers()
 
         path = Path(self.pref_builder_ir_json_path).expanduser()
         if not path.is_file():
@@ -366,27 +435,60 @@ class POMO(REINFORCE):
         ir_obj = payload.get("ir", payload)
         ir = pref_builder_ir_from_json(ir_obj)
         self.pref_builder = compile_preference_builder(ir)
-        self._pref_extract_feature_cache = extract_feature_cache
 
     def _free_loss_loss_fn(
-        self, reward: torch.Tensor, log_likelihood: torch.Tensor
+        self, reward: torch.Tensor, log_likelihood: torch.Tensor, policy_out: dict
     ) -> tuple[torch.Tensor, torch.Tensor]:
         if self.free_loss is None:
             raise RuntimeError(
                 "free_loss is not compiled; check free_loss_ir_json_path."
             )
+        self._load_free_loss_runtime_helpers()
+        if self._pref_extract_feature_cache is None or self._pref_build_runtime_observables is None:
+            raise RuntimeError("Free-loss runtime helpers are not initialized.")
 
         objective = -reward
+        seq_len = None
+        seq_len_fallback = None
+        actions = policy_out.get("actions")
+        if isinstance(actions, torch.Tensor):
+            seq_len = torch.full_like(log_likelihood, float(actions.shape[-1]))
+        elif isinstance(policy_out.get("log_likelihood_step"), torch.Tensor):
+            seq_len = torch.full_like(
+                log_likelihood,
+                float(policy_out["log_likelihood_step"].shape[-1]),
+            )
+        else:
+            size_value = None
+            generator = getattr(self.env, "generator", None)
+            for attr in ("num_loc", "num_jobs", "num_job"):
+                value = getattr(generator, attr, None)
+                if value is not None:
+                    size_value = float(value)
+                    break
+            if size_value is not None:
+                seq_len_fallback = size_value
+                seq_len = torch.full_like(log_likelihood, size_value)
+
+        extra = self._pref_build_runtime_observables(
+            reward,
+            log_likelihood,
+            observables=self.free_loss_observables,
+            seq_len=seq_len,
+            log_prob_step=policy_out.get("log_likelihood_step"),
+            entropy=policy_out.get("entropy"),
+            seq_len_fallback=seq_len_fallback,
+        )
+        feature_cache = self._pref_extract_feature_cache(
+            objective=objective,
+            log_prob=log_likelihood,
+            extra=extra,
+        )
+
         loss_batch: dict[str, torch.Tensor]
         pair_count_value = 0
 
         if self.pref_builder is not None:
-            if self._pref_extract_feature_cache is None:
-                raise RuntimeError("Preference builder feature-cache extractor is not initialized.")
-            feature_cache = self._pref_extract_feature_cache(
-                objective=objective,
-                log_prob=log_likelihood,
-            )
             pref_batch = self.pref_builder.build_fn(
                 feature_cache,
                 {
@@ -408,18 +510,13 @@ class POMO(REINFORCE):
             b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)
             pair_count_value = int(b_idx.numel())
             if pair_count_value > 0:
-                cost_a = objective[b_idx, winner_idx]
-                cost_b = objective[b_idx, loser_idx]
-                logp_w = log_likelihood[b_idx, winner_idx]
-                logp_l = log_likelihood[b_idx, loser_idx]
-                weight = torch.ones_like(cost_a)
-                loss_batch = {
-                    "cost_a": cost_a,
-                    "cost_b": cost_b,
-                    "log_prob_w": logp_w,
-                    "log_prob_l": logp_l,
-                    "weight": weight,
-                }
+                if self._pref_batch_cls is None:
+                    raise RuntimeError("Preference batch class is not initialized.")
+                pref_batch = self._pref_batch_cls(
+                    mode="pairwise",
+                    pair_idx=(b_idx, winner_idx, loser_idx),
+                )
+                loss_batch = pref_batch.to_pairwise_loss_batch(feature_cache)
 
         pair_count = torch.tensor(
             float(pair_count_value), device=reward.device, dtype=reward.dtype
@@ -432,7 +529,7 @@ class POMO(REINFORCE):
 
         loss = self.free_loss.loss_fn(
             batch=loss_batch,
-            model_output={},
+            model_output=feature_cache,
             extra={"alpha": self.alpha},
         )
         return loss, pair_count
