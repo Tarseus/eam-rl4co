@@ -424,6 +424,38 @@ def _sig_free_loss(ir: FreeLossIR) -> str:
     return _sig(asdict(ir))
 
 
+def _free_loss_code_digest(ir: FreeLossIR, *, preview_chars: int = 200) -> Dict[str, Any]:
+    code = str(getattr(ir, "code", "") or "")
+    n = max(int(preview_chars), 0)
+    prefix = code[:n]
+    suffix = code[-n:] if n > 0 and len(code) > n else code
+    return {
+        "sha1": sha1(code.encode("utf-8")).hexdigest(),
+        "length": int(len(code)),
+        "prefix": prefix,
+        "suffix": suffix,
+    }
+
+
+def _configure_loss_llm_for_worker(*, cfg: Mapping[str, Any], run_dir: str | None) -> None:
+    loss_cfg = cfg.get("loss_llm", {}) if isinstance(cfg.get("loss_llm"), dict) else {}
+    offline_mode = bool(loss_cfg.get("offline_mode", cfg.get("llm_offline_mode", False)))
+    loss_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=offline_mode)
+
+
+def _pop_joint_gate_repair_reports(record: Mapping[str, Any] | None) -> List[Dict[str, Any]]:
+    if not isinstance(record, dict):
+        return []
+    reports = record.pop("joint_gate_repair_reports", None)
+    if not isinstance(reports, list):
+        return []
+    out: List[Dict[str, Any]] = []
+    for rep in reports:
+        if isinstance(rep, dict):
+            out.append(dict(rep))
+    return out
+
+
 _LOSS_FINGERPRINT_CACHE: Dict[str, Dict[str, Any]] = {}
 
 _BUILDER_FAMILY_KEYS = (
@@ -4791,6 +4823,11 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         record["seed_signature"] = proxy_record.get("seed_signature")
         record["descriptor"] = proxy_record.get("descriptor")
         record["proxy_score"] = proxy_record.get("score", proxy_record.get("proxy_score"))
+    record["joint_gate_repaired"] = False
+    record["joint_gate_repair_attempts"] = 0
+    record["f_id_before_repair"] = None
+    record["f_id_after_repair"] = None
+    record["joint_gate_repair_reports"] = []
 
     try:
         compiled_g = compile_preference_builder(g_ir, operator_whitelist=operator_whitelist)
@@ -4841,16 +4878,215 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         semantic_tolerance=float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
         semantic_min_pass_rate=float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
     )
+    joint_min_pass_rate = float(cfg.get("joint_min_pass_rate", 0.8) or 0.8)
+    joint_swap_tolerance = float(cfg.get("joint_swap_tolerance", 1e-3) or 1e-3)
+    joint_swap_check_mode = str(cfg.get("joint_swap_check_mode", "data") or "data")
+    joint_swap_test_margin = float(cfg.get("joint_swap_test_margin", 1.0) or 1.0)
+    joint_grad_eps = float(cfg.get("joint_grad_eps", 1e-8) or 1e-8)
+    joint_min_effective_grad_ratio = float(
+        cfg.get("joint_min_effective_grad_ratio", 0.1) or 0.1
+    )
     joint_gate = run_joint_preference_gates(
         compiled_f,
         pref_batch=pref_batch,
         feature_cache=feature_cache,
-        min_pass_rate=float(cfg.get("joint_min_pass_rate", 0.8) or 0.8),
-        swap_tolerance=float(cfg.get("joint_swap_tolerance", 1e-3) or 1e-3),
-        grad_eps=float(cfg.get("joint_grad_eps", 1e-8) or 1e-8),
-        min_effective_grad_ratio=float(cfg.get("joint_min_effective_grad_ratio", 0.1) or 0.1),
+        min_pass_rate=joint_min_pass_rate,
+        swap_tolerance=joint_swap_tolerance,
+        swap_check_mode=joint_swap_check_mode,
+        swap_test_margin=joint_swap_test_margin,
+        grad_eps=joint_grad_eps,
+        min_effective_grad_ratio=joint_min_effective_grad_ratio,
         variant="visible",
     )
+    joint_gate_repair_reports: List[Dict[str, Any]] = []
+    repair_enabled = bool(cfg.get("joint_gate_repair_enabled", False))
+    try:
+        repair_max_attempts = max(int(cfg.get("joint_gate_repair_max_attempts", 2)), 0)
+    except (TypeError, ValueError):
+        repair_max_attempts = 2
+    repair_prompt_path = _abs_from_repo_root(
+        str(
+            cfg.get(
+                "joint_gate_repair_prompt_path",
+                "PTP/prompts/free_loss_forward_error_repair.txt",
+            )
+            or "PTP/prompts/free_loss_forward_error_repair.txt"
+        )
+    )
+    raw_repair_failure_kinds = cfg.get(
+        "joint_gate_repair_only_failure_kinds",
+        ["forward_error", "backward_error", "pref_batch_to_loss_batch_error"],
+    )
+    if not isinstance(raw_repair_failure_kinds, (list, tuple, set)):
+        raw_repair_failure_kinds = [
+            "forward_error",
+            "backward_error",
+            "pref_batch_to_loss_batch_error",
+        ]
+    repair_only_failure_kinds = {str(x) for x in raw_repair_failure_kinds if str(x).strip()}
+    expects_repair_prompt_path = _abs_from_repo_root("PTP/prompts/free_loss_expects_repair.txt")
+    joint_failure_kind = (
+        str(joint_gate.trace.get("failure_kind"))
+        if isinstance(joint_gate.trace, dict) and joint_gate.trace.get("failure_kind") is not None
+        else None
+    )
+    if (
+        repair_enabled
+        and (not joint_gate.ok)
+        and joint_failure_kind in repair_only_failure_kinds
+        and repair_max_attempts > 0
+    ):
+        try:
+            _configure_loss_llm_for_worker(cfg=cfg, run_dir=run_dir_s)
+        except Exception:  # noqa: BLE001
+            pass
+        current_ir = f_ir
+        current_failure_reason = str(joint_gate.reason)
+        current_failure_trace = (
+            dict(joint_gate.trace) if isinstance(joint_gate.trace, dict) else None
+        )
+        repaired_ok = False
+        for attempt_idx in range(repair_max_attempts):
+            attempt_no = int(attempt_idx + 1)
+            attempt_record: Dict[str, Any] = {
+                "record_type": "joint_gate_repair_attempt",
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "generation": int(generation),
+                "pair_index": int(pair_index),
+                "stage": "joint_gate",
+                "g_id": str(g_entry["id"]),
+                "f_id_before": str(record["f_id"]),
+                "attempt": attempt_no,
+                "failure_kind_before": (
+                    str(current_failure_trace.get("failure_kind"))
+                    if isinstance(current_failure_trace, dict)
+                    and current_failure_trace.get("failure_kind") is not None
+                    else None
+                ),
+                "joint_gate_trace_before": current_failure_trace,
+                "builder_gate_trace": builder_gate.trace,
+                "code_before": _free_loss_code_digest(current_ir),
+                "static_ok": False,
+                "compile_ok": False,
+                "final_ok": False,
+            }
+            failure_reason = {
+                "stage": "joint_gate",
+                "pair": {"g_id": str(g_entry["id"]), "f_id": str(record["f_id"])},
+                "joint_gate_reason": current_failure_reason,
+                "joint_gate_trace": current_failure_trace,
+                "builder_gate_trace": builder_gate.trace,
+                "operator_whitelist": list(operator_whitelist),
+            }
+            try:
+                repaired_ir = loss_llm_ops.repair_free_loss(
+                    repair_prompt_path,
+                    failed_ir=current_ir,
+                    failure_reason=failure_reason,
+                )
+                attempt_record["repair_call_ok"] = True
+            except Exception as exc:  # noqa: BLE001
+                attempt_record.update(
+                    {
+                        "repair_call_ok": False,
+                        "repair_error": str(exc),
+                        "repair_error_type": type(exc).__name__,
+                    }
+                )
+                joint_gate_repair_reports.append(attempt_record)
+                continue
+
+            try:
+                repaired_ir = loss_llm_ops.repair_expects_with_prompt(
+                    expects_repair_prompt_path,
+                    repaired_ir,
+                )
+                attempt_record["expects_repair_ok"] = True
+            except Exception as exc:  # noqa: BLE001
+                attempt_record["expects_repair_ok"] = False
+                attempt_record["expects_repair_error"] = str(exc)
+                attempt_record["expects_repair_error_type"] = type(exc).__name__
+
+            attempt_record["f_id_after"] = _sig_free_loss(repaired_ir)
+            attempt_record["code_after"] = _free_loss_code_digest(repaired_ir)
+
+            static_res = run_static_gates(repaired_ir, operator_whitelist=operator_whitelist)
+            attempt_record["static_ok"] = bool(static_res.ok)
+            attempt_record["static_reason"] = str(static_res.reason)
+            attempt_record["static_trace"] = static_res.trace
+            if not static_res.ok:
+                current_ir = repaired_ir
+                current_failure_reason = str(static_res.reason)
+                current_failure_trace = (
+                    dict(static_res.trace) if isinstance(static_res.trace, dict) else None
+                )
+                attempt_record["joint_gate_trace_after"] = current_failure_trace
+                joint_gate_repair_reports.append(attempt_record)
+                continue
+
+            try:
+                compiled_f_repaired = compile_free_loss(
+                    repaired_ir,
+                    operator_whitelist=operator_whitelist,
+                )
+                attempt_record["compile_ok"] = True
+            except Exception as exc:  # noqa: BLE001
+                current_ir = repaired_ir
+                current_failure_reason = f"compile_error: {exc}"
+                current_failure_trace = {
+                    "failed_gate": "Compile",
+                    "failure_kind": "compile_error",
+                    "message": str(exc),
+                    "exception_type": type(exc).__name__,
+                }
+                attempt_record.update(
+                    {
+                        "compile_ok": False,
+                        "compile_error": str(exc),
+                        "compile_error_type": type(exc).__name__,
+                        "joint_gate_trace_after": current_failure_trace,
+                    }
+                )
+                joint_gate_repair_reports.append(attempt_record)
+                continue
+
+            joint_gate_repaired = run_joint_preference_gates(
+                compiled_f_repaired,
+                pref_batch=pref_batch,
+                feature_cache=feature_cache,
+                min_pass_rate=joint_min_pass_rate,
+                swap_tolerance=joint_swap_tolerance,
+                swap_check_mode=joint_swap_check_mode,
+                swap_test_margin=joint_swap_test_margin,
+                grad_eps=joint_grad_eps,
+                min_effective_grad_ratio=joint_min_effective_grad_ratio,
+                variant="visible",
+            )
+            attempt_record["joint_gate_trace_after"] = joint_gate_repaired.trace
+            attempt_record["final_ok"] = bool(joint_gate_repaired.ok)
+            joint_gate_repair_reports.append(attempt_record)
+
+            current_ir = repaired_ir
+            current_failure_reason = str(joint_gate_repaired.reason)
+            current_failure_trace = (
+                dict(joint_gate_repaired.trace)
+                if isinstance(joint_gate_repaired.trace, dict)
+                else None
+            )
+            if joint_gate_repaired.ok:
+                compiled_f = compiled_f_repaired
+                f_ir = repaired_ir
+                joint_gate = joint_gate_repaired
+                record["joint_gate_repaired"] = True
+                record["joint_gate_repair_attempts"] = attempt_no
+                record["f_id_before_repair"] = str(record["f_id"])
+                record["f_id_after_repair"] = str(attempt_record["f_id_after"])
+                repaired_ok = True
+                break
+        if not repaired_ok:
+            record["joint_gate_repair_attempts"] = int(len(joint_gate_repair_reports))
+
+    record["joint_gate_repair_reports"] = list(joint_gate_repair_reports)
     record.update(
         {
             "builder_gate_ok": bool(builder_gate.ok),
@@ -6950,6 +7186,7 @@ def run_pref_loss_coevo(
 
         pair_records_map: Dict[Tuple[str, str], Dict[str, Any]] = {}
         gate_repair_records_gen: List[Dict[str, Any]] = []
+        joint_gate_repair_attempt_records_gen: List[Dict[str, Any]] = []
         # Carry over anchor records (already computed).
         pair_records_map.update(anchor_records)
 
@@ -7422,6 +7659,7 @@ def run_pref_loss_coevo(
                             "eval_budget_signature": str(eval_sig),
                         }
                     )
+                joint_gate_repair_attempt_records_gen.extend(_pop_joint_gate_repair_reports(rec))
                 rec["stage"] = "gate"
                 rec["phase"] = pair_phase_by_pair.get((str(gid), str(fid)), "coevo")
                 caches.set_pair(cache_key, dict(rec))
@@ -7928,6 +8166,10 @@ def run_pref_loss_coevo(
                 else:
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))
+                for hf_rec in hf_results:
+                    joint_gate_repair_attempt_records_gen.extend(
+                        _pop_joint_gate_repair_reports(hf_rec)
+                    )
 
                 fatal = [r for r in hf_results if isinstance(r, dict) and r.get("fatal_error")]
                 if fatal:
@@ -8222,6 +8464,10 @@ def run_pref_loss_coevo(
                             else:
                                 for task in hf_tasks2:
                                     hf_results2.append(_evaluate_pair_worker(task))
+                            for hf_rec2 in hf_results2:
+                                joint_gate_repair_attempt_records_gen.extend(
+                                    _pop_joint_gate_repair_reports(hf_rec2)
+                                )
 
                             fatal2 = [r for r in hf_results2 if isinstance(r, dict) and r.get("fatal_error")]
                             if fatal2:
@@ -8646,6 +8892,7 @@ def run_pref_loss_coevo(
         _append_jsonl(pairs_jsonl, pair_records)
         _append_jsonl(gate_jsonl, gate_records)
         _append_jsonl(gate_repair_jsonl, gate_repair_records_gen)
+        _append_jsonl(gate_repair_jsonl, joint_gate_repair_attempt_records_gen)
 
         fitness_g, fitness_f = _credit_assignment_v2(pair_records=pair_records)
 
