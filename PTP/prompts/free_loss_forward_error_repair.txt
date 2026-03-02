@@ -1,0 +1,85 @@
+You are repairing a free-form preference loss IR after a joint gate runtime failure.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+Input will be provided as:
+- `CANDIDATE_AND_FAILURE_JSON`: the current free-loss candidate plus structured failure diagnostics.
+
+Output must follow the same schema as `free_loss_generation.txt`:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "pseudocode": "high level math",
+  "hyperparams": {
+    "paradigm_family": "...",
+    "signal_family": "...",
+    "link_family": "...",
+    "agg_family": "...",
+    "constraint_family": "...",
+    "other_hparams": "optional"
+  },
+  "operators_used": ["logsigmoid", "..."],
+  "implementation_hint": {
+    "expects": ["log_prob_w", "log_prob_l", "weight", "..."],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n"
+}
+
+Primary goal:
+- Repair the existing loss with the smallest safe patch so it passes runtime forward/backward execution.
+- Preserve the original loss idea whenever possible.
+- Do not invent a brand-new loss unless the current code is fundamentally broken.
+
+Hard constraints:
+- Output JSON only.
+- Keep `implementation_hint.mode` as `"pairwise"`.
+- Keep all five family tags as non-empty strings.
+- `implementation_hint.expects` must list only required keys accessed via `batch["k"]`.
+- Optional keys accessed only through `batch.get("k", fallback)` do NOT need to appear in `implementation_hint.expects`.
+- `implementation_hint.expects` must include `"log_prob_w"`, `"log_prob_l"`, and `"weight"`.
+- `implementation_hint.expects` must also include at least one quality/objective signal from:
+  ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+- Supported pairwise keys are:
+  ["log_prob_w","log_prob_l","weight","cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret",
+   "seq_len_w","seq_len_l","seq_len_gap","log_prob_w_mean","log_prob_l_mean","log_prob_mean_gap",
+   "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
+   "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].
+- `generated_loss` must return one scalar torch.Tensor, typically via `.mean()` or a weighted mean.
+- No imports / filesystem / eval / exec / randomness / global state.
+- Use only vectorized tensor ops and `ops.*` helpers.
+
+Runtime repair rules:
+- Do NOT use Python built-in `max`, `min`, or `abs` directly on tensors. Use tensor-safe expressions and `ops.abs` when available.
+- Avoid complicated tensor conditionals unless strictly necessary. If you need branching, keep it broadcast-safe and minimal.
+- Before `sqrt`, `log`, `exp`, division, or reciprocal-like operations, clamp to safe ranges:
+  - `sqrt(x)` -> use a non-negative lower bound such as `x.clamp(min=eps).sqrt()`
+  - `log(x)` -> use `ops.log(x.clamp(min=eps))`
+  - division -> denominator must use `den.clamp(min=eps)` or `den + eps`
+- Clamp unstable intermediate values with `ops.clamp` or tensor `.clamp(...)` before passing into sharp nonlinearities.
+- If a key may be optional, access it with `batch.get("key", fallback)` and provide a safe tensor fallback.
+- If a key is required by the code path, include it in `implementation_hint.expects`.
+- If a required key may still be absent at runtime, explicitly degrade to a safe default near the top of the function, such as zeros shaped like `batch["log_prob_w"]`.
+- Prefer `cost_gap` or `advantage_gap` as the single quality/objective signal when repairing.
+- Prefer `cost_gap` first: if `cost_gap` is missing, derive it from `cost_b - cost_a`; if those are also missing, fall back to all zeros so the repair never raises `KeyError`.
+- Prefer minimal edits over new operators. Reuse the candidate's existing operators and structure unless a direct fix is impossible.
+
+Good repair patterns:
+- Define `eps = 1e-8` near the top.
+- Define `lpw = batch["log_prob_w"]`, `lpl = batch["log_prob_l"]`, `weight = batch.get("weight", lpw.new_ones(lpw.shape))`.
+- For optional signals:
+  - `zeros = lpw.new_zeros(lpw.shape)`
+  - `cost_gap = batch.get("cost_gap", batch.get("cost_b", zeros) - batch.get("cost_a", zeros))`
+  - `adv_gap = batch.get("advantage_gap", batch.get("advantage_l", zeros) - batch.get("advantage_w", zeros))`
+- Prefer `cost_gap` as the primary quality signal in repaired code; use `adv_gap` only when it better preserves the original intent.
+- Finish with `return loss.mean()` or a numerically safe weighted mean.
+
+Use the structured failure diagnostics to fix:
+- wrong/missing keys
+- tensor shape/broadcast mismatches
+- non-scalar return values
+- invalid math domains
+- backward graph issues caused by unstable ops
+
+Do not explain your reasoning. Output the repaired JSON only.

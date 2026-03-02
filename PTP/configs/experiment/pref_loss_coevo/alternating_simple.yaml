@@ -23,6 +23,10 @@ seed_with_po4cops_default: false
 llm_init_only: true
 proxy_joint_swap_check_mode: synthetic
 proxy_joint_batch_pass_rate_threshold: 0.9
+joint_gate_repair_enabled: true
+joint_gate_repair_max_attempts: 2
+joint_gate_repair_prompt_path: PTP/prompts/free_loss_forward_error_repair.txt
+joint_gate_repair_only_failure_kinds: ["forward_error","backward_error","pref_batch_to_loss_batch_error"]
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
 mp:

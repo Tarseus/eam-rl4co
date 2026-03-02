@@ -736,6 +736,7 @@ def repair_free_loss(
             "pseudocode": failed_ir.pseudocode,
             "hyperparams": failed_ir.hyperparams,
             "operators_used": failed_ir.operators_used,
+            "implementation_hint": asdict(failed_ir.implementation_hint),
             "code": failed_ir.code,
             "theoretical_basis": getattr(failed_ir, "theoretical_basis", ""),
         },

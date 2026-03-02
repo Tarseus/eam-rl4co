@@ -19,4 +19,13 @@ Hard constraints (must follow):
 - Use only `ops.*` and tensor ops.
 - Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
 - Ensure `implementation_hint.expects` matches the keys actually used in code.
-- expects must include log_prob_w, log_prob_l, weight, and the primary signal keys implied by signal_family.
+- `implementation_hint.expects` must include "log_prob_w", "log_prob_l", and "weight".
+- `implementation_hint.expects` must also include at least one quality/objective signal from:
+  ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+- `implementation_hint.expects` must list only required keys accessed via `batch["k"]`.
+  Optional signals must be accessed via `batch.get("k", fallback)` and do NOT need to be included in expects.
+- Pairwise supported keys are:
+  ["log_prob_w","log_prob_l","weight","cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret",
+   "seq_len_w","seq_len_l","seq_len_gap","log_prob_w_mean","log_prob_l_mean","log_prob_mean_gap",
+   "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
+   "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].

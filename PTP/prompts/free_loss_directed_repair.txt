@@ -31,4 +31,8 @@ Hard constraints:
 - No imports / filesystem / eval / exec / global state.
 - Use only `ops.*` and tensor ops.
 - Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
-- `expects` must be a non-empty list of keys and a subset of CONTRACT_JSON.allowed_keys for the chosen mode.
+- `expects` must be a non-empty list of required keys and a subset of CONTRACT_JSON.allowed_keys for the chosen mode.
+- If mode="pairwise": `expects` must include "log_prob_w", "log_prob_l", "weight", and at least one of
+  ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+- For mode="pairwise": `expects` should list only required keys accessed via `batch["k"]`;
+  optional signals must be accessed via `batch.get("k", fallback)` and do NOT need to be included in expects.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from dataclasses import dataclass
 from typing import Any, Dict, Mapping, Sequence, Set, Tuple
 
@@ -59,6 +60,91 @@ class JointPreferenceGateResult:
     swap_ok: bool | None = None
     effective_grad_ratio: float | None = None
     trace: Dict[str, Any] | None = None
+
+
+def _tensor_schema(x: Any) -> Dict[str, Any]:
+    if not isinstance(x, torch.Tensor):
+        return {"type": type(x).__name__}
+
+    out: Dict[str, Any] = {
+        "shape": list(x.shape),
+        "dtype": str(x.dtype),
+        "device": str(x.device),
+    }
+    if x.numel() <= 0:
+        return out
+
+    try:
+        if x.is_floating_point() or x.is_complex():
+            out["isfinite"] = bool(torch.isfinite(x).all().item())
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        sample = x.detach().reshape(-1)
+        if sample.numel() > 4096:
+            sample = sample[:4096]
+        if sample.dtype == torch.bool:
+            sample_f = sample.to(dtype=torch.float32)
+        elif sample.is_complex():
+            sample_f = sample.abs().to(dtype=torch.float32)
+        else:
+            sample_f = sample.to(dtype=torch.float32)
+        out["min"] = float(sample_f.min().item())
+        out["max"] = float(sample_f.max().item())
+        out["mean"] = float(sample_f.mean().item())
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+def _batch_schema(batch: Mapping[str, Any] | None, *, max_keys: int = 32) -> Dict[str, Any]:
+    if not isinstance(batch, Mapping):
+        return {}
+    out: Dict[str, Any] = {}
+    for key in sorted(str(k) for k in batch.keys())[: max(int(max_keys), 0)]:
+        try:
+            out[key] = _tensor_schema(batch[key])
+        except Exception as exc:  # noqa: BLE001
+            out[key] = {"type": "schema_error", "message": str(exc)}
+    return out
+
+
+def _joint_gate_error_trace(
+    *,
+    compiled: CompiledFreeLoss,
+    failure_kind: str,
+    exc: Exception,
+    variant: str,
+    full_batch: Mapping[str, Any] | None,
+    batch: Mapping[str, Any] | None,
+    min_pass_rate: float,
+    swap_tolerance: float,
+    grad_eps: float,
+    min_effective_grad_ratio: float,
+    swap_check_mode: str,
+    swap_test_margin: float,
+) -> Dict[str, Any]:
+    return {
+        "failed_gate": "JointPreference",
+        "failure_kind": str(failure_kind),
+        "message": str(exc),
+        "exception_type": type(exc).__name__,
+        "traceback": traceback.format_exc(),
+        "expects": list(compiled.ir.implementation_hint.expects or []),
+        "batch_keys_full": sorted(list(full_batch.keys())) if isinstance(full_batch, Mapping) else None,
+        "batch_keys_filtered": sorted(list(batch.keys())) if isinstance(batch, Mapping) else [],
+        "batch_schema": _batch_schema(batch, max_keys=32),
+        "gate_thresholds": {
+            "min_pass_rate": float(min_pass_rate),
+            "swap_tolerance": float(swap_tolerance),
+            "grad_eps": float(grad_eps),
+            "min_effective_grad_ratio": float(min_effective_grad_ratio),
+            "swap_check_mode": str(swap_check_mode),
+            "swap_test_margin": float(swap_test_margin),
+        },
+        "variant": str(variant),
+    }
 
 
 def run_preference_builder_gates(
@@ -297,18 +383,29 @@ def run_joint_preference_gates(
             trace={"failed_gate": None, "variant": variant, "mode": mode},
         )
 
+    full_batch: Dict[str, torch.Tensor] | None = None
+    batch: Dict[str, torch.Tensor] | None = None
+
     try:
         full_batch = pref_batch.to_pairwise_loss_batch(feature_cache)
     except Exception as exc:  # noqa: BLE001
         return JointPreferenceGateResult(
             ok=False,
             reason=f"pref_batch_to_loss_batch_error: {exc}",
-            trace={
-                "failed_gate": "JointPreference",
-                "failure_kind": "pref_batch_to_loss_batch_error",
-                "message": str(exc),
-                "variant": variant,
-            },
+            trace=_joint_gate_error_trace(
+                compiled=compiled,
+                failure_kind="pref_batch_to_loss_batch_error",
+                exc=exc,
+                variant=variant,
+                full_batch=full_batch,
+                batch=batch,
+                min_pass_rate=min_pass_rate,
+                swap_tolerance=swap_tolerance,
+                grad_eps=grad_eps,
+                min_effective_grad_ratio=min_effective_grad_ratio,
+                swap_check_mode=swap_check_mode,
+                swap_test_margin=swap_test_margin,
+            ),
         )
 
     expects = [str(x) for x in (compiled.ir.implementation_hint.expects or [])]
@@ -343,12 +440,20 @@ def run_joint_preference_gates(
         return JointPreferenceGateResult(
             ok=False,
             reason=f"forward_error: {exc}",
-            trace={
-                "failed_gate": "JointPreference",
-                "failure_kind": "forward_error",
-                "message": str(exc),
-                "variant": variant,
-            },
+            trace=_joint_gate_error_trace(
+                compiled=compiled,
+                failure_kind="forward_error",
+                exc=exc,
+                variant=variant,
+                full_batch=full_batch,
+                batch=batch,
+                min_pass_rate=min_pass_rate,
+                swap_tolerance=swap_tolerance,
+                grad_eps=grad_eps,
+                min_effective_grad_ratio=min_effective_grad_ratio,
+                swap_check_mode=swap_check_mode,
+                swap_test_margin=swap_test_margin,
+            ),
         )
 
     if not isinstance(loss, torch.Tensor) or loss.numel() != 1:
@@ -376,12 +481,20 @@ def run_joint_preference_gates(
         return JointPreferenceGateResult(
             ok=False,
             reason=f"backward_error: {exc}",
-            trace={
-                "failed_gate": "JointPreference",
-                "failure_kind": "backward_error",
-                "message": str(exc),
-                "variant": variant,
-            },
+            trace=_joint_gate_error_trace(
+                compiled=compiled,
+                failure_kind="backward_error",
+                exc=exc,
+                variant=variant,
+                full_batch=full_batch,
+                batch=batch,
+                min_pass_rate=min_pass_rate,
+                swap_tolerance=swap_tolerance,
+                grad_eps=grad_eps,
+                min_effective_grad_ratio=min_effective_grad_ratio,
+                swap_check_mode=swap_check_mode,
+                swap_test_margin=swap_test_margin,
+            ),
         )
 
     grad_w = log_prob_w.grad

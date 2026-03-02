@@ -10,6 +10,8 @@ Rules:
 - Keep the same `code` (do not rewrite unless necessary to align expects).
 - Ensure `intuition` is non-empty; if missing, add a short explanation consistent with the code.
 - Output a clean `implementation_hint.expects` list:
+  - `implementation_hint.expects` should list only required keys accessed via `batch["k"]` in the code.
+    Keys accessed via `batch.get("k", fallback)` are optional and should NOT be added to expects.
   - If mode="pairwise": must include "log_prob_w", "log_prob_l", and "weight", and at least one of
     ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
   - Pairwise supported keys are:
