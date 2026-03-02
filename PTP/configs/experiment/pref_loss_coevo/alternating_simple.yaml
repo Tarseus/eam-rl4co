@@ -66,6 +66,8 @@ train_batch_size: 64
 num_validation_episodes: 512
 validation_batch_size: 64
 pomo_size: null
+loss_observables: [seq_len, log_prob_mean, advantage, entropy, log_prob_step]
+ref_policy_source: none
 scratch_init_seed: 12345
 policy_name: pomo
 policy_kwargs:

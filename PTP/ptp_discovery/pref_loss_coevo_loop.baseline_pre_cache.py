@@ -296,6 +296,7 @@ def _build_hf_cfg(cfg: Mapping[str, Any], *, seed: int, device_str: str) -> High
         size_aggregation=str(cfg.get("size_aggregation", "cvar")),
         size_cvar_alpha=float(cfg.get("size_cvar_alpha", 0.2)),
         pool_version=str(cfg.get("pool_version", "v0")),
+        loss_observables=tuple(str(v) for v in cfg.get("loss_observables", []) if str(v).strip()),
     )
 
 

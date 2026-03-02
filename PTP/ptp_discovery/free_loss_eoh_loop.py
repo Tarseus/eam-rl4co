@@ -1460,6 +1460,9 @@ def run_free_loss_eoh(
         size_aggregation=str(cfg_yaml.get("size_aggregation", "cvar")),
         size_cvar_alpha=float(cfg_yaml.get("size_cvar_alpha", 0.2)),
         pool_version=str(cfg_yaml.get("pool_version", "v0")),
+        loss_observables=tuple(
+            str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()
+        ),
     )
 
     # Optional external baseline (metrics.csv + warm-start checkpoint). When provided,

@@ -32,12 +32,20 @@ Hard constraints:
 - `implementation_hint.returns` must describe a scalar output (use "scalar").
 - `implementation_hint.expects` must be a non-empty list of valid keys for the chosen mode.
   - Pairwise expects must include "log_prob_w", "log_prob_l", and "weight".
-  - Pairwise expects must also include the primary signal declared by signal_family:
-    ["delta_z","delta_rank","delta_regret"] or both ["cost_a","cost_b"] for cost-based signals.
+  - Pairwise expects must also include at least one quality/objective signal from
+    ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+  - Pairwise supported keys are:
+    ["log_prob_w","log_prob_l","weight","cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret",
+     "seq_len_w","seq_len_l","seq_len_gap","log_prob_w_mean","log_prob_l_mean","log_prob_mean_gap",
+     "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
+     "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].
 - `code` must define `generated_loss(batch, model_output, extra)` and return a scalar torch.Tensor.
 - Do NOT use `import`, `open`, `eval`, `exec`, filesystem/network, randomness, or global state.
 - Only use tensor math and `ops.*` operators (e.g., ops.logsigmoid, ops.softplus, ops.clamp, ops.normalize, ops.zscore).
 - Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
+- Core runtime signals are usually available and cheap: seq_len_*, log_prob_*_mean, advantage_* and cost_gap.
+- Optional runtime signals may be missing depending on config: entropy_*, entropy_*_mean, log_prob_step_*.
+- Any optional signal must be accessed defensively with batch.get(..., fallback).
 
 You may read `alpha` as: `alpha = float(extra.get("alpha", extra.get("hyperparams", {}).get("alpha", 1.0)))`.
 
