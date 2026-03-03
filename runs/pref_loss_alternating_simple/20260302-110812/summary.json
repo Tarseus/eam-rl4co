@@ -1,0 +1,68 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/alternating_simple.yaml",
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260302-110812",
+  "preset": "simple",
+  "search_mode": "alternating",
+  "alternating_schedule": {
+    "enabled": true,
+    "loss_generations": 10,
+    "builder_generations": 10,
+    "rounds": 1
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.005680100188381428,
+  "improve_eps_calibration": {
+    "enabled": true,
+    "fidelity": "K1000",
+    "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_K1000.json",
+    "N": 8,
+    "sigma_mult": 2.0,
+    "seed0": 13344,
+    "seed_stride": 997,
+    "used_seeds": [
+      13344,
+      14341,
+      15338,
+      16335,
+      17332,
+      18329,
+      19326,
+      20323
+    ],
+    "sigma_delta": 0.002840050094190714,
+    "improve_eps": 0.005680100188381428,
+    "samples": [
+      0.007237454255421956,
+      0.0001553495724995931,
+      -0.0014726122220357258,
+      0.004030863444010417,
+      -0.00036315123240152997,
+      0.0023522377014160156,
+      0.001871923605600993,
+      -8.990367253621419e-05
+    ]
+  },
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "last_generation": 19,
+  "best_so_far": {
+    "score": -0.012530684471130371,
+    "builder_id": "g_ref",
+    "loss_id": "f003_003_357c80ac",
+    "stage_final": "high_fidelity",
+    "generation": 9,
+    "phase": "loss"
+  },
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "f003_003_357c80ac"
+  },
+  "best_score": -0.012530684471130371,
+  "best_stage_final": "high_fidelity",
+  "best_gen": 9,
+  "best_phase": "loss"
+}

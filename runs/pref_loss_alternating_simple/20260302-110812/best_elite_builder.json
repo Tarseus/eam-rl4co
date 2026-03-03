@@ -1,0 +1,98 @@
+{
+  "generation": 19,
+  "index": 0,
+  "id": "g019_000_dd790cad",
+  "signature": "dd790cad58b7255b6feb7bfa549a85185cecb81e",
+  "family_signature": "geometry=local_rank_neighbor_bipartite_window|cap=per_instance_topk_pair_cap|constraint=tie_zone_filter_plus_dedup_plus_topk_plus_per_instance_weight_normalize",
+  "origin": "CONSTRAINT_INJECT",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "BUILDER_CONSTRAINT_INJECT",
+  "parents": [
+    "g018_005_f5a050d6"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "c66e70468c379d22e8fbe40f997b254f836be4ad",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+  "llm_seed": 1963985922,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+      "prompt_sha1": "c66e70468c379d22e8fbe40f997b254f836be4ad"
+    }
+  ],
+  "ir": {
+    "name": "local_rank_neighbor_bipartite_v4_constraintproj_normcap",
+    "intuition": "Preserve the same bipartite local rank-window geometry and mixed logistic weighting, but add a single explicit constraint projection pass: tie-zone filter + canonical-pair dedup + per-instance top-k + per-instance weight normalization (bounded) to keep batches stable and comparable while keeping pairwise PrefBatch semantics.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "local_rank_neighbor_bipartite_window",
+      "cap_family": "per_instance_topk_pair_cap",
+      "weight_family": "logistic_rankgap_mix_weight",
+      "constraint_family": "tie_zone_filter_plus_dedup_plus_topk_plus_per_instance_weight_normalize"
+    },
+    "operators_used": [
+      "argsort",
+      "arange",
+      "gather",
+      "sigmoid",
+      "clamp",
+      "nonzero",
+      "sort",
+      "scatter_add",
+      "scatter_reduce"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    obj = feature_cache[\"objective\"]\n    _lp = feature_cache[\"log_prob\"]  # interface consistency\n\n    hp = extra.get(\"hyperparams\", {})\n\n    # Geometry: local bipartite rank-neighborhood pairing.\n    gap_lo = int(hp.get(\"gap_lo\", extra.get(\"gap_lo\", 2)))\n    gap_hi = int(hp.get(\"gap_hi\", extra.get(\"gap_hi\", 8)))\n\n    # Constraint: filter near-ties by objective gap.\n    min_gap = float(hp.get(\"min_gap\", extra.get(\"min_gap\", 0.01)))\n\n    # Weighting: mix of objective-gap and rank-gap logistic weights.\n    w_scale = float(hp.get(\"w_scale\", extra.get(\"w_scale\", 1.0)))\n    rank_scale = float(hp.get(\"rank_scale\", extra.get(\"rank_scale\", 3.0)))\n    mix = float(hp.get(\"mix\", extra.get(\"mix\", 0.65)))\n    w_clip = float(hp.get(\"w_clip\", extra.get(\"w_clip\", 5.0)))\n\n    # Cap: per-instance max unique pairs kept (top-k by weight).\n    k_pairs = int(hp.get(\"k_pairs\", extra.get(\"k_pairs\", 256)))\n\n    # Constraint: per-instance weight normalization target and bounds.\n    wsum_target = float(hp.get(\"wsum_target\", extra.get(\"wsum_target\", 1.0)))\n    norm_min = float(hp.get(\"norm_min\", extra.get(\"norm_min\", 0.25)))\n    norm_max = float(hp.get(\"norm_max\", extra.get(\"norm_max\", 4.0)))\n\n    eps = float(hp.get(\"eps\", extra.get(\"eps\", 1e-6)))\n\n    B, N = obj.shape\n    device = obj.device\n\n    if B == 0 or N <= 1:\n        empty = obj.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode=\"pairwise\",\n            pair_idx=(empty, empty, empty),\n            weight=obj.new_zeros((0,), dtype=obj.dtype),\n            meta={\"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\", \"reason\": \"B==0_or_N<=1\"},\n        )\n\n    gap_lo = int(max(1, gap_lo))\n    gap_hi = int(max(gap_lo, gap_hi))\n\n    # Rank order (ascending objective; lower is better).\n    order = obj.argsort(dim=1)\n    pos = torch.arange(N, device=device)\n\n    # Candidate rank-pairs in a bipartite (even/odd) window.\n    i = pos.view(N, 1)\n    j = pos.view(1, N)\n    rank_gap = (j - i)\n    cross_part = ((i ^ j) & 1) == 1\n    tri = j > i\n    win_mask = tri & cross_part & (rank_gap >= gap_lo) & (rank_gap <= gap_hi)\n\n    ij = win_mask.nonzero(as_tuple=False)\n    if ij.numel() == 0:\n        empty = obj.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode=\"pairwise\",\n            pair_idx=(empty, empty, empty),\n            weight=obj.new_zeros((0,), dtype=obj.dtype),\n            meta={\"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\", \"reason\": \"no_candidates\", \"gap_lo\": gap_lo, \"gap_hi\": gap_hi},\n        )\n\n    i_pos = ij[:, 0].to(dtype=torch.long)\n    j_pos = ij[:, 1].to(dtype=torch.long)\n    M = int(i_pos.numel())\n\n    w_all = order[:, i_pos]  # (B, M)\n    l_all = order[:, j_pos]  # (B, M)\n\n    w_obj = obj.gather(1, w_all)\n    l_obj = obj.gather(1, l_all)\n    gap = (l_obj - w_obj)\n\n    # Constraint op: tie-zone filtering by objective gap.\n    valid = (gap > (min_gap - eps)) & (w_all != l_all)\n\n    rg = rank_gap[i_pos, j_pos].to(dtype=obj.dtype).view(1, M).expand(B, M)\n    w_obj_part = torch.sigmoid(gap / (w_scale + eps))\n    w_rank_part = torch.sigmoid((rg - float(gap_lo)) / (rank_scale + eps))\n    mix = float(max(0.0, min(1.0, mix)))\n    wt_all = mix * w_obj_part + (1.0 - mix) * w_rank_part\n\n    # Constraint op: clamp extreme weights.\n    wt_all = torch.clamp(wt_all, 0.0, w_clip)\n\n    # Flatten valid pairs for selection.\n    keep0 = valid & (wt_all > 0)\n    b_idx0, p_idx0 = keep0.nonzero(as_tuple=True)\n    if b_idx0.numel() == 0:\n        empty = obj.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode=\"pairwise\",\n            pair_idx=(empty, empty, empty),\n            weight=obj.new_zeros((0,), dtype=obj.dtype),\n            meta={\"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\", \"reason\": \"all_filtered\", \"gap_lo\": gap_lo, \"gap_hi\": gap_hi, \"min_gap\": float(min_gap)},\n        )\n\n    winner0 = w_all[b_idx0, p_idx0].to(dtype=torch.long)\n    loser0 = l_all[b_idx0, p_idx0].to(dtype=torch.long)\n    weight0 = wt_all[b_idx0, p_idx0]\n\n    # Canonicalize unordered identity for dedup/topk ranking key (keeps original winner/loser orientation).\n    a0 = torch.minimum(winner0, loser0)\n    c0 = torch.maximum(winner0, loser0)\n\n    # Sort by (b, a, c, -weight) to keep the strongest duplicate first.\n    wbin0 = torch.clamp((weight0 * 4096.0).to(dtype=torch.long), 0, 2**30 - 1)\n    big_ac = N + 1\n    big_w = 2**31 - 1\n    key0 = b_idx0 * (big_ac * big_ac) * (big_w + 1) + a0 * big_ac * (big_w + 1) + c0 * (big_w + 1) + (big_w - wbin0)\n    ord0 = key0.argsort()\n\n    b1 = b_idx0[ord0]\n    w1 = winner0[ord0]\n    l1 = loser0[ord0]\n    wt1 = weight0[ord0]\n    a1 = a0[ord0]\n    c1 = c0[ord0]\n\n    # Dedup: keep first occurrence per (b, a, c).\n    key_ac = b1 * (big_ac * big_ac) + a1 * big_ac + c1\n    first = torch.ones((key_ac.numel(),), device=device, dtype=torch.bool)\n    first[1:] = key_ac[1:] != key_ac[:-1]\n\n    b2 = b1[first]\n    w2 = w1[first]\n    l2 = l1[first]\n    wt2 = wt1[first]\n\n    k_pairs = int(max(0, k_pairs))\n    if k_pairs == 0:\n        empty = obj.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode=\"pairwise\",\n            pair_idx=(empty, empty, empty),\n            weight=obj.new_zeros((0,), dtype=obj.dtype),\n            meta={\"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\", \"reason\": \"k_pairs==0\"},\n        )\n\n    # Per-instance top-k unique pairs by weight.\n    wbin2 = torch.clamp((wt2 * 4096.0).to(dtype=torch.long), 0, 2**30 - 1)\n    key2 = b2 * (big_w + 1) + (big_w - wbin2)\n    ord2 = key2.argsort()\n\n    b3 = b2[ord2]\n    w3 = w2[ord2]\n    l3 = l2[ord2]\n    wt3 = wt2[ord2]\n\n    is_new = torch.ones((b3.numel(),), device=device, dtype=torch.bool)\n    is_new[1:] = b3[1:] != b3[:-1]\n    grp = is_new.to(dtype=torch.long).cumsum(dim=0) - 1\n\n    idx = torch.arange(b3.numel(), device=device, dtype=torch.long)\n    G = int(grp.max().item()) + 1 if b3.numel() > 0 else 0\n    first_pos = torch.full((G,), b3.numel(), device=device, dtype=torch.long)\n    if first_pos.numel() == 0:\n        empty = obj.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode=\"pairwise\",\n            pair_idx=(empty, empty, empty),\n            weight=obj.new_zeros((0,), dtype=obj.dtype),\n            meta={\"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\", \"reason\": \"no_pairs_after_topk\"},\n        )\n\n    first_pos.scatter_reduce_(0, grp, idx, reduce=\"amin\", include_self=True)\n    within = idx - first_pos.gather(0, grp)\n    keepk = within < k_pairs\n\n    b4 = b3[keepk]\n    w4 = w3[keepk]\n    l4 = l3[keepk]\n    wt4 = wt3[keepk]\n\n    if b4.numel() == 0:\n        empty = obj.new_zeros((0,), dtype=torch.long)\n        return PrefBatch(\n            mode=\"pairwise\",\n            pair_idx=(empty, empty, empty),\n            weight=obj.new_zeros((0,), dtype=obj.dtype),\n            meta={\"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\", \"reason\": \"empty_after_keepk\"},\n        )\n\n    # Constraint op: per-instance weight normalization (project weights so each instance has comparable total weight).\n    wsum = wt4.new_zeros((B,))\n    wsum.scatter_add_(0, b4, wt4)\n    scale = (float(wsum_target) / (wsum + eps))\n    scale = torch.clamp(scale, norm_min, norm_max)\n    wt5 = wt4 * scale.gather(0, b4)\n\n    meta = {\n        \"builder\": \"local_rank_neighbor_bipartite_v4_constraintproj_normcap\",\n        \"gap_lo\": int(gap_lo),\n        \"gap_hi\": int(gap_hi),\n        \"min_gap\": float(min_gap),\n        \"w_scale\": float(w_scale),\n        \"rank_scale\": float(rank_scale),\n        \"mix\": float(mix),\n        \"w_clip\": float(w_clip),\n        \"k_pairs\": int(k_pairs),\n        \"wsum_target\": float(wsum_target),\n        \"norm_min\": float(norm_min),\n        \"norm_max\": float(norm_max),\n    }\n\n    return PrefBatch(\n        mode=\"pairwise\",\n        pair_idx=(b4.to(dtype=torch.long), w4.to(dtype=torch.long), l4.to(dtype=torch.long)),\n        weight=wt5,\n        meta=meta,\n    )"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 264,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 33,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": 0.005993187427520752,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

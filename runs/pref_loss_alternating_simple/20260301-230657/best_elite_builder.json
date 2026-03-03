@@ -1,0 +1,93 @@
+{
+  "generation": 10,
+  "index": 0,
+  "id": "g010_000_f350abe2",
+  "signature": "f350abe2293de2391006f5a1b52b0ea7ffc2146d",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|constraint=tie_zone_filter_objective_clamp",
+  "origin": "CONSTRAINT_INJECT",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "BUILDER_CONSTRAINT_INJECT",
+  "parents": [
+    "bootstrap_g_000"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "a8ff84a53d81317bb8f9ae298ee8c5a435e6da03",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+  "llm_seed": 117696567,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+      "prompt_sha1": "a8ff84a53d81317bb8f9ae298ee8c5a435e6da03"
+    }
+  ],
+  "ir": {
+    "name": "builder_all_pairs_tieclamp_001",
+    "intuition": "All-pairs pairing with an explicit tie-zone constraint: filter out near-equal objectives (ties) and clamp objectives to avoid NaN/inf-driven invalid comparisons, preserving pairwise PrefBatch output.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "tie_zone_filter_objective_clamp"
+    },
+    "operators_used": [
+      "all_pairs",
+      "clamp",
+      "abs",
+      "tie_zone_filter"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n\n    hp = extra.get('hyperparams', {})\n    # tie_eps filters out near-ties where supervision is ambiguous.\n    tie_eps = float(extra.get('tie_eps', hp.get('tie_eps', 0.0)))\n    # obj_clip prevents inf/nan propagation in comparisons.\n    obj_clip = float(extra.get('obj_clip', hp.get('obj_clip', 1e6)))\n\n    obj = ops.clamp(objective, -obj_clip, obj_clip)\n\n    # Prefer lower objective values; create all winner/loser pairs.\n    diff = obj[:, :, None] - obj[:, None, :]\n    strict = diff < 0\n\n    # Explicit constraint: remove tie/near-tie zone.\n    if tie_eps > 0.0:\n        strict = strict & (ops.abs(diff) > tie_eps)\n\n    b_idx, winner_idx, loser_idx = strict.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_tieclamp', 'tie_eps': tie_eps, 'obj_clip': obj_clip})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ]
+  },
+  "fitness": -0.0041596293449401855,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
