@@ -50,7 +50,7 @@ proxy_gate_repair:
 drop_pref_cache_before_micro_unroll: true
 
 budgets:
-  generations: 20
+  generations: 30
   pairing_budget_per_gen: 128
   high_fidelity_top_m: 999999
   hf_epochs: 0
@@ -58,6 +58,7 @@ budgets:
 alternating_schedule:
   loss_generations: 10
   pair_generations: 10
+  final_loss_generations: 10
   rounds: 1
 
 # Stage3 offline mini-train protocol (explicit, used by eval_signature).

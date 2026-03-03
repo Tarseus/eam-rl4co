@@ -15,6 +15,7 @@ import pickle
 import random
 import re
 import time
+import traceback
 import tokenize
 from dataclasses import asdict
 from hashlib import sha1
@@ -41,7 +42,6 @@ from fitness.ptp_high_fidelity import (
 from fitness.pref_loss_fidelity import (
     PrefLossEvalCaches,
     aggregate_proxy_metrics,
-    build_or_get_pref_batch,
     build_or_get_rollout_feature_cache,
     eval_budget_signature,
     load_pair_cache_from_pairs_jsonl,
@@ -441,6 +441,12 @@ def _configure_loss_llm_for_worker(*, cfg: Mapping[str, Any], run_dir: str | Non
     loss_cfg = cfg.get("loss_llm", {}) if isinstance(cfg.get("loss_llm"), dict) else {}
     offline_mode = bool(loss_cfg.get("offline_mode", cfg.get("llm_offline_mode", False)))
     loss_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=offline_mode)
+
+
+def _configure_builder_llm_for_worker(*, cfg: Mapping[str, Any], run_dir: str | None) -> None:
+    builder_cfg = cfg.get("builder_llm", {}) if isinstance(cfg.get("builder_llm"), dict) else {}
+    offline_mode = bool(builder_cfg.get("offline_mode", cfg.get("llm_offline_mode", False)))
+    builder_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=offline_mode)
 
 
 def _pop_joint_gate_repair_reports(record: Mapping[str, Any] | None) -> List[Dict[str, Any]]:
@@ -895,6 +901,7 @@ def _select_elites_with_family_quota(
     min_per_family: int = 1,
     max_per_family: int | None = None,
     include_unknown: bool = False,
+    prefer_selection_sort_key: bool = False,
 ) -> List[Dict[str, Any]]:
     elite_n = max(0, int(elite_n))
     if elite_n <= 0:
@@ -922,10 +929,13 @@ def _select_elites_with_family_quota(
                 selected_ids.add(eid)
             fam_counts[fam] += 1
 
-    protected.sort(
-        key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
-        reverse=bool(str(metric_mode) == "maximize"),
-    )
+    if bool(prefer_selection_sort_key):
+        protected.sort(key=lambda x: _stored_selection_sort_key(x, fallback_key="fitness"))
+    else:
+        protected.sort(
+            key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
+            reverse=bool(str(metric_mode) == "maximize"),
+        )
 
     selected: List[Dict[str, Any]] = []
     for item in protected:
@@ -966,6 +976,80 @@ def _safe_float(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return float(default)
+
+
+def _feature_cache_device(feature_cache: Mapping[str, Any] | None) -> torch.device | None:
+    if not isinstance(feature_cache, Mapping):
+        return None
+    for v in feature_cache.values():
+        if isinstance(v, torch.Tensor):
+            return v.device
+    return None
+
+
+def _build_pref_batch_with_memory_trace(
+    builder: Any,
+    feature_cache: Mapping[str, Any],
+    extra: Mapping[str, Any] | None = None,
+) -> PrefBatch:
+    dev = _feature_cache_device(feature_cache)
+    trace: Dict[str, Any] = {
+        "memory_metric_available": False,
+        "memory_device": (str(dev) if dev is not None else None),
+    }
+
+    if dev is not None and str(dev).startswith("cuda") and torch.cuda.is_available():
+        try:
+            torch.cuda.synchronize(dev)
+            alloc_before = int(torch.cuda.memory_allocated(dev))
+            reserved_before = int(torch.cuda.memory_reserved(dev))
+            torch.cuda.reset_peak_memory_stats(dev)
+            pref = builder.build_fn(feature_cache, dict(extra or {}))
+            torch.cuda.synchronize(dev)
+            peak_allocated = int(torch.cuda.max_memory_allocated(dev))
+            peak_reserved = int(torch.cuda.max_memory_reserved(dev))
+            trace.update(
+                {
+                    "memory_metric_available": True,
+                    "memory_allocated_before_bytes": int(alloc_before),
+                    "memory_reserved_before_bytes": int(reserved_before),
+                    "memory_peak_allocated_bytes": int(peak_allocated),
+                    "memory_peak_reserved_bytes": int(peak_reserved),
+                    "memory_peak_allocated_delta_bytes": int(max(0, peak_allocated - alloc_before)),
+                    "memory_peak_reserved_delta_bytes": int(max(0, peak_reserved - reserved_before)),
+                    "memory_peak_allocated_delta_mb": float(max(0, peak_allocated - alloc_before)) / float(1024**2),
+                    "memory_peak_reserved_delta_mb": float(max(0, peak_reserved - reserved_before)) / float(1024**2),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            pref = builder.build_fn(feature_cache, dict(extra or {}))
+            trace["memory_metric_error"] = str(exc)
+    else:
+        pref = builder.build_fn(feature_cache, dict(extra or {}))
+
+    if isinstance(pref, PrefBatch):
+        meta = dict(pref.meta or {})
+        meta["builder_memory_trace"] = dict(trace)
+        pref.meta = meta
+    return pref
+
+
+def _enrich_builder_gate_trace_with_memory(
+    trace: Mapping[str, Any] | None,
+    pref_batch: PrefBatch | None,
+    *,
+    cache_hit: bool | None = None,
+) -> Dict[str, Any] | None:
+    if trace is None and pref_batch is None and cache_hit is None:
+        return None
+    out: Dict[str, Any] = dict(trace or {})
+    if cache_hit is not None:
+        out["builder_pref_cache_hit"] = bool(cache_hit)
+    if isinstance(pref_batch, PrefBatch) and isinstance(pref_batch.meta, dict):
+        mem = pref_batch.meta.get("builder_memory_trace")
+        if isinstance(mem, Mapping):
+            out.update(dict(mem))
+    return out
 
 
 def _std(xs: Sequence[float]) -> float:
@@ -1323,6 +1407,70 @@ def _select_stage3_promotions(
     return promoted
 
 
+def _select_stage3_builder_promotions(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    promote_top_m: int,
+    metric_mode: str,
+    slack: float,
+    fixed_loss_id: str | None,
+    always_include_pair: Tuple[str, str] | None,
+) -> List[Tuple[str, str]]:
+    filtered: List[Mapping[str, Any]] = []
+    for r in records:
+        if not bool(r.get("pair_ok")):
+            continue
+        if fixed_loss_id and str(r.get("f_id") or "") != str(fixed_loss_id):
+            continue
+        filtered.append(r)
+
+    perf_by_builder: Dict[str, float] = {}
+    for r in filtered:
+        gid = str(r.get("g_id") or "")
+        if not gid:
+            continue
+        try:
+            score_f = float(r.get("final_score", r.get("score")))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(score_f):
+            continue
+        prev = perf_by_builder.get(gid)
+        if prev is None or _is_better_than_reference(
+            cand_score=float(score_f),
+            reference_score=float(prev),
+            metric_mode=metric_mode,
+            improve_eps=0.0,
+        ):
+            perf_by_builder[gid] = float(score_f)
+
+    state = _compute_builder_constraint_state(
+        records=filtered,
+        perf_by_builder=perf_by_builder,
+        metric_mode=metric_mode,
+        slack=slack,
+    )
+    promoted: List[Tuple[str, str]] = []
+    seen: set[Tuple[str, str]] = set()
+
+    if always_include_pair is not None:
+        promoted.append(always_include_pair)
+        seen.add(always_include_pair)
+
+    m = max(int(promote_top_m), 0)
+    for stat in list(state.get("feasible") or [])[:m]:
+        ref = stat.get("perf_ref")
+        if not isinstance(ref, Mapping):
+            continue
+        pair = (str(ref.get("g_id") or stat.get("builder_id") or ""), str(ref.get("f_id") or fixed_loss_id or ""))
+        if not pair[0] or not pair[1] or pair in seen:
+            continue
+        promoted.append(pair)
+        seen.add(pair)
+
+    return promoted
+
+
 def _cap_parent_pool_by_family(
     ranked_parents: Sequence[Tuple[float, str, Any, Mapping[str, Any]]],
     *,
@@ -1467,6 +1615,250 @@ def _score_threshold(*, reference_score: float | None, metric_mode: str, improve
     if str(metric_mode) == "maximize":
         return float(reference_score) + float(improve_eps)
     return float(reference_score) - float(improve_eps)
+
+
+def _builder_perf_tiebreak_key(*, perf: float | None, metric_mode: str) -> float:
+    if perf is None:
+        return float("inf")
+    try:
+        perf_f = float(perf)
+    except (TypeError, ValueError):
+        return float("inf")
+    if not math.isfinite(perf_f):
+        return float("inf")
+    return float(-perf_f) if str(metric_mode) == "maximize" else float(perf_f)
+
+
+def _builder_selection_sort_key(
+    *,
+    feasible: bool,
+    cost: float | None,
+    perf: float | None,
+    metric_mode: str,
+) -> Tuple[float, float, float]:
+    try:
+        cost_f = float(cost)
+    except (TypeError, ValueError):
+        cost_f = float("inf")
+    if not math.isfinite(cost_f):
+        cost_f = float("inf")
+    return (
+        0.0 if bool(feasible) else 1.0,
+        float(cost_f),
+        _builder_perf_tiebreak_key(perf=perf, metric_mode=metric_mode),
+    )
+
+
+def _stored_selection_sort_key(entry: Mapping[str, Any], *, fallback_key: str) -> Tuple[float, ...]:
+    raw = entry.get("selection_sort_key")
+    if isinstance(raw, (list, tuple)) and raw:
+        out: List[float] = []
+        ok = True
+        for v in raw:
+            try:
+                out.append(float(v))
+            except (TypeError, ValueError):
+                ok = False
+                break
+        if ok:
+            return tuple(out)
+    try:
+        score = float(entry.get(fallback_key, float("inf")))
+    except (TypeError, ValueError):
+        score = float("inf")
+    if not math.isfinite(score):
+        score = float("inf")
+    return (float(score),)
+
+
+def _extract_builder_cost(rec: Mapping[str, Any]) -> float | None:
+    desc = rec.get("descriptor")
+    if isinstance(desc, Mapping):
+        g_desc = desc.get("g")
+        if isinstance(g_desc, Mapping):
+            try:
+                pair_count = float(g_desc.get("pair_count"))
+            except (TypeError, ValueError):
+                pair_count = None
+            if pair_count is not None and math.isfinite(pair_count):
+                return float(pair_count)
+
+    bg = rec.get("builder_gate_trace")
+    if isinstance(bg, Mapping):
+        try:
+            pair_count = float(bg.get("pair_count"))
+        except (TypeError, ValueError):
+            pair_count = None
+        if pair_count is None:
+            observed = bg.get("observed")
+            if isinstance(observed, Mapping):
+                try:
+                    pair_count = float(observed.get("pair_count"))
+                except (TypeError, ValueError):
+                    pair_count = None
+        if pair_count is not None and math.isfinite(pair_count):
+            return float(pair_count)
+
+    return None
+
+
+def _compact_builder_perf_ref(rec: Mapping[str, Any]) -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        "g_id": rec.get("g_id"),
+        "f_id": rec.get("f_id"),
+        "score": rec.get("score"),
+        "final_score": rec.get("final_score"),
+        "stage": rec.get("stage"),
+        "stage_final": rec.get("stage_final"),
+        "phase": rec.get("phase"),
+        "generation": rec.get("generation"),
+        "pair_reason": rec.get("pair_reason"),
+        "pair_ok": rec.get("pair_ok"),
+        "g_ir": rec.get("g_ir"),
+    }
+    desc = rec.get("descriptor")
+    if isinstance(desc, Mapping):
+        g_desc = desc.get("g")
+        if isinstance(g_desc, Mapping):
+            out["descriptor"] = {"g": dict(g_desc)}
+    cost = _extract_builder_cost(rec)
+    if cost is not None:
+        out["cost"] = float(cost)
+    return out
+
+
+def _compute_builder_constraint_state(
+    *,
+    records: Sequence[Mapping[str, Any]],
+    perf_by_builder: Mapping[str, float],
+    metric_mode: str,
+    slack: float,
+) -> Dict[str, Any]:
+    by_builder: Dict[str, Dict[str, Any]] = {}
+    for rec in records:
+        if not bool(rec.get("pair_ok")):
+            continue
+        gid = str(rec.get("g_id") or "")
+        if not gid:
+            continue
+        try:
+            perf = float(perf_by_builder[gid])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not math.isfinite(perf):
+            continue
+        cost = _extract_builder_cost(rec)
+        if cost is None or not math.isfinite(float(cost)):
+            continue
+        slot = by_builder.setdefault(
+            gid,
+            {
+                "builder_id": str(gid),
+                "perf": float(perf),
+                "cost_samples": [],
+                "perf_ref": None,
+                "num_records": 0,
+            },
+        )
+        slot["cost_samples"].append(float(cost))
+        slot["num_records"] = int(slot.get("num_records", 0) or 0) + 1
+        ref = slot.get("perf_ref")
+        ref_score = None
+        if isinstance(ref, Mapping):
+            try:
+                ref_score = float(ref.get("final_score", ref.get("score")))
+            except (TypeError, ValueError):
+                ref_score = None
+        try:
+            rec_score = float(rec.get("final_score", rec.get("score")))
+        except (TypeError, ValueError):
+            rec_score = None
+        if rec_score is not None and math.isfinite(rec_score):
+            if ref_score is None or _is_better_than_reference(
+                cand_score=float(rec_score),
+                reference_score=ref_score,
+                metric_mode=metric_mode,
+                improve_eps=0.0,
+            ):
+                slot["perf_ref"] = _compact_builder_perf_ref(rec)
+        elif slot.get("perf_ref") is None:
+            slot["perf_ref"] = _compact_builder_perf_ref(rec)
+
+    if not by_builder:
+        return {
+            "builders": {},
+            "best_perf": None,
+            "threshold": None,
+            "slack": float(slack),
+            "feasible": [],
+            "infeasible": [],
+            "selected": None,
+        }
+
+    best_perf = None
+    for stat in by_builder.values():
+        perf = float(stat["perf"])
+        if best_perf is None or _is_better_than_reference(
+            cand_score=float(perf),
+            reference_score=best_perf,
+            metric_mode=metric_mode,
+            improve_eps=0.0,
+        ):
+            best_perf = float(perf)
+
+    threshold = None
+    if best_perf is not None:
+        if str(metric_mode) == "maximize":
+            threshold = float(best_perf - float(slack))
+        else:
+            threshold = float(best_perf + float(slack))
+
+    feasible: List[Dict[str, Any]] = []
+    infeasible: List[Dict[str, Any]] = []
+    for stat in by_builder.values():
+        costs = [float(x) for x in stat.get("cost_samples", []) if math.isfinite(float(x))]
+        if not costs:
+            continue
+        cost_mean = float(sum(costs) / float(len(costs)))
+        perf = float(stat["perf"])
+        is_feasible = False
+        if best_perf is not None:
+            if str(metric_mode) == "maximize":
+                is_feasible = bool(perf >= (float(best_perf) - float(slack)))
+            else:
+                is_feasible = bool(perf <= (float(best_perf) + float(slack)))
+        enriched = dict(stat)
+        enriched["cost"] = float(cost_mean)
+        enriched["feasible"] = bool(is_feasible)
+        enriched["best_perf"] = float(best_perf) if best_perf is not None else None
+        enriched["threshold"] = float(threshold) if threshold is not None else None
+        enriched["slack"] = float(slack)
+        enriched["selection_sort_key"] = list(
+            _builder_selection_sort_key(
+                feasible=bool(is_feasible),
+                cost=float(cost_mean),
+                perf=float(perf),
+                metric_mode=metric_mode,
+            )
+        )
+        if bool(is_feasible):
+            feasible.append(enriched)
+        else:
+            infeasible.append(enriched)
+        by_builder[str(enriched["builder_id"])] = enriched
+
+    feasible.sort(key=lambda x: tuple(x.get("selection_sort_key", [])))
+    infeasible.sort(key=lambda x: tuple(x.get("selection_sort_key", [])))
+    selected = feasible[0] if feasible else None
+    return {
+        "builders": by_builder,
+        "best_perf": float(best_perf) if best_perf is not None else None,
+        "threshold": float(threshold) if threshold is not None else None,
+        "slack": float(slack),
+        "feasible": feasible,
+        "infeasible": infeasible,
+        "selected": (dict(selected) if isinstance(selected, Mapping) else None),
+    }
 
 
 def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -1779,6 +2171,7 @@ def _resolve_alternating_phase_and_budgets(
     alternating_loss_generations: int,
     alternating_builder_generations: int,
     alternating_rounds: int,
+    alternating_final_loss_generations: int,
 ) -> Tuple[str, int, int, int, int, int]:
     """Resolve phase and pair budgets for one generation.
 
@@ -1798,9 +2191,27 @@ def _resolve_alternating_phase_and_budgets(
 
     if bool(alternating_schedule_enabled):
         cycle_len = int(max(0, int(alternating_loss_generations)) + max(0, int(alternating_builder_generations)))
-        cycle_pos = int(int(generation) % max(cycle_len, 1))
-        round_idx = int(int(generation) // max(cycle_len, 1))
-        if int(alternating_rounds) > 0 and round_idx >= int(alternating_rounds):
+        cycle_len_eff = max(cycle_len, 1)
+        cycle_pos = int(int(generation) % int(cycle_len_eff))
+        round_idx = int(int(generation) // int(cycle_len_eff))
+        planned_main = (
+            int(alternating_rounds) * int(cycle_len)
+            if int(alternating_rounds) > 0
+            else None
+        )
+        final_loss_generations = max(0, int(alternating_final_loss_generations))
+        in_final_loss_tail = (
+            planned_main is not None
+            and int(generation) >= int(planned_main)
+            and int(generation) < int(planned_main + final_loss_generations)
+        )
+        if in_final_loss_tail:
+            loss_budget_now = int(pairing_budget)
+            builder_budget_now = 0
+            round_idx = int(alternating_rounds)
+            cycle_pos = int(generation) - int(planned_main)
+            cycle_len = int(final_loss_generations)
+        elif int(alternating_rounds) > 0 and round_idx >= int(alternating_rounds):
             loss_budget_now = 0
             builder_budget_now = 0
         elif cycle_pos < int(max(0, int(alternating_loss_generations))):
@@ -2618,7 +3029,7 @@ def validate_builder_candidate(
 
     try:
         fc = _dummy_feature_cache(batch_size=8, k=16, variant=str(dummy_variant))
-        pb = compiled.build_fn(fc, {"stage": "builder_validate", "seed": 0})
+        pb = _build_pref_batch_with_memory_trace(compiled, fc, {"stage": "builder_validate", "seed": 0})
     except Exception as exc:  # noqa: BLE001
         return False, _builder_failure_report(stage="runtime", reason="runtime_failed", error=str(exc))
 
@@ -2633,6 +3044,7 @@ def validate_builder_candidate(
             semantic_tolerance=float(gate_cfg.get("semantic_tolerance", 0.0) or 0.0),
             semantic_min_pass_rate=float(gate_cfg.get("semantic_min_pass_rate", 1.0) or 1.0),
         )
+        bg.trace = _enrich_builder_gate_trace_with_memory(bg.trace, pb, cache_hit=False)
     except Exception as exc:  # noqa: BLE001
         return False, _builder_failure_report(stage="gate", reason="builder_gate_exception", error=str(exc))
 
@@ -2841,7 +3253,7 @@ def _propose_builders_for_generation(
             item2 = dict(item)
             item2["family_signature"] = _builder_family_signature(item2)
             ranked_parents.append((fit, str(item.get("id", "")), ir, item2))
-        ranked_parents.sort(key=lambda x: float(x[0]))
+        ranked_parents.sort(key=lambda x: _stored_selection_sort_key(x[3], fallback_key="fitness"))
         if not ranked_parents:
             # Bootstrap parents so E2/M1/M2 are usable at gen0 (aligns with free_loss EoH behavior).
             bootstrap = _make_builtin_builder_irs(rng, max(2, int(parent_p)))
@@ -2884,7 +3296,7 @@ def _propose_builders_for_generation(
                 existing_sigs.add(sig0)
                 if len(existing_sigs) >= 2:
                     break
-        ranked_parents.sort(key=lambda x: float(x[0]))
+        ranked_parents.sort(key=lambda x: _stored_selection_sort_key(x[3], fallback_key="fitness"))
 
         # Operator plan: either explicit counts (preferred) or legacy budget+random choice.
         def _op_plan() -> List[str]:
@@ -4083,6 +4495,18 @@ def _build_pair_descriptor(
     except (TypeError, ValueError):
         sem_f = float(bg.get("observed", {}).get("semantic_pass_rate", 0.0) or 0.0)
 
+    mem_alloc_mb = bg.get("memory_peak_allocated_delta_mb")
+    try:
+        mem_alloc_mb_f = float(mem_alloc_mb)
+    except (TypeError, ValueError):
+        mem_alloc_mb_f = None
+
+    mem_reserved_mb = bg.get("memory_peak_reserved_delta_mb")
+    try:
+        mem_reserved_mb_f = float(mem_reserved_mb)
+    except (TypeError, ValueError):
+        mem_reserved_mb_f = None
+
     eff = pa.get("proxy_effective_grad_ratio_mean", pa.get("effective_grad_ratio"))
     ess = pa.get("proxy_ess_ratio_mean", pa.get("ess_ratio"))
     loss = pa.get("proxy_loss_mean", pa.get("loss"))
@@ -4116,6 +4540,8 @@ def _build_pair_descriptor(
             "coverage": float(coverage_f),
             "pair_count": int(pair_count_i),
             "semantic_pass_rate": float(sem_f),
+            "memory_peak_allocated_mb": mem_alloc_mb_f,
+            "memory_peak_reserved_mb": mem_reserved_mb_f,
             "x": float(g_x),
             "y": float(g_y),
             "cell": [int(g_cell[0]), int(g_cell[1])],
@@ -4149,7 +4575,7 @@ def _archive_add(
     e["archive_cell"] = [int(cell[0]), int(cell[1])]
     e["archive_score"] = float(score)
     lst.append(e)
-    lst.sort(key=lambda x: float(x.get("archive_score", float("inf"))))
+    lst.sort(key=lambda x: _stored_selection_sort_key(x, fallback_key="archive_score"))
     seen: set[str] = set()
     dedup: List[Dict[str, Any]] = []
     for it in lst:
@@ -4172,7 +4598,7 @@ def _archive_flatten(
     for _, lst in archive.items():
         for it in lst:
             items.append(dict(it))
-    items.sort(key=lambda x: float(x.get("archive_score", float("inf"))))
+    items.sort(key=lambda x: _stored_selection_sort_key(x, fallback_key="archive_score"))
     return items[: max(0, int(max_items))]
 
 
@@ -4192,7 +4618,7 @@ def _update_hof(
             continue
         out.append(dict(c))
         seen.add(sig)
-    out.sort(key=lambda x: float(x.get("fitness", float("inf"))))
+    out.sort(key=lambda x: _stored_selection_sort_key(x, fallback_key="fitness"))
     return out[: max(0, int(max_size))]
 
 
@@ -4412,18 +4838,27 @@ def _cheap_eval_pair_cached(
             )
             t_last_progress = time.time()
 
+        pref_cache_hit = False
         if pref_cache_enabled:
-            pref = build_or_get_pref_batch(
-                caches=caches,
-                g_id=str(gid),
-                batch_id=int(pref_batch_id_offset + local_batch_id),
-                builder=g_comp,
-                feature_cache=fc,
-                extra={"stage": "proxy", "seed_signature": str(seed_sig)},
-            )
+            pref_key = (str(gid), int(pref_batch_id_offset + local_batch_id))
+            cached_pref = caches.get_pref(pref_key)
+            if cached_pref is not None:
+                pref = cached_pref
+                pref_cache_hit = True
+            else:
+                pref = _build_pref_batch_with_memory_trace(
+                    g_comp,
+                    fc,
+                    {"stage": "proxy", "seed_signature": str(seed_sig)},
+                )
+                caches.set_pref(pref_key, pref)
         else:
             # For VRAM stability: avoid storing PrefBatch tensors in a long-lived cache.
-            pref = g_comp.build_fn(fc, {"stage": "proxy", "seed_signature": str(seed_sig)})
+            pref = _build_pref_batch_with_memory_trace(
+                g_comp,
+                fc,
+                {"stage": "proxy", "seed_signature": str(seed_sig)},
+            )
         if builder_gate_first is None:
             bg = run_preference_builder_gates(
                 pref,
@@ -4435,6 +4870,7 @@ def _cheap_eval_pair_cached(
                 semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
                 semantic_min_pass_rate=float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
             )
+            bg.trace = _enrich_builder_gate_trace_with_memory(bg.trace, pref, cache_hit=pref_cache_hit)
             builder_ok = bool(bg.ok)
             builder_gate_first = {
                 "builder_gate_ok": bool(bg.ok),
@@ -4443,6 +4879,12 @@ def _cheap_eval_pair_cached(
                 "pair_count": bg.pair_count,
                 "coverage": bg.coverage,
                 "semantic_pass_rate": bg.semantic_pass_rate,
+                "memory_peak_allocated_delta_mb": (
+                    None if not isinstance(bg.trace, dict) else bg.trace.get("memory_peak_allocated_delta_mb")
+                ),
+                "memory_peak_reserved_delta_mb": (
+                    None if not isinstance(bg.trace, dict) else bg.trace.get("memory_peak_reserved_delta_mb")
+                ),
             }
 
         m = proxy_metrics_for_pair_on_batch(
@@ -4828,6 +5270,11 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     record["f_id_before_repair"] = None
     record["f_id_after_repair"] = None
     record["joint_gate_repair_reports"] = []
+    record["builder_gate_repaired"] = False
+    record["builder_gate_repair_attempts"] = 0
+    record["g_id_before_repair"] = None
+    record["g_id_after_repair"] = None
+    record["builder_gate_repair_reports"] = []
 
     try:
         compiled_g = compile_preference_builder(g_ir, operator_whitelist=operator_whitelist)
@@ -4866,7 +5313,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         k=int(cfg.get("cheap_gate_k", 16) or 16),
         variant=variant,
     )
-    pref_batch = compiled_g.build_fn(feature_cache, {"stage": "cheap_gate"})
+    pref_batch = _build_pref_batch_with_memory_trace(compiled_g, feature_cache, {"stage": "cheap_gate"})
 
     builder_gate = run_preference_builder_gates(
         pref_batch,
@@ -4878,6 +5325,151 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         semantic_tolerance=float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
         semantic_min_pass_rate=float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
     )
+    builder_gate.trace = _enrich_builder_gate_trace_with_memory(builder_gate.trace, pref_batch, cache_hit=False)
+    builder_gate_cfg = {
+        "min_pairs": int(cfg.get("builder_min_pairs", 1) or 1),
+        "min_coverage": float(cfg.get("builder_min_coverage", 0.0) or 0.0),
+        "max_pairs_per_instance": int(cfg.get("builder_max_pairs_per_instance", 4096) or 4096),
+        "weight_nonneg": bool(cfg.get("builder_weight_nonneg", True)),
+        "semantic_tolerance": float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
+        "semantic_min_pass_rate": float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+    }
+    builder_gate_repair_reports: List[Dict[str, Any]] = []
+    builder_llm_cfg = cfg.get("builder_llm", {}) if isinstance(cfg.get("builder_llm"), dict) else {}
+    builder_repair_cfg = (
+        builder_llm_cfg.get("repair", {}) if isinstance(builder_llm_cfg.get("repair"), dict) else {}
+    )
+    builder_gate_repair_enabled = bool(
+        cfg.get("builder_gate_repair_enabled", builder_repair_cfg.get("enabled", False))
+    )
+    try:
+        builder_gate_repair_max_attempts = max(
+            int(
+                cfg.get(
+                    "builder_gate_repair_max_attempts",
+                    builder_repair_cfg.get("max_attempts", 1),
+                )
+                or 0
+            ),
+            0,
+        )
+    except (TypeError, ValueError):
+        builder_gate_repair_max_attempts = 0
+    builder_gate_repair_simplify_first = bool(
+        cfg.get(
+            "builder_gate_repair_simplify_first",
+            builder_repair_cfg.get("simplify_first", True),
+        )
+    )
+    llm_prompts_cfg = cfg.get("llm_prompts", {}) if isinstance(cfg.get("llm_prompts"), dict) else {}
+    builder_gate_repair_prompt_path = _abs_from_repo_root(
+        str(
+            cfg.get(
+                "builder_gate_repair_prompt_path",
+                llm_prompts_cfg.get("builder_repair", "PTP/prompts/pref_builder_repair.txt"),
+            )
+            or "PTP/prompts/pref_builder_repair.txt"
+        )
+    )
+    builder_gate_repair_m3_prompt_path = _abs_from_repo_root(
+        str(
+            cfg.get(
+                "builder_gate_repair_m3_prompt_path",
+                llm_prompts_cfg.get("builder_m3", "PTP/prompts/pref_builder_m3.txt"),
+            )
+            or "PTP/prompts/pref_builder_m3.txt"
+        )
+    )
+    if (
+        builder_gate_repair_enabled
+        and (not builder_gate.ok)
+        and str(g_entry["id"]) != G_REF_ID
+        and builder_gate_repair_max_attempts > 0
+    ):
+        try:
+            _configure_builder_llm_for_worker(cfg=cfg, run_dir=run_dir_s)
+        except Exception:  # noqa: BLE001
+            pass
+
+        failure_report = _builder_failure_report(
+            stage="gate",
+            reason=str(builder_gate.reason),
+            trace=builder_gate.trace,
+        )
+        repaired_g_ir, repair_meta = _repair_builder_candidate_loop(
+            g_ir,
+            failure_report=failure_report,
+            operator_whitelist=operator_whitelist,
+            gate_cfg=builder_gate_cfg,
+            llm_prompts={
+                "builder_m3": builder_gate_repair_m3_prompt_path,
+                "builder_repair": builder_gate_repair_prompt_path,
+            },
+            global_feedback=None,
+            max_attempts=int(builder_gate_repair_max_attempts),
+            simplify_first=bool(builder_gate_repair_simplify_first),
+        )
+        repair_record: Dict[str, Any] = {
+            "record_type": "builder_gate_repair_attempt",
+            "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "generation": int(generation),
+            "pair_index": int(pair_index),
+            "stage": "builder_gate",
+            "g_id_before": str(record["g_id"]),
+            "builder_gate_reason_before": str(builder_gate.reason),
+            "builder_gate_trace_before": builder_gate.trace,
+            "repair_prompt_path": builder_gate_repair_prompt_path,
+            "m3_prompt_path": builder_gate_repair_m3_prompt_path,
+            "max_attempts": int(builder_gate_repair_max_attempts),
+            "meta": dict(repair_meta) if isinstance(repair_meta, dict) else {},
+            "final_ok": False,
+        }
+        repair_attempt_list = (repair_meta or {}).get("attempts", []) if isinstance(repair_meta, dict) else []
+        record["builder_gate_repair_attempts"] = int(len(repair_attempt_list))
+        if repaired_g_ir is not None:
+            try:
+                compiled_g_repaired = compile_preference_builder(
+                    repaired_g_ir,
+                    operator_whitelist=operator_whitelist,
+                )
+                pref_batch_repaired = _build_pref_batch_with_memory_trace(
+                    compiled_g_repaired,
+                    feature_cache,
+                    {"stage": "cheap_gate"},
+                )
+                builder_gate_repaired = run_preference_builder_gates(
+                    pref_batch_repaired,
+                    feature_cache=feature_cache,
+                    min_pairs=int(builder_gate_cfg["min_pairs"]),
+                    min_coverage=float(builder_gate_cfg["min_coverage"]),
+                    max_pairs_per_instance=int(builder_gate_cfg["max_pairs_per_instance"]),
+                    weight_nonneg=bool(builder_gate_cfg["weight_nonneg"]),
+                    semantic_tolerance=float(builder_gate_cfg["semantic_tolerance"]),
+                    semantic_min_pass_rate=float(builder_gate_cfg["semantic_min_pass_rate"]),
+                )
+                builder_gate_repaired.trace = _enrich_builder_gate_trace_with_memory(
+                    builder_gate_repaired.trace,
+                    pref_batch_repaired,
+                    cache_hit=False,
+                )
+                repair_record["g_id_after"] = _sig_pref_builder(repaired_g_ir)
+                repair_record["builder_gate_reason_after"] = str(builder_gate_repaired.reason)
+                repair_record["builder_gate_trace_after"] = builder_gate_repaired.trace
+                repair_record["final_ok"] = bool(builder_gate_repaired.ok)
+                if builder_gate_repaired.ok:
+                    compiled_g = compiled_g_repaired
+                    g_ir = repaired_g_ir
+                    pref_batch = pref_batch_repaired
+                    builder_gate = builder_gate_repaired
+                    record["g_ir"] = asdict(g_ir)
+                    record["builder_gate_repaired"] = True
+                    record["g_id_before_repair"] = str(record["g_id"])
+                    record["g_id_after_repair"] = str(repair_record["g_id_after"])
+            except Exception as exc:  # noqa: BLE001
+                repair_record["repair_error"] = str(exc)
+                repair_record["repair_error_type"] = type(exc).__name__
+        builder_gate_repair_reports.append(repair_record)
+
     joint_min_pass_rate = float(cfg.get("joint_min_pass_rate", 0.8) or 0.8)
     joint_swap_tolerance = float(cfg.get("joint_swap_tolerance", 1e-3) or 1e-3)
     joint_swap_check_mode = str(cfg.get("joint_swap_check_mode", "data") or "data")
@@ -5076,6 +5668,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             if joint_gate_repaired.ok:
                 compiled_f = compiled_f_repaired
                 f_ir = repaired_ir
+                record["f_ir"] = asdict(f_ir)
                 joint_gate = joint_gate_repaired
                 record["joint_gate_repaired"] = True
                 record["joint_gate_repair_attempts"] = attempt_no
@@ -5087,6 +5680,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             record["joint_gate_repair_attempts"] = int(len(joint_gate_repair_reports))
 
     record["joint_gate_repair_reports"] = list(joint_gate_repair_reports)
+    record["builder_gate_repair_reports"] = list(builder_gate_repair_reports)
     record.update(
         {
             "builder_gate_ok": bool(builder_gate.ok),
@@ -5313,7 +5907,17 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 if not math.isfinite(cand_agg):
                     raise RuntimeError("Non-finite candidate aggregated objective")
             except Exception as exc:  # noqa: BLE001
-                error = str(exc)
+                error = f"{type(exc).__name__}: {exc}"
+                try:
+                    fl_logger.exception(
+                        "Stage3 mini-train FAILED init=%s g_id=%s f_id=%s device=%s",
+                        str(init_name),
+                        str(record.get("g_id")),
+                        str(record.get("f_id")),
+                        str(device_str),
+                    )
+                except Exception:  # noqa: BLE001
+                    pass
                 cand_by_size = {int(sz): 1.0e9 for sz in valid_sizes}
                 cand_agg = 1.0e9
 
@@ -5331,9 +5935,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
         delta_mean = float(sum(deltas) / float(len(deltas))) if deltas else float("inf")
         delta_worst = float(max(deltas)) if deltas else float("inf")
+        any_error = any(isinstance(v, dict) and v.get("error") for v in per_init.values())
 
-        record["pair_ok"] = True
-        record["pair_reason"] = "ok_stage3_offline_minitrain"
+        record["pair_ok"] = not any_error
+        record["pair_reason"] = "ok_stage3_offline_minitrain" if not any_error else "stage3_runtime_error"
         record["fitness"] = {
             "per_init": per_init,
             "delta_mean": float(delta_mean),
@@ -5343,9 +5948,16 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "valid_problem_sizes": list(valid_sizes),
             "K": int(K),
         }
-        record["score"] = float(delta_mean)
+        record["score"] = float("inf") if any_error else float(delta_mean)
         record["better_than_baseline_mean"] = bool(delta_mean < 0.0)
         record["better_than_baseline_strict"] = bool(deltas and all(float(d) < 0.0 for d in deltas))
+        fl_logger.info(
+            "Stage3 offline mini-train DONE gen=%d pair_index=%d score=%s any_error=%s",
+            int(generation),
+            int(pair_index),
+            str(record.get("score")),
+            str(any_error),
+        )
         record["elapsed_s"] = float(time.time() - t0)
         return record
     except Exception as exc:  # noqa: BLE001
@@ -5371,6 +5983,25 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 pass
 
 
+def _hf_eval_task_child(payload: Mapping[str, Any], conn: Any) -> None:
+    """Run one HF task in an isolated child process."""
+
+    try:
+        rec = _evaluate_pair_worker(payload)
+    except Exception as exc:  # noqa: BLE001
+        fixed = dict(payload) if isinstance(payload, Mapping) else {}
+        fixed["pair_ok"] = False
+        fixed["pair_reason"] = "child_exception"
+        fixed["high_fidelity_error"] = f"{type(exc).__name__}: {exc}"
+        fixed["high_fidelity_traceback"] = traceback.format_exc()
+        fixed["score"] = float("inf")
+        rec = fixed
+    try:
+        conn.send(dict(rec))
+    finally:
+        conn.close()
+
+
 def _hf_pinned_device_worker(  # noqa: PLR0912
     device_str: str,
     task_queue: Any,
@@ -5388,10 +6019,64 @@ def _hf_pinned_device_worker(  # noqa: PLR0912
         try:
             fixed = dict(payload)
             fixed["device_str"] = str(device_str)
-            rec = _evaluate_pair_worker(fixed)
+            cfg_yaml = fixed.get("cfg_yaml")
+            hf_timeout_s_raw = cfg_yaml.get("high_fidelity_task_timeout_s", 3600.0) if isinstance(cfg_yaml, Mapping) else 3600.0
+            try:
+                hf_timeout_s = max(1.0, float(hf_timeout_s_raw))
+            except (TypeError, ValueError):
+                hf_timeout_s = 3600.0
+
+            import multiprocessing as mp
+
+            ctx = mp.get_context("spawn")
+            parent_conn, child_conn = ctx.Pipe(duplex=False)
+            child = ctx.Process(target=_hf_eval_task_child, args=(fixed, child_conn))
+            child.daemon = False
+            try:
+                child.start()
+                child_conn.close()
+                deadline = time.time() + float(hf_timeout_s)
+                rec = None
+                while True:
+                    remaining = float(deadline - time.time())
+                    if parent_conn.poll(max(0.0, min(1.0, remaining))):
+                        rec = dict(parent_conn.recv())
+                        break
+                    if not child.is_alive():
+                        break
+                    if remaining <= 0.0:
+                        break
+
+                if rec is None:
+                    fixed["pair_ok"] = False
+                    fixed["score"] = float("inf")
+                    if child.is_alive():
+                        fixed["pair_reason"] = "child_timeout"
+                        fixed["high_fidelity_error"] = f"HF task exceeded timeout_s={hf_timeout_s:.1f}"
+                        child.terminate()
+                    else:
+                        fixed["pair_reason"] = "child_exit_no_result"
+                        fixed["high_fidelity_error"] = f"HF child exited without result (exitcode={child.exitcode})"
+                    rec = fixed
+            finally:
+                try:
+                    child_conn.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    if child.is_alive():
+                        child.join(timeout=5.0)
+                    else:
+                        child.join()
+                except Exception:  # noqa: BLE001
+                    pass
+                try:
+                    parent_conn.close()
+                except Exception:  # noqa: BLE001
+                    pass
         except Exception as exc:  # noqa: BLE001
             fixed = dict(payload) if isinstance(payload, dict) else {}
-            fixed["device"] = str(device_str)
+            fixed["device_str"] = str(device_str)
             fixed["pair_ok"] = False
             fixed["pair_reason"] = "high_fidelity_failed"
             fixed["high_fidelity_error"] = str(exc)
@@ -5465,6 +6150,16 @@ def run_pref_loss_coevo(
             alternating_schedule_raw.get(
                 "builder_generations",
                 alternating_schedule_raw.get("pair_generations", alternating_schedule_raw.get("builder_phase_generations", 0)),
+            ),
+            0,
+        ),
+    )
+    alternating_final_loss_generations = max(
+        0,
+        _safe_int(
+            alternating_schedule_raw.get(
+                "final_loss_generations",
+                alternating_schedule_raw.get("tail_loss_generations", 0),
             ),
             0,
         ),
@@ -5627,13 +6322,17 @@ def run_pref_loss_coevo(
         LOGGER.warning("search_mode=coevo is supported but not encouraged; prefer search_mode=alternating.")
     if search_mode == "alternating" and alternating_schedule_enabled:
         LOGGER.info(
-            "Alternating schedule enabled: loss_generations=%d builder_generations=%d rounds=%s",
+            "Alternating schedule enabled: loss_generations=%d builder_generations=%d final_loss_generations=%d rounds=%s",
             int(alternating_loss_generations),
             int(alternating_builder_generations),
+            int(alternating_final_loss_generations),
             (int(alternating_rounds) if alternating_rounds > 0 else "unbounded"),
         )
         if alternating_rounds > 0:
-            planned = int(alternating_rounds) * int(alternating_loss_generations + alternating_builder_generations)
+            planned = (
+                int(alternating_rounds) * int(alternating_loss_generations + alternating_builder_generations)
+                + int(alternating_final_loss_generations)
+            )
             if int(generations) != int(planned):
                 LOGGER.warning(
                     "alternating_schedule rounds imply %d generations, but configured generations=%d.",
@@ -5848,6 +6547,9 @@ def run_pref_loss_coevo(
                 }
             except (TypeError, ValueError):
                 best_so_far = None
+    best_builder_cost: Dict[str, Any] | None = None
+    if resume_state and isinstance(resume_state.get("best_builder_cost"), dict):
+        best_builder_cost = dict(resume_state.get("best_builder_cost", {}))
 
     # Pair-level cached evaluation results (in-memory by default).
     cache_dir = cfg_yaml.get("cache_persist_dir", None)
@@ -5890,6 +6592,7 @@ def run_pref_loss_coevo(
             "enabled": bool(alternating_schedule_enabled),
             "loss_generations": int(alternating_loss_generations),
             "builder_generations": int(alternating_builder_generations),
+            "final_loss_generations": int(alternating_final_loss_generations),
             "rounds": int(alternating_rounds),
         },
         "metric_mode": str(metric_mode),
@@ -6111,6 +6814,7 @@ def run_pref_loss_coevo(
                 "enabled": bool(alternating_schedule_enabled),
                 "loss_generations": int(alternating_loss_generations),
                 "builder_generations": int(alternating_builder_generations),
+                "final_loss_generations": int(alternating_final_loss_generations),
                 "rounds": int(alternating_rounds),
             },
             "metric_mode": str(metric_mode),
@@ -6119,6 +6823,7 @@ def run_pref_loss_coevo(
             "eval_stages": dict(eval_stages),
             "last_generation": int(last_generation),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
+            "best_builder_cost": dict(best_builder_cost) if isinstance(best_builder_cost, dict) else None,
             "best_pair_ids": (
                 {
                     "builder_id": str(best_so_far.get("builder_id")),
@@ -6146,6 +6851,7 @@ def run_pref_loss_coevo(
                 "enabled": bool(alternating_schedule_enabled),
                 "loss_generations": int(alternating_loss_generations),
                 "builder_generations": int(alternating_builder_generations),
+                "final_loss_generations": int(alternating_final_loss_generations),
                 "rounds": int(alternating_rounds),
             },
             "metric_mode": str(metric_mode),
@@ -6153,6 +6859,7 @@ def run_pref_loss_coevo(
             "improve_eps_calibration": (dict(improve_eps_calibration) if isinstance(improve_eps_calibration, dict) else None),
             "eval_stages": dict(eval_stages),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
+            "best_builder_cost": dict(best_builder_cost) if isinstance(best_builder_cost, dict) else None,
             "best_score": (float(best_so_far.get("score")) if isinstance(best_so_far, dict) else None),
             "best_pair_ids": (
                 {
@@ -6214,6 +6921,7 @@ def run_pref_loss_coevo(
             alternating_loss_generations=int(alternating_loss_generations),
             alternating_builder_generations=int(alternating_builder_generations),
             alternating_rounds=int(alternating_rounds),
+            alternating_final_loss_generations=int(alternating_final_loss_generations),
         )
         generation_phase_label = str(alternating_phase_hint) if str(search_mode) == "alternating" else "coevo"
         if phase_block_label is None:
@@ -6509,7 +7217,7 @@ def run_pref_loss_coevo(
 
                 # Builder "static" gates (cheap): run on a deterministic dummy feature_cache.
                 fc = _dummy_feature_cache(batch_size=8, k=16, variant="visible")
-                pb = compiled.build_fn(fc, {"stage": "builder_static"})
+                pb = _build_pref_batch_with_memory_trace(compiled, fc, {"stage": "builder_static"})
                 bg = run_preference_builder_gates(
                     pb,
                     feature_cache=fc,
@@ -6520,6 +7228,7 @@ def run_pref_loss_coevo(
                     semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
                     semantic_min_pass_rate=float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
                 )
+                bg.trace = _enrich_builder_gate_trace_with_memory(bg.trace, pb, cache_hit=False)
                 entry["builder_static_ok"] = bool(bg.ok)
                 entry["builder_static_reason"] = str(bg.reason)
                 entry["builder_static_trace"] = bg.trace
@@ -7031,13 +7740,17 @@ def run_pref_loss_coevo(
                     str(exc),
                 )
 
-            if (not fixed_builder_id) and isinstance(best_so_far, dict):
-                cand_g = str(best_so_far.get("builder_id") or "")
+            # Fixed builder for loss-search: prefer best_builder_cost, then elites, then global incumbent, then g_ref.
+            if (not fixed_builder_id) and isinstance(best_builder_cost, dict):
+                cand_g = str(best_builder_cost.get("builder_id") or "")
                 if cand_g and cand_g in compiled_g:
                     fixed_builder_id = cand_g
-            # Fixed builder for loss-search: prefer current best (incumbent) builder; fallback to elites then g_ref.
             if (not fixed_builder_id) and elites_g:
                 cand_g = str(elites_g[0].get("id") or "")
+                if cand_g and cand_g in compiled_g:
+                    fixed_builder_id = cand_g
+            if (not fixed_builder_id) and isinstance(best_so_far, dict):
+                cand_g = str(best_so_far.get("builder_id") or "")
                 if cand_g and cand_g in compiled_g:
                     fixed_builder_id = cand_g
             if not fixed_builder_id and G_REF_ID in compiled_g:
@@ -7048,7 +7761,7 @@ def run_pref_loss_coevo(
                         fixed_builder_id = str(gid0)
                         break
 
-            # Fixed loss for builder-search: prefer current best (incumbent) loss; fallback to elites then f_ref.
+            # Fixed loss for builder-search: prefer current best loss incumbent; fallback to elites then f_ref.
             if (not fixed_loss_id) and isinstance(best_so_far, dict):
                 cand_f = str(best_so_far.get("loss_id") or "")
                 if cand_f and cand_f in compiled_f:
@@ -8074,6 +8787,10 @@ def run_pref_loss_coevo(
                 f_entry = f_map.get(fid)
                 if not isinstance(f_entry, dict) and fid == F_REF_ID:
                     f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
+                if isinstance(r, dict) and isinstance(r.get("g_ir"), dict):
+                    g_entry = {"id": str(gid), "ir": dict(r.get("g_ir") or {})}
+                if isinstance(r, dict) and isinstance(r.get("f_ir"), dict):
+                    f_entry = {"id": str(fid), "ir": dict(r.get("f_ir") or {})}
                 if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
                     LOGGER.warning(
                         "HF skip gen=%d pair_index=%s missing entry for pair (%s,%s): g_entry=%s f_entry=%s",
@@ -8314,15 +9031,25 @@ def run_pref_loss_coevo(
                             if inc_pair in set(pool_pairs):
                                 always_pair = inc_pair
 
-                        promoted = _select_stage3_promotions(
-                            pool_records,
-                            promote_top_m=int(promote_top_m),
-                            promote_if_better_than_incumbent=bool(promote_if_better),
-                            incumbent_ref_score=incumbent_ref_score,
-                            metric_mode=str(metric_mode),
-                            improve_eps=float(improve_eps),
-                            always_include_pair=always_pair,
-                        )
+                        if str(alternating_active_phase) == "builder" and alternating_fixed_loss_id:
+                            promoted = _select_stage3_builder_promotions(
+                                pool_records,
+                                promote_top_m=int(promote_top_m),
+                                metric_mode=str(metric_mode),
+                                slack=float(improve_eps),
+                                fixed_loss_id=str(alternating_fixed_loss_id),
+                                always_include_pair=always_pair,
+                            )
+                        else:
+                            promoted = _select_stage3_promotions(
+                                pool_records,
+                                promote_top_m=int(promote_top_m),
+                                promote_if_better_than_incumbent=bool(promote_if_better),
+                                incumbent_ref_score=incumbent_ref_score,
+                                metric_mode=str(metric_mode),
+                                improve_eps=float(improve_eps),
+                                always_include_pair=always_pair,
+                            )
                         always_promote_best = True if curr_round.get("always_promote_best") is None else bool(
                             curr_round.get("always_promote_best")
                         )
@@ -8397,9 +9124,13 @@ def run_pref_loss_coevo(
                             f_entry = f_map.get(str(fid))
                             if not isinstance(f_entry, dict) and str(fid) == F_REF_ID:
                                 f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
+                            proxy_rec = pair_records_map.get((str(gid), str(fid)))
+                            if isinstance(proxy_rec, dict) and isinstance(proxy_rec.get("g_ir"), dict):
+                                g_entry = {"id": str(gid), "ir": dict(proxy_rec.get("g_ir") or {})}
+                            if isinstance(proxy_rec, dict) and isinstance(proxy_rec.get("f_ir"), dict):
+                                f_entry = {"id": str(fid), "ir": dict(proxy_rec.get("f_ir") or {})}
                             if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
                                 continue
-                            proxy_rec = pair_records_map.get((str(gid), str(fid)))
                             device_str = device_list[int(len(hf_tasks2)) % len(device_list)]
                             hf_tasks2.append(
                                 {
@@ -8895,6 +9626,63 @@ def run_pref_loss_coevo(
         _append_jsonl(gate_repair_jsonl, joint_gate_repair_attempt_records_gen)
 
         fitness_g, fitness_f = _credit_assignment_v2(pair_records=pair_records)
+        builder_selection_active = not (
+            str(search_mode) == "alternating" and str(alternating_active_phase) == "loss"
+        )
+        builder_perf_map: Dict[str, float] = {}
+        builder_constraint_state: Dict[str, Any] | None = None
+        builder_ok_records = [
+            r
+            for r in pair_records
+            if bool(r.get("pair_ok")) and str(r.get("stage")) != "anchor"
+        ]
+        if builder_selection_active and builder_ok_records:
+            builder_perf_map, _ = _credit_assignment_v2(pair_records=builder_ok_records)
+            builder_constraint_state = _compute_builder_constraint_state(
+                records=builder_ok_records,
+                perf_by_builder=builder_perf_map,
+                metric_mode=metric_mode,
+                slack=improve_eps,
+            )
+            builder_candidate = (
+                dict(builder_constraint_state.get("selected"))
+                if isinstance(builder_constraint_state, Mapping) and isinstance(builder_constraint_state.get("selected"), Mapping)
+                else None
+            )
+            if builder_candidate is not None:
+                incumbent_cost = None
+                if isinstance(best_builder_cost, dict):
+                    try:
+                        incumbent_cost = float(best_builder_cost.get("cost"))
+                    except (TypeError, ValueError):
+                        incumbent_cost = None
+                candidate_cost = float(builder_candidate.get("cost"))
+                should_update_builder_cost = (
+                    incumbent_cost is None or candidate_cost < float(incumbent_cost)
+                )
+                if should_update_builder_cost:
+                    best_builder_cost = {
+                        "builder_id": str(builder_candidate.get("builder_id")),
+                        "cost": float(candidate_cost),
+                        "perf": float(builder_candidate.get("perf")),
+                        "metric_mode": str(metric_mode),
+                        "slack": float(improve_eps),
+                        "best_perf": builder_candidate.get("best_perf"),
+                        "threshold": builder_candidate.get("threshold"),
+                        "generation": int(gen),
+                        "phase": str(generation_phase_label),
+                        "perf_ref": dict(builder_candidate.get("perf_ref") or {}),
+                    }
+                    LOGGER.info(
+                        "NEW BEST_BUILDER_COST: builder=%s cost=%s perf=%s best_perf=%s slack=%s gen=%d phase=%s",
+                        best_builder_cost.get("builder_id"),
+                        best_builder_cost.get("cost"),
+                        best_builder_cost.get("perf"),
+                        best_builder_cost.get("best_perf"),
+                        best_builder_cost.get("slack"),
+                        int(gen),
+                        str(generation_phase_label),
+                    )
 
         def _candidate_descriptor(cid: str, *, kind: str) -> Dict[str, Any]:
             xs: List[float] = []
@@ -8937,6 +9725,15 @@ def run_pref_loss_coevo(
                 e2 = dict(e)
                 e2["fitness"] = float(fit_map.get(eid, float("inf")))
                 e2["descriptor"] = _candidate_descriptor(eid, kind=kind)
+                if kind == "g" and isinstance(builder_constraint_state, Mapping):
+                    builder_stat = (builder_constraint_state.get("builders") or {}).get(eid)
+                    if isinstance(builder_stat, Mapping):
+                        e2["builder_perf"] = builder_stat.get("perf")
+                        e2["builder_cost"] = builder_stat.get("cost")
+                        e2["builder_feasible"] = builder_stat.get("feasible")
+                        e2["builder_threshold"] = builder_stat.get("threshold")
+                        e2["builder_best_perf"] = builder_stat.get("best_perf")
+                        e2["selection_sort_key"] = list(builder_stat.get("selection_sort_key", []))
                 if kind == "g" and "family_signature" not in e2:
                     try:
                         irj = e2.get("ir")
@@ -8959,31 +9756,43 @@ def run_pref_loss_coevo(
                     except Exception:  # noqa: BLE001
                         e2["family"] = "unknown"
                 out.append(e2)
-            out.sort(
-                key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
-                reverse=bool(str(metric_mode) == "maximize"),
-            )
+            if kind == "g" and isinstance(builder_constraint_state, Mapping):
+                out.sort(key=lambda x: _stored_selection_sort_key(x, fallback_key="fitness"))
+            else:
+                out.sort(
+                    key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
+                    reverse=bool(str(metric_mode) == "maximize"),
+                )
             return out
 
-        ranked_g = _rank_entries(list(g_map.values()), fitness_g, kind="g")
         ranked_f = _rank_entries(list(f_map.values()), fitness_f, kind="f")
         builder_family_div = _normalize_family_diversity_cfg((cfg_yaml.get("builder_llm", {}) or {}).get("family_diversity", {}))  # type: ignore[union-attr]
         loss_family_div = _normalize_family_diversity_cfg((cfg_yaml.get("loss_llm", {}) or {}).get("family_diversity", {}))  # type: ignore[union-attr]
-        if bool(builder_family_div.get("enabled", False)):
-            elites_g = _select_elites_with_family_quota(
-                ranked_g,
-                max(0, elite_g),
-                metric_mode=metric_mode,
-                min_per_family=int(builder_family_div.get("min_per_family", 1) or 1),
-                max_per_family=(
-                    int(builder_family_div.get("elite_max_per_family", 0) or 0)
-                    if int(builder_family_div.get("elite_max_per_family", 0) or 0) > 0
-                    else None
-                ),
-                include_unknown=bool(builder_family_div.get("include_unknown", False)),
-            )
+        if builder_selection_active:
+            ranked_g = _rank_entries(list(g_map.values()), fitness_g, kind="g")
+            if bool(builder_family_div.get("enabled", False)):
+                elites_g = _select_elites_with_family_quota(
+                    ranked_g,
+                    max(0, elite_g),
+                    metric_mode=metric_mode,
+                    min_per_family=int(builder_family_div.get("min_per_family", 1) or 1),
+                    max_per_family=(
+                        int(builder_family_div.get("elite_max_per_family", 0) or 0)
+                        if int(builder_family_div.get("elite_max_per_family", 0) or 0) > 0
+                        else None
+                    ),
+                    include_unknown=bool(builder_family_div.get("include_unknown", False)),
+                    prefer_selection_sort_key=True,
+                )
+            else:
+                elites_g = ranked_g[: max(0, elite_g)]
         else:
-            elites_g = ranked_g[: max(0, elite_g)]
+            ranked_g = list(elites_g)
+            LOGGER.info(
+                "Builder selection frozen gen=%d phase=%s; keeping previous builder elites/archives.",
+                int(gen),
+                str(alternating_active_phase),
+            )
 
         if bool(loss_family_div.get("enabled", False)):
             elites_f = _select_elites_with_family_quota(
@@ -9004,19 +9813,30 @@ def run_pref_loss_coevo(
         # MAP-Elites archive update (8x8 default, top2 per cell).
         archive_bins = int(cfg_yaml.get("archive_bins", 8) or 8)
         archive_per_cell = int(cfg_yaml.get("archive_per_cell", 2) or 2)
-        for e in ranked_g:
-            cell = tuple(e.get("descriptor", {}).get("cell", [0, 0]))  # type: ignore[assignment]
-            try:
-                cell_t = (int(cell[0]), int(cell[1]))
-            except Exception:  # noqa: BLE001
-                cell_t = (0, 0)
-            _archive_add(
-                archive_g,
-                cell=cell_t,
-                entry={"id": e.get("id"), "signature": e.get("signature"), "ir": e.get("ir"), "descriptor": e.get("descriptor"), "fitness": e.get("fitness")},
-                score=float(e.get("fitness", float("inf"))),
-                per_cell=archive_per_cell,
-            )
+        if builder_selection_active:
+            for e in ranked_g:
+                cell = tuple(e.get("descriptor", {}).get("cell", [0, 0]))  # type: ignore[assignment]
+                try:
+                    cell_t = (int(cell[0]), int(cell[1]))
+                except Exception:  # noqa: BLE001
+                    cell_t = (0, 0)
+                _archive_add(
+                    archive_g,
+                    cell=cell_t,
+                    entry={
+                        "id": e.get("id"),
+                        "signature": e.get("signature"),
+                        "ir": e.get("ir"),
+                        "descriptor": e.get("descriptor"),
+                        "fitness": e.get("fitness"),
+                        "selection_sort_key": e.get("selection_sort_key"),
+                        "builder_perf": e.get("builder_perf"),
+                        "builder_cost": e.get("builder_cost"),
+                        "builder_feasible": e.get("builder_feasible"),
+                    },
+                    score=float(e.get("fitness", float("inf"))),
+                    per_cell=archive_per_cell,
+                )
         for e in ranked_f:
             cell = tuple(e.get("descriptor", {}).get("cell", [0, 0]))  # type: ignore[assignment]
             try:
@@ -9039,14 +9859,16 @@ def run_pref_loss_coevo(
             )
 
         diverse_max = int(cfg_yaml.get("diverse_elites_from_archive_max", max(elite_g * 2, 1)) or max(elite_g * 2, 1))
-        diverse_elites_g = _archive_flatten(archive_g, max_items=diverse_max)
+        if builder_selection_active:
+            diverse_elites_g = _archive_flatten(archive_g, max_items=diverse_max)
         diverse_elites_f = _archive_flatten(archive_f, max_items=diverse_max)
 
         # Hall-of-Fame update.
-        hof_g = _update_hof(hof_g, candidates=elites_g, max_size=int(cfg_yaml.get("hof_size_g", 64) or 64))
+        if builder_selection_active:
+            hof_g = _update_hof(hof_g, candidates=elites_g, max_size=int(cfg_yaml.get("hof_size_g", 64) or 64))
         hof_f = _update_hof(hof_f, candidates=elites_f, max_size=int(cfg_yaml.get("hof_size_f", 64) or 64))
 
-        if elites_g:
+        if builder_selection_active and elites_g:
             _atomic_write_json(os.path.join(run_dir, "best_elite_builder.json"), dict(elites_g[0]))
         if elites_f:
             _atomic_write_json(os.path.join(run_dir, "best_elite_loss.json"), dict(elites_f[0]))
@@ -9106,6 +9928,25 @@ def run_pref_loss_coevo(
                 _atomic_write_json(os.path.join(run_dir, "best_loss.json"), dict(best_loss))
             else:
                 LOGGER.warning("Failed to resolve best_loss.json for best_pair f_id=%s", fid_best)
+
+        if isinstance(best_builder_cost, dict):
+            best_builder_cost_artifact: Dict[str, Any] = dict(best_builder_cost)
+            gid_cost = str(best_builder_cost.get("builder_id", "")).strip()
+            perf_ref = best_builder_cost.get("perf_ref")
+            best_builder_cost_entry = _best_pair_artifact_entry(
+                cid=gid_cost,
+                best_pair=(perf_ref if isinstance(perf_ref, Mapping) else None),
+                cid_key="g_id",
+                ir_key="g_ir",
+                candidate_map=g_map,
+                compiled_map=compiled_g,
+                ref_ir_fn=_ref_builder_ir if gid_cost == G_REF_ID else None,
+            )
+            if best_builder_cost_entry is not None:
+                best_builder_cost_artifact["ir"] = dict(best_builder_cost_entry.get("ir") or {})
+                if best_builder_cost_entry.get("signature") is not None:
+                    best_builder_cost_artifact["signature"] = best_builder_cost_entry.get("signature")
+            _atomic_write_json(os.path.join(run_dir, "best_builder_cost.json"), best_builder_cost_artifact)
 
         if bool(cfg_yaml.get("drop_pref_cache_after_generation", False)):
             dropped_end = caches.prune_pref_cache(keep_g_ids=[], keep_batch_ids=[])

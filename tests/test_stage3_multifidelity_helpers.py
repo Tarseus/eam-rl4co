@@ -81,3 +81,74 @@ def test_select_stage3_promotions_respects_improve_eps(monkeypatch):
     assert promoted2[0] == ("g3", "f3")
     assert ("g2", "f2") in promoted2
 
+
+def test_compute_builder_constraint_state_prefers_lowest_cost_within_slack(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    records = [
+        {"pair_ok": True, "g_id": "g1", "f_id": "f_fixed", "final_score": 1.00, "descriptor": {"g": {"pair_count": 120}}},
+        {"pair_ok": True, "g_id": "g2", "f_id": "f_fixed", "final_score": 1.01, "descriptor": {"g": {"pair_count": 40}}},
+        {"pair_ok": True, "g_id": "g3", "f_id": "f_fixed", "final_score": 1.20, "descriptor": {"g": {"pair_count": 10}}},
+    ]
+    state = loop._compute_builder_constraint_state(
+        records=records,
+        perf_by_builder={"g1": 1.00, "g2": 1.01, "g3": 1.20},
+        metric_mode="minimize",
+        slack=0.02,
+    )
+
+    assert state["best_perf"] == 1.0
+    assert state["selected"]["builder_id"] == "g2"
+    assert [x["builder_id"] for x in state["feasible"]] == ["g2", "g1"]
+    assert [x["builder_id"] for x in state["infeasible"]] == ["g3"]
+
+
+def test_select_stage3_builder_promotions_uses_feasible_then_cost(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    records = [
+        {"pair_ok": True, "g_id": "g1", "f_id": "f_fixed", "score": 1.00, "descriptor": {"g": {"pair_count": 120}}},
+        {"pair_ok": True, "g_id": "g2", "f_id": "f_fixed", "score": 1.01, "descriptor": {"g": {"pair_count": 40}}},
+        {"pair_ok": True, "g_id": "g3", "f_id": "f_fixed", "score": 1.20, "descriptor": {"g": {"pair_count": 10}}},
+    ]
+    promoted = loop._select_stage3_builder_promotions(
+        records,
+        promote_top_m=2,
+        metric_mode="minimize",
+        slack=0.02,
+        fixed_loss_id="f_fixed",
+        always_include_pair=None,
+    )
+
+    assert promoted == [("g2", "f_fixed"), ("g1", "f_fixed")]
+
+
+def test_build_pair_descriptor_keeps_builder_memory_metrics(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    desc = loop._build_pair_descriptor(
+        builder_gate_trace={
+            "coverage": 0.5,
+            "pair_count": 64,
+            "semantic_pass_rate": 1.0,
+            "memory_peak_allocated_delta_mb": 12.5,
+            "memory_peak_reserved_delta_mb": 16.0,
+        },
+        proxy_agg={"effective_grad_ratio": 0.2, "ess_ratio": 0.1, "loss": 0.3},
+        pair_count_cap=128,
+        loss_scale=1.0,
+        bins=8,
+    )
+
+    assert desc["g"]["pair_count"] == 64
+    assert desc["g"]["memory_peak_allocated_mb"] == 12.5
+    assert desc["g"]["memory_peak_reserved_mb"] == 16.0
