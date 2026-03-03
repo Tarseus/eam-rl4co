@@ -22,6 +22,35 @@ def _dummy_openai_client(*, responses: list[str]):
     return SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
 
 
+def test_llm_model_routing_prefers_nano_for_bulk_and_mini_for_repairs(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    sys.path.insert(0, str(repo_root / "PTP"))
+
+    from ptp_discovery import free_loss_llm_ops as llm_ops
+
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.setenv("OPENAI_MODEL_NANO", "gpt-4.1-nano")
+    monkeypatch.setenv("OPENAI_MODEL_MINI", "gpt-4.1-mini")
+    monkeypatch.delenv("OPENAI_MODEL", raising=False)
+
+    state = {"models": []}
+
+    def _create(*, model, messages, temperature=0.7, **kwargs):  # noqa: ARG001
+        state["models"].append(model)
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content='{"name":"ok","code":"def generated_loss(batch, model_output, extra):\\n    return ops.zeros(())"}'))])
+
+    dummy_client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=_create)))
+    monkeypatch.setattr(llm_ops, "_get_openai_client", lambda: dummy_client)
+    monkeypatch.setattr(llm_ops, "_LLM_CACHE_PATH", None)
+
+    llm_ops._call_llm("bulk prompt", llm_op="E1", prompt_path="bulk.txt")
+    llm_ops._call_llm("repair prompt", llm_op="REPAIR", prompt_path="repair.txt")
+    llm_ops._call_llm("constraint prompt", llm_op="LOSS_CONSTRAINT_INJECT", prompt_path="constraint.txt")
+
+    assert state["models"] == ["gpt-4.1-nano", "gpt-4.1-mini", "gpt-4.1-mini"]
+
+
 def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
     # Ensure local `PTP/` modules are importable under pytest.
     repo_root = Path(__file__).resolve().parents[1]

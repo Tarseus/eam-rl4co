@@ -305,6 +305,29 @@ def _cache_key(*, model: str, prompt: str) -> str:
     return sha1(blob).hexdigest()
 
 
+def _resolve_llm_model_for_op(llm_op: str) -> str:
+    op = str(llm_op or "").strip().upper()
+
+    nano_default = os.getenv("OPENAI_MODEL_NANO", "gpt-4.1-nano")
+    mini_default = os.getenv("OPENAI_MODEL_MINI", "gpt-4.1-mini")
+    fallback_model = os.getenv("OPENAI_MODEL", mini_default)
+
+    nano_ops = {"E1_GENERATE", "E1", "E2", "M1", "M2"}
+    mini_prefixes = ("DIR_REPAIR_",)
+    mini_suffixes = ("_PARADIGM_SHIFT", "_STRUCTURE_SHIFT", "_CONSTRAINT_INJECT")
+    mini_ops = {"REPAIR", "EXPECTS_REPAIR", "M3"}
+
+    if op in nano_ops:
+        return str(nano_default)
+    if op in mini_ops:
+        return str(mini_default)
+    if any(op.startswith(prefix) for prefix in mini_prefixes):
+        return str(mini_default)
+    if any(op.endswith(suffix) for suffix in mini_suffixes):
+        return str(mini_default)
+    return str(fallback_model)
+
+
 def _call_llm(prompt: str, *, llm_op: str, prompt_path: str | None) -> str:
     global _LLM_CACHE_HITS, _LLM_CACHE_MISSES
 
@@ -312,7 +335,7 @@ def _call_llm(prompt: str, *, llm_op: str, prompt_path: str | None) -> str:
         raise RuntimeError("offline_mode=true: LLM calls are disabled for this run.")
 
     client = _get_openai_client()
-    model_name = os.getenv("OPENAI_MODEL", "gpt-4.1")
+    model_name = _resolve_llm_model_for_op(llm_op)
 
     key = _cache_key(model=model_name, prompt=prompt)
     if _LLM_CACHE_PATH and key in _LLM_CACHE_INDEX:
