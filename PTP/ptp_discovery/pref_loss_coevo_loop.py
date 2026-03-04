@@ -14,6 +14,8 @@ import os
 import pickle
 import random
 import re
+import subprocess
+import sys
 import time
 import traceback
 import tokenize
@@ -816,6 +818,11 @@ def _atomic_write_json(path: str, payload: Mapping[str, Any]) -> None:
     os.replace(tmp, path)
 
 
+def _load_json(path: str) -> Any:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _b64_pickle(obj: Any) -> str:
     return base64.b64encode(pickle.dumps(obj)).decode("ascii")
 
@@ -841,6 +848,245 @@ def _load_checkpoint(run_dir: str) -> Dict[str, Any]:
     if not isinstance(state, dict):
         raise ValueError(f"Invalid checkpoint format: {_checkpoint_path(run_dir)}")
     return state
+
+
+def _hf_scheduler_mode(cfg_yaml: Mapping[str, Any]) -> str:
+    raw = cfg_yaml.get("high_fidelity_scheduler", cfg_yaml.get("hf_scheduler_mode", "subprocess"))
+    mode = str(raw or "subprocess").strip().lower()
+    if mode in {"subprocess", "process"}:
+        return "subprocess"
+    if mode in {"multiprocessing", "mp"}:
+        return "multiprocessing"
+    return "subprocess"
+
+
+def _hf_subprocess_script_path() -> str:
+    return os.path.join(_repo_root_dir(), "PTP", "ptp_discovery", "run_hf_pair_eval.py")
+
+
+def _hf_subprocess_env_and_device(device_str: str) -> Tuple[Dict[str, str], str]:
+    env = dict(os.environ)
+    py_paths = [str(_repo_root_dir()), os.path.join(_repo_root_dir(), "PTP")]
+    if env.get("PYTHONPATH"):
+        py_paths.append(str(env["PYTHONPATH"]))
+    env["PYTHONPATH"] = os.pathsep.join(py_paths)
+
+    dev = str(device_str or "").strip()
+    if dev.startswith("cuda:"):
+        idx = dev.split(":", 1)[1].strip()
+        if idx:
+            env["CUDA_VISIBLE_DEVICES"] = str(idx)
+            return env, "cuda:0"
+    return env, dev
+
+
+def _hf_subprocess_failure_record(
+    task: Mapping[str, Any],
+    *,
+    reason: str,
+    error: str,
+    exitcode: int | None = None,
+) -> Dict[str, Any]:
+    fixed = dict(task) if isinstance(task, Mapping) else {}
+    physical_device = str(fixed.get("device_physical_str") or fixed.get("device_str") or "")
+    fixed["device"] = physical_device
+    fixed["device_str"] = physical_device
+    fixed["pair_ok"] = False
+    fixed["pair_reason"] = str(reason)
+    fixed["high_fidelity_error"] = str(error)
+    if exitcode is not None:
+        fixed["high_fidelity_exitcode"] = int(exitcode)
+    fixed["score"] = float("inf")
+    return fixed
+
+
+def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
+    *,
+    hf_tasks: Sequence[Mapping[str, Any]],
+    run_dir: str,
+    device_list: Sequence[str],
+    max_workers: int,
+) -> List[Dict[str, Any]]:
+    if not hf_tasks:
+        return []
+
+    task_root = os.path.join(run_dir, "hf_subprocess")
+    os.makedirs(task_root, exist_ok=True)
+    script_path = _hf_subprocess_script_path()
+    if not os.path.isfile(script_path):
+        raise FileNotFoundError(f"Missing HF subprocess worker script: {script_path}")
+
+    max_workers = max(1, int(max_workers))
+    max_workers = min(int(max_workers), max(1, len(device_list)), max(1, len(hf_tasks)))
+    timeout_default = 3600.0
+
+    pending: List[Dict[str, Any]] = [dict(t) for t in hf_tasks]
+    active: List[Dict[str, Any]] = []
+    results_by_key: Dict[Tuple[int, int, str, str], Dict[str, Any]] = {}
+
+    def _task_key(task_like: Mapping[str, Any]) -> Tuple[int, int, str, str]:
+        return (
+            _safe_int(task_like.get("generation", -1), -1),
+            _safe_int(task_like.get("pair_index", -1), -1),
+            str(task_like.get("g_entry", {}).get("id", task_like.get("g_id", ""))),
+            str(task_like.get("f_entry", {}).get("id", task_like.get("f_id", ""))),
+        )
+
+    def _launch_ready_tasks() -> bool:
+        launched = False
+        busy_devices = {
+            str(meta.get("device_physical_str", meta.get("device_str", ""))) for meta in active
+        }
+        while len(active) < int(max_workers):
+            next_idx = None
+            for idx, task in enumerate(pending):
+                dev = str(task.get("device_str", ""))
+                if dev not in busy_devices:
+                    next_idx = idx
+                    break
+            if next_idx is None:
+                break
+
+            task = dict(pending.pop(next_idx))
+            physical_device = str(task.get("device_str", ""))
+            env, worker_device = _hf_subprocess_env_and_device(physical_device)
+            task["device_physical_str"] = physical_device
+            task["device_str"] = worker_device
+
+            gen = _safe_int(task.get("generation", -1), -1)
+            pair_index = _safe_int(task.get("pair_index", -1), -1)
+            task_dir = os.path.join(
+                task_root,
+                f"gen{int(gen):03d}_pair{int(pair_index):03d}_{str(physical_device).replace(':', '_')}",
+            )
+            os.makedirs(task_dir, exist_ok=True)
+            payload_path = os.path.join(task_dir, "payload.json")
+            result_path = os.path.join(task_dir, "result.json")
+            log_path = os.path.join(task_dir, "subprocess.log")
+            _atomic_write_json(payload_path, task)
+            timeout_raw = task.get("cfg_yaml", {}).get("high_fidelity_task_timeout_s", timeout_default)
+            try:
+                timeout_s = max(1.0, float(timeout_raw))
+            except (TypeError, ValueError):
+                timeout_s = timeout_default
+
+            log_fh = open(log_path, "w", encoding="utf-8")  # noqa: SIM115
+            proc = subprocess.Popen(  # noqa: S603
+                [
+                    sys.executable,
+                    "-u",
+                    script_path,
+                    "--payload",
+                    payload_path,
+                    "--result",
+                    result_path,
+                ],
+                cwd=_repo_root_dir(),
+                env=env,
+                stdout=log_fh,
+                stderr=log_fh,
+            )
+            active.append(
+                {
+                    "task": task,
+                    "proc": proc,
+                    "payload_path": payload_path,
+                    "result_path": result_path,
+                    "log_path": log_path,
+                    "log_fh": log_fh,
+                    "deadline": float(time.time() + timeout_s),
+                    "device_physical_str": physical_device,
+                    "key": _task_key(task),
+                }
+            )
+            busy_devices.add(physical_device)
+            launched = True
+        return launched
+
+    while pending or active:
+        _launch_ready_tasks()
+        progressed = False
+        now = float(time.time())
+        for meta in list(active):
+            proc = meta["proc"]
+            task = meta["task"]
+            result_path = str(meta["result_path"])
+            key = meta["key"]
+            exitcode = proc.poll()
+            timed_out = now > float(meta["deadline"])
+
+            if exitcode is None and not timed_out:
+                continue
+
+            if exitcode is None and timed_out:
+                try:
+                    proc.terminate()
+                    proc.wait(timeout=10.0)
+                except Exception:  # noqa: BLE001
+                    try:
+                        proc.kill()
+                    except Exception:  # noqa: BLE001
+                        pass
+                rec = _hf_subprocess_failure_record(
+                    task,
+                    reason="child_timeout",
+                    error=f"HF subprocess exceeded timeout before producing a result: {result_path}",
+                    exitcode=proc.poll(),
+                )
+            elif os.path.isfile(result_path):
+                try:
+                    rec_raw = _load_json(result_path)
+                    rec = dict(rec_raw) if isinstance(rec_raw, Mapping) else _hf_subprocess_failure_record(
+                        task,
+                        reason="child_exit_no_result",
+                        error=f"HF subprocess wrote invalid result payload: {result_path}",
+                        exitcode=exitcode,
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    rec = _hf_subprocess_failure_record(
+                        task,
+                        reason="child_exception",
+                        error=f"Failed to load HF subprocess result ({result_path}): {exc}",
+                        exitcode=exitcode,
+                    )
+            else:
+                rec = _hf_subprocess_failure_record(
+                    task,
+                    reason="child_exit_no_result",
+                    error=f"HF subprocess exited without result file: {result_path}",
+                    exitcode=exitcode,
+                )
+
+            physical_device = str(meta.get("device_physical_str", ""))
+            if physical_device:
+                rec["device"] = physical_device
+                rec["device_str"] = physical_device
+                rec["device_physical_str"] = physical_device
+            rec["hf_subprocess_log"] = os.path.relpath(str(meta["log_path"]), start=run_dir)
+            rec["hf_subprocess_result"] = os.path.relpath(result_path, start=run_dir)
+            results_by_key[key] = dict(rec)
+            active.remove(meta)
+            try:
+                meta["log_fh"].close()
+            except Exception:  # noqa: BLE001
+                pass
+            progressed = True
+
+        if not progressed:
+            time.sleep(0.5)
+
+    out: List[Dict[str, Any]] = []
+    for task in hf_tasks:
+        key = _task_key(task)
+        rec = results_by_key.get(key)
+        if rec is None:
+            rec = _hf_subprocess_failure_record(
+                task,
+                reason="child_exit_no_result",
+                error="HF subprocess scheduler completed without a matching result",
+            )
+        out.append(dict(rec))
+    return out
 
 
 def _sig(obj: Mapping[str, Any]) -> str:
@@ -9257,43 +9503,58 @@ def run_pref_loss_coevo(
                     str(mp_enabled),
                     int(mp_processes),
                 )
+                hf_scheduler_mode = _hf_scheduler_mode(cfg_yaml)
                 if mp_enabled and mp_processes > 0 and len(hf_tasks) > 1:
-                    import multiprocessing as mp
-
-                    ctx = mp.get_context(mp_start_method)
-                    # Prefer one process per device to avoid oversubscribing GPUs.
                     procs = min(int(mp_processes), max(1, len(hf_tasks)), max(1, len(device_list)))
-                    LOGGER.info(
-                        "High-fidelity via pinned mp: start_method=%s processes=%d tasks=%d",
-                        mp_start_method,
-                        procs,
-                        len(hf_tasks),
-                    )
-
-                    task_queue: Any = ctx.Queue()
-                    result_queue: Any = ctx.Queue()
-                    workers: List[Any] = []
-                    try:
-                        for task in hf_tasks:
-                            task_queue.put(dict(task))
-                        for _ in range(int(procs)):
-                            task_queue.put(None)
-
-                        for w_idx in range(int(procs)):
-                            dev = device_list[int(w_idx) % len(device_list)]
-                            p = ctx.Process(
-                                target=_hf_pinned_device_worker,
-                                args=(str(dev), task_queue, result_queue),
+                    if hf_scheduler_mode == "subprocess":
+                        LOGGER.info(
+                            "High-fidelity via external subprocess scheduler: processes=%d tasks=%d",
+                            procs,
+                            len(hf_tasks),
+                        )
+                        hf_results.extend(
+                            _run_hf_tasks_via_subprocess(
+                                hf_tasks=hf_tasks,
+                                run_dir=str(run_dir),
+                                device_list=device_list,
+                                max_workers=int(procs),
                             )
-                            p.daemon = False
-                            p.start()
-                            workers.append(p)
+                        )
+                    else:
+                        import multiprocessing as mp
 
-                        for _ in range(int(len(hf_tasks))):
-                            hf_results.append(dict(result_queue.get()))
-                    finally:
-                        for p in workers:
-                            p.join()
+                        ctx = mp.get_context(mp_start_method)
+                        LOGGER.info(
+                            "High-fidelity via pinned mp: start_method=%s processes=%d tasks=%d",
+                            mp_start_method,
+                            procs,
+                            len(hf_tasks),
+                        )
+
+                        task_queue: Any = ctx.Queue()
+                        result_queue: Any = ctx.Queue()
+                        workers: List[Any] = []
+                        try:
+                            for task in hf_tasks:
+                                task_queue.put(dict(task))
+                            for _ in range(int(procs)):
+                                task_queue.put(None)
+
+                            for w_idx in range(int(procs)):
+                                dev = device_list[int(w_idx) % len(device_list)]
+                                p = ctx.Process(
+                                    target=_hf_pinned_device_worker,
+                                    args=(str(dev), task_queue, result_queue),
+                                )
+                                p.daemon = False
+                                p.start()
+                                workers.append(p)
+
+                            for _ in range(int(len(hf_tasks))):
+                                hf_results.append(dict(result_queue.get()))
+                        finally:
+                            for p in workers:
+                                p.join()
                 else:
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))
@@ -9579,33 +9840,44 @@ def run_pref_loss_coevo(
                                 int(mp_processes),
                                 dict(collections.Counter(str(t.get("device_str", "")) for t in hf_tasks2)),
                             )
+                            hf_scheduler_mode = _hf_scheduler_mode(cfg_round)
                             if mp_enabled and mp_processes > 0 and len(hf_tasks2) > 1:
-                                import multiprocessing as mp
-
-                                ctx = mp.get_context(mp_start_method)
                                 procs = min(int(mp_processes), max(1, len(hf_tasks2)), max(1, len(device_list)))
-                                task_queue: Any = ctx.Queue()
-                                result_queue: Any = ctx.Queue()
-                                workers: List[Any] = []
-                                try:
-                                    for task in hf_tasks2:
-                                        task_queue.put(dict(task))
-                                    for _ in range(int(procs)):
-                                        task_queue.put(None)
-                                    for w_idx in range(int(procs)):
-                                        dev = device_list[int(w_idx) % len(device_list)]
-                                        p = ctx.Process(
-                                            target=_hf_pinned_device_worker,
-                                            args=(str(dev), task_queue, result_queue),
+                                if hf_scheduler_mode == "subprocess":
+                                    hf_results2.extend(
+                                        _run_hf_tasks_via_subprocess(
+                                            hf_tasks=hf_tasks2,
+                                            run_dir=str(run_dir),
+                                            device_list=device_list,
+                                            max_workers=int(procs),
                                         )
-                                        p.daemon = False
-                                        p.start()
-                                        workers.append(p)
-                                    for _ in range(int(len(hf_tasks2))):
-                                        hf_results2.append(dict(result_queue.get()))
-                                finally:
-                                    for p in workers:
-                                        p.join()
+                                    )
+                                else:
+                                    import multiprocessing as mp
+
+                                    ctx = mp.get_context(mp_start_method)
+                                    task_queue: Any = ctx.Queue()
+                                    result_queue: Any = ctx.Queue()
+                                    workers: List[Any] = []
+                                    try:
+                                        for task in hf_tasks2:
+                                            task_queue.put(dict(task))
+                                        for _ in range(int(procs)):
+                                            task_queue.put(None)
+                                        for w_idx in range(int(procs)):
+                                            dev = device_list[int(w_idx) % len(device_list)]
+                                            p = ctx.Process(
+                                                target=_hf_pinned_device_worker,
+                                                args=(str(dev), task_queue, result_queue),
+                                            )
+                                            p.daemon = False
+                                            p.start()
+                                            workers.append(p)
+                                        for _ in range(int(len(hf_tasks2))):
+                                            hf_results2.append(dict(result_queue.get()))
+                                    finally:
+                                        for p in workers:
+                                            p.join()
                             else:
                                 for task in hf_tasks2:
                                     hf_results2.append(_evaluate_pair_worker(task))
