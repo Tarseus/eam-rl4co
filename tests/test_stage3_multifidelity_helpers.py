@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pytest
 
 
 def test_stage3_fidelity_key_step_and_epoch(monkeypatch):
@@ -152,3 +153,135 @@ def test_build_pair_descriptor_keeps_builder_memory_metrics(monkeypatch):
     assert desc["g"]["pair_count"] == 64
     assert desc["g"]["memory_peak_allocated_mb"] == 12.5
     assert desc["g"]["memory_peak_reserved_mb"] == 16.0
+
+
+def test_stage3_multiseed_compare_cfg_uses_calibration_defaults(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "scratch_init_seed": 12345,
+        "improve_eps_calibration": {
+            "enabled": True,
+            "N": 8,
+            "seed_stride": 111,
+        },
+        "baseline": {},
+    }
+
+    plan = loop._stage3_multiseed_compare_cfg(cfg)
+    assert plan["enabled"] is True
+    assert plan["n_seeds"] == 8
+    assert plan["seed0"] == 12345 + 999
+    assert plan["seed_stride"] == 111
+
+
+def test_stage3_baseline_multiseed_cache_key_differs_by_fidelity(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    monkeypatch.setattr(
+        loop,
+        "_build_stage3_eval_signature",
+        lambda cfg: {"fidelity": loop._stage3_fidelity_key(cfg), "env": "tsp"},
+    )
+
+    cfg_200 = {"f1_steps": 200, "hf_epochs": 0, "hf_instances_per_epoch": 0}
+    cfg_1000 = {"f1_steps": 1000, "hf_epochs": 0, "hf_instances_per_epoch": 0}
+
+    key_200 = loop._stage3_baseline_multiseed_cache_key(
+        cfg_200,
+        include_scratch=True,
+        seed0=1,
+        seed_stride=2,
+    )
+    key_1000 = loop._stage3_baseline_multiseed_cache_key(
+        cfg_1000,
+        include_scratch=True,
+        seed0=1,
+        seed_stride=2,
+    )
+
+    assert key_200 != key_1000
+    assert key_200.startswith("K200__")
+    assert key_1000.startswith("K1000__")
+
+
+def test_aggregate_stage3_baseline_multiseed_records_prefers_best_seed(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    per_init_base = {
+        "scratch": {"aggregated_objective": 10.0},
+        "ckpt_135": {"aggregated_objective": 7.0},
+    }
+    per_seed = {
+        "100": {
+            "seed": 100,
+            "per_init": {
+                "scratch": {
+                    "aggregated_objective": 9.5,
+                    "val_objective_by_size": {"100": 9.5},
+                },
+                "ckpt_135": {
+                    "aggregated_objective": 6.8,
+                    "val_objective_by_size": {"100": 6.8},
+                },
+            },
+        },
+        "200": {
+            "seed": 200,
+            "per_init": {
+                "scratch": {
+                    "aggregated_objective": 9.0,
+                    "val_objective_by_size": {"100": 9.0},
+                },
+                "ckpt_135": {
+                    "aggregated_objective": 6.9,
+                    "val_objective_by_size": {"100": 6.9},
+                },
+            },
+        },
+    }
+
+    agg = loop._aggregate_stage3_baseline_multiseed_records(
+        per_init_base=per_init_base,
+        per_seed=per_seed,
+    )
+
+    assert agg["best_per_init"]["scratch"]["seed"] == 200
+    assert agg["best_per_init"]["scratch"]["aggregated_objective"] == 9.0
+    assert agg["best_per_init"]["ckpt_135"]["seed"] == 100
+    assert agg["best_per_init"]["ckpt_135"]["aggregated_objective"] == 6.8
+    assert agg["samples"] == pytest.approx([-0.35, -0.55])
+
+
+def test_resolve_stage3_baseline_reference_entry_prefers_multiseed_best(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    entry, source = loop._resolve_stage3_baseline_reference_entry(
+        "scratch",
+        per_init_base={"scratch": {"aggregated_objective": 10.0}},
+        multiseed_cache={
+            "best_per_init": {
+                "scratch": {
+                    "seed": 321,
+                    "aggregated_objective": 8.5,
+                    "val_objective_by_size": {"100": 8.5},
+                }
+            }
+        },
+    )
+
+    assert source == "multiseed_best"
+    assert entry["seed"] == 321
+    assert entry["aggregated_objective"] == 8.5

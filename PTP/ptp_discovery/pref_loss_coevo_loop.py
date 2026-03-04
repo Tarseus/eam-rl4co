@@ -182,6 +182,7 @@ def _abs_from_repo_root(path: str) -> str:
 
 _FILE_SHA1_CACHE: Dict[str, str] = {}
 _BASELINE_MINI_EVAL_CACHE: Dict[str, Dict[str, Any]] = {}
+_STAGE3_BASELINE_MULTI_SEED_CACHE: Dict[str, Dict[str, Any]] = {}
 
 
 def _file_sha1_cached(path: str, *, chunk_size: int = 8 * 1024 * 1024) -> str:
@@ -211,6 +212,433 @@ def _load_baseline_mini_eval(path: str) -> Dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"Invalid baseline mini-eval JSON (expected dict): {path}")
     _BASELINE_MINI_EVAL_CACHE[p] = dict(payload)
+    return dict(payload)
+
+
+def _stage3_multiseed_compare_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, Mapping):
+        baseline_cfg = {}
+
+    calib_raw = cfg_yaml.get("improve_eps_calibration", {}) or {}
+    if not isinstance(calib_raw, Mapping):
+        calib_raw = {}
+
+    enabled_raw = baseline_cfg.get("multiseed_compare_enabled")
+    if enabled_raw is None:
+        enabled_raw = calib_raw.get("enabled", False)
+    enabled = bool(enabled_raw)
+
+    n_raw = baseline_cfg.get("multiseed_compare_n")
+    if n_raw is None:
+        n_raw = calib_raw.get("N", calib_raw.get("n", 8))
+    try:
+        n_seeds = max(0, min(int(n_raw or 0), 128))
+    except Exception:  # noqa: BLE001
+        n_seeds = 0
+
+    seed0_raw = baseline_cfg.get("multiseed_compare_seed0")
+    if seed0_raw is None:
+        seed0_raw = calib_raw.get("seed0", calib_raw.get("seed", None))
+    if seed0_raw is None:
+        seed0_raw = int(cfg_yaml.get("scratch_init_seed", 12345) or 12345) + 999
+    try:
+        seed0 = int(seed0_raw)
+    except Exception:  # noqa: BLE001
+        seed0 = int(cfg_yaml.get("scratch_init_seed", 12345) or 12345) + 999
+
+    seed_stride_raw = baseline_cfg.get("multiseed_compare_seed_stride")
+    if seed_stride_raw is None:
+        seed_stride_raw = calib_raw.get("seed_stride", 997)
+    try:
+        seed_stride = int(seed_stride_raw or 997)
+    except Exception:  # noqa: BLE001
+        seed_stride = 997
+    if seed_stride == 0:
+        seed_stride = 997
+
+    return {
+        "enabled": bool(enabled and n_seeds >= 2),
+        "n_seeds": int(n_seeds),
+        "seed0": int(seed0),
+        "seed_stride": int(seed_stride),
+    }
+
+
+def _stage3_baseline_multiseed_cache_root_dir() -> str:
+    return os.path.join(_repo_root_dir(), "baseline", "stage3_multiseed")
+
+
+def _stage3_baseline_multiseed_cache_key(
+    cfg_yaml: Mapping[str, Any],
+    *,
+    include_scratch: bool,
+    seed0: int,
+    seed_stride: int,
+) -> str:
+    payload = {
+        "eval_signature": _build_stage3_eval_signature(cfg_yaml),
+        "include_scratch": bool(include_scratch),
+        "seed0": int(seed0),
+        "seed_stride": int(seed_stride),
+    }
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode(
+        "utf-8"
+    )
+    digest = sha1(blob).hexdigest()[:16]
+    return f"{_stage3_fidelity_key(cfg_yaml)}__{digest}"
+
+
+def _stage3_baseline_multiseed_cache_path(
+    cfg_yaml: Mapping[str, Any],
+    *,
+    include_scratch: bool,
+    seed0: int,
+    seed_stride: int,
+) -> str:
+    key = _stage3_baseline_multiseed_cache_key(
+        cfg_yaml,
+        include_scratch=bool(include_scratch),
+        seed0=int(seed0),
+        seed_stride=int(seed_stride),
+    )
+    return os.path.join(_stage3_baseline_multiseed_cache_root_dir(), str(key), "summary.json")
+
+
+def _load_stage3_baseline_multiseed_cache(path: str) -> Dict[str, Any] | None:
+    p = _abs_from_repo_root(str(path))
+    cached = _STAGE3_BASELINE_MULTI_SEED_CACHE.get(p)
+    if isinstance(cached, dict):
+        return dict(cached)
+    if not os.path.isfile(p):
+        return None
+    try:
+        with open(p, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+    except Exception:  # noqa: BLE001
+        return None
+    if not isinstance(payload, dict):
+        return None
+    _STAGE3_BASELINE_MULTI_SEED_CACHE[p] = dict(payload)
+    return dict(payload)
+
+
+def _write_stage3_baseline_multiseed_cache(path: str, payload: Mapping[str, Any]) -> None:
+    p = _abs_from_repo_root(str(path))
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    _atomic_write_json(p, dict(payload))
+    _STAGE3_BASELINE_MULTI_SEED_CACHE[p] = dict(payload)
+
+
+def _aggregate_stage3_baseline_multiseed_records(
+    *,
+    per_init_base: Mapping[str, Any],
+    per_seed: Mapping[str, Any],
+) -> Dict[str, Any]:
+    best_per_init: Dict[str, Any] = {}
+    samples: List[float] = []
+
+    for seed_key, seed_payload in per_seed.items():
+        if not isinstance(seed_payload, Mapping):
+            continue
+        seed_per_init = seed_payload.get("per_init")
+        if not isinstance(seed_per_init, Mapping):
+            continue
+
+        deltas: List[float] = []
+        for init_name, base_entry in per_init_base.items():
+            if not isinstance(base_entry, Mapping):
+                continue
+            seed_entry = seed_per_init.get(str(init_name))
+            if not isinstance(seed_entry, Mapping):
+                continue
+
+            try:
+                cand_agg = float(seed_entry.get("aggregated_objective"))
+                base_agg = float(base_entry.get("aggregated_objective"))
+            except (TypeError, ValueError):
+                continue
+            if not (math.isfinite(cand_agg) and math.isfinite(base_agg)):
+                continue
+
+            deltas.append(float(cand_agg - base_agg))
+
+            current_best = best_per_init.get(str(init_name))
+            if (
+                not isinstance(current_best, Mapping)
+                or float(current_best.get("aggregated_objective", float("inf"))) > float(cand_agg)
+            ):
+                best_per_init[str(init_name)] = {
+                    "seed": int(seed_payload.get("seed", int(seed_key))),
+                    "aggregated_objective": float(cand_agg),
+                    "val_objective_by_size": dict(seed_entry.get("val_objective_by_size", {}) or {}),
+                    "source": "multiseed_best",
+                }
+
+        if deltas:
+            samples.append(float(sum(deltas) / float(len(deltas))))
+
+    return {
+        "best_per_init": best_per_init,
+        "samples": samples,
+    }
+
+
+def _resolve_stage3_baseline_reference_entry(
+    init_name: str,
+    *,
+    per_init_base: Mapping[str, Any],
+    multiseed_cache: Mapping[str, Any] | None,
+) -> Tuple[Dict[str, Any] | None, str]:
+    best_map = None if not isinstance(multiseed_cache, Mapping) else multiseed_cache.get("best_per_init")
+    if isinstance(best_map, Mapping):
+        best_entry = best_map.get(str(init_name))
+        if isinstance(best_entry, Mapping):
+            try:
+                best_agg = float(best_entry.get("aggregated_objective"))
+            except (TypeError, ValueError):
+                best_agg = float("inf")
+            if math.isfinite(best_agg):
+                return dict(best_entry), "multiseed_best"
+
+    base_entry = per_init_base.get(str(init_name))
+    if isinstance(base_entry, Mapping):
+        return dict(base_entry), "mini_eval"
+    return None, "missing"
+
+
+def _ensure_stage3_baseline_multiseed_cache(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    operator_whitelist: Sequence[str],
+    device_str: str,
+    n_seeds: int | None = None,
+    seed0: int | None = None,
+    seed_stride: int | None = None,
+) -> Dict[str, Any] | None:
+    compare_cfg = _stage3_multiseed_compare_cfg(cfg_yaml)
+    if n_seeds is None:
+        n_seeds = int(compare_cfg.get("n_seeds", 0) or 0)
+    if seed0 is None:
+        seed0 = int(compare_cfg.get("seed0", 0) or 0)
+    if seed_stride is None:
+        seed_stride = int(compare_cfg.get("seed_stride", 997) or 997)
+
+    n_seeds = max(0, min(int(n_seeds or 0), 128))
+    if n_seeds < 2:
+        return None
+    if int(seed_stride) == 0:
+        seed_stride = 997
+
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, Mapping):
+        baseline_cfg = {}
+    mini_eval_path = _resolve_stage3_baseline_mini_eval_path(cfg_yaml, baseline_cfg)
+    if not mini_eval_path:
+        LOGGER.warning(
+            "stage3 multiseed baseline skipped: baseline mini_eval_path missing for fidelity=%s",
+            _stage3_fidelity_key(cfg_yaml),
+        )
+        return None
+
+    try:
+        baseline_payload = _load_baseline_mini_eval(str(mini_eval_path))
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning(
+            "stage3 multiseed baseline skipped: failed to load baseline mini_eval_path=%s: %s",
+            str(mini_eval_path),
+            str(exc),
+        )
+        return None
+
+    per_init_base = baseline_payload.get("per_init")
+    if not isinstance(per_init_base, Mapping):
+        LOGGER.warning(
+            "stage3 multiseed baseline skipped: baseline JSON missing per_init dict: %s",
+            str(mini_eval_path),
+        )
+        return None
+
+    expected_sig = _build_stage3_eval_signature(cfg_yaml)
+    got_sig = baseline_payload.get("eval_signature")
+    if got_sig != expected_sig:
+        LOGGER.warning(
+            "stage3 multiseed baseline skipped: baseline eval_signature mismatch (fidelity=%s).",
+            _stage3_fidelity_key(cfg_yaml),
+        )
+        return None
+
+    ckpts = baseline_cfg.get("checkpoints") or []
+    if not isinstance(ckpts, list) or len(ckpts) < 2:
+        LOGGER.warning(
+            "stage3 multiseed baseline skipped: baseline.checkpoints invalid (need [ckpt_135, ckpt_409])."
+        )
+        return None
+    ckpt_135 = _abs_from_repo_root(str(ckpts[0]))
+    ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
+    include_scratch = bool(baseline_cfg.get("include_scratch", True))
+
+    init_specs: List[Tuple[str, str | None]] = []
+    if include_scratch:
+        init_specs.append(("scratch", None))
+    init_specs.append(("ckpt_135", str(ckpt_135)))
+    init_specs.append(("ckpt_409", str(ckpt_409)))
+
+    cache_path = _stage3_baseline_multiseed_cache_path(
+        cfg_yaml,
+        include_scratch=bool(include_scratch),
+        seed0=int(seed0),
+        seed_stride=int(seed_stride),
+    )
+    cached_payload = _load_stage3_baseline_multiseed_cache(cache_path)
+    per_seed: Dict[str, Any] = {}
+    if isinstance(cached_payload, Mapping):
+        cached_sig = cached_payload.get("eval_signature")
+        cached_include_scratch = bool(cached_payload.get("include_scratch", include_scratch))
+        cached_seed0 = int(cached_payload.get("seed0", seed0) or seed0)
+        cached_seed_stride = int(cached_payload.get("seed_stride", seed_stride) or seed_stride)
+        cached_per_seed = cached_payload.get("per_seed")
+        if (
+            cached_sig == expected_sig
+            and cached_include_scratch == bool(include_scratch)
+            and cached_seed0 == int(seed0)
+            and cached_seed_stride == int(seed_stride)
+            and isinstance(cached_per_seed, Mapping)
+        ):
+            per_seed = {str(k): dict(v) for k, v in cached_per_seed.items() if isinstance(v, Mapping)}
+
+    required_seeds = [int(seed0 + i * int(seed_stride)) for i in range(int(n_seeds))]
+    missing_seeds = [int(s) for s in required_seeds if str(int(s)) not in per_seed]
+
+    if missing_seeds:
+        try:
+            ref_builder = compile_preference_builder(
+                _ref_builder_ir(),
+                operator_whitelist=list(operator_whitelist),
+            )
+            ref_loss_ir = _ref_loss_ir()
+            static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+            if not static_ref.ok:
+                raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
+            ref_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("stage3 multiseed baseline skipped: failed to compile reference pair: %s", str(exc))
+            return None
+
+        valid_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
+        if not valid_sizes:
+            valid_sizes = [int(cfg_yaml.get("train_problem_size", 20) or 20)]
+        valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
+
+        adapter = _CompiledBuilderAdapter(ref_builder)
+        LOGGER.info(
+            "Stage3 multiseed baseline cache miss fidelity=%s missing_seeds=%d path=%s",
+            _stage3_fidelity_key(cfg_yaml),
+            int(len(missing_seeds)),
+            os.path.abspath(_abs_from_repo_root(cache_path)),
+        )
+        for seed_i in missing_seeds:
+            hf_cfg = _build_hf_cfg(dict(cfg_yaml), seed=int(seed_i), device_str=str(device_str))
+            seed_per_init: Dict[str, Any] = {}
+            for init_name, init_ckpt in init_specs:
+                try:
+                    free_cfg = FreeLossFidelityConfig(
+                        hf=hf_cfg,
+                        f1_steps=int(cfg_yaml.get("f1_steps", 32) or 32),
+                        f2_steps=0,
+                        f3_enabled=False,
+                        init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
+                        init_checkpoint_epoch=None,
+                    )
+                    fit = evaluate_free_loss_candidate(ref_loss, free_cfg, pref_builder=adapter)
+                    size_objectives_raw = fit.get("size_objectives", {})
+                    size_objectives: Dict[int, float] = {}
+                    if isinstance(size_objectives_raw, dict):
+                        for k, v in size_objectives_raw.items():
+                            try:
+                                size_objectives[int(k)] = float(v)
+                            except Exception:  # noqa: BLE001
+                                continue
+                    cand_by_size = {
+                        str(int(sz)): float(size_objectives[int(sz)])
+                        for sz in valid_sizes
+                        if int(sz) in size_objectives
+                    }
+                    if len(cand_by_size) != len(valid_sizes):
+                        missing_sizes = [
+                            int(sz) for sz in valid_sizes if str(int(sz)) not in cand_by_size
+                        ]
+                        raise RuntimeError(f"Missing size_objectives for sizes={missing_sizes}")
+                    cand_agg = float(
+                        sum(float(cand_by_size[str(int(sz))]) for sz in valid_sizes)
+                        / float(len(valid_sizes))
+                    )
+                    if not math.isfinite(cand_agg):
+                        raise RuntimeError("Non-finite reference aggregated objective")
+                    seed_per_init[str(init_name)] = {
+                        "val_objective_by_size": cand_by_size,
+                        "aggregated_objective": float(cand_agg),
+                        "error": None,
+                    }
+                except Exception as exc:  # noqa: BLE001
+                    seed_per_init[str(init_name)] = {
+                        "val_objective_by_size": {},
+                        "aggregated_objective": None,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+            per_seed[str(int(seed_i))] = {
+                "seed": int(seed_i),
+                "per_init": seed_per_init,
+            }
+
+    aggregated = _aggregate_stage3_baseline_multiseed_records(
+        per_init_base=per_init_base,
+        per_seed=per_seed,
+    )
+    payload = {
+        "schema_version": 1,
+        "created_at": (
+            str(cached_payload.get("created_at"))
+            if isinstance(cached_payload, Mapping) and cached_payload.get("created_at")
+            else time.strftime("%Y-%m-%d %H:%M:%S")
+        ),
+        "updated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "fidelity": _stage3_fidelity_key(cfg_yaml),
+        "baseline_mini_eval_path": str(mini_eval_path),
+        "cache_path": str(cache_path),
+        "eval_signature": expected_sig,
+        "include_scratch": bool(include_scratch),
+        "seed0": int(seed0),
+        "seed_stride": int(seed_stride),
+        "n_seeds": int(n_seeds),
+        "per_seed": per_seed,
+        "best_per_init": aggregated.get("best_per_init", {}),
+        "samples": list(aggregated.get("samples", [])),
+    }
+    _write_stage3_baseline_multiseed_cache(cache_path, payload)
+    return dict(payload)
+
+
+def _load_stage3_baseline_multiseed_cache_for_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any] | None:
+    compare_cfg = _stage3_multiseed_compare_cfg(cfg_yaml)
+    if not bool(compare_cfg.get("enabled", False)):
+        return None
+
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, Mapping):
+        baseline_cfg = {}
+    cache_path = _stage3_baseline_multiseed_cache_path(
+        cfg_yaml,
+        include_scratch=bool(baseline_cfg.get("include_scratch", True)),
+        seed0=int(compare_cfg.get("seed0", 0) or 0),
+        seed_stride=int(compare_cfg.get("seed_stride", 997) or 997),
+    )
+    payload = _load_stage3_baseline_multiseed_cache(cache_path)
+    if not isinstance(payload, Mapping):
+        return None
+    expected_sig = _build_stage3_eval_signature(cfg_yaml)
+    if payload.get("eval_signature") != expected_sig:
+        return None
     return dict(payload)
 
 
@@ -1097,123 +1525,37 @@ def _calibrate_improve_eps_from_baseline_noise(
     if seed_stride == 0:
         seed_stride = 997
 
-    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
-    if not isinstance(baseline_cfg, dict):
-        baseline_cfg = {}
-    mini_eval_path = _resolve_stage3_baseline_mini_eval_path(cfg_yaml, baseline_cfg)
-    if not mini_eval_path:
-        LOGGER.warning("improve_eps calibration skipped: baseline mini_eval_path missing for fidelity=%s", _stage3_fidelity_key(cfg_yaml))
+    multiseed_cache = _ensure_stage3_baseline_multiseed_cache(
+        cfg_yaml=cfg_yaml,
+        operator_whitelist=operator_whitelist,
+        device_str=device_str,
+        n_seeds=int(N),
+        seed0=int(seed0),
+        seed_stride=int(seed_stride),
+    )
+    if not isinstance(multiseed_cache, dict):
         return None
 
-    try:
-        baseline_payload = _load_baseline_mini_eval(str(mini_eval_path))
-    except Exception as exc:  # noqa: BLE001
-        LOGGER.warning("improve_eps calibration skipped: failed to load baseline mini_eval_path=%s: %s", str(mini_eval_path), str(exc))
+    samples_raw = multiseed_cache.get("samples")
+    samples = [float(v) for v in samples_raw] if isinstance(samples_raw, list) else []
+    if len(samples) < 2:
         return None
-
-    per_init_base = baseline_payload.get("per_init")
-    if not isinstance(per_init_base, dict):
-        LOGGER.warning("improve_eps calibration skipped: baseline JSON missing per_init dict: %s", str(mini_eval_path))
-        return None
-
-    expected_sig = _build_stage3_eval_signature(cfg_yaml)
-    got_sig = baseline_payload.get("eval_signature")
-    if got_sig != expected_sig:
-        LOGGER.warning(
-            "improve_eps calibration skipped: baseline eval_signature mismatch (fidelity=%s).",
-            _stage3_fidelity_key(cfg_yaml),
-        )
-        return None
-
-    ckpts = baseline_cfg.get("checkpoints") or []
-    if not isinstance(ckpts, list) or len(ckpts) < 2:
-        LOGGER.warning("improve_eps calibration skipped: baseline.checkpoints invalid (need [ckpt_135, ckpt_409]).")
-        return None
-    ckpt_135 = _abs_from_repo_root(str(ckpts[0]))
-    ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
-    include_scratch = bool(baseline_cfg.get("include_scratch", True))
-
-    valid_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
-    if not valid_sizes:
-        valid_sizes = [int(cfg_yaml.get("train_problem_size", 20) or 20)]
-    valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
-
-    init_specs: List[Tuple[str, str | None]] = []
-    if include_scratch:
-        init_specs.append(("scratch", None))
-    init_specs.append(("ckpt_135", str(ckpt_135)))
-    init_specs.append(("ckpt_409", str(ckpt_409)))
-
-    # Compile reference pair (g_ref,f_ref).
-    try:
-        ref_builder = compile_preference_builder(_ref_builder_ir(), operator_whitelist=list(operator_whitelist))
-        ref_loss_ir = _ref_loss_ir()
-        static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
-        if not static_ref.ok:
-            raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
-        ref_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
-    except Exception as exc:  # noqa: BLE001
-        LOGGER.warning("improve_eps calibration skipped: failed to compile reference pair: %s", str(exc))
-        return None
-
-    adapter = _CompiledBuilderAdapter(ref_builder)
-    samples: List[float] = []
-    used_seeds: List[int] = []
-    for i in range(int(N)):
-        seed_i = int(seed0 + i * seed_stride)
-        used_seeds.append(int(seed_i))
-        # Build a per-seed HF config, keeping the same budget fields as cfg_yaml.
-        hf_cfg = _build_hf_cfg(dict(cfg_yaml), seed=int(seed_i), device_str=str(device_str))
-
-        deltas: List[float] = []
-        for init_name, init_ckpt in init_specs:
-            base_entry = per_init_base.get(str(init_name))
-            if not isinstance(base_entry, dict):
-                continue
-            try:
-                base_agg = float(base_entry.get("aggregated_objective"))
-            except (TypeError, ValueError):
-                continue
-
-            free_cfg = FreeLossFidelityConfig(
-                hf=hf_cfg,
-                f1_steps=int(cfg_yaml.get("f1_steps", 32) or 32),
-                f2_steps=0,
-                f3_enabled=False,
-                init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
-                init_checkpoint_epoch=None,
-            )
-            try:
-                fit = evaluate_free_loss_candidate(ref_loss, free_cfg, pref_builder=adapter)
-                size_objectives_raw = fit.get("size_objectives", {})
-                size_objectives: Dict[int, float] = {}
-                if isinstance(size_objectives_raw, dict):
-                    for k, v in size_objectives_raw.items():
-                        try:
-                            size_objectives[int(k)] = float(v)
-                        except Exception:  # noqa: BLE001
-                            continue
-                cand_agg = float(sum(float(size_objectives[int(sz)]) for sz in valid_sizes) / float(len(valid_sizes)))
-                if not math.isfinite(cand_agg):
-                    continue
-                deltas.append(float(cand_agg - float(base_agg)))
-            except Exception:  # noqa: BLE001
-                continue
-
-        if deltas:
-            samples.append(float(sum(deltas) / float(len(deltas))))
 
     sigma = _std(samples)
     eps = max(float(eps_floor), float(sigma_mult) * float(sigma))
     return {
         "enabled": True,
         "fidelity": _stage3_fidelity_key(cfg_yaml),
-        "baseline_mini_eval_path": str(mini_eval_path),
+        "baseline_mini_eval_path": str(multiseed_cache.get("baseline_mini_eval_path")),
+        "baseline_multiseed_cache_path": str(multiseed_cache.get("cache_path")),
         "N": int(N),
         "sigma_mult": float(sigma_mult),
         "seed0": int(seed0),
         "seed_stride": int(seed_stride),
-        "used_seeds": used_seeds,
+        "used_seeds": [
+            int(seed0 + i * seed_stride)
+            for i in range(int(N))
+        ],
         "sigma_delta": float(sigma),
         "improve_eps": float(eps),
         "samples": samples[: min(len(samples), 32)],
@@ -5768,6 +6110,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         per_init_base = baseline_payload.get("per_init")
         if not isinstance(per_init_base, dict):
             raise ValueError("baseline JSON missing per_init dict")
+        multiseed_baseline = _load_stage3_baseline_multiseed_cache_for_cfg(cfg)
 
         ckpts = baseline_cfg.get("checkpoints") or []
         if not isinstance(ckpts, list) or len(ckpts) < 2:
@@ -5862,7 +6205,11 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         )
 
         for init_name, init_ckpt in init_specs:
-            base_entry = per_init_base.get(str(init_name))
+            base_entry, base_source = _resolve_stage3_baseline_reference_entry(
+                str(init_name),
+                per_init_base=per_init_base,
+                multiseed_cache=multiseed_baseline,
+            )
             if not isinstance(base_entry, dict):
                 raise ValueError(f"baseline JSON missing per_init[{init_name}]")
             try:
@@ -5929,6 +6276,12 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "obj_cand": float(cand_agg),
                 "obj_base": float(base_agg),
                 "delta": float(delta),
+                "baseline_source": str(base_source),
+                "baseline_seed": (
+                    int(base_entry.get("seed"))
+                    if str(base_source) == "multiseed_best" and base_entry.get("seed") is not None
+                    else None
+                ),
                 "init_checkpoint": str(init_ckpt) if init_ckpt else None,
                 "error": error,
             }
@@ -5944,6 +6297,16 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "delta_mean": float(delta_mean),
             "delta_worst": float(delta_worst),
             "baseline_mini_eval_path": str(mini_eval_path),
+            "baseline_multiseed_cache_path": (
+                str(multiseed_baseline.get("cache_path"))
+                if isinstance(multiseed_baseline, dict) and multiseed_baseline.get("cache_path")
+                else None
+            ),
+            "baseline_compare_mode": (
+                "multiseed_best"
+                if isinstance(multiseed_baseline, dict) and multiseed_baseline.get("best_per_init")
+                else "mini_eval"
+            ),
             "eval_signature": expected_sig,
             "valid_problem_sizes": list(valid_sizes),
             "K": int(K),
@@ -6314,6 +6677,57 @@ def run_pref_loss_coevo(
                     "stage3_multifidelity enabled but missing baseline.mini_eval_paths entries for: "
                     + ", ".join(missing)
                 )
+    stage3_multiseed_cfg = _stage3_multiseed_compare_cfg(cfg_yaml)
+    if bool(eval_stages.get("stage3_high_fidelity", True)) and bool(stage3_multiseed_cfg.get("enabled", False)):
+        preload_cfgs: List[Mapping[str, Any]] = [cfg_yaml]
+        if bool(stage3_multifidelity_cfg.get("enabled")) and stage3_multifidelity_cfg.get("rounds"):
+            rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
+            rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
+            preload_cfgs = [_apply_stage3_round_overrides(cfg_yaml, rc) for rc in rounds] or [cfg_yaml]
+
+        seen_preload_keys: set[str] = set()
+        preload_summaries: List[Dict[str, Any]] = []
+        for cfg_stage3 in preload_cfgs:
+            try:
+                fidelity_key = _stage3_fidelity_key(cfg_stage3)
+            except Exception:  # noqa: BLE001
+                fidelity_key = "unknown"
+            if str(fidelity_key) in seen_preload_keys:
+                continue
+            seen_preload_keys.add(str(fidelity_key))
+            try:
+                preload_payload = _ensure_stage3_baseline_multiseed_cache(
+                    cfg_yaml=cfg_stage3,
+                    operator_whitelist=operator_whitelist,
+                    device_str=str(device_list[0] if device_list else "cuda"),
+                    n_seeds=int(stage3_multiseed_cfg.get("n_seeds", 0) or 0),
+                    seed0=int(stage3_multiseed_cfg.get("seed0", 0) or 0),
+                    seed_stride=int(stage3_multiseed_cfg.get("seed_stride", 997) or 997),
+                )
+                if isinstance(preload_payload, dict):
+                    preload_summaries.append(
+                        {
+                            "fidelity": str(preload_payload.get("fidelity", fidelity_key)),
+                            "cache_path": str(preload_payload.get("cache_path")),
+                            "baseline_mini_eval_path": str(preload_payload.get("baseline_mini_eval_path")),
+                            "n_seeds": int(preload_payload.get("n_seeds", 0) or 0),
+                            "num_cached_seeds": int(len(preload_payload.get("per_seed", {}) or {})),
+                        }
+                    )
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning(
+                    "Failed to prepare stage3 multiseed baseline cache for fidelity=%s: %s",
+                    str(fidelity_key),
+                    str(exc),
+                )
+        if preload_summaries:
+            try:
+                _atomic_write_json(
+                    os.path.join(run_dir, "stage3_baseline_multiseed_caches.json"),
+                    {"entries": preload_summaries},
+                )
+            except Exception:  # noqa: BLE001
+                pass
     if preset == "simple":
         ignored_keys = list(runtime_meta.get("ignored_advanced_keys", []))
         if ignored_keys:
