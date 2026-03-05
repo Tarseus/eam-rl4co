@@ -5,6 +5,7 @@ import logging
 import os
 import random
 import re
+import shlex
 import time
 from dataclasses import asdict
 from functools import lru_cache
@@ -37,6 +38,64 @@ _LLM_CACHE_PATH: str | None = None
 _LLM_CACHE_INDEX: dict[str, str] = {}
 _LLM_CACHE_HITS = 0
 _LLM_CACHE_MISSES = 0
+
+
+def _repo_root() -> str:
+    this_dir = os.path.dirname(os.path.abspath(__file__))  # .../PTP/ptp_discovery
+    return os.path.abspath(os.path.join(this_dir, "..", ".."))  # .../<repo_root>
+
+
+def _dotenv_candidates() -> list[str]:
+    candidates: list[str] = []
+    explicit = str(os.getenv("OPENAI_DOTENV_PATH", "") or "").strip()
+    if explicit:
+        candidates.append(os.path.abspath(explicit))
+    candidates.append(os.path.abspath(os.path.join(os.getcwd(), ".env")))
+    candidates.append(os.path.abspath(os.path.join(_repo_root(), ".env")))
+
+    unique: list[str] = []
+    seen: set[str] = set()
+    for path in candidates:
+        if path not in seen:
+            unique.append(path)
+            seen.add(path)
+    return unique
+
+
+def _load_dotenv_fallback(path: str) -> int:
+    """Minimal .env loader used when python-dotenv is unavailable."""
+
+    loaded = 0
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            for raw_line in f:
+                line = raw_line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.lower().startswith("export "):
+                    line = line[7:].lstrip()
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+                if not key or any(ch.isspace() for ch in key):
+                    continue
+                if value and value[0] in {"'", '"'}:
+                    try:
+                        parsed = shlex.split(value, posix=True)
+                    except ValueError:
+                        parsed = []
+                    if parsed:
+                        value = parsed[0]
+                else:
+                    value = value.split(" #", 1)[0].strip()
+                if key not in os.environ:
+                    os.environ[key] = value
+                    loaded += 1
+    except OSError:
+        return loaded
+    return loaded
 
 
 def configure_llm_run(*, run_dir: str | None = None, cache_path: str | None = None, offline_mode: bool | None = None) -> None:
@@ -77,14 +136,35 @@ def _load_env() -> None:
     if _OFFLINE_MODE:
         _ENV_LOADED = True
         return
+    dotenv_candidates = _dotenv_candidates()
+    loaded_dotenv_path: str | None = None
     if load_dotenv is not None:
-        load_dotenv()
+        for path in dotenv_candidates:
+            if os.path.isfile(path):
+                load_dotenv(dotenv_path=path, override=False)
+                loaded_dotenv_path = path
+                break
+    else:
+        for path in dotenv_candidates:
+            if os.path.isfile(path):
+                loaded = _load_dotenv_fallback(path)
+                loaded_dotenv_path = path
+                LOGGER.warning(
+                    "python-dotenv is unavailable; loaded %d key(s) via fallback parser from %s",
+                    loaded,
+                    path,
+                )
+                break
     if not os.getenv("OPENAI_API_KEY"):
+        searched = ", ".join(dotenv_candidates)
         raise RuntimeError(
             "OPENAI_API_KEY is not set. Set it in the environment (or a .env at repo root), "
+            f"searched .env paths: [{searched}], "
             "or run in offline_mode=true. If you don't have the EoH deps installed, run: "
             "pip install -e '.[eoh]'."
         )
+    if loaded_dotenv_path:
+        LOGGER.info("Loaded LLM environment from .env: %s", loaded_dotenv_path)
     _ENV_LOADED = True
 
 
