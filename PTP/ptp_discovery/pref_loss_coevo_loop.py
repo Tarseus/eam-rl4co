@@ -53,6 +53,7 @@ from fitness.pref_loss_fidelity import (
 )
 from ptp_discovery.free_loss_compiler import CompiledFreeLoss, CompileError, compile_free_loss
 from ptp_discovery.free_loss_gates import (
+    JointPreferenceGateResult,
     StaticGateResult,
     run_joint_preference_gates,
     run_preference_builder_gates,
@@ -863,6 +864,203 @@ def _hf_scheduler_mode(cfg_yaml: Mapping[str, Any]) -> str:
 
 def _hf_subprocess_script_path() -> str:
     return os.path.join(_repo_root_dir(), "PTP", "ptp_discovery", "run_hf_pair_eval.py")
+
+
+def _stage0_sandbox_script_path() -> str:
+    return os.path.join(_repo_root_dir(), "PTP", "ptp_discovery", "run_stage0_sandbox_gate.py")
+
+
+def _run_stage0_sandbox_gate(
+    *,
+    run_dir: str,
+    generation: int,
+    pair_index: int,
+    g_id: str,
+    f_id: str,
+    g_ir: PreferenceBuilderIR,
+    f_ir: FreeLossIR,
+    operator_whitelist: Sequence[str],
+    cfg_yaml: Mapping[str, Any],
+) -> Dict[str, Any]:
+    script_path = _stage0_sandbox_script_path()
+    if not os.path.isfile(script_path):
+        return {
+            "ok": False,
+            "failure_kind": "sandbox_script_missing",
+            "reason": f"Missing sandbox script: {script_path}",
+        }
+
+    run_dir_s = str(run_dir or "").strip()
+    if not run_dir_s:
+        run_dir_s = os.path.join(_repo_root_dir(), "runs", "_sandbox")
+    task_dir = os.path.join(
+        run_dir_s,
+        "stage0_sandbox",
+        f"gen{int(generation):03d}_pair{int(pair_index):03d}_{str(g_id)[:16]}_{str(f_id)[:16]}",
+    )
+    os.makedirs(task_dir, exist_ok=True)
+    payload_path = os.path.join(task_dir, "payload.json")
+    result_path = os.path.join(task_dir, "result.json")
+    log_path = os.path.join(task_dir, "subprocess.log")
+
+    variants_raw = cfg_yaml.get("stage0_sandbox_variants", ["visible", "hidden"])
+    if isinstance(variants_raw, (list, tuple)):
+        variants = [str(v) for v in variants_raw if str(v).strip()]
+    elif variants_raw is None:
+        variants = ["visible", "hidden"]
+    else:
+        variants = [str(variants_raw)]
+    if not variants:
+        variants = ["visible", "hidden"]
+
+    payload = {
+        "generation": int(generation),
+        "pair_index": int(pair_index),
+        "g_entry": {"id": str(g_id), "ir": asdict(g_ir)},
+        "f_entry": {"id": str(f_id), "ir": asdict(f_ir)},
+        "operator_whitelist": list(operator_whitelist),
+        "batch_size": int(cfg_yaml.get("stage0_sandbox_batch_size", 8) or 8),
+        "k": int(cfg_yaml.get("stage0_sandbox_k", 16) or 16),
+        "rounds": int(cfg_yaml.get("stage0_sandbox_rounds", 1) or 1),
+        "variants": variants,
+        "hard_failure_kinds": list(
+            cfg_yaml.get(
+                "stage0_sandbox_hard_failure_kinds",
+                [
+                    "pref_batch_to_loss_batch_error",
+                    "forward_error",
+                    "backward_error",
+                    "loss_not_finite",
+                    "missing_grads",
+                    "grad_not_finite",
+                    "numeric_stress_forward_error",
+                    "numeric_stress_backward_error",
+                    "numeric_stress_loss_not_finite",
+                    "numeric_stress_missing_grads",
+                    "numeric_stress_grad_not_finite",
+                ],
+            )
+            or []
+        ),
+        "builder_gate": {
+            "min_pairs": int(cfg_yaml.get("builder_min_pairs", 1) or 1),
+            "min_coverage": float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
+            "max_pairs_per_instance": int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
+            "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
+            "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
+            "semantic_min_pass_rate": float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+        },
+        "joint_gate": {
+            "min_pass_rate": float(cfg_yaml.get("joint_min_pass_rate", 0.8) or 0.8),
+            "swap_tolerance": float(cfg_yaml.get("joint_swap_tolerance", 1e-3) or 1e-3),
+            "swap_check_mode": str(cfg_yaml.get("joint_swap_check_mode", "data") or "data"),
+            "swap_test_margin": float(cfg_yaml.get("joint_swap_test_margin", 1.0) or 1.0),
+            "grad_eps": float(cfg_yaml.get("joint_grad_eps", 1e-8) or 1e-8),
+            "min_effective_grad_ratio": float(cfg_yaml.get("joint_min_effective_grad_ratio", 0.1) or 0.1),
+            "numeric_stress_enabled": bool(cfg_yaml.get("joint_numeric_stress_enabled", True)),
+            "numeric_stress_margin": float(cfg_yaml.get("joint_numeric_stress_margin", 120.0) or 120.0),
+            "numeric_stress_aux_scale": float(cfg_yaml.get("joint_numeric_stress_aux_scale", 32.0) or 32.0),
+        },
+    }
+    _atomic_write_json(payload_path, payload)
+
+    timeout_raw = cfg_yaml.get("stage0_sandbox_timeout_s", 25.0)
+    try:
+        timeout_s = max(1.0, float(timeout_raw))
+    except (TypeError, ValueError):
+        timeout_s = 25.0
+
+    env = os.environ.copy()
+    env["CUDA_VISIBLE_DEVICES"] = ""
+    env.setdefault("OMP_NUM_THREADS", "1")
+    env.setdefault("MKL_NUM_THREADS", "1")
+
+    proc: subprocess.Popen[Any] | None = None
+    log_fh = open(log_path, "w", encoding="utf-8")  # noqa: SIM115
+    try:
+        proc = subprocess.Popen(  # noqa: S603
+            [
+                sys.executable,
+                "-u",
+                script_path,
+                "--payload",
+                payload_path,
+                "--result",
+                result_path,
+            ],
+            cwd=_repo_root_dir(),
+            env=env,
+            stdout=log_fh,
+            stderr=log_fh,
+        )
+        try:
+            proc.wait(timeout=float(timeout_s))
+        except subprocess.TimeoutExpired:
+            try:
+                proc.terminate()
+                proc.wait(timeout=5.0)
+            except Exception:  # noqa: BLE001
+                try:
+                    proc.kill()
+                except Exception:  # noqa: BLE001
+                    pass
+            return {
+                "ok": False,
+                "failure_kind": "sandbox_timeout",
+                "reason": f"Sandbox gate timed out after {timeout_s:.1f}s",
+                "exit_code": proc.poll(),
+                "sandbox_log": os.path.relpath(log_path, start=run_dir_s),
+            }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "failure_kind": "sandbox_runtime_error",
+            "reason": f"Failed launching sandbox subprocess: {exc}",
+            "exception_type": type(exc).__name__,
+        }
+    finally:
+        try:
+            log_fh.close()
+        except Exception:  # noqa: BLE001
+            pass
+
+    if not os.path.isfile(result_path):
+        return {
+            "ok": False,
+            "failure_kind": "sandbox_no_result",
+            "reason": "Sandbox subprocess exited without a result payload",
+            "exit_code": None if proc is None else proc.poll(),
+            "sandbox_log": os.path.relpath(log_path, start=run_dir_s),
+        }
+
+    try:
+        loaded = _load_json(result_path)
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "ok": False,
+            "failure_kind": "sandbox_result_invalid",
+            "reason": f"Failed to parse sandbox result: {exc}",
+            "exit_code": None if proc is None else proc.poll(),
+            "sandbox_log": os.path.relpath(log_path, start=run_dir_s),
+        }
+
+    if not isinstance(loaded, Mapping):
+        return {
+            "ok": False,
+            "failure_kind": "sandbox_result_invalid",
+            "reason": "Sandbox result payload must be a dict",
+            "exit_code": None if proc is None else proc.poll(),
+            "sandbox_log": os.path.relpath(log_path, start=run_dir_s),
+        }
+
+    out = dict(loaded)
+    out.setdefault("ok", False)
+    out.setdefault("failure_kind", None if bool(out.get("ok")) else "sandbox_gate_failed")
+    out.setdefault("reason", "ok" if bool(out.get("ok")) else "sandbox gate failed")
+    out["exit_code"] = None if proc is None else proc.poll()
+    out["sandbox_log"] = os.path.relpath(log_path, start=run_dir_s)
+    out["sandbox_result"] = os.path.relpath(result_path, start=run_dir_s)
+    return out
 
 
 def _hf_subprocess_env_and_device(device_str: str) -> Tuple[Dict[str, str], str]:
@@ -6078,6 +6276,19 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     joint_min_effective_grad_ratio = float(
         cfg.get("joint_min_effective_grad_ratio", 0.1) or 0.1
     )
+    joint_numeric_stress_enabled = bool(cfg.get("joint_numeric_stress_enabled", False))
+    try:
+        joint_numeric_stress_margin = abs(float(cfg.get("joint_numeric_stress_margin", 120.0) or 120.0))
+    except (TypeError, ValueError):
+        joint_numeric_stress_margin = 120.0
+    if joint_numeric_stress_margin < 1e-6:
+        joint_numeric_stress_margin = 120.0
+    try:
+        joint_numeric_stress_aux_scale = abs(float(cfg.get("joint_numeric_stress_aux_scale", 32.0) or 32.0))
+    except (TypeError, ValueError):
+        joint_numeric_stress_aux_scale = 32.0
+    if joint_numeric_stress_aux_scale < 1.0:
+        joint_numeric_stress_aux_scale = 1.0
     joint_gate = run_joint_preference_gates(
         compiled_f,
         pref_batch=pref_batch,
@@ -6088,8 +6299,50 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         swap_test_margin=joint_swap_test_margin,
         grad_eps=joint_grad_eps,
         min_effective_grad_ratio=joint_min_effective_grad_ratio,
+        numeric_stress_enabled=joint_numeric_stress_enabled,
+        numeric_stress_margin=joint_numeric_stress_margin,
+        numeric_stress_aux_scale=joint_numeric_stress_aux_scale,
         variant="visible",
     )
+    sandbox_gate_enabled = bool(cfg.get("stage0_sandbox_gate_enabled", False))
+    sandbox_gate_only_when_hf = bool(cfg.get("stage0_sandbox_gate_only_when_hf", True))
+    sandbox_gate_hard_block_hf = bool(cfg.get("stage0_sandbox_gate_hard_block_hf", True))
+    sandbox_should_run = bool(sandbox_gate_enabled and (high_fidelity_on or (not sandbox_gate_only_when_hf)))
+    sandbox_gate_result: Dict[str, Any] | None = None
+
+    def _joint_gate_from_sandbox_failure(sandbox_res: Mapping[str, Any]) -> JointPreferenceGateResult:
+        failure_kind = str(sandbox_res.get("failure_kind") or "sandbox_gate_failed")
+        reason = str(sandbox_res.get("reason") or failure_kind)
+        trace = dict(sandbox_res.get("trace") or {}) if isinstance(sandbox_res.get("trace"), dict) else {}
+        trace.setdefault("failed_gate", "Stage0Sandbox")
+        trace["failure_kind"] = str(failure_kind)
+        trace["sandbox"] = {
+            "reason": str(reason),
+            "result": str(sandbox_res.get("sandbox_result", "")),
+            "log": str(sandbox_res.get("sandbox_log", "")),
+            "exit_code": sandbox_res.get("exit_code"),
+        }
+        return JointPreferenceGateResult(
+            ok=False,
+            reason=f"sandbox_gate_failed: {reason}",
+            trace=trace,
+        )
+
+    if sandbox_should_run:
+        sandbox_gate_result = _run_stage0_sandbox_gate(
+            run_dir=str(run_dir_s),
+            generation=int(generation),
+            pair_index=int(pair_index),
+            g_id=str(record.get("g_id", "")),
+            f_id=str(record.get("f_id", "")),
+            g_ir=g_ir,
+            f_ir=f_ir,
+            operator_whitelist=list(operator_whitelist),
+            cfg_yaml=cfg,
+        )
+        if not bool(sandbox_gate_result.get("ok")):
+            joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
+
     joint_gate_repair_reports: List[Dict[str, Any]] = []
     repair_enabled = bool(cfg.get("joint_gate_repair_enabled", False))
     try:
@@ -6107,13 +6360,43 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     )
     raw_repair_failure_kinds = cfg.get(
         "joint_gate_repair_only_failure_kinds",
-        ["forward_error", "backward_error", "pref_batch_to_loss_batch_error"],
+        [
+            "forward_error",
+            "backward_error",
+            "pref_batch_to_loss_batch_error",
+            "loss_not_finite",
+            "grad_not_finite",
+            "numeric_stress_forward_error",
+            "numeric_stress_backward_error",
+            "numeric_stress_loss_not_finite",
+            "numeric_stress_grad_not_finite",
+            "numeric_stress_missing_grads",
+            "sandbox_builder_gate_failed",
+            "sandbox_runtime_error",
+            "sandbox_timeout",
+            "sandbox_no_result",
+            "sandbox_result_invalid",
+            "sandbox_gate_failed",
+        ],
     )
     if not isinstance(raw_repair_failure_kinds, (list, tuple, set)):
         raw_repair_failure_kinds = [
             "forward_error",
             "backward_error",
             "pref_batch_to_loss_batch_error",
+            "loss_not_finite",
+            "grad_not_finite",
+            "numeric_stress_forward_error",
+            "numeric_stress_backward_error",
+            "numeric_stress_loss_not_finite",
+            "numeric_stress_grad_not_finite",
+            "numeric_stress_missing_grads",
+            "sandbox_builder_gate_failed",
+            "sandbox_runtime_error",
+            "sandbox_timeout",
+            "sandbox_no_result",
+            "sandbox_result_invalid",
+            "sandbox_gate_failed",
         ]
     repair_only_failure_kinds = {str(x) for x in raw_repair_failure_kinds if str(x).strip()}
     expects_repair_prompt_path = _abs_from_repo_root("PTP/prompts/free_loss_expects_repair.txt")
@@ -6252,6 +6535,9 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 swap_test_margin=joint_swap_test_margin,
                 grad_eps=joint_grad_eps,
                 min_effective_grad_ratio=joint_min_effective_grad_ratio,
+                numeric_stress_enabled=joint_numeric_stress_enabled,
+                numeric_stress_margin=joint_numeric_stress_margin,
+                numeric_stress_aux_scale=joint_numeric_stress_aux_scale,
                 variant="visible",
             )
             attempt_record["joint_gate_trace_after"] = joint_gate_repaired.trace
@@ -6279,6 +6565,27 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         if not repaired_ok:
             record["joint_gate_repair_attempts"] = int(len(joint_gate_repair_reports))
 
+    if sandbox_should_run:
+        need_rerun_sandbox = bool(record.get("joint_gate_repaired", False)) or (not bool((sandbox_gate_result or {}).get("ok", False)))
+        if need_rerun_sandbox:
+            sandbox_gate_result = _run_stage0_sandbox_gate(
+                run_dir=str(run_dir_s),
+                generation=int(generation),
+                pair_index=int(pair_index),
+                g_id=str(record.get("g_id", "")),
+                f_id=str(record.get("f_id", "")),
+                g_ir=g_ir,
+                f_ir=f_ir,
+                operator_whitelist=list(operator_whitelist),
+                cfg_yaml=cfg,
+            )
+        if sandbox_gate_result is not None and (not bool(sandbox_gate_result.get("ok"))):
+            joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
+
+    record["sandbox_gate"] = dict(sandbox_gate_result) if isinstance(sandbox_gate_result, dict) else None
+    record["sandbox_gate_ok"] = None if sandbox_gate_result is None else bool(sandbox_gate_result.get("ok"))
+    record["sandbox_gate_reason"] = None if sandbox_gate_result is None else str(sandbox_gate_result.get("reason", ""))
+
     record["joint_gate_repair_reports"] = list(joint_gate_repair_reports)
     record["builder_gate_repair_reports"] = list(builder_gate_repair_reports)
     record.update(
@@ -6291,6 +6598,13 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "joint_gate_trace": joint_gate.trace,
         }
     )
+
+    if high_fidelity_on and sandbox_should_run and sandbox_gate_hard_block_hf and (not bool(record.get("sandbox_gate_ok"))):
+        record["pair_ok"] = False
+        record["pair_reason"] = "stage0_sandbox_failed"
+        record["score"] = float("inf")
+        record["elapsed_s"] = float(time.time() - t0)
+        return record
 
     if cheap_gate_on and (not builder_gate.ok or not joint_gate.ok):
         record["pair_ok"] = False
