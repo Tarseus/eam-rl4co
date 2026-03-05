@@ -26,7 +26,19 @@ proxy_joint_batch_pass_rate_threshold: 0.9
 joint_gate_repair_enabled: true
 joint_gate_repair_max_attempts: 2
 joint_gate_repair_prompt_path: PTP/prompts/free_loss_forward_error_repair.txt
-joint_gate_repair_only_failure_kinds: ["forward_error","backward_error","pref_batch_to_loss_batch_error"]
+joint_gate_repair_only_failure_kinds: ["forward_error","backward_error","pref_batch_to_loss_batch_error","loss_not_finite","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_grad_not_finite","numeric_stress_missing_grads","sandbox_builder_gate_failed","sandbox_runtime_error","sandbox_timeout","sandbox_no_result","sandbox_result_invalid","sandbox_gate_failed"]
+joint_numeric_stress_enabled: true
+joint_numeric_stress_margin: 120.0
+joint_numeric_stress_aux_scale: 32.0
+stage0_sandbox_gate_enabled: true
+stage0_sandbox_gate_only_when_hf: true
+stage0_sandbox_gate_hard_block_hf: true
+stage0_sandbox_timeout_s: 25
+stage0_sandbox_batch_size: 8
+stage0_sandbox_k: 16
+stage0_sandbox_rounds: 1
+stage0_sandbox_variants: ["visible", "hidden"]
+stage0_sandbox_hard_failure_kinds: ["pref_batch_to_loss_batch_error","forward_error","backward_error","loss_not_finite","missing_grads","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_missing_grads","numeric_stress_grad_not_finite"]
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
 mp:

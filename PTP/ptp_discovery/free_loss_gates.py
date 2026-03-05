@@ -369,12 +369,28 @@ def run_joint_preference_gates(
     swap_test_margin: float = 1.0,
     grad_eps: float = 1e-8,
     min_effective_grad_ratio: float = 0.1,
+    numeric_stress_enabled: bool = False,
+    numeric_stress_margin: float = 120.0,
+    numeric_stress_aux_scale: float = 32.0,
     variant: str = "visible",
 ) -> JointPreferenceGateResult:
     """Joint gate on (builder output, loss function) using one forward/backward pass."""
 
     variant = str(variant or "visible").strip().lower()
     swap_check_mode = str(swap_check_mode or "data").strip().lower()
+    stress_enabled = bool(numeric_stress_enabled)
+    try:
+        stress_margin = abs(float(numeric_stress_margin))
+    except (TypeError, ValueError):
+        stress_margin = 120.0
+    if stress_margin < 1e-6:
+        stress_margin = 120.0
+    try:
+        stress_aux_scale = abs(float(numeric_stress_aux_scale))
+    except (TypeError, ValueError):
+        stress_aux_scale = 32.0
+    if stress_aux_scale < 1.0:
+        stress_aux_scale = 1.0
     mode = str(getattr(compiled.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
     if mode != "pairwise":
         return JointPreferenceGateResult(
@@ -519,6 +535,155 @@ def run_joint_preference_gates(
                 "variant": variant,
             },
         )
+
+    if stress_enabled:
+        stress_batch = dict(batch)
+        lpw_ref = batch["log_prob_w"].detach()
+        lpl_ref = batch["log_prob_l"].detach()
+        mid = 0.5 * (lpw_ref + lpl_ref)
+        half_margin = float(stress_margin) * 0.5
+        stress_lpw = (mid - half_margin).detach().clone().requires_grad_(True)
+        stress_lpl = (mid + half_margin).detach().clone().requires_grad_(True)
+        stress_batch["log_prob_w"] = stress_lpw
+        stress_batch["log_prob_l"] = stress_lpl
+
+        for key in (
+            "weight",
+            "delta_regret",
+            "delta_z",
+            "cost_gap",
+            "advantage_gap",
+            "advantage_w",
+            "advantage_l",
+        ):
+            value = stress_batch.get(key)
+            if isinstance(value, torch.Tensor) and value.is_floating_point():
+                stress_batch[key] = value.detach() * float(stress_aux_scale)
+
+        try:
+            stress_loss = compiled.loss_fn(batch=stress_batch, model_output={}, extra={"alpha": 1.0})
+        except Exception as exc:  # noqa: BLE001
+            tr = _joint_gate_error_trace(
+                compiled=compiled,
+                failure_kind="numeric_stress_forward_error",
+                exc=exc,
+                variant=variant,
+                full_batch=full_batch,
+                batch=stress_batch,
+                min_pass_rate=min_pass_rate,
+                swap_tolerance=swap_tolerance,
+                grad_eps=grad_eps,
+                min_effective_grad_ratio=min_effective_grad_ratio,
+                swap_check_mode=swap_check_mode,
+                swap_test_margin=swap_test_margin,
+            )
+            tr["numeric_stress"] = {
+                "enabled": True,
+                "margin": float(stress_margin),
+                "aux_scale": float(stress_aux_scale),
+            }
+            return JointPreferenceGateResult(
+                ok=False,
+                reason=f"numeric_stress_forward_error: {exc}",
+                trace=tr,
+            )
+
+        if not isinstance(stress_loss, torch.Tensor) or stress_loss.numel() != 1:
+            return JointPreferenceGateResult(
+                ok=False,
+                reason="numeric_stress_loss_not_scalar_tensor",
+                trace={
+                    "failed_gate": "JointPreference",
+                    "failure_kind": "numeric_stress_loss_not_scalar_tensor",
+                    "observed_type": str(type(stress_loss)),
+                    "observed_shape": None if not isinstance(stress_loss, torch.Tensor) else tuple(stress_loss.shape),
+                    "variant": variant,
+                    "numeric_stress": {
+                        "enabled": True,
+                        "margin": float(stress_margin),
+                        "aux_scale": float(stress_aux_scale),
+                    },
+                },
+            )
+        if not torch.isfinite(stress_loss).all().item():
+            return JointPreferenceGateResult(
+                ok=False,
+                reason="numeric_stress_loss_not_finite",
+                trace={
+                    "failed_gate": "JointPreference",
+                    "failure_kind": "numeric_stress_loss_not_finite",
+                    "variant": variant,
+                    "numeric_stress": {
+                        "enabled": True,
+                        "margin": float(stress_margin),
+                        "aux_scale": float(stress_aux_scale),
+                        "loss": float(stress_loss.detach().item()),
+                    },
+                },
+            )
+
+        try:
+            stress_grad_w, stress_grad_l = torch.autograd.grad(
+                stress_loss,
+                [stress_lpw, stress_lpl],
+                allow_unused=True,
+            )
+        except Exception as exc:  # noqa: BLE001
+            tr = _joint_gate_error_trace(
+                compiled=compiled,
+                failure_kind="numeric_stress_backward_error",
+                exc=exc,
+                variant=variant,
+                full_batch=full_batch,
+                batch=stress_batch,
+                min_pass_rate=min_pass_rate,
+                swap_tolerance=swap_tolerance,
+                grad_eps=grad_eps,
+                min_effective_grad_ratio=min_effective_grad_ratio,
+                swap_check_mode=swap_check_mode,
+                swap_test_margin=swap_test_margin,
+            )
+            tr["numeric_stress"] = {
+                "enabled": True,
+                "margin": float(stress_margin),
+                "aux_scale": float(stress_aux_scale),
+            }
+            return JointPreferenceGateResult(
+                ok=False,
+                reason=f"numeric_stress_backward_error: {exc}",
+                trace=tr,
+            )
+
+        if stress_grad_w is None or stress_grad_l is None:
+            return JointPreferenceGateResult(
+                ok=False,
+                reason="numeric_stress_missing_grads",
+                trace={
+                    "failed_gate": "JointPreference",
+                    "failure_kind": "numeric_stress_missing_grads",
+                    "variant": variant,
+                    "numeric_stress": {
+                        "enabled": True,
+                        "margin": float(stress_margin),
+                        "aux_scale": float(stress_aux_scale),
+                    },
+                },
+            )
+        if not torch.isfinite(stress_grad_w).all().item() or not torch.isfinite(stress_grad_l).all().item():
+            return JointPreferenceGateResult(
+                ok=False,
+                reason="numeric_stress_grad_not_finite",
+                trace={
+                    "failed_gate": "JointPreference",
+                    "failure_kind": "numeric_stress_grad_not_finite",
+                    "variant": variant,
+                    "numeric_stress": {
+                        "enabled": True,
+                        "margin": float(stress_margin),
+                        "aux_scale": float(stress_aux_scale),
+                    },
+                },
+            )
 
     w_pass = float((grad_w < 0.0).to(dtype=torch.float32).mean().item())
     l_pass = float((grad_l > 0.0).to(dtype=torch.float32).mean().item())
