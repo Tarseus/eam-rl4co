@@ -1,0 +1,575 @@
+{
+  "generation": 3,
+  "pair_index": 3,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+    }
+  },
+  "f_entry": {
+    "id": "f003_007_9c45dc10",
+    "ir": {
+      "name": "loss_pairwise_rankprod_exp_advantage_gap_repaired",
+      "intuition": "Shift from margin-based to a rank product paradigm by modeling pairwise preference as a product of exponential scores derived from log probabilities and advantage_gap signals, encouraging multiplicative ranking consistency. This replaces additive margins and logsigmoid links with a product-based ranking loss, aggregated by normalized log-sum and constrained by positivity to ensure stable gradients and meaningful ranking signals.",
+      "pseudocode": "score_w = exp(alpha * log_prob_w + beta * advantage_w)\nscore_l = exp(alpha * log_prob_l + beta * advantage_l)\npairwise_prob = score_w / (score_w + score_l + epsilon)\nloss = -weight * log(pairwise_prob)\nnormalized_loss = sum(loss) / (sum(weight) + epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rankprod",
+        "signal_family": "advantage",
+        "link_family": "log",
+        "agg_family": "normalized_log_sum",
+        "constraint_family": "positivity",
+        "alpha": 1.0,
+        "beta": 0.7,
+        "epsilon": 1e-12
+      },
+      "operators_used": [
+        "exp",
+        "log",
+        "sum",
+        "div",
+        "mul",
+        "sub"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = float(extra.get('epsilon', 1e-12))\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 0.7))\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    zeros = lpw.new_zeros(lpw.shape)\n    adv_gap = batch.get('advantage_gap', zeros)\n    adv_w = -adv_gap.clamp(min=-1e8)  # Since adv_gap = adv_l - adv_w => adv_w = adv_l - adv_gap, but without adv_l, approximate\n    adv_l = adv_gap.clamp(min=-1e8)  # approximate adv_l as adv_gap\n    score_w = ops.exp(alpha * lpw + beta * adv_w)\n    score_l = ops.exp(alpha * lpl + beta * adv_l)\n    denom = score_w + score_l + eps\n    pairwise_prob = score_w / denom\n    loss = -ops.log(pairwise_prob.clamp(min=eps))\n    weighted_loss = loss * weight\n    normalized_loss = weighted_loss.sum() / (weight.sum() + eps)\n    return normalized_loss",
+      "theoretical_basis": ""
+    }
+  },
+  "cfg_yaml": {
+    "preset": "simple",
+    "search_mode": "alternating",
+    "seed": 1234,
+    "output_root": "runs/pref_loss_alternating_simple",
+    "metric_mode": "minimize",
+    "improve_eps": 0.003525092588174592,
+    "improve_eps_calibration": {
+      "enabled": true,
+      "N": 8,
+      "sigma_mult": 2.0,
+      "eps_floor": 0.0
+    },
+    "stage3_multifidelity": {
+      "enabled": true,
+      "rounds": [
+        {
+          "name": "K200",
+          "f1_steps": 200,
+          "promote_top_m": 32,
+          "promote_if_better_than_incumbent": true,
+          "always_include_incumbent": true
+        },
+        {
+          "name": "K1000",
+          "f1_steps": 1000
+        }
+      ]
+    },
+    "builder_min_coverage": 0.0,
+    "seed_with_po4cops_default": false,
+    "llm_init_only": true,
+    "proxy_joint_swap_check_mode": "synthetic",
+    "proxy_joint_batch_pass_rate_threshold": 0.9,
+    "joint_gate_repair_enabled": true,
+    "joint_gate_repair_max_attempts": 2,
+    "joint_gate_repair_prompt_path": "PTP/prompts/free_loss_forward_error_repair.txt",
+    "joint_gate_repair_only_failure_kinds": [
+      "forward_error",
+      "backward_error",
+      "pref_batch_to_loss_batch_error"
+    ],
+    "devices": [
+      "cuda:0",
+      "cuda:1",
+      "cuda:2",
+      "cuda:3"
+    ],
+    "mp": {
+      "enabled": true,
+      "processes": 4,
+      "start_method": "spawn"
+    },
+    "eval_stages": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "proxy_gate_repair": {
+      "enabled": true,
+      "max_repairs_per_gen": 32,
+      "max_attempts_per_pair": 4,
+      "repair_builder_on_builder_gate_fail": true,
+      "repair_loss_on_joint_gate_fail": true
+    },
+    "drop_pref_cache_before_micro_unroll": true,
+    "budgets": {
+      "generations": 30,
+      "pairing_budget_per_gen": 128,
+      "high_fidelity_top_m": 999999,
+      "hf_epochs": 0
+    },
+    "alternating_schedule": {
+      "loss_generations": 10,
+      "pair_generations": 10,
+      "final_loss_generations": 10,
+      "rounds": 1
+    },
+    "f1_steps": 200,
+    "hf_epochs": 0,
+    "hf_instances_per_epoch": 0,
+    "train_problem_size": 100,
+    "valid_problem_sizes": [
+      100
+    ],
+    "train_batch_size": 64,
+    "num_validation_episodes": 512,
+    "validation_batch_size": 64,
+    "pomo_size": null,
+    "loss_observables": [
+      "seq_len",
+      "log_prob_mean",
+      "advantage",
+      "entropy",
+      "log_prob_step"
+    ],
+    "ref_policy_source": "none",
+    "scratch_init_seed": 12345,
+    "policy_name": "pomo",
+    "policy_kwargs": {
+      "po4cops_compat": true
+    },
+    "baseline": {
+      "mini_eval_paths": {
+        "200": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
+        "1000": "baseline/mini_eval/baseline_minitrain_tsp100_K1000.json"
+      },
+      "checkpoints": [
+        "baseline/epoch_135.ckpt",
+        "baseline/epoch_409.ckpt"
+      ],
+      "include_scratch": true,
+      "multiseed_compare_enabled": true
+    },
+    "generator_params": {
+      "offline_train_path": "offline_data/tsp100_train.pt",
+      "offline_val_paths": {
+        "100": "offline_data/tsp100_val.pt"
+      }
+    },
+    "builder_pair_budget": {
+      "per_instance": 8192,
+      "total": 8192
+    },
+    "population": {
+      "n_candidates_loss": 12,
+      "n_candidates_builder": 12,
+      "keep_top_k": 8
+    },
+    "builder_llm": {
+      "enabled": true,
+      "offline_mode": false,
+      "parent_p": 5,
+      "seed_reserve": 0,
+      "init_num_E1": 6,
+      "init_num_E2": 4,
+      "init_num_M1": 4,
+      "init_num_M2": 4,
+      "num_E1": 8,
+      "num_E2": 8,
+      "num_M1": 8,
+      "num_M2": 8,
+      "repair": {
+        "enabled": true,
+        "max_attempts": 4,
+        "simplify_first": true
+      },
+      "family_diversity": {
+        "enabled": true,
+        "min_per_family": 1,
+        "elite_max_per_family": 2,
+        "parent_max_per_family": 1,
+        "include_unknown": false
+      },
+      "operator_bank": {
+        "init": [
+          {
+            "name": "GEN",
+            "count": 4
+          },
+          {
+            "name": "PARADIGM_SHIFT",
+            "count": 6
+          },
+          {
+            "name": "STRUCTURE_SHIFT",
+            "count": 4
+          },
+          {
+            "name": "CONSTRAINT_INJECT",
+            "count": 4
+          },
+          {
+            "name": "XOVER",
+            "count": 2
+          },
+          {
+            "name": "TUNE",
+            "count": 2
+          }
+        ],
+        "per_gen": [
+          {
+            "name": "GEN",
+            "count": 4
+          },
+          {
+            "name": "PARADIGM_SHIFT",
+            "count": 6
+          },
+          {
+            "name": "STRUCTURE_SHIFT",
+            "count": 4
+          },
+          {
+            "name": "CONSTRAINT_INJECT",
+            "count": 4
+          },
+          {
+            "name": "XOVER",
+            "count": 2
+          },
+          {
+            "name": "TUNE",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "loss_llm": {
+      "enabled": true,
+      "offline_mode": false,
+      "parent_p": 5,
+      "seed_reserve": 0,
+      "init_num_E1": 6,
+      "init_num_E2": 4,
+      "init_num_M1": 4,
+      "init_num_M2": 4,
+      "num_E1": 8,
+      "num_E2": 8,
+      "num_M1": 8,
+      "num_M2": 8,
+      "repair": {
+        "enabled": true,
+        "max_attempts": 4,
+        "simplify_first": true
+      },
+      "exploration": {
+        "enabled": true,
+        "stagnation_generations": 3,
+        "replace_p": 0.7
+      },
+      "family_diversity": {
+        "enabled": true,
+        "min_per_family": 1,
+        "elite_max_per_family": 2,
+        "parent_max_per_family": 1,
+        "include_unknown": false
+      },
+      "operator_bank": {
+        "init": [
+          {
+            "name": "GEN",
+            "count": 4
+          },
+          {
+            "name": "PARADIGM_SHIFT",
+            "count": 6
+          },
+          {
+            "name": "STRUCTURE_SHIFT",
+            "count": 4
+          },
+          {
+            "name": "CONSTRAINT_INJECT",
+            "count": 4
+          },
+          {
+            "name": "XOVER",
+            "count": 2
+          },
+          {
+            "name": "TUNE",
+            "count": 2
+          }
+        ],
+        "per_gen": [
+          {
+            "name": "GEN",
+            "count": 4
+          },
+          {
+            "name": "PARADIGM_SHIFT",
+            "count": 6
+          },
+          {
+            "name": "STRUCTURE_SHIFT",
+            "count": 4
+          },
+          {
+            "name": "CONSTRAINT_INJECT",
+            "count": 4
+          },
+          {
+            "name": "XOVER",
+            "count": 2
+          },
+          {
+            "name": "TUNE",
+            "count": 2
+          }
+        ]
+      },
+      "novelty": {
+        "enabled": true,
+        "max_similarity": 0.92,
+        "neighbors": 3,
+        "apply_to_elites": false
+      }
+    },
+    "llm_prompts": {
+      "builder_paradigm_shift": "PTP/prompts/pref_builder_paradigm_shift.txt",
+      "builder_structure_shift": "PTP/prompts/pref_builder_structure_shift.txt",
+      "builder_constraint_inject": "PTP/prompts/pref_builder_constraint_inject.txt",
+      "loss_paradigm_shift": "PTP/prompts/free_loss_paradigm_shift.txt",
+      "loss_structure_shift": "PTP/prompts/free_loss_structure_shift.txt",
+      "loss_constraint_inject": "PTP/prompts/free_loss_constraint_inject.txt"
+    },
+    "cheap_gate_on": true,
+    "high_fidelity_on": true,
+    "micro_unroll_enabled": false,
+    "generations": 30,
+    "pairing_budget_per_gen": 128,
+    "pairing_budget_loss": 64,
+    "pairing_budget_builder": 64,
+    "proxy_batches": 10,
+    "proxy_batch_size": 64,
+    "micro_unroll_steps": 0,
+    "micro_unroll_max_pairs": 0,
+    "high_fidelity_top_m": 999999,
+    "pop_f": 12,
+    "pop_g": 12,
+    "elite_f": 8,
+    "elite_g": 8,
+    "builder_max_pairs_per_instance": 8192,
+    "descriptor_pair_count_cap": 8192,
+    "anchor_enabled": false,
+    "recheck_enabled": false,
+    "coverage_k_elite_start": 0,
+    "coverage_k_elite_end": 0,
+    "coverage_k_hof_start": 0,
+    "coverage_k_hof_end": 0,
+    "coverage_k_random_start": 0,
+    "coverage_k_random_end": 0,
+    "crossplay_k_hof_start": 0,
+    "crossplay_k_hof_end": 0,
+    "archive_bins": 8,
+    "archive_per_cell": 1,
+    "diverse_elites_from_archive_max": 0,
+    "backend": "rl4co",
+    "env_name": "tsp",
+    "rollout_strategy": "auto",
+    "objective_sign": "neg_reward"
+  },
+  "device_str": "cuda:0",
+  "operator_whitelist": [],
+  "run_dir": "runs/pref_loss_alternating_simple/20260304-224232",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "9345ca9f543a16df",
+  "proxy_record": {
+    "generation": 3,
+    "pair_index": 3,
+    "g_id": "g_ref",
+    "f_id": "f003_007_9c45dc10",
+    "g_ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+    },
+    "f_ir": {
+      "name": "loss_pairwise_rankprod_exp_advantage_gap_repaired",
+      "intuition": "Shift from margin-based to a rank product paradigm by modeling pairwise preference as a product of exponential scores derived from log probabilities and advantage_gap signals, encouraging multiplicative ranking consistency. This replaces additive margins and logsigmoid links with a product-based ranking loss, aggregated by normalized log-sum and constrained by positivity to ensure stable gradients and meaningful ranking signals.",
+      "pseudocode": "score_w = exp(alpha * log_prob_w + beta * advantage_w)\nscore_l = exp(alpha * log_prob_l + beta * advantage_l)\npairwise_prob = score_w / (score_w + score_l + epsilon)\nloss = -weight * log(pairwise_prob)\nnormalized_loss = sum(loss) / (sum(weight) + epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rankprod",
+        "signal_family": "advantage",
+        "link_family": "log",
+        "agg_family": "normalized_log_sum",
+        "constraint_family": "positivity",
+        "alpha": 1.0,
+        "beta": 0.7,
+        "epsilon": 1e-12
+      },
+      "operators_used": [
+        "exp",
+        "log",
+        "sum",
+        "div",
+        "mul",
+        "sub"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = float(extra.get('epsilon', 1e-12))\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 0.7))\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    zeros = lpw.new_zeros(lpw.shape)\n    adv_gap = batch.get('advantage_gap', zeros)\n    adv_w = -adv_gap.clamp(min=-1e8)  # Since adv_gap = adv_l - adv_w => adv_w = adv_l - adv_gap, but without adv_l, approximate\n    adv_l = adv_gap.clamp(min=-1e8)  # approximate adv_l as adv_gap\n    score_w = ops.exp(alpha * lpw + beta * adv_w)\n    score_l = ops.exp(alpha * lpl + beta * adv_l)\n    denom = score_w + score_l + eps\n    pairwise_prob = score_w / denom\n    loss = -ops.log(pairwise_prob.clamp(min=eps))\n    weighted_loss = loss * weight\n    normalized_loss = weighted_loss.sum() / (weight.sum() + eps)\n    return normalized_loss",
+      "theoretical_basis": ""
+    },
+    "device": "cuda:0",
+    "cheap_gate_on": true,
+    "high_fidelity_on": false,
+    "eval_budget_signature": "9345ca9f543a16df",
+    "score": 0.0,
+    "proxy_metrics": {
+      "cheap_effective_grad_ratio": 1.0,
+      "cheap_semantic_pass_rate": 1.0
+    },
+    "seed_signature": null,
+    "descriptor": null,
+    "joint_gate_repaired": true,
+    "joint_gate_repair_attempts": 1,
+    "f_id_before_repair": "f003_007_9c45dc10",
+    "f_id_after_repair": "29e095d0cf44eddb6d15f65eae32e2dc8c71c6d6",
+    "builder_gate_repaired": false,
+    "builder_gate_repair_attempts": 0,
+    "g_id_before_repair": null,
+    "g_id_after_repair": null,
+    "builder_gate_repair_reports": [],
+    "g_compile_ok": true,
+    "g_compile_reason": "ok",
+    "f_static_ok": true,
+    "f_static_reason": "",
+    "f_compile_ok": true,
+    "f_compile_reason": "ok",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": true,
+    "joint_gate_reason": "ok",
+    "joint_gate_trace": {
+      "failed_gate": null,
+      "failure_kind": null,
+      "observed": {
+        "grad_w_pass_rate": 1.0,
+        "grad_l_pass_rate": 1.0,
+        "effective_grad_ratio": 1.0,
+        "loss": 0.4642719030380249,
+        "loss_swap": 1.0309386253356934,
+        "swap_ok": true,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 0.4642719030380249
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [],
+      "variant": "visible"
+    },
+    "pair_ok": true,
+    "pair_reason": "ok_gate_only",
+    "elapsed_s": 32.73562788963318,
+    "stage": "gate",
+    "phase": "loss"
+  },
+  "baseline_epoch_objectives": null,
+  "baseline_early_valid": null,
+  "early_eval_steps": 100,
+  "device_physical_str": "cuda:2"
+}
