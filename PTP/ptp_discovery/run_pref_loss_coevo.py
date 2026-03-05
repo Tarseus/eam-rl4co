@@ -21,6 +21,7 @@ if __package__ is None or __package__ == "":
             sys.path.insert(0, path)
 
 from ptp_discovery.pref_loss_coevo_loop import run_pref_loss_coevo
+from ptp_discovery.runtime_trace import RuntimeTrace
 
 
 def _find_latest_run_dir(config_path: str) -> str:
@@ -84,6 +85,27 @@ def main() -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     parser = _build_arg_parser()
     args = parser.parse_args()
+    trace_dir = os.path.join(os.getcwd(), "logs", "runtime")
+    os.makedirs(trace_dir, exist_ok=True)
+    trace_path = os.path.join(trace_dir, f"pref_loss_launcher_{os.getpid()}.json")
+    try:
+        runtime_trace_hb_s = float(os.environ.get("RUNTIME_TRACE_HEARTBEAT_S", "30") or "30")
+    except ValueError:
+        runtime_trace_hb_s = 30.0
+    runtime_trace = RuntimeTrace(
+        trace_path,
+        role="pref_loss_launcher",
+        heartbeat_interval_s=runtime_trace_hb_s,
+    )
+    runtime_trace.start(
+        extra={
+            "config_path": os.path.abspath(str(args.config)),
+            "resume_dir": (os.path.abspath(str(args.resume_dir)) if args.resume_dir else None),
+            "resume_latest": bool(args.resume_latest),
+            "device_override": args.device,
+        }
+    )
+    runtime_trace.install_signal_handlers()
 
     overrides = {}
     if args.device is not None:
@@ -94,8 +116,18 @@ def main() -> None:
         if resume_dir is not None:
             raise SystemExit("Pass only one of --resume-dir or --resume-latest.")
         resume_dir = _find_latest_run_dir(args.config)
-
-    run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+    try:
+        run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+    except KeyboardInterrupt as exc:
+        runtime_trace.fail(reason="keyboard_interrupt", exc=exc, exit_code=130)
+        raise
+    except BaseException as exc:  # noqa: BLE001
+        runtime_trace.fail(reason="unhandled_exception", exc=exc, exit_code=1)
+        raise
+    else:
+        runtime_trace.finish(reason="completed", exit_code=0)
+    finally:
+        runtime_trace.close()
 
 
 if __name__ == "__main__":
