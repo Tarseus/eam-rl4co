@@ -1,0 +1,49 @@
+[2026-03-05 09:34:12,779] INFO:fitness.free_loss_fidelity: Stage3 offline mini-train start gen=1 pair_index=12 K=200 seed=12345 valid_sizes=[100] baseline_json=baseline/mini_eval/baseline_minitrain_tsp100_K200.json
+[2026-03-05 09:34:20,298] INFO:fitness.free_loss_fidelity: RL4CO free-loss (step-mode): f1_steps=200, f2_steps=0, total_steps=200, train_problem_size=100, rollouts=100, batch_size=64, device=cuda:0, env=tsp
+[2026-03-05 09:34:21,675] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 1/200: score=36.122910 (avg=36.122910), loss=6.891446 (avg=6.891446), pairs_step=316800, pairs_total=316800
+[2026-03-05 09:34:29,435] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 20/200: score=14.390198 (avg=15.298971), loss=0.967558 (avg=1.386088), pairs_step=316800, pairs_total=6335995
+[2026-03-05 09:34:36,237] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 40/200: score=11.157104 (avg=14.126897), loss=0.534667 (avg=1.097592), pairs_step=316799, pairs_total=12671989
+[2026-03-05 09:34:42,907] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 60/200: score=11.669700 (avg=13.206912), loss=0.452581 (avg=0.901358), pairs_step=316799, pairs_total=19007983
+[2026-03-05 09:34:49,604] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 80/200: score=12.002308 (avg=12.842474), loss=0.386761 (avg=0.781455), pairs_step=316800, pairs_total=25343980
+[2026-03-05 09:34:56,274] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 100/200: score=14.032343 (avg=12.840354), loss=0.424469 (avg=0.705940), pairs_step=316800, pairs_total=31679976
+[2026-03-05 09:35:02,937] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 120/200: score=16.721788 (avg=13.277574), loss=0.514973 (avg=0.667270), pairs_step=316800, pairs_total=38015972
+[2026-03-05 09:35:09,599] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 140/200: score=19.533157 (avg=14.011257), loss=0.658024 (avg=0.657538), pairs_step=316800, pairs_total=44351967
+[2026-03-05 09:35:16,242] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 160/200: score=21.797771 (avg=14.852840), loss=0.870907 (avg=0.670675), pairs_step=316800, pairs_total=50687963
+[2026-03-05 09:35:22,890] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 180/200: score=23.516613 (avg=15.733286), loss=0.985964 (avg=0.701035), pairs_step=316800, pairs_total=57023953
+[2026-03-05 09:35:29,569] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 200/200: score=25.152573 (avg=16.604885), loss=1.196004 (avg=0.742042), pairs_step=316800, pairs_total=63359950
+[2026-03-05 09:35:30,683] WARNING:fitness.free_loss_fidelity: weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/epoch_135.ckpt
+[2026-03-05 09:35:30,727] INFO:fitness.free_loss_fidelity: Loaded init checkpoint into policy: path=/data1/gushengda/eam-rl4co/baseline/epoch_135.ckpt prefix=policy. matched=97 missing=0 unexpected=0
+[2026-03-05 09:35:30,732] INFO:fitness.free_loss_fidelity: RL4CO free-loss (step-mode): f1_steps=200, f2_steps=0, total_steps=200, train_problem_size=100, rollouts=100, batch_size=64, device=cuda:0, env=tsp
+[2026-03-05 09:35:31,073] INFO:fitness.free_loss_fidelity: RL4CO free-loss step 1/200: score=7.803347 (avg=7.803347), loss=0.080053 (avg=0.080053), pairs_step=315697, pairs_total=315697
+[2026-03-05 09:35:34,233] ERROR:fitness.free_loss_fidelity: Stage3 mini-train FAILED init=ckpt_135 g_id=g_ref f_id=f001_008_b7efba39 device=cuda:0
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 6498, in _evaluate_pair_worker
+    fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py", line 1996, in evaluate_free_loss_candidate
+    return _evaluate_free_loss_candidate_rl4co(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py", line 1103, in _evaluate_free_loss_candidate_rl4co
+    score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py", line 971, in _train_one_batch_with_free_loss_rl4co
+    raise RuntimeError("Non-finite loss encountered during mini-train")
+RuntimeError: Non-finite loss encountered during mini-train
+[2026-03-05 09:35:34,282] WARNING:fitness.free_loss_fidelity: weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/epoch_409.ckpt
+[2026-03-05 09:35:34,316] INFO:fitness.free_loss_fidelity: Loaded init checkpoint into policy: path=/data1/gushengda/eam-rl4co/baseline/epoch_409.ckpt prefix=policy. matched=97 missing=0 unexpected=0
+[2026-03-05 09:35:34,321] INFO:fitness.free_loss_fidelity: RL4CO free-loss (step-mode): f1_steps=200, f2_steps=0, total_steps=200, train_problem_size=100, rollouts=100, batch_size=64, device=cuda:0, env=tsp
+[2026-03-05 09:35:34,483] ERROR:fitness.free_loss_fidelity: Stage3 mini-train FAILED init=ckpt_409 g_id=g_ref f_id=f001_008_b7efba39 device=cuda:0
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 6498, in _evaluate_pair_worker
+    fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py", line 1996, in evaluate_free_loss_candidate
+    return _evaluate_free_loss_candidate_rl4co(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py", line 1103, in _evaluate_free_loss_candidate_rl4co
+    score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/PTP/fitness/free_loss_fidelity.py", line 971, in _train_one_batch_with_free_loss_rl4co
+    raise RuntimeError("Non-finite loss encountered during mini-train")
+RuntimeError: Non-finite loss encountered during mini-train
+[2026-03-05 09:35:34,490] INFO:fitness.free_loss_fidelity: Stage3 offline mini-train DONE gen=1 pair_index=12 score=inf any_error=True
