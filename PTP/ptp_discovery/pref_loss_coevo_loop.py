@@ -77,6 +77,7 @@ from ptp_discovery.pref_builder_ir import (
 
 import ptp_discovery.free_loss_llm_ops as loss_llm_ops
 import ptp_discovery.pref_builder_llm_ops as builder_llm_ops
+from ptp_discovery.runtime_trace import RuntimeTrace
 
 
 LOGGER = logging.getLogger("ptp_discovery.pref_loss_coevo")
@@ -906,6 +907,7 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
     run_dir: str,
     device_list: Sequence[str],
     max_workers: int,
+    runtime_trace: RuntimeTrace | None = None,
 ) -> List[Dict[str, Any]]:
     if not hf_tasks:
         return []
@@ -1005,6 +1007,16 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
 
     while pending or active:
         _launch_ready_tasks()
+        if runtime_trace is not None:
+            runtime_trace.heartbeat(
+                extra={
+                    "stage": "hf_subprocess_scheduler",
+                    "pending_tasks": int(len(pending)),
+                    "active_tasks": int(len(active)),
+                    "completed_tasks": int(len(results_by_key)),
+                },
+                min_interval_s=30.0,
+            )
         progressed = False
         now = float(time.time())
         for meta in list(active):
@@ -6868,6 +6880,38 @@ def run_pref_loss_coevo(
 
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
     LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+    try:
+        runtime_trace_hb_s = max(5.0, float(cfg_yaml.get("runtime_trace_heartbeat_s", 30.0) or 30.0))
+    except (TypeError, ValueError):
+        runtime_trace_hb_s = 30.0
+    runtime_trace = RuntimeTrace(
+        os.path.join(run_dir, "runtime_status.json"),
+        role="pref_loss_coevo_main",
+        heartbeat_interval_s=runtime_trace_hb_s,
+    )
+    runtime_trace.start(
+        extra={
+            "config_path": os.path.abspath(str(config_path)),
+            "resume_dir": (os.path.abspath(str(resume_dir)) if resume_dir else None),
+            "run_dir": os.path.abspath(str(run_dir)),
+            "search_mode": str(search_mode),
+            "preset": str(preset),
+            "generations": int(generations),
+            "seed": int(seed),
+            "devices": list(device_list),
+            "mp_enabled": bool(mp_enabled),
+            "mp_processes": int(mp_processes),
+            "hf_scheduler_mode": _hf_scheduler_mode(cfg_yaml),
+        },
+    )
+    runtime_trace.install_signal_handlers()
+    runtime_trace.heartbeat(
+        extra={
+            "stage": "initialized",
+            "next_generation": int(resume_state.get("next_generation", 0)) if isinstance(resume_state, dict) else 0,
+        },
+        force=True,
+    )
 
     improve_eps_calibration: Dict[str, Any] | None = None
     if resume_state is not None:
@@ -7584,6 +7628,15 @@ def run_pref_loss_coevo(
             alternating_final_loss_generations=int(alternating_final_loss_generations),
         )
         generation_phase_label = str(alternating_phase_hint) if str(search_mode) == "alternating" else "coevo"
+        runtime_trace.heartbeat(
+            extra={
+                "stage": "generation_loop",
+                "generation": int(gen),
+                "phase": str(generation_phase_label),
+                "next_generation": int(gen + 1),
+            },
+            force=True,
+        )
         if phase_block_label is None:
             phase_block_label = str(generation_phase_label)
         elif str(generation_phase_label) != str(phase_block_label):
@@ -9518,6 +9571,7 @@ def run_pref_loss_coevo(
                                 run_dir=str(run_dir),
                                 device_list=device_list,
                                 max_workers=int(procs),
+                                runtime_trace=runtime_trace,
                             )
                         )
                     else:
@@ -9850,6 +9904,7 @@ def run_pref_loss_coevo(
                                             run_dir=str(run_dir),
                                             device_list=device_list,
                                             max_workers=int(procs),
+                                            runtime_trace=runtime_trace,
                                         )
                                     )
                                 else:
@@ -10657,4 +10712,16 @@ def run_pref_loss_coevo(
 
     if generations <= gen_start:
         _atomic_write_json(summary_json, _summary_state(gen_start - 1))
+    runtime_trace.finish(
+        reason="completed",
+        exit_code=0,
+        extra={
+            "last_generation": int(generations - 1),
+            "next_generation": int(generations),
+            "best_score": (best_so_far.get("score") if isinstance(best_so_far, dict) else None),
+            "best_builder_id": (best_so_far.get("builder_id") if isinstance(best_so_far, dict) else None),
+            "best_loss_id": (best_so_far.get("loss_id") if isinstance(best_so_far, dict) else None),
+        },
+    )
+    runtime_trace.close()
     LOGGER.info("Co-evolution complete. Artifacts saved under: %s", os.path.abspath(run_dir))
