@@ -725,6 +725,45 @@ def _stage3_fidelity_key(cfg_yaml: Mapping[str, Any]) -> str:
     return f"K{int(K)}"
 
 
+def _default_stage3_baseline_mini_eval_path(cfg_yaml: Mapping[str, Any]) -> str:
+    env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
+    fidelity = _stage3_fidelity_key(cfg_yaml)
+    return os.path.join(
+        "baseline",
+        "mini_eval",
+        f"baseline_minitrain_{env_name}{int(train_problem_size)}_{str(fidelity)}.json",
+    ).replace("\\", "/")
+
+
+def _stage3_baseline_cfg_dict(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    if not isinstance(cfg_yaml, dict):
+        baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+        return dict(baseline_cfg) if isinstance(baseline_cfg, Mapping) else {}
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, dict):
+        baseline_cfg = {}
+        cfg_yaml["baseline"] = baseline_cfg
+    return baseline_cfg
+
+
+def _record_stage3_baseline_mini_eval_path(cfg_yaml: Mapping[str, Any], path: str) -> None:
+    baseline_cfg = _stage3_baseline_cfg_dict(cfg_yaml)
+    fidelity = _stage3_fidelity_key(cfg_yaml)
+
+    raw_map = baseline_cfg.get("mini_eval_paths")
+    if not isinstance(raw_map, dict):
+        raw_map = {}
+        baseline_cfg["mini_eval_paths"] = raw_map
+    raw_map[str(fidelity)] = str(path)
+    if str(fidelity).startswith("K"):
+        try:
+            raw_map[str(int(str(fidelity)[1:]))] = str(path)
+        except Exception:  # noqa: BLE001
+            pass
+    baseline_cfg["mini_eval_path"] = str(path)
+
+
 def _resolve_stage3_baseline_mini_eval_path(cfg_yaml: Mapping[str, Any], baseline_cfg: Mapping[str, Any]) -> str | None:
     raw = baseline_cfg.get("mini_eval_paths", None)
     if raw is None:
@@ -754,11 +793,274 @@ def _resolve_stage3_baseline_mini_eval_path(cfg_yaml: Mapping[str, Any], baselin
         for cand in ("default", "DEFAULT", "_default_", "*"):
             if cand in raw and raw.get(cand):
                 return str(raw.get(cand))
-        return None
+        return _default_stage3_baseline_mini_eval_path(cfg_yaml)
 
     if isinstance(raw, str) and raw.strip():
         return str(raw)
-    return None
+    return _default_stage3_baseline_mini_eval_path(cfg_yaml)
+
+
+@torch.no_grad()
+def _stage3_pre_minitrain_eval(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    init_checkpoint: str | None,
+    train_problem_size: int,
+    valid_problem_sizes: Sequence[int],
+    num_validation_episodes: int,
+    train_batch_size: int,
+    scratch_init_seed: int,
+    offline_train: str,
+    offline_val_by_size: Mapping[int, str],
+) -> Tuple[Dict[int, float], float]:
+    from fitness.free_loss_fidelity import (
+        _evaluate_rl4co_model,
+        _load_policy_weights_from_checkpoint,
+        _rl4co_build_env,
+        _rl4co_build_policy,
+    )
+
+    generator_params = dict(cfg_yaml.get("generator_params", {}) or {})
+    generator_params["offline_train_path"] = str(offline_train)
+    generator_params["offline_val_paths"] = {
+        str(int(k)): str(v) for k, v in offline_val_by_size.items()
+    }
+
+    hf_cfg = HighFidelityConfig(
+        problem=str(cfg_yaml.get("problem", "tsp")),
+        backend=str(cfg_yaml.get("backend", "rl4co") or "rl4co"),
+        env_name=str(cfg_yaml.get("env_name") or cfg_yaml.get("problem", "tsp")),
+        env_kwargs=dict(cfg_yaml.get("env_kwargs", {}) or {}),
+        generator_params=generator_params,
+        policy_name=str(cfg_yaml.get("policy_name", "") or ""),
+        policy_kwargs=dict(cfg_yaml.get("policy_kwargs", {}) or {}),
+        rollout_strategy=str(cfg_yaml.get("rollout_strategy", "auto") or "auto"),
+        objective_sign=str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward"),
+        hf_steps=1,
+        hf_epochs=0,
+        hf_instances_per_epoch=0,
+        train_problem_size=int(train_problem_size),
+        valid_problem_sizes=tuple(int(x) for x in valid_problem_sizes),
+        train_batch_size=int(train_batch_size),
+        pomo_size=(
+            int(cfg_yaml.get("pomo_size"))
+            if cfg_yaml.get("pomo_size", None) is not None
+            else None
+        ),
+        learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
+        weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
+        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        device=str(cfg_yaml.get("device", "cuda") or "cuda"),
+        seed=int(scratch_init_seed),
+        num_validation_episodes=int(num_validation_episodes),
+        validation_batch_size=int(cfg_yaml.get("validation_batch_size", 64) or 64),
+        generalization_penalty_weight=float(
+            cfg_yaml.get("generalization_penalty_weight", 1.0) or 1.0
+        ),
+        size_aggregation=str(cfg_yaml.get("size_aggregation", "mean") or "mean"),
+        size_cvar_alpha=float(cfg_yaml.get("size_cvar_alpha", 0.2) or 0.2),
+        pool_version=str(cfg_yaml.get("pool_version", "v0") or "v0"),
+    )
+
+    _set_seed(int(hf_cfg.seed))
+    device_str = str(hf_cfg.device)
+    if device_str == "cuda" and not torch.cuda.is_available():
+        device_str = "cpu"
+    device = torch.device(device_str)
+
+    env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
+    policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
+    if init_checkpoint:
+        _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
+    policy = policy.to(device)
+    policy.eval()
+
+    by_size: Dict[int, float] = {}
+    for sz in valid_problem_sizes:
+        obj = _evaluate_rl4co_model(
+            policy=policy,
+            cfg=hf_cfg,
+            problem_size=int(sz),
+            device=device,
+            num_episodes=int(num_validation_episodes),
+            batch_size=int(hf_cfg.validation_batch_size),
+            rollout_strategy=str(rollout_strategy),
+        )
+        by_size[int(sz)] = float(obj)
+
+    aggregated = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
+    return by_size, float(aggregated)
+
+
+def _ensure_stage3_baseline_mini_eval(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    operator_whitelist: Sequence[str],
+    device_str: str,
+) -> Dict[str, Any]:
+    baseline_cfg = _stage3_baseline_cfg_dict(cfg_yaml)
+    mini_eval_path = _resolve_stage3_baseline_mini_eval_path(cfg_yaml, baseline_cfg)
+    if not mini_eval_path:
+        raise ValueError("Failed to resolve stage3 baseline mini-eval path")
+    _record_stage3_baseline_mini_eval_path(cfg_yaml, str(mini_eval_path))
+
+    expected_sig = _build_stage3_eval_signature(cfg_yaml)
+    existing = None
+    if os.path.isfile(_abs_from_repo_root(str(mini_eval_path))):
+        try:
+            existing = _load_baseline_mini_eval(str(mini_eval_path))
+        except Exception:  # noqa: BLE001
+            existing = None
+    if (
+        isinstance(existing, Mapping)
+        and existing.get("eval_signature") == expected_sig
+        and isinstance(existing.get("per_init"), Mapping)
+    ):
+        return {
+            "path": str(mini_eval_path),
+            "cached": True,
+            "regenerated": False,
+            "eval_signature": expected_sig,
+        }
+
+    ckpts = baseline_cfg.get("checkpoints") or []
+    if not isinstance(ckpts, list) or len(ckpts) < 2:
+        raise ValueError("stage3 baseline requires baseline.checkpoints=[ckpt_135, ckpt_409]")
+
+    include_scratch = bool(baseline_cfg.get("include_scratch", True))
+    scratch_init_seed = int(_resolve_training_seed(cfg_yaml))
+    train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
+    valid_problem_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [train_problem_size])]
+    valid_problem_sizes = list(dict.fromkeys(valid_problem_sizes))
+    num_validation_episodes = int(cfg_yaml.get("num_validation_episodes", 128) or 128)
+    train_batch_size = int(cfg_yaml.get("train_batch_size", 64) or 64)
+    K = int(cfg_yaml.get("f1_steps", 32) or 32)
+
+    generator_params = dict(cfg_yaml.get("generator_params", {}) or {})
+    offline_train = generator_params.get("offline_train_path")
+    offline_val_paths = generator_params.get("offline_val_paths") or {}
+    if not offline_train or not isinstance(offline_val_paths, Mapping):
+        raise ValueError(
+            "stage3 baseline auto-cache requires generator_params.offline_train_path and offline_val_paths"
+        )
+    offline_val_by_size: Dict[int, str] = {}
+    for sz in valid_problem_sizes:
+        p = offline_val_paths.get(str(int(sz)), offline_val_paths.get(int(sz)))
+        if not p:
+            raise ValueError(f"Missing offline_val_paths[{int(sz)}] for stage3 baseline auto-cache")
+        offline_val_by_size[int(sz)] = str(p)
+
+    compiled_builder = compile_preference_builder(
+        _ref_builder_ir(),
+        operator_whitelist=list(operator_whitelist),
+    )
+    ref_loss_ir = _ref_loss_ir()
+    static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+    if not static_ref.ok:
+        raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
+    compiled_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+    adapter = _CompiledBuilderAdapter(compiled_builder)
+
+    cfg_hf = dict(cfg_yaml)
+    cfg_hf["f1_steps"] = int(K)
+    if not (
+        int(cfg_yaml.get("hf_epochs", 0) or 0) > 0
+        and int(cfg_yaml.get("hf_instances_per_epoch", 0) or 0) > 0
+    ):
+        cfg_hf["hf_epochs"] = 0
+        cfg_hf["hf_instances_per_epoch"] = 0
+    hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=str(device_str))
+
+    init_specs: List[Tuple[str, str | None]] = []
+    if include_scratch:
+        init_specs.append(("scratch", None))
+    init_specs.append(("ckpt_135", str(ckpts[0])))
+    init_specs.append(("ckpt_409", str(ckpts[1])))
+
+    objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
+    per_init: Dict[str, Any] = {}
+    for init_name, init_ckpt in init_specs:
+        pre_by_size, pre_agg = _stage3_pre_minitrain_eval(
+            cfg_yaml=cfg_yaml,
+            init_checkpoint=init_ckpt,
+            train_problem_size=int(train_problem_size),
+            valid_problem_sizes=list(valid_problem_sizes),
+            num_validation_episodes=int(num_validation_episodes),
+            train_batch_size=int(train_batch_size),
+            scratch_init_seed=int(scratch_init_seed),
+            offline_train=str(offline_train),
+            offline_val_by_size=offline_val_by_size,
+        )
+
+        free_cfg = FreeLossFidelityConfig(
+            hf=hf_cfg,
+            f1_steps=int(K),
+            f2_steps=0,
+            f3_enabled=False,
+            init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
+            init_checkpoint_epoch=None,
+        )
+        fitness = evaluate_free_loss_candidate(compiled_loss, free_cfg, pref_builder=adapter)
+        size_objectives_raw = fitness.get("size_objectives", {})
+        size_objectives: Dict[int, float] = {}
+        if isinstance(size_objectives_raw, dict):
+            for k, v in size_objectives_raw.items():
+                try:
+                    size_objectives[int(k)] = float(v)
+                except Exception:  # noqa: BLE001
+                    continue
+
+        by_size: Dict[int, float] = {}
+        for sz in valid_problem_sizes:
+            if int(sz) not in size_objectives:
+                raise RuntimeError(
+                    f"Missing size_objectives[{int(sz)}] while generating stage3 baseline cache"
+                )
+            by_size[int(sz)] = float(size_objectives[int(sz)])
+        agg = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
+
+        per_init[str(init_name)] = {
+            "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
+            "pre_val_reward_by_size": {
+                str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
+                for k, v in pre_by_size.items()
+            },
+            "pre_aggregated_objective": float(pre_agg),
+            "pre_aggregated_reward": float((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg)),
+            "val_objective_by_size": {str(int(k)): float(v) for k, v in by_size.items()},
+            "val_reward_by_size": {
+                str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
+                for k, v in by_size.items()
+            },
+            "aggregated_objective": float(agg),
+            "aggregated_reward": float((-float(agg)) if objective_sign == "neg_reward" else float(agg)),
+            "delta_objective_post_minus_pre": float(float(agg) - float(pre_agg)),
+            "delta_reward_post_minus_pre": float(
+                ((-float(agg)) if objective_sign == "neg_reward" else float(agg))
+                - ((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg))
+            ),
+            "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+        }
+
+    payload: Dict[str, Any] = {
+        "schema_version": 1,
+        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "config_path": None,
+        "eval_signature": expected_sig,
+        "per_init": per_init,
+        "reference": {
+            "builder_ir": asdict(_ref_builder_ir()),
+            "loss_ir": asdict(_ref_loss_ir()),
+        },
+    }
+    _atomic_write_json(_abs_from_repo_root(str(mini_eval_path)), payload)
+    _BASELINE_MINI_EVAL_CACHE[_abs_from_repo_root(str(mini_eval_path))] = dict(payload)
+    return {
+        "path": str(mini_eval_path),
+        "cached": False,
+        "regenerated": True,
+        "eval_signature": expected_sig,
+    }
 
 
 def _infer_baseline_epoch_from_path(path: str) -> int | None:
@@ -7286,23 +7588,48 @@ def run_pref_loss_coevo(
             except Exception as exc:  # noqa: BLE001
                 LOGGER.warning("Failed to apply calibrated improve_eps (ignored): %s", str(exc))
 
-    if bool(eval_stages.get("stage3_high_fidelity", True)) and bool(stage3_multifidelity_cfg.get("enabled")):
-        rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
-        rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
-        if len(rounds) >= 2:
-            baseline_cfg = cfg_yaml.get("baseline", {}) or {}
-            if not isinstance(baseline_cfg, dict):
-                baseline_cfg = {}
-            missing: List[str] = []
-            for rc in rounds:
-                cfg_r = _apply_stage3_round_overrides(cfg_yaml, rc)
-                if not _resolve_stage3_baseline_mini_eval_path(cfg_r, baseline_cfg):
-                    missing.append(str(rc.get("name") or _stage3_fidelity_key(cfg_r)))
-            if missing:
-                raise RuntimeError(
-                    "stage3_multifidelity enabled but missing baseline.mini_eval_paths entries for: "
-                    + ", ".join(missing)
+    if bool(eval_stages.get("stage3_high_fidelity", True)):
+        baseline_prepare_cfgs: List[Mapping[str, Any]] = [cfg_yaml]
+        if bool(stage3_multifidelity_cfg.get("enabled")) and stage3_multifidelity_cfg.get("rounds"):
+            rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
+            rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
+            baseline_prepare_cfgs = [_apply_stage3_round_overrides(cfg_yaml, rc) for rc in rounds] or [cfg_yaml]
+
+        baseline_prepare_summaries: List[Dict[str, Any]] = []
+        seen_stage3_keys: set[str] = set()
+        for cfg_stage3 in baseline_prepare_cfgs:
+            fidelity_key = _stage3_fidelity_key(cfg_stage3)
+            if str(fidelity_key) in seen_stage3_keys:
+                continue
+            seen_stage3_keys.add(str(fidelity_key))
+            prepared = _ensure_stage3_baseline_mini_eval(
+                cfg_yaml=cfg_stage3,
+                operator_whitelist=operator_whitelist,
+                device_str=str(device_list[0] if device_list else "cuda"),
+            )
+            baseline_prepare_summaries.append(
+                {
+                    "fidelity": str(fidelity_key),
+                    "path": str(prepared.get("path")),
+                    "cached": bool(prepared.get("cached", False)),
+                    "regenerated": bool(prepared.get("regenerated", False)),
+                }
+            )
+            LOGGER.info(
+                "Stage3 baseline mini-eval prepared fidelity=%s path=%s cached=%s regenerated=%s",
+                str(fidelity_key),
+                str(prepared.get("path")),
+                str(bool(prepared.get("cached", False))),
+                str(bool(prepared.get("regenerated", False))),
+            )
+        if baseline_prepare_summaries:
+            try:
+                _atomic_write_json(
+                    os.path.join(run_dir, "stage3_baseline_mini_eval_caches.json"),
+                    {"entries": baseline_prepare_summaries},
                 )
+            except Exception:  # noqa: BLE001
+                pass
     stage3_multiseed_cfg = _stage3_multiseed_compare_cfg(cfg_yaml)
     if bool(eval_stages.get("stage3_high_fidelity", True)) and bool(stage3_multiseed_cfg.get("enabled", False)):
         preload_cfgs: List[Mapping[str, Any]] = [cfg_yaml]
