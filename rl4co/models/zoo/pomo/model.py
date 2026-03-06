@@ -13,6 +13,7 @@ from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
 from rl4co.models.rl.reinforce.preference_losses import pl_loss, po_loss
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.am import AttentionModelPolicy
+from rl4co.models.zoo.pomo.po4cops_cvrp_policy import PO4COPsCVRPPolicy
 from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
 from rl4co.utils.ops import gather_by_index, unbatchify
 from rl4co.utils.pylogger import get_pylogger
@@ -110,7 +111,14 @@ class POMO(REINFORCE):
                     "env_name": env.name,
                 }
                 policy_kwargs_with_defaults.update(policy_kwargs)
-                policy = PO4COPsTSPPolicy(**policy_kwargs_with_defaults)
+                if env.name == "tsp":
+                    policy = PO4COPsTSPPolicy(**policy_kwargs_with_defaults)
+                elif env.name == "cvrp":
+                    policy = PO4COPsCVRPPolicy(**policy_kwargs_with_defaults)
+                else:
+                    raise ValueError(
+                        f"po4cops_compat currently supports only tsp/cvrp, got: {env.name}"
+                    )
             else:
                 policy_kwargs_with_defaults = {
                     "num_encoder_layers": 6,
