@@ -219,53 +219,27 @@ def _load_baseline_mini_eval(path: str) -> Dict[str, Any]:
     return dict(payload)
 
 
+def _resolve_training_seed(cfg_yaml: Mapping[str, Any], *, default: int = 1234) -> int:
+    raw = cfg_yaml.get("scratch_init_seed", None)
+    if raw is not None:
+        try:
+            return int(raw)
+        except Exception:  # noqa: BLE001
+            pass
+    raw = cfg_yaml.get("seed", default)
+    try:
+        return int(raw)
+    except Exception:  # noqa: BLE001
+        return int(default)
+
+
 def _stage3_multiseed_compare_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
-    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
-    if not isinstance(baseline_cfg, Mapping):
-        baseline_cfg = {}
-
-    calib_raw = cfg_yaml.get("improve_eps_calibration", {}) or {}
-    if not isinstance(calib_raw, Mapping):
-        calib_raw = {}
-
-    enabled_raw = baseline_cfg.get("multiseed_compare_enabled")
-    if enabled_raw is None:
-        enabled_raw = calib_raw.get("enabled", False)
-    enabled = bool(enabled_raw)
-
-    n_raw = baseline_cfg.get("multiseed_compare_n")
-    if n_raw is None:
-        n_raw = calib_raw.get("N", calib_raw.get("n", 8))
-    try:
-        n_seeds = max(0, min(int(n_raw or 0), 128))
-    except Exception:  # noqa: BLE001
-        n_seeds = 0
-
-    seed0_raw = baseline_cfg.get("multiseed_compare_seed0")
-    if seed0_raw is None:
-        seed0_raw = calib_raw.get("seed0", calib_raw.get("seed", None))
-    if seed0_raw is None:
-        seed0_raw = int(cfg_yaml.get("scratch_init_seed", 12345) or 12345) + 999
-    try:
-        seed0 = int(seed0_raw)
-    except Exception:  # noqa: BLE001
-        seed0 = int(cfg_yaml.get("scratch_init_seed", 12345) or 12345) + 999
-
-    seed_stride_raw = baseline_cfg.get("multiseed_compare_seed_stride")
-    if seed_stride_raw is None:
-        seed_stride_raw = calib_raw.get("seed_stride", 997)
-    try:
-        seed_stride = int(seed_stride_raw or 997)
-    except Exception:  # noqa: BLE001
-        seed_stride = 997
-    if seed_stride == 0:
-        seed_stride = 997
-
+    seed0 = _resolve_training_seed(cfg_yaml)
     return {
-        "enabled": bool(enabled and n_seeds >= 2),
-        "n_seeds": int(n_seeds),
+        "enabled": False,
+        "n_seeds": 1,
         "seed0": int(seed0),
-        "seed_stride": int(seed_stride),
+        "seed_stride": 0,
     }
 
 
@@ -694,7 +668,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     valid_problem_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
     train_batch_size = int(cfg_yaml.get("train_batch_size", 64) or 64)
     num_validation_episodes = int(cfg_yaml.get("num_validation_episodes", 128) or 128)
-    scratch_init_seed = int(cfg_yaml.get("scratch_init_seed", 0) or 0)
+    scratch_init_seed = int(_resolve_training_seed(cfg_yaml))
 
     offline_train_sha1 = _file_sha1_cached(str(offline_train))
     offline_val_sig: Dict[str, Any] = {}
@@ -811,6 +785,50 @@ def _append_jsonl(path: str, records: Sequence[Mapping[str, Any]]) -> None:
     with open(path, "a", encoding="utf-8") as f:
         for rec in records:
             f.write(json.dumps(dict(rec), ensure_ascii=False) + "\n")
+
+
+def _truncate_jsonl_by_generation(path: str, gen_start: int) -> Tuple[int, int]:
+    """Keep only JSONL records with generation < gen_start.
+
+    Returns: (kept_count, dropped_count)
+    """
+    if not os.path.exists(path):
+        return 0, 0
+
+    keep: List[Dict[str, Any]] = []
+    kept = 0
+    dropped = 0
+    threshold = int(gen_start)
+
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            raw = str(line or "").strip()
+            if not raw:
+                continue
+            try:
+                obj = json.loads(raw)
+            except Exception:  # noqa: BLE001
+                dropped += 1
+                continue
+            if not isinstance(obj, Mapping):
+                dropped += 1
+                continue
+            try:
+                g = int(obj.get("generation"))
+            except Exception:  # noqa: BLE001
+                dropped += 1
+                continue
+            if g < threshold:
+                keep.append(dict(obj))
+                kept += 1
+            else:
+                dropped += 1
+
+    with open(path, "w", encoding="utf-8") as f:
+        for obj in keep:
+            f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+    return kept, dropped
 
 
 def _atomic_write_json(path: str, payload: Mapping[str, Any]) -> None:
@@ -1953,9 +1971,7 @@ def _calibrate_improve_eps_from_baseline_noise(
 ) -> Dict[str, Any] | None:
     """Estimate baseline mini-train noise and return a calibrated improve_eps.
 
-    Runs the *reference* (g_ref,f_ref) mini-train protocol N times with different seeds and
-    compares against the configured baseline mini-eval JSON. The sample std of delta_mean is used
-    as sigma_delta; improve_eps is set to sigma_mult * sigma_delta.
+    Multiseed calibration is disabled; keep the configured improve_eps and bind stage3 to one seed.
     """
 
     calib_raw = cfg_yaml.get("improve_eps_calibration", {}) or {}
@@ -1964,57 +1980,15 @@ def _calibrate_improve_eps_from_baseline_noise(
     if not bool(calib_raw.get("enabled", False)):
         return None
 
-    N = int(calib_raw.get("N", calib_raw.get("n", 8)) or 8)
-    N = max(0, min(N, 128))
-    if N < 2:
-        return None
-
-    sigma_mult = float(calib_raw.get("sigma_mult", calib_raw.get("mult", 2.0)) or 2.0)
-    sigma_mult = max(float(sigma_mult), 0.0)
-    eps_floor = float(calib_raw.get("eps_floor", calib_raw.get("min_eps", 0.0)) or 0.0)
-
-    seed0 = calib_raw.get("seed0", calib_raw.get("seed", None))
-    if seed0 is None:
-        seed0 = int(cfg_yaml.get("scratch_init_seed", 12345) or 12345) + 999
-    seed0 = int(seed0)
-    seed_stride = int(calib_raw.get("seed_stride", 997) or 997)
-    if seed_stride == 0:
-        seed_stride = 997
-
-    multiseed_cache = _ensure_stage3_baseline_multiseed_cache(
-        cfg_yaml=cfg_yaml,
-        operator_whitelist=operator_whitelist,
-        device_str=device_str,
-        n_seeds=int(N),
-        seed0=int(seed0),
-        seed_stride=int(seed_stride),
-    )
-    if not isinstance(multiseed_cache, dict):
-        return None
-
-    samples_raw = multiseed_cache.get("samples")
-    samples = [float(v) for v in samples_raw] if isinstance(samples_raw, list) else []
-    if len(samples) < 2:
-        return None
-
-    sigma = _std(samples)
-    eps = max(float(eps_floor), float(sigma_mult) * float(sigma))
+    training_seed = int(_resolve_training_seed(cfg_yaml))
+    eps = float(cfg_yaml.get("improve_eps", 0.0) or 0.0)
     return {
-        "enabled": True,
+        "enabled": False,
+        "mode": "fixed_single_seed",
         "fidelity": _stage3_fidelity_key(cfg_yaml),
-        "baseline_mini_eval_path": str(multiseed_cache.get("baseline_mini_eval_path")),
-        "baseline_multiseed_cache_path": str(multiseed_cache.get("cache_path")),
-        "N": int(N),
-        "sigma_mult": float(sigma_mult),
-        "seed0": int(seed0),
-        "seed_stride": int(seed_stride),
-        "used_seeds": [
-            int(seed0 + i * seed_stride)
-            for i in range(int(N))
-        ],
-        "sigma_delta": float(sigma),
+        "training_seed": int(training_seed),
         "improve_eps": float(eps),
-        "samples": samples[: min(len(samples), 32)],
+        "reason": "multiseed_disabled",
     }
 
 
@@ -2470,6 +2444,26 @@ def _stored_selection_sort_key(entry: Mapping[str, Any], *, fallback_key: str) -
 
 
 def _extract_builder_cost(rec: Mapping[str, Any]) -> float | None:
+    def _gate_check_value(trace: Mapping[str, Any] | None, metric_name: str) -> float | None:
+        if not isinstance(trace, Mapping):
+            return None
+        checks = trace.get("checks")
+        if not isinstance(checks, list):
+            return None
+        target = str(metric_name)
+        for item in checks:
+            if not isinstance(item, Mapping):
+                continue
+            if str(item.get("metric_name")) != target:
+                continue
+            try:
+                value = float(item.get("observed_value"))
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(value):
+                return float(value)
+        return None
+
     desc = rec.get("descriptor")
     if isinstance(desc, Mapping):
         g_desc = desc.get("g")
@@ -2483,10 +2477,12 @@ def _extract_builder_cost(rec: Mapping[str, Any]) -> float | None:
 
     bg = rec.get("builder_gate_trace")
     if isinstance(bg, Mapping):
-        try:
-            pair_count = float(bg.get("pair_count"))
-        except (TypeError, ValueError):
-            pair_count = None
+        pair_count = _gate_check_value(bg, "pair_count")
+        if pair_count is None:
+            try:
+                pair_count = float(bg.get("pair_count"))
+            except (TypeError, ValueError):
+                pair_count = None
         if pair_count is None:
             observed = bg.get("observed")
             if isinstance(observed, Mapping):
@@ -5271,27 +5267,55 @@ def _build_pair_descriptor(
     bg = dict(builder_gate_trace or {})
     pa = dict(proxy_agg or {})
 
-    coverage = None
-    if isinstance(bg.get("metric"), dict) and bg["metric"].get("metric_name") == "coverage":
+    def _gate_check_value(metric_name: str) -> float | None:
+        checks = bg.get("checks")
+        if not isinstance(checks, list):
+            return None
+        target = str(metric_name)
+        for item in checks:
+            if not isinstance(item, Mapping):
+                continue
+            if str(item.get("metric_name")) != target:
+                continue
+            try:
+                value = float(item.get("observed_value"))
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(value):
+                return float(value)
+        return None
+
+    coverage = _gate_check_value("coverage")
+    if coverage is None and isinstance(bg.get("metric"), Mapping) and bg["metric"].get("metric_name") == "coverage":
         coverage = bg["metric"].get("observed_value")
     if coverage is None:
-        coverage = bg.get("coverage", bg.get("observed", {}).get("coverage"))
+        observed = bg.get("observed")
+        observed_cov = observed.get("coverage") if isinstance(observed, Mapping) else None
+        coverage = bg.get("coverage", observed_cov)
     try:
         coverage_f = float(coverage)
     except (TypeError, ValueError):
         coverage_f = 0.0
 
-    pair_count = bg.get("pair_count")
+    pair_count = _gate_check_value("pair_count")
+    if pair_count is None:
+        pair_count = bg.get("pair_count")
     try:
         pair_count_i = int(pair_count)
     except (TypeError, ValueError):
-        pair_count_i = int(bg.get("observed", {}).get("pair_count", 0) or 0)
+        observed = bg.get("observed")
+        observed_pc = observed.get("pair_count", 0) if isinstance(observed, Mapping) else 0
+        pair_count_i = int(observed_pc or 0)
 
-    semantic = bg.get("semantic_pass_rate")
+    semantic = _gate_check_value("semantic_pass_rate")
+    if semantic is None:
+        semantic = bg.get("semantic_pass_rate")
     try:
         sem_f = float(semantic)
     except (TypeError, ValueError):
-        sem_f = float(bg.get("observed", {}).get("semantic_pass_rate", 0.0) or 0.0)
+        observed = bg.get("observed")
+        observed_sem = observed.get("semantic_pass_rate", 0.0) if isinstance(observed, Mapping) else 0.0
+        sem_f = float(observed_sem or 0.0)
 
     mem_alloc_mb = bg.get("memory_peak_allocated_delta_mb")
     try:
@@ -6691,9 +6715,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
 
         include_scratch = bool(baseline_cfg.get("include_scratch", True))
-        scratch_init_seed = int(cfg.get("scratch_init_seed", 0) or 0)
-        if scratch_init_seed <= 0:
-            raise ValueError("scratch_init_seed must be set (>0) for reproducible stage3 scratch init")
+        scratch_init_seed = int(_resolve_training_seed(cfg))
 
         hf_epochs_cfg = int(cfg.get("hf_epochs", 0) or 0)
         hf_inst_cfg = int(cfg.get("hf_instances_per_epoch", 0) or 0)
@@ -7536,6 +7558,17 @@ def run_pref_loss_coevo(
                 pass
 
     gen_start = 0 if resume_state is None else int(resume_state.get("next_generation", 0) or 0)
+    if resume_state is not None:
+        for path in (builders_jsonl, losses_jsonl, pairs_jsonl, gate_jsonl, gate_repair_jsonl):
+            kept, dropped = _truncate_jsonl_by_generation(path, gen_start)
+            if dropped > 0:
+                LOGGER.info(
+                    "Resume JSONL truncate: path=%s gen_start=%d kept=%d dropped=%d",
+                    path,
+                    int(gen_start),
+                    int(kept),
+                    int(dropped),
+                )
     seen_g = set(resume_state.get("seen_g", [])) if resume_state else set()
     seen_f = set(resume_state.get("seen_f", [])) if resume_state else set()
     elites_g: List[Dict[str, Any]] = list(resume_state.get("elites_g", [])) if resume_state else []

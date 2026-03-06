@@ -40,8 +40,12 @@ Hard constraints:
      "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
      "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].
 - `code` must define `generated_loss(batch, model_output, extra)` and return a scalar torch.Tensor.
+- Always read `log_prob_w` and `log_prob_l` from `batch[...]` (never from `model_output[...]`).
 - Do NOT use `import`, `open`, `eval`, `exec`, filesystem/network, randomness, or global state.
 - Only use tensor math and `ops.*` operators (e.g., ops.logsigmoid, ops.softplus, ops.clamp, ops.normalize, ops.zscore).
+- Only use these `ops.*` names:
+  logsigmoid, softplus, sigmoid, exp, log, abs, tanh, relu, clamp, normalize, zscore, rank_gap,
+  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg.
 - Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
 - Core runtime signals are usually available and cheap: seq_len_*, log_prob_*_mean, advantage_* and cost_gap.
 - Optional runtime signals may be missing depending on config: entropy_*, entropy_*_mean, log_prob_step_*.
