@@ -1,0 +1,722 @@
+[2026-03-05 08:59:05,777] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260305-085905
+[2026-03-05 08:59:05,778] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,779] WARNING:ptp_discovery.pref_loss_coevo: stage3 multiseed baseline skipped: failed to load baseline mini_eval_path=baseline/mini_eval/baseline_minitrain_tsp100_K1000.json: [Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp100_K1000.json'
+[2026-03-05 08:59:05,779] WARNING:ptp_discovery.pref_loss_coevo: stage3 multiseed baseline skipped: failed to load baseline mini_eval_path=baseline/mini_eval/baseline_minitrain_tsp100_K200.json: [Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp100_K200.json'
+[2026-03-05 08:59:05,779] WARNING:ptp_discovery.pref_loss_coevo: stage3 multiseed baseline skipped: failed to load baseline mini_eval_path=baseline/mini_eval/baseline_minitrain_tsp100_K1000.json: [Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp100_K1000.json'
+[2026-03-05 08:59:05,779] INFO:ptp_discovery.pref_loss_coevo: Alternating schedule enabled: loss_generations=10 builder_generations=10 final_loss_generations=10 rounds=1
+[2026-03-05 08:59:05,780] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,780] INFO:ptp_discovery.pref_loss_coevo: Initialized incumbent from baseline: score=inf pair=(g_ref,f_ref) stage=baseline gen=-1
+[2026-03-05 08:59:05,780] INFO:ptp_discovery.pref_loss_coevo: Baseline incumbent uses sentinel score (no external baseline_early_valid); will calibrate with evaluated (g_ref,f_ref) when rollout caches are available.
+[2026-03-05 08:59:05,781] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=0 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,781] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 0/29 ===
+[2026-03-05 08:59:05,781] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,781] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,782] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,782] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,782] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-03-05 08:59:05,795] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=0: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,795] INFO:ptp_discovery.pref_loss_coevo: Gen 0 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,795] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,795] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=0/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,828] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,828] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,828] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,829] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,829] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,829] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=0: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,829] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=0: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,829] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=0: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,830] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,830] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,830] INFO:ptp_discovery.pref_loss_coevo: Gen 0 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,830] WARNING:ptp_discovery.pref_loss_coevo: Gen 0 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,830] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=0 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=1 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 1/29 ===
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: Gen 1 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: Gen 1 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,832] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=1: stagnation=1 trigger=3 explore_mode=False avoid_families=[]
+[2026-03-05 08:59:05,843] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=1: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,843] INFO:ptp_discovery.pref_loss_coevo: Gen 1 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,844] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,844] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=1/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,845] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,845] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,845] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,845] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,845] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,846] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=1: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,846] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=1: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,846] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=1: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,846] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,847] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,847] INFO:ptp_discovery.pref_loss_coevo: Gen 1 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,847] WARNING:ptp_discovery.pref_loss_coevo: Gen 1 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,847] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=1 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=2 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 2/29 ===
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: Gen 2 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: Gen 2 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,849] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=2: stagnation=2 trigger=3 explore_mode=False avoid_families=[]
+[2026-03-05 08:59:05,860] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=2: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,860] INFO:ptp_discovery.pref_loss_coevo: Gen 2 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,860] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,861] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=2/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=2: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,862] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=2: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,863] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=2: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,863] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,863] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,863] INFO:ptp_discovery.pref_loss_coevo: Gen 2 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,864] WARNING:ptp_discovery.pref_loss_coevo: Gen 2 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,864] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=2 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,865] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=3 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,865] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 3/29 ===
+[2026-03-05 08:59:05,865] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,865] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,866] INFO:ptp_discovery.pref_loss_coevo: Gen 3 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,866] INFO:ptp_discovery.pref_loss_coevo: Gen 3 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,866] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=3: stagnation=3 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,877] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=3: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,877] INFO:ptp_discovery.pref_loss_coevo: Gen 3 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,877] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,877] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=3/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,878] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,879] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,879] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,879] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,879] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,879] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=3: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,879] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=3: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,880] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=3: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,880] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,880] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,880] INFO:ptp_discovery.pref_loss_coevo: Gen 3 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,881] WARNING:ptp_discovery.pref_loss_coevo: Gen 3 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,881] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=3 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,882] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=4 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,882] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 4/29 ===
+[2026-03-05 08:59:05,882] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,882] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,882] INFO:ptp_discovery.pref_loss_coevo: Gen 4 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,883] INFO:ptp_discovery.pref_loss_coevo: Gen 4 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,883] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=4: stagnation=4 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,891] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=4: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,891] INFO:ptp_discovery.pref_loss_coevo: Gen 4 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,891] INFO:ptp_discovery.pref_loss_coevo: Gen 4 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,891] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=4/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,892] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,892] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,892] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,892] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,892] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,893] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=4: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,893] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=4: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,893] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=4: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,893] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,893] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,893] INFO:ptp_discovery.pref_loss_coevo: Gen 4 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,893] WARNING:ptp_discovery.pref_loss_coevo: Gen 4 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,894] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=4 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=5 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 5/29 ===
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: Gen 5 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: Gen 5 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,895] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=5: stagnation=5 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,904] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=5: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,904] INFO:ptp_discovery.pref_loss_coevo: Gen 5 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,904] INFO:ptp_discovery.pref_loss_coevo: Gen 5 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,904] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=5/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=5: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,905] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=5: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,906] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=5: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,906] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,906] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,906] INFO:ptp_discovery.pref_loss_coevo: Gen 5 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,906] WARNING:ptp_discovery.pref_loss_coevo: Gen 5 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,906] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=5 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,907] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=6 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,907] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 6/29 ===
+[2026-03-05 08:59:05,907] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,908] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,908] INFO:ptp_discovery.pref_loss_coevo: Gen 6 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,908] INFO:ptp_discovery.pref_loss_coevo: Gen 6 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,908] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=6: stagnation=6 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,916] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=6: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,916] INFO:ptp_discovery.pref_loss_coevo: Gen 6 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,916] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,916] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=6/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=6: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,917] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=6: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,918] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=6: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,918] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,918] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,918] INFO:ptp_discovery.pref_loss_coevo: Gen 6 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,918] WARNING:ptp_discovery.pref_loss_coevo: Gen 6 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,918] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=6 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,919] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=7 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,919] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 7/29 ===
+[2026-03-05 08:59:05,919] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,920] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,920] INFO:ptp_discovery.pref_loss_coevo: Gen 7 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,920] INFO:ptp_discovery.pref_loss_coevo: Gen 7 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,920] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=7: stagnation=7 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,927] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=7: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,928] INFO:ptp_discovery.pref_loss_coevo: Gen 7 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,928] INFO:ptp_discovery.pref_loss_coevo: Gen 7 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,928] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=7/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,928] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=7: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=7: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=7: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,929] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,930] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,930] INFO:ptp_discovery.pref_loss_coevo: Gen 7 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,930] WARNING:ptp_discovery.pref_loss_coevo: Gen 7 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,930] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=7 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=8 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 8/29 ===
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: Gen 8 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: Gen 8 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,931] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=8: stagnation=8 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,939] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=8: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,939] INFO:ptp_discovery.pref_loss_coevo: Gen 8 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,939] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,939] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=8/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=8: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,940] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=8: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,941] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=8: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,941] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,941] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,941] INFO:ptp_discovery.pref_loss_coevo: Gen 8 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,941] WARNING:ptp_discovery.pref_loss_coevo: Gen 8 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,941] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=8 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,942] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=9 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:05,943] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 9/29 ===
+[2026-03-05 08:59:05,943] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,943] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,943] INFO:ptp_discovery.pref_loss_coevo: Gen 9 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,943] INFO:ptp_discovery.pref_loss_coevo: Gen 9 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,943] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=9: stagnation=9 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,951] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=9: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,951] INFO:ptp_discovery.pref_loss_coevo: Gen 9 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,951] INFO:ptp_discovery.pref_loss_coevo: Gen 9 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,951] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=9/20 budgets(loss=128,builder=0)
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=9: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=9: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=9: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,952] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,953] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,953] INFO:ptp_discovery.pref_loss_coevo: Gen 9 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,953] WARNING:ptp_discovery.pref_loss_coevo: Gen 9 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,953] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=9 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: Phase transition detected: prev_phase=loss prev_phase_best=None -> current_phase=builder
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=10 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 10/29 ===
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: Gen 10 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: Gen 10 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,954] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=10: stagnation=10 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,959] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=10: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,959] INFO:ptp_discovery.pref_loss_coevo: Gen 10 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,959] INFO:ptp_discovery.pref_loss_coevo: Gen 10 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,959] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=10/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:05,960] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,960] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:05,960] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,960] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=10: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=10: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=10: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,961] INFO:ptp_discovery.pref_loss_coevo: Gen 10 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,962] WARNING:ptp_discovery.pref_loss_coevo: Gen 10 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,962] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=11 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:05,963] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 11/29 ===
+[2026-03-05 08:59:05,963] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,963] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,963] INFO:ptp_discovery.pref_loss_coevo: Gen 11 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,963] INFO:ptp_discovery.pref_loss_coevo: Gen 11 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,963] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=11: stagnation=11 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,968] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=11: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,968] INFO:ptp_discovery.pref_loss_coevo: Gen 11 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,968] INFO:ptp_discovery.pref_loss_coevo: Gen 11 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,968] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=11/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=11: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,969] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=11: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,970] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=11: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,970] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,970] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,970] INFO:ptp_discovery.pref_loss_coevo: Gen 11 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,970] WARNING:ptp_discovery.pref_loss_coevo: Gen 11 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=12 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 12/29 ===
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: Gen 12 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: Gen 12 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,971] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=12: stagnation=12 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,976] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=12: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,976] INFO:ptp_discovery.pref_loss_coevo: Gen 12 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,976] INFO:ptp_discovery.pref_loss_coevo: Gen 12 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,977] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=12/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:05,977] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,977] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:05,977] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=12: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=12: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=12: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,978] INFO:ptp_discovery.pref_loss_coevo: Gen 12 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,979] WARNING:ptp_discovery.pref_loss_coevo: Gen 12 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=13 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 13/29 ===
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: Gen 13 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: Gen 13 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,980] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=13: stagnation=13 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,985] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=13: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,985] INFO:ptp_discovery.pref_loss_coevo: Gen 13 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,985] INFO:ptp_discovery.pref_loss_coevo: Gen 13 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,985] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=13/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=13: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,986] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=13: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,987] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=13: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,987] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,987] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,987] INFO:ptp_discovery.pref_loss_coevo: Gen 13 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,987] WARNING:ptp_discovery.pref_loss_coevo: Gen 13 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,988] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=14 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:05,988] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 14/29 ===
+[2026-03-05 08:59:05,988] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,988] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,988] INFO:ptp_discovery.pref_loss_coevo: Gen 14 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,988] INFO:ptp_discovery.pref_loss_coevo: Gen 14 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,989] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=14: stagnation=14 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:05,993] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=14: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:05,993] INFO:ptp_discovery.pref_loss_coevo: Gen 14 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:05,993] INFO:ptp_discovery.pref_loss_coevo: Gen 14 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:05,993] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=14/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:05,994] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:05,994] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:05,994] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,994] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:05,994] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,994] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=14: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:05,995] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=14: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:05,995] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=14: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:05,995] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,995] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,995] INFO:ptp_discovery.pref_loss_coevo: Gen 14 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:05,995] WARNING:ptp_discovery.pref_loss_coevo: Gen 14 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:05,996] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=15 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:05,996] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 15/29 ===
+[2026-03-05 08:59:05,996] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:05,997] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:05,997] INFO:ptp_discovery.pref_loss_coevo: Gen 15 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:05,997] INFO:ptp_discovery.pref_loss_coevo: Gen 15 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:05,997] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=15: stagnation=15 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,038] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=15: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,038] INFO:ptp_discovery.pref_loss_coevo: Gen 15 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,038] INFO:ptp_discovery.pref_loss_coevo: Gen 15 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,039] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=15/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:06,039] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,039] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=15: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=15: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=15: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,040] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,041] INFO:ptp_discovery.pref_loss_coevo: Gen 15 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,041] WARNING:ptp_discovery.pref_loss_coevo: Gen 15 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=16 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 16/29 ===
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: Gen 16 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: Gen 16 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,042] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=16: stagnation=16 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,047] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=16: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,048] INFO:ptp_discovery.pref_loss_coevo: Gen 16 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,048] INFO:ptp_discovery.pref_loss_coevo: Gen 16 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,048] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=16/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:06,048] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=16: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=16: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=16: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,049] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,050] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,050] INFO:ptp_discovery.pref_loss_coevo: Gen 16 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,050] WARNING:ptp_discovery.pref_loss_coevo: Gen 16 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=17 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 17/29 ===
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: Gen 17 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: Gen 17 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,051] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=17: stagnation=17 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,056] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=17: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,056] INFO:ptp_discovery.pref_loss_coevo: Gen 17 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,056] INFO:ptp_discovery.pref_loss_coevo: Gen 17 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,056] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=17/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=17: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=17: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,057] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=17: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,058] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,058] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,058] INFO:ptp_discovery.pref_loss_coevo: Gen 17 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,058] WARNING:ptp_discovery.pref_loss_coevo: Gen 17 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=18 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 18/29 ===
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: Gen 18 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: Gen 18 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,059] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=18: stagnation=18 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,064] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=18: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,064] INFO:ptp_discovery.pref_loss_coevo: Gen 18 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,064] INFO:ptp_discovery.pref_loss_coevo: Gen 18 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,065] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=18/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:06,065] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,065] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:06,065] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=18: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=18: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=18: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,066] INFO:ptp_discovery.pref_loss_coevo: Gen 18 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,067] WARNING:ptp_discovery.pref_loss_coevo: Gen 18 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=19 phase=builder llm_enabled(builder=True,loss=False)
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 19/29 ===
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: Gen 19 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: Gen 19 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,068] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=19: stagnation=19 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,073] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=19: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,073] INFO:ptp_discovery.pref_loss_coevo: Gen 19 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,073] INFO:ptp_discovery.pref_loss_coevo: Gen 19 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,073] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=0 cycle_pos=19/20 budgets(loss=0,builder=128)
+[2026-03-05 08:59:06,074] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,074] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=0
+[2026-03-05 08:59:06,074] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,074] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=128
+[2026-03-05 08:59:06,074] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,074] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=19: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,075] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=19: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,075] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=19: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,075] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,075] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=loss reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,075] INFO:ptp_discovery.pref_loss_coevo: Gen 19 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,075] WARNING:ptp_discovery.pref_loss_coevo: Gen 19 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,076] INFO:ptp_discovery.pref_loss_coevo: Phase transition detected: prev_phase=builder prev_phase_best=None -> current_phase=loss
+[2026-03-05 08:59:06,076] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=20 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,076] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 20/29 ===
+[2026-03-05 08:59:06,076] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,076] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,077] INFO:ptp_discovery.pref_loss_coevo: Gen 20 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,077] INFO:ptp_discovery.pref_loss_coevo: Gen 20 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,077] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=20: stagnation=20 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,084] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=20: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,084] INFO:ptp_discovery.pref_loss_coevo: Gen 20 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,085] INFO:ptp_discovery.pref_loss_coevo: Gen 20 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,085] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=0/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,085] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,085] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=20: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=20: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=20: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,086] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,087] INFO:ptp_discovery.pref_loss_coevo: Gen 20 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,087] WARNING:ptp_discovery.pref_loss_coevo: Gen 20 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,087] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=20 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=21 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 21/29 ===
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: Gen 21 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: Gen 21 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,088] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=21: stagnation=21 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,096] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=21: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,096] INFO:ptp_discovery.pref_loss_coevo: Gen 21 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,096] INFO:ptp_discovery.pref_loss_coevo: Gen 21 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,096] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=1/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=21: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,097] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=21: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,098] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=21: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,098] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,098] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,098] INFO:ptp_discovery.pref_loss_coevo: Gen 21 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,098] WARNING:ptp_discovery.pref_loss_coevo: Gen 21 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,098] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=21 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,099] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=22 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,099] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 22/29 ===
+[2026-03-05 08:59:06,099] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,099] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,099] INFO:ptp_discovery.pref_loss_coevo: Gen 22 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,100] INFO:ptp_discovery.pref_loss_coevo: Gen 22 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,100] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=22: stagnation=22 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,107] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=22: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,107] INFO:ptp_discovery.pref_loss_coevo: Gen 22 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,107] INFO:ptp_discovery.pref_loss_coevo: Gen 22 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,107] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=2/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,108] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,108] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,108] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,108] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,108] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,109] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=22: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,109] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=22: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,109] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=22: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,109] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,109] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,109] INFO:ptp_discovery.pref_loss_coevo: Gen 22 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,109] WARNING:ptp_discovery.pref_loss_coevo: Gen 22 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,110] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=22 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=23 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 23/29 ===
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: Gen 23 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: Gen 23 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,111] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=23: stagnation=23 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,119] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=23: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,119] INFO:ptp_discovery.pref_loss_coevo: Gen 23 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,119] INFO:ptp_discovery.pref_loss_coevo: Gen 23 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,119] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=3/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=23: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=23: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=23: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,120] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,121] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,121] INFO:ptp_discovery.pref_loss_coevo: Gen 23 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,121] WARNING:ptp_discovery.pref_loss_coevo: Gen 23 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,121] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=23 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=24 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 24/29 ===
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: Gen 24 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: Gen 24 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,122] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=24: stagnation=24 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,130] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=24: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,130] INFO:ptp_discovery.pref_loss_coevo: Gen 24 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,130] INFO:ptp_discovery.pref_loss_coevo: Gen 24 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,130] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=4/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,131] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,131] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,131] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,131] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,131] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,131] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=24: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,132] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=24: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,132] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=24: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,132] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,132] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,132] INFO:ptp_discovery.pref_loss_coevo: Gen 24 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,132] WARNING:ptp_discovery.pref_loss_coevo: Gen 24 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,132] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=24 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,133] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=25 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,133] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 25/29 ===
+[2026-03-05 08:59:06,133] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,134] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,134] INFO:ptp_discovery.pref_loss_coevo: Gen 25 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,134] INFO:ptp_discovery.pref_loss_coevo: Gen 25 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,134] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=25: stagnation=25 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,141] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=25: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,141] INFO:ptp_discovery.pref_loss_coevo: Gen 25 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,141] INFO:ptp_discovery.pref_loss_coevo: Gen 25 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,142] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=5/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,142] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,142] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,142] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,143] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,143] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,143] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=25: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,143] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=25: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,143] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=25: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,143] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,144] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,144] INFO:ptp_discovery.pref_loss_coevo: Gen 25 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,144] WARNING:ptp_discovery.pref_loss_coevo: Gen 25 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,144] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=25 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=26 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 26/29 ===
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: Gen 26 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: Gen 26 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,145] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=26: stagnation=26 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,153] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=26: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,153] INFO:ptp_discovery.pref_loss_coevo: Gen 26 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,153] INFO:ptp_discovery.pref_loss_coevo: Gen 26 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,153] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=6/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=26: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,154] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=26: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,155] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=26: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,155] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,155] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,155] INFO:ptp_discovery.pref_loss_coevo: Gen 26 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,155] WARNING:ptp_discovery.pref_loss_coevo: Gen 26 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,155] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=26 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,156] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=27 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,156] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 27/29 ===
+[2026-03-05 08:59:06,157] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,157] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,157] INFO:ptp_discovery.pref_loss_coevo: Gen 27 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,157] INFO:ptp_discovery.pref_loss_coevo: Gen 27 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,157] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=27: stagnation=27 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,164] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=27: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,164] INFO:ptp_discovery.pref_loss_coevo: Gen 27 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,165] INFO:ptp_discovery.pref_loss_coevo: Gen 27 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,165] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=7/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,165] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,165] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=27: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=27: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=27: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,166] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,167] INFO:ptp_discovery.pref_loss_coevo: Gen 27 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,167] WARNING:ptp_discovery.pref_loss_coevo: Gen 27 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,167] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=27 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=28 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 28/29 ===
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: Gen 28 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: Gen 28 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,168] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=28: stagnation=28 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,176] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=28: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,176] INFO:ptp_discovery.pref_loss_coevo: Gen 28 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,176] INFO:ptp_discovery.pref_loss_coevo: Gen 28 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,176] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=8/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,177] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,177] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,177] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,177] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,177] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,177] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=28: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,178] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=28: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,178] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=28: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,178] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,178] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,178] INFO:ptp_discovery.pref_loss_coevo: Gen 28 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,178] WARNING:ptp_discovery.pref_loss_coevo: Gen 28 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,178] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=28 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,179] INFO:ptp_discovery.pref_loss_coevo: Alternating LLM gating gen=29 phase=loss llm_enabled(builder=False,loss=True)
+[2026-03-05 08:59:06,179] INFO:ptp_discovery.pref_loss_coevo: === alternating generation 29/29 ===
+[2026-03-05 08:59:06,179] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,179] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,180] INFO:ptp_discovery.pref_loss_coevo: Gen 29 start: caches(rollout=0 pref=0 pair=0) cuda(cuda:0(alloc=0.00G,resv=0.00G) cuda:1(alloc=0.00G,resv=0.00G) cuda:2(alloc=0.00G,resv=0.00G) cuda:3(alloc=0.00G,resv=0.00G))
+[2026-03-05 08:59:06,180] INFO:ptp_discovery.pref_loss_coevo: Gen 29 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-03-05 08:59:06,180] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=29: stagnation=29 trigger=3 explore_mode=True avoid_families=[]
+[2026-03-05 08:59:06,187] WARNING:ptp_discovery.pref_loss_coevo: Population fill shortfall at gen=29: proposed_g=0/12 proposed_f=0/12 (seen_g=0 seen_f=0)
+[2026-03-05 08:59:06,187] INFO:ptp_discovery.pref_loss_coevo: Gen 29 LLM ops: builders={} (repairs=0) losses={} (repairs=0) cache={'offline_mode': False, 'cache_path': 'runs/pref_loss_alternating_simple/20260305-085905/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-03-05 08:59:06,188] INFO:ptp_discovery.pref_loss_coevo: Gen 29 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-03-05 08:59:06,188] INFO:ptp_discovery.pref_loss_coevo: Alternating block status: round=1 cycle_pos=9/10 budgets(loss=128,builder=0)
+[2026-03-05 08:59:06,188] INFO:ptp_discovery.pref_loss_coevo: Alternating fixed candidates resolved: fixed_g=g_ref fixed_f=f_ref
+[2026-03-05 08:59:06,188] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=loss fixed_g=g_ref budget=128
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: Alternating phase=builder fixed_f=f_ref budget=0
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=29: pairs=0 cheap_gate_on=True
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=29: eligible=0 selected=0 (top_m=999999 ignored)
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: HF MF promote gen=29: K200 -> K1000 next_pool=0 (from=0) top_m=32 promote_if_better=True include_incumbent=True
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,189] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=builder reference_score=None threshold=None metric_mode=minimize improve_eps=0.0
+[2026-03-05 08:59:06,190] INFO:ptp_discovery.pref_loss_coevo: Gen 29 summary: g_pool=0 f_pool=0 pairs=0 ok=0 stages={} top_reasons=[]
+[2026-03-05 08:59:06,190] WARNING:ptp_discovery.pref_loss_coevo: Gen 29 produced no high-fidelity evaluations (stage='high_fidelity'). Check proxy gates/thresholds: if all pairs are pair_ok=False, HF won't run.
+[2026-03-05 08:59:06,190] INFO:ptp_discovery.pref_loss_coevo: Builder selection frozen gen=29 phase=loss; keeping previous builder elites/archives.
+[2026-03-05 08:59:06,191] INFO:ptp_discovery.pref_loss_coevo: Co-evolution complete. Artifacts saved under: /data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260305-085905

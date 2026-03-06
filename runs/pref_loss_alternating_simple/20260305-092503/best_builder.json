@@ -1,0 +1,95 @@
+{
+  "generation": 10,
+  "index": 4,
+  "id": "g010_004_8554b09a",
+  "signature": "8554b09a088eb64e0a21d49739d3166b123d3aed",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|constraint=dedup_explicit",
+  "origin": "CONSTRAINT_INJECT",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "BUILDER_CONSTRAINT_INJECT",
+  "parents": [
+    "bootstrap_g_000"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "f7ed227a1432ab1476218f760518da7fd86bdab6",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+  "llm_seed": 206223364,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+      "prompt_sha1": "f7ed227a1432ab1476218f760518da7fd86bdab6"
+    }
+  ],
+  "ir": {
+    "name": "builder_all_pairs_dedup_001",
+    "intuition": "all pairs with explicit deduplication to remove identical score pairs",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "dedup_explicit"
+    },
+    "operators_used": [
+      "all_pairs",
+      "neq",
+      "masking"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Create mask where objective winner < loser\n    mask = objective[:, :, None] < objective[:, None, :]\n    # Remove pairs where objective scores are equal (deduplication)\n    diff_mask = objective[:, :, None] != objective[:, None, :]\n    combined_mask = mask & diff_mask\n    b_idx, winner_idx, loser_idx = combined_mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_dedup'})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": -0.01921542485555013,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
