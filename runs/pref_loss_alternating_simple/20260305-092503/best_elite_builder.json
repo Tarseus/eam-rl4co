@@ -1,0 +1,93 @@
+{
+  "generation": 19,
+  "index": 0,
+  "id": "g019_000_b72ad112",
+  "signature": "b72ad11284a1818c3aa2f15857da62252016dd7e",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|constraint=dedup_strict",
+  "origin": "E1",
+  "origin_base": "E1",
+  "op_type": "E1_GENERATE",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": "e4f08f0ad4af9994302091f8c81e5b8b62d0fd9a",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_generation.txt",
+  "llm_seed": 1123671281,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "E1_GENERATE",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_generation.txt",
+      "prompt_sha1": "e4f08f0ad4af9994302091f8c81e5b8b62d0fd9a"
+    }
+  ],
+  "ir": {
+    "name": "pairwise_dedup_less_strict",
+    "intuition": "Construct pairs where the objective score of the winner is strictly less than that of the loser, filtering out pairs with equal scores to focus on meaningful preference relations and avoid ties that could cause ambiguity in preference supervision.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "dedup_strict"
+    },
+    "operators_used": [
+      "all_pairs",
+      "lt",
+      "masking"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Generate mask for pairs where winner score < loser score\n    mask = objective[:, :, None] < objective[:, None, :]\n    # Exclude pairs with equal scores to ensure strict preference\n    diff_mask = objective[:, :, None] != objective[:, None, :]\n    combined_mask = mask & diff_mask\n    b_idx, winner_idx, loser_idx = combined_mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_dedup_less_strict'})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": -0.019965608914693195,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
