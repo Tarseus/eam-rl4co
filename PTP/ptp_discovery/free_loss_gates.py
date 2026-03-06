@@ -427,6 +427,25 @@ def run_joint_preference_gates(
     expects = [str(x) for x in (compiled.ir.implementation_hint.expects or [])]
     if expects:
         batch = {k: full_batch[k] for k in expects if k in full_batch}
+        # Runtime-safe fallbacks for optional quality signals that may be absent
+        # in specific configs/datasets.
+        if "weight" in expects and "weight" not in batch and isinstance(full_batch.get("log_prob_w"), torch.Tensor):
+            batch["weight"] = torch.ones_like(full_batch["log_prob_w"])
+        if (
+            "cost_gap" in expects
+            and "cost_gap" not in batch
+            and isinstance(full_batch.get("cost_a"), torch.Tensor)
+            and isinstance(full_batch.get("cost_b"), torch.Tensor)
+        ):
+            batch["cost_gap"] = full_batch["cost_b"] - full_batch["cost_a"]
+        if "advantage_gap" in expects and "advantage_gap" not in batch:
+            if isinstance(full_batch.get("cost_gap"), torch.Tensor):
+                batch["advantage_gap"] = full_batch["cost_gap"]
+            elif isinstance(full_batch.get("log_prob_w"), torch.Tensor):
+                batch["advantage_gap"] = torch.zeros_like(full_batch["log_prob_w"])
+        for key in ("advantage_w", "advantage_l"):
+            if key in expects and key not in batch and isinstance(full_batch.get("log_prob_w"), torch.Tensor):
+                batch[key] = torch.zeros_like(full_batch["log_prob_w"])
     else:
         batch = dict(full_batch)
 

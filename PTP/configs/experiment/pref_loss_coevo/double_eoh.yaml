@@ -6,6 +6,7 @@
 # - Prompts default to PTP/prompts/*.txt; override via `llm_prompts` or per-side `*.prompts`.
 
 seed: 1234
+scratch_init_seed: 1234
 output_root: runs/pref_loss_coevo_double_eoh
 
 # Populations and generations
@@ -163,9 +164,9 @@ diverse_elites_from_archive_max: 64
 descriptor_pair_count_cap: 16636
 descriptor_loss_scale: 5.0
 
-# Low-variance evaluation: CRN + 2-seed recheck for best/boundary
+# Low-variance evaluation: CRN + fixed single-seed recheck for best/boundary
 recheck_enabled: true
-recheck_num_seeds: 2
+recheck_num_seeds: 1
 recheck_seed_offset: 10007
 recheck_elite_margin: 1
 recheck_max_pairs: 16
