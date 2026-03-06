@@ -33,15 +33,25 @@ class RemoteSSH:
         self.ssh_args = list(ssh_args or [])
         self.connect_timeout_s = max(1.0, float(connect_timeout_s))
 
-    def run(self, remote_cmd: str, *, timeout_s: float = 20.0) -> RemoteResult:
-        remote_shell_cmd = f"bash -lc {shlex.quote(str(remote_cmd))}"
+    def run(
+        self,
+        remote_cmd: str,
+        *,
+        timeout_s: float = 20.0,
+        use_bash_lc: bool = False,
+    ) -> RemoteResult:
+        remote_argv: list[str]
+        if use_bash_lc:
+            remote_argv = [f"bash -lc {shlex.quote(str(remote_cmd))}"]
+        else:
+            remote_argv = [str(remote_cmd)]
         cmd = [
             self.ssh_bin,
             *self.ssh_args,
             "-o",
             f"ConnectTimeout={int(self.connect_timeout_s)}",
             self.host,
-            remote_shell_cmd,
+            *remote_argv,
         ]
         try:
             cp = subprocess.run(
@@ -221,7 +231,7 @@ out.update({{
 print(json.dumps(out, ensure_ascii=False))
 PY
 """
-    rs = client.run(remote_py, timeout_s=timeout_s)
+    rs = client.run(remote_py, timeout_s=timeout_s, use_bash_lc=True)
     if rs.returncode != 0:
         err = str(rs.stderr or "").strip().replace("\n", " ")
         out = str(rs.stdout or "").strip().replace("\n", " ")
@@ -296,7 +306,7 @@ def _launch_resume(
             ),
         ]
     )
-    rs = client.run(cmd, timeout_s=timeout_s)
+    rs = client.run(cmd, timeout_s=timeout_s, use_bash_lc=True)
     if rs.returncode != 0:
         return None, None
     raw = str(rs.stdout or "").strip().splitlines()
@@ -327,12 +337,11 @@ def _attempt_resume(
         _log(f"waiting_boot_grace_s={boot_grace_s:.1f}")
         time.sleep(boot_grace_s)
 
-    # Fast path: if main pref-loss process is already running remotely,
-    # skip expensive probe calls and avoid needless SSH timeouts.
-    running_query_timeout_s = min(float(cmd_timeout_s), 12.0)
-    running, running_err = _remote_pref_loss_running(client, timeout_s=running_query_timeout_s)
+    # Keep the process probe aligned with the standalone PowerShell SSH test:
+    # use the configured command timeout and a direct remote command.
+    running, running_err = _remote_pref_loss_running(client, timeout_s=cmd_timeout_s)
     if running is None:
-        _log(f"pref_proc_query_degraded: reason={running_err}; defer_resume_check_to_next_poll")
+        _log(f"pref_proc_query_degraded: reason={running_err}; defer_resume_check_to_online_retry")
         return False
     elif running:
         _log("resume_check_noop: pref_loss_process_already_running")
@@ -427,6 +436,14 @@ def main() -> int:
         + f"host={args.host} poll_s={poll_s:.1f} boot_grace_s={boot_grace_s:.1f} "
         + f"resume_on_start={bool(args.resume_on_start)} dry_run={bool(args.dry_run)}"
     )
+    _log(
+        "watcher_env "
+        + f"pid={os.getpid()} script={os.path.abspath(__file__)} cwd={os.getcwd()} "
+        + f"python={sys.executable} ssh_bin={args.ssh_bin} "
+        + f"connect_timeout_s={float(args.connect_timeout_s):.1f} command_timeout_s={cmd_timeout_s:.1f}"
+    )
+    if args.ssh_arg:
+        _log("watcher_ssh_args " + " ".join(str(x) for x in list(args.ssh_arg or [])))
 
     was_online = False
     last_boot_id: str | None = None

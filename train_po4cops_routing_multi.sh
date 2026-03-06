@@ -9,7 +9,6 @@ export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 BASE_EXPERIMENT="${BASE_EXPERIMENT:-routing/pomo-po4cops-tsp100-po}"
 SEED="${SEED:-1234}"
-MAX_EPOCHS="${MAX_EPOCHS:-200}"
 
 TRAIN_DATA_SIZE="${TRAIN_DATA_SIZE:-100000}"
 VAL_DATA_SIZE="${VAL_DATA_SIZE:-10000}"
@@ -25,6 +24,10 @@ start_job() {
   local env_name="$1"
   local num_loc="$2"
   local gpu_id="$3"
+  local max_epochs="$4"
+  local ckpt_every_n_epochs="$5"
+  shift 5
+  local alias_epochs=("$@")
   local data_subdir
   local data_prefix
   local ts
@@ -39,7 +42,7 @@ start_job() {
     data_prefix="vrp"
   fi
 
-  local run_name="po4cops_${env_name}${num_loc}_e${MAX_EPOCHS}_seed${SEED}"
+  local run_name="po4cops_${env_name}${num_loc}_e${max_epochs}_seed${SEED}"
   ts="$(date +%Y%m%d-%H%M%S)"
   run_dir="${ROOT_DIR}/logs/train/runs/${run_name}_${ts}"
   ckpt_dir="${run_dir}/checkpoints"
@@ -54,11 +57,11 @@ start_job() {
     "~callbacks.learning_rate_monitor" \
     "~callbacks.rich_progress_bar" \
     "callbacks.model_checkpoint.dirpath=${ckpt_dir}" \
-    "callbacks.model_checkpoint.filename=epoch_{epoch:03d}" \
+    "callbacks.model_checkpoint.filename='epoch_{epoch:03d}'" \
     "callbacks.model_checkpoint.auto_insert_metric_name=False" \
     "callbacks.model_checkpoint.save_top_k=-1" \
     "callbacks.model_checkpoint.save_last=True" \
-    "callbacks.model_checkpoint.every_n_epochs=100" \
+    "callbacks.model_checkpoint.every_n_epochs=${ckpt_every_n_epochs}" \
     "seed=${SEED}" \
     "env=${env_name}" \
     "env.data_dir=\${paths.root_dir}/data/${data_subdir}" \
@@ -78,7 +81,7 @@ start_job() {
     "model.lr_scheduler=MultiStepLR" \
     "model.lr_scheduler_kwargs.milestones=[3001]" \
     "model.lr_scheduler_kwargs.gamma=0.2" \
-    "trainer.max_epochs=${MAX_EPOCHS}" \
+    "trainer.max_epochs=${max_epochs}" \
     "trainer.accelerator=gpu" \
     "trainer.devices=[0]" \
     "trainer.strategy=auto" \
@@ -95,30 +98,32 @@ start_job() {
 
   (
     while kill -0 "${train_pid}" 2>/dev/null; do
-      if [[ -f "${ckpt_dir}/epoch_099.ckpt" && ! -f "${ckpt_dir}/epoch_100.ckpt" ]]; then
-        cp -f "${ckpt_dir}/epoch_099.ckpt" "${ckpt_dir}/epoch_100.ckpt"
-      fi
-      if [[ -f "${ckpt_dir}/epoch_199.ckpt" && ! -f "${ckpt_dir}/epoch_200.ckpt" ]]; then
-        cp -f "${ckpt_dir}/epoch_199.ckpt" "${ckpt_dir}/epoch_200.ckpt"
-      fi
+      for alias_epoch in "${alias_epochs[@]}"; do
+        src_epoch="$(printf "%03d" $((alias_epoch - 1)))"
+        dst_epoch="${alias_epoch}"
+        if [[ -f "${ckpt_dir}/epoch_${src_epoch}.ckpt" && ! -f "${ckpt_dir}/epoch_${dst_epoch}.ckpt" ]]; then
+          cp -f "${ckpt_dir}/epoch_${src_epoch}.ckpt" "${ckpt_dir}/epoch_${dst_epoch}.ckpt"
+        fi
+      done
       sleep 15
     done
 
-    if [[ -f "${ckpt_dir}/epoch_099.ckpt" ]]; then
-      cp -f "${ckpt_dir}/epoch_099.ckpt" "${ckpt_dir}/epoch_100.ckpt"
-    fi
-    if [[ -f "${ckpt_dir}/epoch_199.ckpt" ]]; then
-      cp -f "${ckpt_dir}/epoch_199.ckpt" "${ckpt_dir}/epoch_200.ckpt"
-    elif [[ -f "${ckpt_dir}/last.ckpt" ]]; then
-      cp -f "${ckpt_dir}/last.ckpt" "${ckpt_dir}/epoch_200.ckpt"
-    fi
+    for alias_epoch in "${alias_epochs[@]}"; do
+      src_epoch="$(printf "%03d" $((alias_epoch - 1)))"
+      dst_epoch="${alias_epoch}"
+      if [[ -f "${ckpt_dir}/epoch_${src_epoch}.ckpt" ]]; then
+        cp -f "${ckpt_dir}/epoch_${src_epoch}.ckpt" "${ckpt_dir}/epoch_${dst_epoch}.ckpt"
+      elif [[ "${alias_epoch}" == "${max_epochs}" && -f "${ckpt_dir}/last.ckpt" ]]; then
+        cp -f "${ckpt_dir}/last.ckpt" "${ckpt_dir}/epoch_${dst_epoch}.ckpt"
+      fi
+    done
   ) >/dev/null 2>&1 &
 
   echo "[started] ${run_name} pid=${train_pid} ckpt_dir=${ckpt_dir}"
 }
 
-start_job "tsp" "50" "0"
-start_job "cvrp" "50" "1"
-start_job "cvrp" "100" "2"
+start_job "tsp" "50" "0" "100" "50" "50" "100"
+start_job "cvrp" "50" "1" "100" "50" "50" "100"
+start_job "cvrp" "100" "2" "200" "100" "100" "200"
 
 echo "[done] launched 3 jobs"
