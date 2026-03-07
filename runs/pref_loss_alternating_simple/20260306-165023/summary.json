@@ -1,0 +1,88 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/alternating_simple.yaml",
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_alternating_simple/20260306-165023",
+  "preset": "simple",
+  "search_mode": "alternating",
+  "alternating_schedule": {
+    "enabled": true,
+    "loss_generations": 10,
+    "builder_generations": 10,
+    "final_loss_generations": 10,
+    "rounds": 1
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "improve_eps_calibration": null,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "last_generation": 24,
+  "best_so_far": {
+    "score": -0.03309424718221029,
+    "builder_id": "g_ref",
+    "loss_id": "f001_002_e13203e9",
+    "stage_final": "high_fidelity",
+    "generation": 9,
+    "phase": "loss"
+  },
+  "best_builder_cost": {
+    "builder_id": "g010_009_77be160e",
+    "cost": 960.0,
+    "perf": -0.02527507146199544,
+    "metric_mode": "minimize",
+    "slack": 0.0,
+    "best_perf": -0.02527507146199544,
+    "threshold": -0.02527507146199544,
+    "generation": 14,
+    "phase": "builder",
+    "perf_ref": {
+      "g_id": "g010_009_77be160e",
+      "f_id": "f001_002_e13203e9",
+      "score": -0.02527507146199544,
+      "final_score": -0.02527507146199544,
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "phase": "builder",
+      "generation": 14,
+      "pair_reason": "ok_stage3_offline_minitrain",
+      "pair_ok": true,
+      "g_ir": {
+        "name": "builder_all_pairs_clamp_001",
+        "intuition": "all pairs with explicit clamp constraint to remove near-ties",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "uniform_none",
+          "constraint_family": "clamp_tiezone"
+        },
+        "operators_used": [
+          "all_pairs",
+          "clamp",
+          "abs",
+          "sub"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    margin = 1e-4\n    diff = objective[:, :, None] - objective[:, None, :]\n    mask = diff < 0\n    tie_mask = (abs(diff) <= margin) & mask\n    valid_mask = mask & (~tie_mask)\n    b_idx, winner_idx, loser_idx = valid_mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_clamp'})"
+      },
+      "cost": 960.0
+    }
+  },
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "f001_002_e13203e9"
+  },
+  "best_score": -0.03309424718221029,
+  "best_stage_final": "high_fidelity",
+  "best_gen": 9,
+  "best_phase": "loss"
+}
