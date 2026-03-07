@@ -2164,6 +2164,35 @@ def _select_elites_with_family_quota(
     return selected[:elite_n]
 
 
+def _select_resident_population(
+    ranked: Sequence[Mapping[str, Any]],
+    population_n: int,
+    *,
+    metric_mode: str,
+    family_diversity_cfg: Mapping[str, Any] | None = None,
+    prefer_selection_sort_key: bool = False,
+) -> List[Dict[str, Any]]:
+    population_n = max(0, int(population_n))
+    if population_n <= 0:
+        return []
+    cfg = family_diversity_cfg if isinstance(family_diversity_cfg, Mapping) else {}
+    if bool(cfg.get("enabled", False)):
+        return _select_elites_with_family_quota(
+            ranked,
+            population_n,
+            metric_mode=metric_mode,
+            min_per_family=int(cfg.get("min_per_family", 1) or 1),
+            max_per_family=(
+                int(cfg.get("elite_max_per_family", 0) or 0)
+                if int(cfg.get("elite_max_per_family", 0) or 0) > 0
+                else None
+            ),
+            include_unknown=bool(cfg.get("include_unknown", False)),
+            prefer_selection_sort_key=bool(prefer_selection_sort_key),
+        )
+    return [dict(x) for x in list(ranked)[:population_n]]
+
+
 def _sig_pref_builder(ir: PreferenceBuilderIR) -> str:
     return _sig(asdict(ir))
 
@@ -4251,6 +4280,7 @@ def _propose_builders_for_generation(
     operator_whitelist: Sequence[str] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
     llm_init_only: bool = False,
+    carry_elites: bool = True,
 ) -> List[Dict[str, Any]]:
     """Propose builder candidates with elitism + mutation/crossover."""
 
@@ -4263,25 +4293,26 @@ def _propose_builders_for_generation(
             if isinstance(item, dict) and isinstance(item.get("ir"), dict) and item.get("id"):
                 parent_pool.append(item)
 
-    # Elitism: carry over a small subset verbatim.
-    elite_carry = min(len(elites_g), max(1, pop_g // 4))
-    for item in list(elites_g)[:elite_carry]:
-        if not isinstance(item, dict) or not isinstance(item.get("ir"), dict):
-            continue
-        ir = pref_builder_ir_from_json(item["ir"])
-        out.append(
-            {
-                "ir": ir,
-                "origin": "ELITE",
-                "op_type": "ELITE",
-                "parents": [str(item.get("id", ""))],
-                "attempt": 0,
-                "prompt_sha1": None,
-                "prompt_path": None,
-                "history": [],
-                "novelty": None,
-            }
-        )
+    if bool(carry_elites):
+        # Elitism: carry over a small subset verbatim.
+        elite_carry = min(len(elites_g), max(1, pop_g // 4))
+        for item in list(elites_g)[:elite_carry]:
+            if not isinstance(item, dict) or not isinstance(item.get("ir"), dict):
+                continue
+            ir = pref_builder_ir_from_json(item["ir"])
+            out.append(
+                {
+                    "ir": ir,
+                    "origin": "ELITE",
+                    "op_type": "ELITE",
+                    "parents": [str(item.get("id", ""))],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                    "novelty": None,
+                }
+            )
 
     # LLM candidates (Double-EoH: g-side).
     llm_root: Mapping[str, Any] = llm_cfg or {}
@@ -4700,6 +4731,7 @@ def _propose_losses_for_generation(
     operator_whitelist: Sequence[str] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
     llm_init_only: bool = False,
+    carry_elites: bool = True,
 ) -> List[Dict[str, Any]]:
     """Propose loss candidates with elitism + mutation/crossover."""
 
@@ -4712,23 +4744,24 @@ def _propose_losses_for_generation(
             if isinstance(item, dict) and isinstance(item.get("ir"), dict) and item.get("id"):
                 parent_pool.append(item)
 
-    elite_carry = min(len(elites_f), max(1, pop_f // 4))
-    for item in list(elites_f)[:elite_carry]:
-        if not isinstance(item, dict) or not isinstance(item.get("ir"), dict):
-            continue
-        ir = free_loss_ir_from_json(item["ir"])
-        out.append(
-            {
-                "ir": ir,
-                "origin": "ELITE",
-                "op_type": "ELITE",
-                "parents": [str(item.get("id", ""))],
-                "attempt": 0,
-                "prompt_sha1": None,
-                "prompt_path": None,
-                "history": [],
-            }
-        )
+    if bool(carry_elites):
+        elite_carry = min(len(elites_f), max(1, pop_f // 4))
+        for item in list(elites_f)[:elite_carry]:
+            if not isinstance(item, dict) or not isinstance(item.get("ir"), dict):
+                continue
+            ir = free_loss_ir_from_json(item["ir"])
+            out.append(
+                {
+                    "ir": ir,
+                    "origin": "ELITE",
+                    "op_type": "ELITE",
+                    "parents": [str(item.get("id", ""))],
+                    "attempt": 0,
+                    "prompt_sha1": None,
+                    "prompt_path": None,
+                    "history": [],
+                }
+            )
 
     # LLM candidates (Double-EoH: f-side).
     llm_root: Mapping[str, Any] = llm_cfg or {}
@@ -7898,8 +7931,14 @@ def run_pref_loss_coevo(
                 )
     seen_g = set(resume_state.get("seen_g", [])) if resume_state else set()
     seen_f = set(resume_state.get("seen_f", [])) if resume_state else set()
+    resident_pop_g: List[Dict[str, Any]] = list(resume_state.get("resident_pop_g", [])) if resume_state else []
+    resident_pop_f: List[Dict[str, Any]] = list(resume_state.get("resident_pop_f", [])) if resume_state else []
     elites_g: List[Dict[str, Any]] = list(resume_state.get("elites_g", [])) if resume_state else []
     elites_f: List[Dict[str, Any]] = list(resume_state.get("elites_f", [])) if resume_state else []
+    if not resident_pop_g and elites_g:
+        resident_pop_g = list(elites_g)
+    if not resident_pop_f and elites_f:
+        resident_pop_f = list(elites_f)
     diverse_elites_g: List[Dict[str, Any]] = list(resume_state.get("diverse_elites_g", [])) if resume_state else []
     diverse_elites_f: List[Dict[str, Any]] = list(resume_state.get("diverse_elites_f", [])) if resume_state else []
     hof_g: List[Dict[str, Any]] = list(resume_state.get("hof_g", [])) if resume_state else []
@@ -8253,6 +8292,8 @@ def run_pref_loss_coevo(
             "rng_state_b64": _b64_pickle(rng.getstate()),
             "seen_g": sorted(seen_g),
             "seen_f": sorted(seen_f),
+            "resident_pop_g": list(resident_pop_g),
+            "resident_pop_f": list(resident_pop_f),
             "elites_g": list(elites_g),
             "elites_f": list(elites_f),
             "diverse_elites_g": list(diverse_elites_g),
@@ -8441,28 +8482,45 @@ def run_pref_loss_coevo(
             }
         )
 
+        builder_population_active = not (
+            str(search_mode) == "alternating" and str(alternating_phase_hint) == "loss"
+        )
+        loss_population_active = not (
+            str(search_mode) == "alternating" and str(alternating_phase_hint) == "builder"
+        )
+        builder_offspring_target = 0
+        loss_offspring_target = 0
+        if bool(builder_population_active):
+            raw = builder_cfg.get("init_llm_g", 0) if int(gen) <= 0 else builder_cfg.get("llm_per_gen_g", 0)
+            builder_offspring_target = max(1, int(raw or pop_g))
+        if bool(loss_population_active):
+            raw = loss_cfg.get("init_llm_f", 0) if int(gen) <= 0 else loss_cfg.get("llm_per_gen_f", 0)
+            loss_offspring_target = max(1, int(raw or pop_f))
+
         llm_init_only = bool(cfg_yaml.get("llm_init_only", False))
         proposed_g = _propose_builders_for_generation(
             generation=int(gen),
-            pop_g=int(pop_g),
-            elites_g=elites_g,
-            diverse_elites_g=diverse_elites_g,
+            pop_g=int(max(builder_offspring_target, 1)),
+            elites_g=resident_pop_g,
+            diverse_elites_g=[],
             rng=rng,
             llm_cfg=llm_cfg_for_gen if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
             llm_init_only=bool(llm_init_only),
+            carry_elites=False,
         )
         proposed_f = _propose_losses_for_generation(
             generation=int(gen),
-            pop_f=int(pop_f),
-            elites_f=elites_f,
-            diverse_elites_f=diverse_elites_f,
+            pop_f=int(max(loss_offspring_target, 1)),
+            elites_f=resident_pop_f,
+            diverse_elites_f=[],
             rng=rng,
             llm_cfg=llm_cfg_for_gen if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
             llm_init_only=bool(llm_init_only),
+            carry_elites=False,
         )
 
         # Ensure generation-0 default pair/loss match PO4COPs-style baseline
@@ -8495,23 +8553,34 @@ def run_pref_loss_coevo(
             LOGGER.info("Gen %d injected PO4COPs-compatible default builder/loss seeds.", int(gen))
 
         # Dedupe for novelty across resume + prior generations.
-        def _fill_unique_builders(proposals: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+        def _fill_unique_builders(
+            proposals: Sequence[Mapping[str, Any]],
+            *,
+            target_size: int,
+            resident_entries: Sequence[Mapping[str, Any]],
+        ) -> List[Dict[str, Any]]:
             unique: List[Dict[str, Any]] = []
+            resident_sigs = {
+                str(item.get("signature"))
+                for item in resident_entries
+                if isinstance(item, Mapping) and item.get("signature")
+            }
+            current_sigs = set(resident_sigs) | set(seen_g)
             attempts = 0
             for p in proposals:
                 if not isinstance(p, dict) or not isinstance(p.get("ir"), PreferenceBuilderIR):
                     continue
                 ir = p["ir"]
                 sig = _sig_pref_builder(ir)
-                if sig in seen_g:
+                if sig in current_sigs:
                     continue
                 unique.append(dict(p))
-                seen_g.add(sig)
-            while (not bool(llm_init_only)) and len(unique) < pop_g and attempts < pop_g * 20:
+                current_sigs.add(sig)
+            while (not bool(llm_init_only)) and len(unique) < int(target_size) and attempts < int(max(target_size, 1)) * 20:
                 attempts += 1
                 ir = _make_builtin_builder_irs(rng, 1)[0]
                 sig = _sig_pref_builder(ir)
-                if sig in seen_g:
+                if sig in current_sigs:
                     continue
                 unique.append(
                     {
@@ -8525,26 +8594,37 @@ def run_pref_loss_coevo(
                         "history": [],
                     }
                 )
-                seen_g.add(sig)
-            return unique[:pop_g]
+                current_sigs.add(sig)
+            return unique[: int(target_size)]
 
-        def _fill_unique_losses(proposals: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+        def _fill_unique_losses(
+            proposals: Sequence[Mapping[str, Any]],
+            *,
+            target_size: int,
+            resident_entries: Sequence[Mapping[str, Any]],
+        ) -> List[Dict[str, Any]]:
             unique2: List[Dict[str, Any]] = []
+            resident_sigs = {
+                str(item.get("signature"))
+                for item in resident_entries
+                if isinstance(item, Mapping) and item.get("signature")
+            }
+            current_sigs = set(resident_sigs) | set(seen_f)
             attempts2 = 0
             for p in proposals:
                 if not isinstance(p, dict) or not isinstance(p.get("ir"), FreeLossIR):
                     continue
                 ir = p["ir"]
                 sig = _sig_free_loss(ir)
-                if sig in seen_f:
+                if sig in current_sigs:
                     continue
                 unique2.append(dict(p))
-                seen_f.add(sig)
-            while (not bool(llm_init_only)) and len(unique2) < pop_f and attempts2 < pop_f * 20:
+                current_sigs.add(sig)
+            while (not bool(llm_init_only)) and len(unique2) < int(target_size) and attempts2 < int(max(target_size, 1)) * 20:
                 attempts2 += 1
                 ir = _make_builtin_loss_irs(rng, 1)[0]
                 sig = _sig_free_loss(ir)
-                if sig in seen_f:
+                if sig in current_sigs:
                     continue
                 unique2.append(
                     {
@@ -8558,21 +8638,29 @@ def run_pref_loss_coevo(
                         "history": [],
                     }
                 )
-                seen_f.add(sig)
-            return unique2[:pop_f]
+                current_sigs.add(sig)
+            return unique2[: int(target_size)]
 
-        proposed_g = _fill_unique_builders(proposed_g)
-        proposed_f = _fill_unique_losses(proposed_f)
-        if len(proposed_g) < int(pop_g) or len(proposed_f) < int(pop_f):
+        proposed_g = _fill_unique_builders(
+            proposed_g,
+            target_size=int(builder_offspring_target),
+            resident_entries=resident_pop_g,
+        )
+        proposed_f = _fill_unique_losses(
+            proposed_f,
+            target_size=int(loss_offspring_target),
+            resident_entries=resident_pop_f,
+        )
+        if len(proposed_g) < int(builder_offspring_target) or len(proposed_f) < int(loss_offspring_target):
             LOGGER.warning(
-                "Population fill shortfall at gen=%d: proposed_g=%d/%d proposed_f=%d/%d (seen_g=%d seen_f=%d)",
+                "Offspring fill shortfall at gen=%d: proposed_g=%d/%d proposed_f=%d/%d resident_g=%d resident_f=%d",
                 int(gen),
                 int(len(proposed_g)),
-                int(pop_g),
+                int(builder_offspring_target),
                 int(len(proposed_f)),
-                int(pop_f),
-                int(len(seen_g)),
-                int(len(seen_f)),
+                int(loss_offspring_target),
+                int(len(resident_pop_g)),
+                int(len(resident_pop_f)),
             )
 
         g_entries: List[Dict[str, Any]] = []
@@ -8669,6 +8757,14 @@ def run_pref_loss_coevo(
                 entry["compile_reason"] = "static_gate_failed"
             f_entries.append(entry)
         _append_jsonl(losses_jsonl, f_entries)
+        for entry in g_entries:
+            sig = entry.get("signature")
+            if sig:
+                seen_g.add(str(sig))
+        for entry in f_entries:
+            sig = entry.get("signature")
+            if sig:
+                seen_f.add(str(sig))
 
         if llm_enabled:
             g_llm_ops = collections.Counter()
@@ -8714,13 +8810,21 @@ def run_pref_loss_coevo(
         g_pool = [e for e in g_entries if bool(e.get("compile_ok")) and bool(e.get("builder_static_ok", True))]
         f_pool = [e for e in f_entries if bool(e.get("compile_ok"))]
 
-        elite_g_ids = [str(e["id"]) for e in elites_g if isinstance(e, dict) and "id" in e]
-        elite_f_ids = [str(e["id"]) for e in elites_f if isinstance(e, dict) and "id" in e]
-        g_id_pool = list(dict.fromkeys(elite_g_ids + [str(e["id"]) for e in g_pool]))
-        f_id_pool = list(dict.fromkeys(elite_f_ids + [str(e["id"]) for e in f_pool]))
+        resident_g_ids = [str(e["id"]) for e in resident_pop_g if isinstance(e, dict) and "id" in e]
+        resident_f_ids = [str(e["id"]) for e in resident_pop_f if isinstance(e, dict) and "id" in e]
+        g_id_pool = list(dict.fromkeys(resident_g_ids + [str(e["id"]) for e in g_pool]))
+        f_id_pool = list(dict.fromkeys(resident_f_ids + [str(e["id"]) for e in f_pool]))
 
-        g_map = {str(e["id"]): e for e in g_pool + [e for e in elites_g if isinstance(e, dict) and "id" in e]}
-        f_map = {str(e["id"]): e for e in f_pool + [e for e in elites_f if isinstance(e, dict) and "id" in e]}
+        g_population_map = {
+            str(e["id"]): e
+            for e in [e for e in resident_pop_g if isinstance(e, dict) and "id" in e] + g_pool
+        }
+        f_population_map = {
+            str(e["id"]): e
+            for e in [e for e in resident_pop_f if isinstance(e, dict) and "id" in e] + f_pool
+        }
+        g_map = dict(g_population_map)
+        f_map = dict(f_population_map)
 
         # "New" candidates for this generation (subject to anchor filtering below).
         new_g_ids = [str(e["id"]) for e in g_pool]
@@ -9079,14 +9183,22 @@ def run_pref_loss_coevo(
             )
 
         # Rebuild candidate pools with HoF after anchor filtering.
-        elite_g_ids = [str(e["id"]) for e in elites_g if isinstance(e, dict) and "id" in e]
-        elite_f_ids = [str(e["id"]) for e in elites_f if isinstance(e, dict) and "id" in e]
-        g_id_pool = list(dict.fromkeys(elite_g_ids + [str(e["id"]) for e in g_pool] + list(hof_g_ids)))
-        f_id_pool = list(dict.fromkeys(elite_f_ids + [str(e["id"]) for e in f_pool] + list(hof_f_ids)))
+        resident_g_ids = [str(e["id"]) for e in resident_pop_g if isinstance(e, dict) and "id" in e]
+        resident_f_ids = [str(e["id"]) for e in resident_pop_f if isinstance(e, dict) and "id" in e]
+        g_id_pool = list(dict.fromkeys(resident_g_ids + [str(e["id"]) for e in g_pool] + list(hof_g_ids)))
+        f_id_pool = list(dict.fromkeys(resident_f_ids + [str(e["id"]) for e in f_pool] + list(hof_f_ids)))
 
         # Rebuild maps to include HoF entries for high-fidelity cross-play.
-        g_map = {str(e["id"]): e for e in g_pool + [e for e in elites_g if isinstance(e, dict) and "id" in e]}
-        f_map = {str(e["id"]): e for e in f_pool + [e for e in elites_f if isinstance(e, dict) and "id" in e]}
+        g_population_map = {
+            str(e["id"]): e
+            for e in [e for e in resident_pop_g if isinstance(e, dict) and "id" in e] + g_pool
+        }
+        f_population_map = {
+            str(e["id"]): e
+            for e in [e for e in resident_pop_f if isinstance(e, dict) and "id" in e] + f_pool
+        }
+        g_map = dict(g_population_map)
+        f_map = dict(f_population_map)
         for e in hof_g:
             if isinstance(e, dict) and e.get("id") and isinstance(e.get("ir"), dict):
                 g_map.setdefault(str(e["id"]), dict(e))
@@ -9127,13 +9239,13 @@ def run_pref_loss_coevo(
                     str(exc),
                 )
 
-            # Fixed builder for loss-search: prefer best_builder_cost, then elites, then global incumbent, then g_ref.
+            # Fixed builder for loss-search: prefer best_builder_cost, then resident-pop leader, then global incumbent, then g_ref.
             if (not fixed_builder_id) and isinstance(best_builder_cost, dict):
                 cand_g = str(best_builder_cost.get("builder_id") or "")
                 if cand_g and cand_g in compiled_g:
                     fixed_builder_id = cand_g
-            if (not fixed_builder_id) and elites_g:
-                cand_g = str(elites_g[0].get("id") or "")
+            if (not fixed_builder_id) and resident_pop_g:
+                cand_g = str(resident_pop_g[0].get("id") or "")
                 if cand_g and cand_g in compiled_g:
                     fixed_builder_id = cand_g
             if (not fixed_builder_id) and isinstance(best_so_far, dict):
@@ -9148,13 +9260,13 @@ def run_pref_loss_coevo(
                         fixed_builder_id = str(gid0)
                         break
 
-            # Fixed loss for builder-search: prefer current best loss incumbent; fallback to elites then f_ref.
+            # Fixed loss for builder-search: prefer current best loss incumbent; fallback to resident-pop leader then f_ref.
             if (not fixed_loss_id) and isinstance(best_so_far, dict):
                 cand_f = str(best_so_far.get("loss_id") or "")
                 if cand_f and cand_f in compiled_f:
                     fixed_loss_id = cand_f
-            if (not fixed_loss_id) and elites_f:
-                cand_f = str(elites_f[0].get("id") or "")
+            if (not fixed_loss_id) and resident_pop_f:
+                cand_f = str(resident_pop_f[0].get("id") or "")
                 if cand_f and cand_f in compiled_f:
                     fixed_loss_id = cand_f
             if not fixed_loss_id and F_REF_ID in compiled_f:
@@ -9247,8 +9359,8 @@ def run_pref_loss_coevo(
                 rng=rng,
                 new_g_ids=list(new_g_ids),
                 new_f_ids=list(new_f_ids),
-                elite_g_ids=list(elite_g_ids),
-                elite_f_ids=list(elite_f_ids),
+                elite_g_ids=list(resident_g_ids),
+                elite_f_ids=list(resident_f_ids),
                 hof_g_ids=list(hof_g_ids),
                 hof_f_ids=list(hof_f_ids),
                 g_id_pool=list(g_id_pool),
@@ -11044,6 +11156,9 @@ def run_pref_loss_coevo(
         builder_selection_active = not (
             str(search_mode) == "alternating" and str(alternating_active_phase) == "loss"
         )
+        loss_selection_active = not (
+            str(search_mode) == "alternating" and str(alternating_active_phase) == "builder"
+        )
         builder_perf_map: Dict[str, float] = {}
         builder_constraint_state: Dict[str, Any] | None = None
         builder_ok_records = [
@@ -11180,50 +11295,44 @@ def run_pref_loss_coevo(
                 )
             return out
 
-        ranked_f = _rank_entries(list(f_map.values()), fitness_f, kind="f")
         builder_family_div = _normalize_family_diversity_cfg((cfg_yaml.get("builder_llm", {}) or {}).get("family_diversity", {}))  # type: ignore[union-attr]
         loss_family_div = _normalize_family_diversity_cfg((cfg_yaml.get("loss_llm", {}) or {}).get("family_diversity", {}))  # type: ignore[union-attr]
         if builder_selection_active:
-            ranked_g = _rank_entries(list(g_map.values()), fitness_g, kind="g")
-            if bool(builder_family_div.get("enabled", False)):
-                elites_g = _select_elites_with_family_quota(
-                    ranked_g,
-                    max(0, elite_g),
-                    metric_mode=metric_mode,
-                    min_per_family=int(builder_family_div.get("min_per_family", 1) or 1),
-                    max_per_family=(
-                        int(builder_family_div.get("elite_max_per_family", 0) or 0)
-                        if int(builder_family_div.get("elite_max_per_family", 0) or 0) > 0
-                        else None
-                    ),
-                    include_unknown=bool(builder_family_div.get("include_unknown", False)),
-                    prefer_selection_sort_key=True,
-                )
-            else:
-                elites_g = ranked_g[: max(0, elite_g)]
+            ranked_g = _rank_entries(list(g_population_map.values()), fitness_g, kind="g")
+            resident_pop_g = _select_resident_population(
+                ranked_g,
+                max(0, pop_g),
+                metric_mode=metric_mode,
+                family_diversity_cfg=builder_family_div,
+                prefer_selection_sort_key=True,
+            )
+            elites_g = resident_pop_g[: max(0, elite_g)]
         else:
-            ranked_g = list(elites_g)
+            ranked_g = [dict(e) for e in resident_pop_g]
+            elites_g = resident_pop_g[: max(0, elite_g)]
             LOGGER.info(
-                "Builder selection frozen gen=%d phase=%s; keeping previous builder elites/archives.",
+                "Builder selection frozen gen=%d phase=%s; keeping previous builder resident population/archives.",
                 int(gen),
                 str(alternating_active_phase),
             )
 
-        if bool(loss_family_div.get("enabled", False)):
-            elites_f = _select_elites_with_family_quota(
+        if loss_selection_active:
+            ranked_f = _rank_entries(list(f_population_map.values()), fitness_f, kind="f")
+            resident_pop_f = _select_resident_population(
                 ranked_f,
-                max(0, elite_f),
+                max(0, pop_f),
                 metric_mode=metric_mode,
-                min_per_family=int(loss_family_div.get("min_per_family", 1) or 1),
-                max_per_family=(
-                    int(loss_family_div.get("elite_max_per_family", 0) or 0)
-                    if int(loss_family_div.get("elite_max_per_family", 0) or 0) > 0
-                    else None
-                ),
-                include_unknown=bool(loss_family_div.get("include_unknown", False)),
+                family_diversity_cfg=loss_family_div,
             )
+            elites_f = resident_pop_f[: max(0, elite_f)]
         else:
-            elites_f = ranked_f[: max(0, elite_f)]
+            ranked_f = [dict(e) for e in resident_pop_f]
+            elites_f = resident_pop_f[: max(0, elite_f)]
+            LOGGER.info(
+                "Loss selection frozen gen=%d phase=%s; keeping previous loss resident population/archives.",
+                int(gen),
+                str(alternating_active_phase),
+            )
 
         # MAP-Elites archive update (8x8 default, top2 per cell).
         archive_bins = int(cfg_yaml.get("archive_bins", 8) or 8)
@@ -11252,36 +11361,39 @@ def run_pref_loss_coevo(
                     score=float(e.get("fitness", float("inf"))),
                     per_cell=archive_per_cell,
                 )
-        for e in ranked_f:
-            cell = tuple(e.get("descriptor", {}).get("cell", [0, 0]))  # type: ignore[assignment]
-            try:
-                cell_t = (int(cell[0]), int(cell[1]))
-            except Exception:  # noqa: BLE001
-                cell_t = (0, 0)
-            _archive_add(
-                archive_f,
-                cell=cell_t,
-                entry={
-                    "id": e.get("id"),
-                    "signature": e.get("signature"),
-                    "family": e.get("family"),
-                    "ir": e.get("ir"),
-                    "descriptor": e.get("descriptor"),
-                    "fitness": e.get("fitness"),
-                },
-                score=float(e.get("fitness", float("inf"))),
-                per_cell=archive_per_cell,
-            )
+        if loss_selection_active:
+            for e in ranked_f:
+                cell = tuple(e.get("descriptor", {}).get("cell", [0, 0]))  # type: ignore[assignment]
+                try:
+                    cell_t = (int(cell[0]), int(cell[1]))
+                except Exception:  # noqa: BLE001
+                    cell_t = (0, 0)
+                _archive_add(
+                    archive_f,
+                    cell=cell_t,
+                    entry={
+                        "id": e.get("id"),
+                        "signature": e.get("signature"),
+                        "family": e.get("family"),
+                        "ir": e.get("ir"),
+                        "descriptor": e.get("descriptor"),
+                        "fitness": e.get("fitness"),
+                    },
+                    score=float(e.get("fitness", float("inf"))),
+                    per_cell=archive_per_cell,
+                )
 
         diverse_max = int(cfg_yaml.get("diverse_elites_from_archive_max", max(elite_g * 2, 1)) or max(elite_g * 2, 1))
         if builder_selection_active:
             diverse_elites_g = _archive_flatten(archive_g, max_items=diverse_max)
-        diverse_elites_f = _archive_flatten(archive_f, max_items=diverse_max)
+        if loss_selection_active:
+            diverse_elites_f = _archive_flatten(archive_f, max_items=diverse_max)
 
         # Hall-of-Fame update.
         if builder_selection_active:
             hof_g = _update_hof(hof_g, candidates=elites_g, max_size=int(cfg_yaml.get("hof_size_g", 64) or 64))
-        hof_f = _update_hof(hof_f, candidates=elites_f, max_size=int(cfg_yaml.get("hof_size_f", 64) or 64))
+        if loss_selection_active:
+            hof_f = _update_hof(hof_f, candidates=elites_f, max_size=int(cfg_yaml.get("hof_size_f", 64) or 64))
 
         if builder_selection_active and elites_g:
             _atomic_write_json(os.path.join(run_dir, "best_elite_builder.json"), dict(elites_g[0]))
