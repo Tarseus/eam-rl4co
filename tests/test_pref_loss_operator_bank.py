@@ -126,6 +126,39 @@ def test_operator_bank_expand_and_family_quota(monkeypatch):
     assert "u1" not in [e["id"] for e in elites[:2]]
 
 
+def test_select_resident_population_respects_fixed_size_and_family_diversity(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    ranked = [
+        {"id": "a1", "fitness": 0.1, "family_signature": "fam_a"},
+        {"id": "a2", "fitness": 0.2, "family_signature": "fam_a"},
+        {"id": "b1", "fitness": 0.3, "family_signature": "fam_b"},
+    ]
+
+    resident_plain = loop._select_resident_population(
+        ranked,
+        2,
+        metric_mode="minimize",
+        family_diversity_cfg={"enabled": False},
+    )
+    assert [e["id"] for e in resident_plain] == ["a1", "a2"]
+
+    resident_diverse = loop._select_resident_population(
+        ranked,
+        2,
+        metric_mode="minimize",
+        family_diversity_cfg={
+            "enabled": True,
+            "min_per_family": 1,
+            "elite_max_per_family": 1,
+            "include_unknown": False,
+        },
+    )
+    assert [e["id"] for e in resident_diverse] == ["a1", "b1"]
+
+
 def test_operator_contract_gates(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 

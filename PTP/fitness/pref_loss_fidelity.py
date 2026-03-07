@@ -232,6 +232,11 @@ def _merge_pair_records(existing: Mapping[str, Any], incoming: Mapping[str, Any]
             ex["score"] = float("inf")
         return ex
 
+    if str(ex.get("stage", "")).strip().lower() == "high_fidelity" and ex.get("fitness") is not None:
+        # Treat high-fidelity as terminal for this (g_id, f_id, eval_sig). Later gate/proxy
+        # refreshes are weaker evidence and should not downgrade the cached HF result.
+        return ex
+
     ex_seed_records = ex.get("seed_records")
     if not isinstance(ex_seed_records, dict):
         ex_seed_records = {}

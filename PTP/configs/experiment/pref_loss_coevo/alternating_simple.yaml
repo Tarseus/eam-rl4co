@@ -40,10 +40,10 @@ stage0_sandbox_rounds: 1
 stage0_sandbox_variants: ["visible", "hidden"]
 stage0_sandbox_hard_failure_kinds: ["pref_batch_to_loss_batch_error","forward_error","backward_error","loss_not_finite","missing_grads","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_missing_grads","numeric_stress_grad_not_finite"]
 
-devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3", "cuda:4", "cuda:5"]
 mp:
   enabled: true
-  processes: 4
+  processes: 6
   start_method: spawn
 
 eval_stages:
@@ -70,7 +70,7 @@ budgets:
 alternating_schedule:
   loss_generations: 10
   pair_generations: 10
-  final_loss_generations: 10
+  final_loss_generations: 2
   rounds: 1
 
 # Stage3 offline mini-train protocol (explicit, used by eval_signature).
@@ -112,8 +112,8 @@ builder_pair_budget:
   total: 8192
 
 population:
-  n_candidates_loss: 12
-  n_candidates_builder: 12
+  n_candidates_loss: 16
+  n_candidates_builder: 16
   keep_top_k: 8
 
 # Keep alternating search but still use Double-EoH operators on both sides.
@@ -188,7 +188,7 @@ loss_llm:
       - { name: TUNE, count: 2 }
   novelty:
     enabled: true
-    max_similarity: 0.85
+    max_similarity: 1.0
     neighbors: 3
     apply_to_elites: false
   init_num_E1: 6
