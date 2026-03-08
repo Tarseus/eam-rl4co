@@ -1,0 +1,173 @@
+{
+  "generation": 6,
+  "index": 10,
+  "id": "f006_010_6d9ba2cb",
+  "signature": "6d9ba2cbdf054617fb6578d84e7eb707e97c4c56",
+  "family": "pairwise_regularization|advantage_entropy_signal|mean|clamp_and_sigmoid",
+  "family_signature": "paradigm=pairwise_regularization|signal=advantage_entropy_signal|agg=mean|constraint=clamp_and_sigmoid",
+  "origin": "REPAIR",
+  "origin_base": "E1",
+  "op_type": "REPAIR",
+  "parents": [
+    "f004_007_cf87408b",
+    "f005_013_e09edd04",
+    "f004_009_22d62931",
+    "f004_012_8ade76e6",
+    "f005_003_1e59e025"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "ae457f7ae7575aa954c6acdc646878758c04888f",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+  "llm_seed": 1354239567,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "prompt_sha1": "ae457f7ae7575aa954c6acdc646878758c04888f"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "bac765717780e85999ff0ab9fb60e41d0add7bfe"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.9444444444444444,
+    "best_similarity_parts": {
+      "bigram": 0.8,
+      "unigram": 0.9444444444444444,
+      "call": 0.9230769230769231
+    },
+    "neighbors": [
+      {
+        "sig": "c16bd15bf04ea3cf5fa7bb06f19df5c4870f19ae",
+        "name": "pairwise_entropy_regularized_advantage_loss_v3_stabilized",
+        "similarity": 0.9444444444444444,
+        "similarity_parts": {
+          "bigram": 0.8,
+          "unigram": 0.9444444444444444,
+          "call": 0.9230769230769231
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.zeros_like"
+        ]
+      },
+      {
+        "sig": "5fdffe0f6d1c3df8b4d2b5eecc233d21d37cce0f",
+        "name": "pairwise_entropy_regularized_advantage_loss_v3_with_sigmoid_modweight",
+        "similarity": 0.8947368421052632,
+        "similarity_parts": {
+          "bigram": 0.4772727272727273,
+          "unigram": 0.8947368421052632,
+          "call": 0.8571428571428571
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.zeros_like"
+        ]
+      },
+      {
+        "sig": "4e9fd55727bb62ea37dc69728adbb24c2e742f42",
+        "name": "advantage_entropy_weighted_logsigmoid_stabilized_v2",
+        "similarity": 0.8947368421052632,
+        "similarity_parts": {
+          "bigram": 0.5121951219512195,
+          "unigram": 0.8947368421052632,
+          "call": 0.8571428571428571
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.tanh",
+          "ops.zeros_like"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_entropy_regularized_advantage_loss_v3",
+    "intuition": "Simplified and stabilized the prior loss by replacing the exponential weighting with a numerically stable sigmoid function for mod_weight, clamping advantage difference to [-10,10] to avoid overflow in exp, and keeping entropy difference clipped in [-1,1]. Combined input is clamped to [-20,20] to ensure stable logsigmoid inputs. This reduces numerical instability, avoids extreme gradients, and retains the modulation effect of advantage and entropy signals while simplifying the formulation.",
+    "pseudocode": "adv_diff = clamp(advantage_w - advantage_l, -10, 10)\nentropy_diff = entropy_w - entropy_l\nscaled_entropy = clamp(entropy_diff, -1, 1)\nmod_weight = sigmoid(beta * adv_diff)\nmod_signal = mod_weight * scaled_entropy\nscore_diff = log_prob_w - log_prob_l\ncombined_input = clamp(alpha * scale * score_diff + gamma * mod_signal, -20, 20)\nloss = -logsigmoid(combined_input)\nif weight is not None:\n    loss = loss * weight\nreturn mean(loss)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_regularization",
+      "signal_family": "advantage_entropy_signal",
+      "link_family": "logsigmoid",
+      "agg_family": "mean",
+      "constraint_family": "clamp_and_sigmoid"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "sigmoid",
+      "mean",
+      "sub",
+      "mul",
+      "add",
+      "neg"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_w",
+        "advantage_l",
+        "entropy_w",
+        "entropy_l"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    entropy_w = batch.get('entropy_w', ops.zeros_like(adv_w))\n    entropy_l = batch.get('entropy_l', ops.zeros_like(adv_l))\n    alpha = float(extra.get('alpha', 1.0))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.5))\n    beta = float(extra.get('beta', 1.5))\n    gamma = float(extra.get('gamma', 0.5))\n\n    adv_diff_raw = ops.sub(adv_w, adv_l)\n    adv_diff = ops.clamp(adv_diff_raw, -10.0, 10.0)\n    entropy_diff = ops.sub(entropy_w, entropy_l)\n    scaled_entropy = ops.clamp(entropy_diff, -1.0, 1.0)\n    mod_weight = ops.sigmoid(ops.mul(beta, adv_diff))\n    mod_signal = ops.mul(mod_weight, scaled_entropy)\n    score_diff = ops.sub(lpw, lpl)\n    combined_input_unclamped = ops.add(ops.mul(alpha * scale, score_diff), ops.mul(gamma, mod_signal))\n    combined_input = ops.clamp(combined_input_unclamped, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(combined_input))\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.028252919514973954,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

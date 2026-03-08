@@ -1,0 +1,85 @@
+{
+  "id": "f004_003_a9458e4d",
+  "ir": {
+    "name": "adaptive_scale_scale_invariant_loss",
+    "intuition": "This loss adjusts the penalty by normalizing the cost gap using its standard deviation, making the scale of the penalty adaptive to the spread of the cost gap distribution. This helps stabilize training across different scales and distributions, ensuring the preference signal remains meaningful. The use of logsigmoid on a scaled difference between log probabilities encourages pairwise ranking, while multiplying by the scaled cost gap emphasizes pairs with larger cost differences, aligning with the goal of preference learning in RL4CO.",
+    "pseudocode": "eps=1e-6\nstd_cost_gap = ops.sqrt(ops.mean((cost_gap - ops.mean(cost_gap))**2).clamp(min=eps))\nscaled_cost_gap = cost_gap / std_cost_gap\nx = ops.clamp(alpha * scale * (log_prob_w - log_prob_l) + bias, -20, 20)\nloss = -logsigmoid(x) * scaled_cost_gap * weight\nreturn loss.sum()",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "cost_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "sum",
+      "constraint_family": "scale_invariance"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "mean",
+      "sqrt",
+      "sum"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "cost_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', lpw.new_ones(lpw.shape))\n    cost_gap = batch['cost_gap']\n    alpha = float(extra.get('alpha', 1.5))\n    scale = float(extra.get('hyperparams', {}).get('scale', 3.0))\n    bias = 0.0\n    mean_cg = ops.mean(cost_gap)\n    var_cg = ops.mean((cost_gap - mean_cg) * (cost_gap - mean_cg))\n    std_cost_gap = ops.sqrt(var_cg.clamp(min=eps))\n    scaled_cost_gap = cost_gap / std_cost_gap\n    diff = alpha * scale * (lpw - lpl) + bias\n    x = ops.clamp(diff, -20.0, 20.0)\n    loss = -ops.logsigmoid(x) * scaled_cost_gap * weight\n    return loss.sum()",
+    "theoretical_basis": ""
+  },
+  "stage": "gate",
+  "stage_final": "none",
+  "score": 0.0,
+  "final_score": null,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled",
+    "stage3_high_fidelity": "not_selected_for_high_fidelity"
+  },
+  "pair_ok": true,
+  "pair_reason": "ok_gate_only",
+  "compare_target": "incumbent",
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "reference_score": -0.03119834264119466,
+  "better_than_incumbent": false,
+  "best_pair_generation": 6,
+  "best_pair_phase": "loss",
+  "best_pair_last_phase_label": "loss",
+  "best_pair_last_phase_reference_score": -0.019138336181640625,
+  "score_history": [
+    {
+      "generation": 4,
+      "pair_index": 4,
+      "phase": "loss",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.03119834264119466,
+      "eval_budget_signature": "c1bdf4457ac13068",
+      "reference_score": -0.02903906504313151
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      -0.03119834264119466
+    ],
+    "best": -0.03119834264119466,
+    "worst": -0.03119834264119466,
+    "mean": -0.03119834264119466,
+    "latest": -0.03119834264119466
+  }
+}
