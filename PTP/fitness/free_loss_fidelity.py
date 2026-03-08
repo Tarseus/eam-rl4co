@@ -49,7 +49,8 @@ def _load_offline_tensordict(path: str):
     if not os.path.exists(p):
         raise FileNotFoundError(f"Offline instances file not found: {path} (abs={p})")
 
-    obj = torch.load(p, map_location="cpu")
+    # Offline instance files are full TensorDict payloads, not weight-only checkpoints.
+    obj = torch.load(p, map_location="cpu", weights_only=False)
     if isinstance(obj, TensorDictBase):
         td = obj.to("cpu")
     elif isinstance(obj, dict):
@@ -516,7 +517,7 @@ def _load_policy_weights_from_checkpoint(policy, ckpt_path: str) -> None:
             type(exc).__name__,
             os.path.abspath(ckpt_path),
         )
-        ckpt = torch.load(ckpt_path, map_location="cpu")
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
 
     state_dict = _extract_state_dict_from_checkpoint(ckpt)
     if state_dict is None:

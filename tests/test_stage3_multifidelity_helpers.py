@@ -262,6 +262,33 @@ def test_aggregate_stage3_baseline_multiseed_records_prefers_best_seed(monkeypat
     assert agg["samples"] == pytest.approx([-0.35, -0.55])
 
 
+def test_annotate_stage_fields_does_not_mark_disabled_proxy_as_ran(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    ran, skipped = loop._annotate_stage_fields(
+        {
+            "stage": "high_fidelity",
+            "fitness": {"delta_mean": -0.03},
+            "proxy_score": 0.0,
+            "proxy_metrics": {"cheap_effective_grad_ratio": 1.0},
+            "builder_gate_ok": True,
+            "joint_gate_ok": True,
+        },
+        eval_stages={
+            "stage0_gate": True,
+            "stage1_proxy": False,
+            "stage2_micro_unroll": False,
+            "stage3_high_fidelity": True,
+        },
+    )
+
+    assert ran == ["stage0_gate", "stage3_high_fidelity"]
+    assert skipped["stage1_proxy"] == "disabled"
+
+
 def test_resolve_stage3_baseline_reference_entry_prefers_multiseed_best(monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     monkeypatch.syspath_prepend(str(repo_root / "PTP"))
