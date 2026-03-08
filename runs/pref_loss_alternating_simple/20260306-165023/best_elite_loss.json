@@ -1,51 +1,58 @@
 {
-  "generation": 24,
-  "index": 5,
-  "id": "f024_005_075bd7e2",
-  "signature": "075bd7e2ae23a99dcc933007550371b8d810baf5",
-  "family": "pairwise_margin|advantage_cost_gap|sum|clamp_stabilized",
-  "family_signature": "paradigm=pairwise_margin|signal=advantage_cost_gap|agg=sum|constraint=clamp_stabilized",
+  "generation": 21,
+  "index": 4,
+  "id": "f021_004_93b845f3",
+  "signature": "93b845f3d735c58cbb42e27545a62235eb313dc4",
+  "family": "pairwise_margin|advantage_cost_gap|mean_weighted_normalized|asymmetric_exponential_clipping",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_cost_gap|agg=mean_weighted_normalized|constraint=asymmetric_exponential_clipping",
   "origin": "REPAIR",
-  "origin_base": "M2",
+  "origin_base": "CONSTRAINT_INJECT",
   "op_type": "REPAIR",
   "parents": [
-    "f000_006_fd52aeea"
+    "f001_007_eb03058b"
   ],
   "attempt": 0,
-  "prompt_sha1": "dcbe93ffff4519a5a596db9e5c34efaf943f58d0",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
-  "llm_seed": 1113514830,
+  "prompt_sha1": "4e56619157963ae7fb8aa82db2de63be39d6b308",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+  "llm_seed": 272028434,
   "history": [
     {
       "attempt": 0,
       "side": "loss",
-      "llm_op": "M2",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
-      "prompt_sha1": "dcbe93ffff4519a5a596db9e5c34efaf943f58d0"
+      "llm_op": "LOSS_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "prompt_sha1": "4e56619157963ae7fb8aa82db2de63be39d6b308"
     },
     {
       "attempt": 0,
       "side": "loss",
       "llm_op": "REPAIR",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
-      "prompt_sha1": "45b656f0ac526f48f3291cb4854da40392a0e524"
+      "prompt_sha1": "5585aa2609c09cc66041c1aeabd9923408f18bfe"
+    },
+    {
+      "attempt": 1,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "9869416b1be986333df9e15b4c4baf0ebaadb6e8"
     }
   ],
   "novelty": {
-    "max_similarity": 0.8235294117647058,
+    "max_similarity": 0.8333333333333334,
     "best_similarity_parts": {
-      "bigram": 0.7241379310344828,
-      "unigram": 0.8235294117647058,
+      "bigram": 0.5490196078431373,
+      "unigram": 0.8333333333333334,
       "call": 0.8
     },
     "neighbors": [
       {
-        "sig": "fd52aeea161251e844acf76c2c755467a2c84be5",
-        "name": "loss_logsigmoid_006_cost_gap_advantage_exp_smooth_margin",
-        "similarity": 0.8235294117647058,
+        "sig": "eb03058b74ea4ca72e029b44d71c2f936c4000e4",
+        "name": "loss_logsigmoid_006_cost_gap_advantage_exp_smooth_margin_normalized_l2reg",
+        "similarity": 0.8333333333333334,
         "similarity_parts": {
-          "bigram": 0.7241379310344828,
-          "unigram": 0.8235294117647058,
+          "bigram": 0.5490196078431373,
+          "unigram": 0.8333333333333334,
           "call": 0.8
         },
         "call_names_top": [
@@ -53,21 +60,52 @@
           "extra.get",
           "float",
           "get",
-          "loss.sum",
+          "loss.mean",
+          "mean",
           "ops.clamp",
           "ops.exp",
           "ops.logsigmoid",
-          "ops.tanh"
+          "ops.tanh",
+          "weight.sum",
+          "weighted_loss.sum"
         ]
       },
       {
-        "sig": "476287077ec9f491502af9e728c30aabbc8780e8",
-        "name": "loss_logsigmoid_002_cost_gap_scaled_sum_agg",
-        "similarity": 0.7647058823529411,
+        "sig": "fec671eeae6398f34269f481d8b44b1760fdd11b",
+        "name": "loss_logsigmoid_007_cost_gap_advantage_exp_symmetry_clipped_regl1_weighted_sum_v3_repaired",
+        "similarity": 0.7777777777777778,
         "similarity_parts": {
-          "bigram": 0.5483870967741935,
-          "unigram": 0.7647058823529411,
-          "call": 0.7
+          "bigram": 0.3380281690140845,
+          "unigram": 0.7777777777777778,
+          "call": 0.6842105263157895
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "margin_exp_power.numel",
+          "margin_exp_power.sum",
+          "margin_raw.max",
+          "mean",
+          "ops.abs",
+          "ops.clamp",
+          "ops.exp",
+          "ops.logsigmoid",
+          "ops.pow",
+          "ops.tanh",
+          "weight.sum"
+        ]
+      },
+      {
+        "sig": "e4235a08f10d42d5ada88646622034dd9c654a76",
+        "name": "loss_logsigmoid_007_cost_gap_advantage_exp_smooth_margin_normalized_sum_weighted_novelty",
+        "similarity": 0.7692307692307693,
+        "similarity_parts": {
+          "bigram": 0.38095238095238093,
+          "unigram": 0.7692307692307693,
+          "call": 0.6666666666666666
         },
         "call_names_top": [
           "batch.get",
@@ -75,51 +113,42 @@
           "float",
           "get",
           "loss.sum",
-          "ops.clamp",
-          "ops.logsigmoid",
-          "ops.softplus"
-        ]
-      },
-      {
-        "sig": "68193f9aaaf4d24effca2a56129b08093bb1e2ec",
-        "name": "loss_logsigmoid_006_cost_gap_advantage_exp_sum_weighted",
-        "similarity": 0.6666666666666666,
-        "similarity_parts": {
-          "bigram": 0.38235294117647056,
-          "unigram": 0.6666666666666666,
-          "call": 0.5454545454545454
-        },
-        "call_names_top": [
-          "batch.get",
-          "extra.get",
-          "float",
+          "margin_factor.abs",
+          "mean",
           "ops.clamp",
           "ops.exp",
           "ops.logsigmoid",
-          "ops.sum",
-          "ops.tanh"
+          "ops.softplus",
+          "ops.tanh",
+          "sum",
+          "weight.sum",
+          "weighted_loss.sum"
         ]
       }
     ]
   },
   "ir": {
-    "name": "loss_logsigmoid_tanh_margin_006_cost_gap_advantage_exp_smooth_v2",
-    "intuition": "To address the novelty failure due to high similarity with an existing loss, I modified the margin modulation by replacing the exponentiated tanh product with a sigmoid-based smooth margin factor that still preserves nonlinearity and stability but reduces structural similarity. Additionally, I adjusted the scale to 2.2 and margin to 0.18 for balanced gradient flow and numerical stability. Using sigmoid instead of exp(tanh* tanh) smooths the margin factor between 0 and 1, avoiding large exponential scaling and improving gradient robustness. This change maintains the dependence on advantage_gap and cost_gap signals while introducing a distinct nonlinear transformation that should pass novelty gates.",
-    "pseudocode": "adv_gap = batch['advantage_gap']\ncost_gap = batch['cost_gap']\nmargin_factor = sigmoid(margin * (tanh(adv_gap) + tanh(cost_gap)))\nloss_input = alpha * scale * (log_prob_w - log_prob_l)\nx = clamp(loss_input * margin_factor, -20, 20)\nloss = -logsigmoid(x)\nif weight is not None:\n  loss = loss * weight\nreturn loss.sum()",
+    "name": "loss_logsigmoid_008_cost_gap_advantage_exp_smooth_margin_asymmetric_nonlin_clipped_repaired_v3",
+    "intuition": "To reduce similarity to prior losses, I introduced a nonlinear asymmetry by replacing the additive softplus asym_factor modulation with a multiplicative asymmetric exponent term that depends on the product of advantage and cost gaps, breaking symmetry more strongly. I replaced the L1-type regularization on difference of margin factors with a smooth L1 on the log ratio of margin_factor_pos and margin_factor_neg to promote controlled asymmetric divergence rather than absolute difference. The margin_factor uses tanh transforms to keep values bounded, and clipping remains for numerical stability. This enhances novelty by changing the functional form of asymmetry and regularization, while preserving stable, expressive margin scaling.",
+    "pseudocode": "adv_gap = batch['advantage_gap']\ncost_gap = batch['cost_gap']\nmargin = margin hyperparam\nmargin_factor_pos = exp(margin * tanh(adv_gap) * tanh(cost_gap))\nmargin_factor_neg = exp(margin * tanh(-adv_gap) * tanh(-cost_gap))\nasym_exp = exp(0.2 * tanh(adv_gap * cost_gap))\nmargin_factor = 0.5 * (margin_factor_pos + margin_factor_neg) * asym_exp\nloss_input = alpha * scale * (log_prob_w - log_prob_l)\nx = clamp(loss_input * margin_factor, -20, 20)\nloss = -logsigmoid(x)\nif weight is not None:\n  weighted_loss = loss * weight\n  norm = clamp(weight.sum(), 1e-6, inf)\n  normalized_loss = weighted_loss.sum() / norm\nelse:\n  normalized_loss = loss.mean()\nreg = reg_coef * ops.softplus(ops.abs(ops.log(margin_factor_pos + 1e-8) - ops.log(margin_factor_neg + 1e-8))).mean()\nreturn normalized_loss + reg",
     "hyperparams": {
-      "scale": 2.2,
-      "margin": 0.18,
       "paradigm_family": "pairwise_margin",
       "signal_family": "advantage_cost_gap",
       "link_family": "logsigmoid",
-      "agg_family": "sum",
-      "constraint_family": "clamp_stabilized"
+      "agg_family": "mean_weighted_normalized",
+      "constraint_family": "asymmetric_exponential_clipping"
     },
     "operators_used": [
       "logsigmoid",
       "clamp",
-      "sigmoid",
-      "tanh"
+      "exp",
+      "tanh",
+      "sum",
+      "mean",
+      "clamp_min",
+      "softplus",
+      "abs",
+      "log"
     ],
     "implementation_hint": {
       "expects": [
@@ -132,15 +161,15 @@
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    cost_gap = batch['cost_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.2))\n    margin = float(extra.get('hyperparams', {}).get('margin', 0.18))\n    margin_factor = ops.sigmoid(margin * (ops.tanh(adv_gap) + ops.tanh(cost_gap)))\n    loss_input = alpha * scale * (lpw - lpl)\n    x = loss_input * margin_factor\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.sum()",
-    "theoretical_basis": "Replacing the exponentiated product of tanh with a sigmoid of their sum smooths margin modulation and reduces extreme scaling, improving gradient stability and numerical robustness. This distinct nonlinear transformation still leverages advantage and cost gap signals to modulate the margin adaptively, encouraging better pairwise ranking separation while ensuring the loss is novel enough to pass similarity-based novelty checks."
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    cost_gap = batch['cost_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    margin = float(extra.get('hyperparams', {}).get('margin', 0.15))\n    reg_coef = float(extra.get('hyperparams', {}).get('reg_coef', 0.01))\n    margin_factor_pos = ops.exp(margin * ops.tanh(adv_gap) * ops.tanh(cost_gap))\n    margin_factor_neg = ops.exp(margin * ops.tanh(-adv_gap) * ops.tanh(-cost_gap))\n    asym_exp = ops.exp(0.2 * ops.tanh(adv_gap * cost_gap))\n    margin_factor = 0.5 * (margin_factor_pos + margin_factor_neg) * asym_exp\n    loss_input = alpha * scale * (lpw - lpl)\n    x = loss_input * margin_factor\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        weighted_loss = loss * weight\n        norm = ops.clamp(weight.sum(), 1e-6, float('inf'))\n        loss_val = weighted_loss.sum() / norm\n    else:\n        loss_val = loss.mean()\n    # Add small epsilon to avoid log(0)\n    log_pos = ops.log(margin_factor_pos + 1e-8)\n    log_neg = ops.log(margin_factor_neg + 1e-8)\n    reg = reg_coef * ops.softplus(ops.abs(log_pos - log_neg)).mean()\n    return loss_val + reg",
+    "theoretical_basis": ""
   },
   "static_ok": true,
   "static_reason": "",
   "static_trace": null,
   "compile_ok": true,
   "compile_reason": "ok",
-  "fitness": -0.028466224670410156,
+  "fitness": -0.015129407246907553,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
