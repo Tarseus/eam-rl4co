@@ -1893,6 +1893,136 @@ def _best_pair_artifact_entry(
     return None
 
 
+def _best_pair_eval_metadata(
+    best_pair: Mapping[str, Any] | None,
+) -> Dict[str, Any]:
+    if not isinstance(best_pair, Mapping):
+        return {}
+
+    out: Dict[str, Any] = {}
+    top_level_aliases = (
+        "stage",
+        "stage_final",
+        "score",
+        "final_score",
+        "stages_enabled",
+        "stages_ran",
+        "stages_skipped",
+        "pair_ok",
+        "pair_reason",
+        "compare_target",
+        "metric_mode",
+        "improve_eps",
+        "reference_score",
+        "better_than_incumbent",
+    )
+    for key in top_level_aliases:
+        if key not in best_pair:
+            continue
+        value = best_pair.get(key)
+        if isinstance(value, dict):
+            out[key] = dict(value)
+        elif isinstance(value, list):
+            out[key] = list(value)
+        else:
+            out[key] = value
+
+    alias_map = {
+        "generation": "best_pair_generation",
+        "phase": "best_pair_phase",
+        "last_phase_label": "best_pair_last_phase_label",
+        "last_phase_reference_score": "best_pair_last_phase_reference_score",
+    }
+    for src, dst in alias_map.items():
+        if src in best_pair:
+            out[dst] = best_pair.get(src)
+    return out
+
+
+def _pair_history_key(g_id: Any, f_id: Any) -> str:
+    return f"{str(g_id or '').strip()}::{str(f_id or '').strip()}"
+
+
+def _pair_score_history_entry(rec: Mapping[str, Any]) -> Dict[str, Any] | None:
+    try:
+        final_score = float(rec.get("final_score"))
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(final_score):
+        return None
+
+    out: Dict[str, Any] = {
+        "generation": _safe_int(rec.get("generation", -1), -1),
+        "pair_index": _safe_int(rec.get("pair_index", -1), -1),
+        "phase": str(rec.get("phase", "unknown")),
+        "stage": str(rec.get("stage", "unknown")),
+        "stage_final": str(rec.get("stage_final", rec.get("stage", "none"))),
+        "score": float(final_score),
+        "eval_budget_signature": rec.get("eval_budget_signature"),
+    }
+    try:
+        reference_score = rec.get("reference_score")
+        if reference_score is not None:
+            out["reference_score"] = float(reference_score)
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
+def _append_pair_score_history(
+    pair_score_history_map: Dict[str, List[Dict[str, Any]]],
+    rec: Mapping[str, Any],
+) -> None:
+    key = _pair_history_key(rec.get("g_id"), rec.get("f_id"))
+    if key == "::":
+        return
+    entry = _pair_score_history_entry(rec)
+    if entry is None:
+        return
+    history = pair_score_history_map.setdefault(key, [])
+    entry_sig = (
+        int(entry.get("generation", -1)),
+        int(entry.get("pair_index", -1)),
+        str(entry.get("eval_budget_signature")),
+        str(entry.get("stage_final")),
+        float(entry.get("score")),
+    )
+    if history:
+        last = history[-1]
+        last_sig = (
+            _safe_int(last.get("generation", -1), -1),
+            _safe_int(last.get("pair_index", -1), -1),
+            str(last.get("eval_budget_signature")),
+            str(last.get("stage_final")),
+            float(last.get("score", float("nan"))),
+        )
+        if last_sig == entry_sig:
+            return
+    history.append(entry)
+
+
+def _score_history_summary(history: Sequence[Mapping[str, Any]] | None) -> Dict[str, Any]:
+    items = list(history or [])
+    scores: List[float] = []
+    for item in items:
+        try:
+            score = float(item.get("score"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if math.isfinite(score):
+            scores.append(score)
+    if not scores:
+        return {"count": 0, "scores": []}
+    return {
+        "count": int(len(scores)),
+        "scores": list(scores),
+        "best": float(min(scores)),
+        "worst": float(max(scores)),
+        "mean": float(sum(scores) / len(scores)),
+        "latest": float(scores[-1]),
+    }
+
+
 def _builder_family_signature(ir_or_entry: Any) -> str:
     if isinstance(ir_or_entry, PreferenceBuilderIR):
         tags = _builder_family_tags(ir_or_entry)
@@ -3211,18 +3341,23 @@ def _annotate_stage_fields(
     ran: List[str] = []
     skipped: Dict[str, str] = {}
 
+    gate_enabled = bool(eval_stages.get("stage0_gate", False))
+    proxy_enabled = bool(eval_stages.get("stage1_proxy", False))
+    micro_enabled = bool(eval_stages.get("stage2_micro_unroll", False))
+    hf_enabled = bool(eval_stages.get("stage3_high_fidelity", False))
+
     has_gate_ctx = rec.get("builder_gate_ok") is not None or rec.get("joint_gate_ok") is not None
     has_proxy_ctx = rec.get("proxy_score") is not None or isinstance(rec.get("proxy_metrics"), dict)
     has_micro_ctx = rec.get("micro_score") is not None or isinstance(rec.get("micro_metrics"), dict)
     has_hf_ctx = isinstance(rec.get("fitness"), dict) or str(rec.get("stage")) == "high_fidelity"
 
-    if has_gate_ctx:
+    if gate_enabled and has_gate_ctx:
         ran.append("stage0_gate")
-    if has_proxy_ctx:
+    if proxy_enabled and has_proxy_ctx:
         ran.append("stage1_proxy")
-    if has_micro_ctx:
+    if micro_enabled and has_micro_ctx:
         ran.append("stage2_micro_unroll")
-    if has_hf_ctx:
+    if hf_enabled and has_hf_ctx:
         ran.append("stage3_high_fidelity")
 
     for stage_name in ("stage0_gate", "stage1_proxy", "stage2_micro_unroll", "stage3_high_fidelity"):
@@ -7967,6 +8102,12 @@ def run_pref_loss_coevo(
     best_builder_cost: Dict[str, Any] | None = None
     if resume_state and isinstance(resume_state.get("best_builder_cost"), dict):
         best_builder_cost = dict(resume_state.get("best_builder_cost", {}))
+    pair_score_history_map: Dict[str, List[Dict[str, Any]]] = {}
+    if resume_state and isinstance(resume_state.get("pair_score_history_map"), Mapping):
+        for key, value in dict(resume_state.get("pair_score_history_map", {})).items():
+            if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+                continue
+            pair_score_history_map[str(key)] = [dict(item) for item in value if isinstance(item, Mapping)]
 
     # Pair-level cached evaluation results (in-memory by default).
     cache_dir = cfg_yaml.get("cache_persist_dir", None)
@@ -8221,7 +8362,15 @@ def run_pref_loss_coevo(
                 "will calibrate with evaluated (g_ref,f_ref) when rollout caches are available."
             )
 
+    def _current_best_pair_score_history() -> List[Dict[str, Any]]:
+        if not isinstance(best_so_far, dict):
+            return []
+        key = _pair_history_key(best_so_far.get("builder_id"), best_so_far.get("loss_id"))
+        history = pair_score_history_map.get(key, [])
+        return [dict(item) for item in history if isinstance(item, Mapping)]
+
     def _summary_state(last_generation: int) -> Dict[str, Any]:
+        best_pair_score_history = _current_best_pair_score_history()
         return {
             "config_path": os.path.abspath(config_path),
             "run_dir": os.path.abspath(run_dir),
@@ -8253,11 +8402,14 @@ def run_pref_loss_coevo(
             "best_stage_final": (best_so_far.get("stage_final") if isinstance(best_so_far, dict) else None),
             "best_gen": (best_so_far.get("generation") if isinstance(best_so_far, dict) else None),
             "best_phase": (best_so_far.get("phase") if isinstance(best_so_far, dict) else None),
+            "best_pair_score_history": best_pair_score_history,
+            "best_pair_score_history_summary": _score_history_summary(best_pair_score_history),
         }
 
     stagnation_generations = int(resume_state.get("stagnation_generations", 0) or 0) if resume_state else 0
 
     def _checkpoint_state(next_generation: int) -> Dict[str, Any]:
+        best_pair_score_history = _current_best_pair_score_history()
         return {
             "config_path": os.path.abspath(config_path),
             "seed": int(seed),
@@ -8289,6 +8441,9 @@ def run_pref_loss_coevo(
             "best_stage_final": (best_so_far.get("stage_final") if isinstance(best_so_far, dict) else None),
             "best_gen": (best_so_far.get("generation") if isinstance(best_so_far, dict) else None),
             "best_phase": (best_so_far.get("phase") if isinstance(best_so_far, dict) else None),
+            "best_pair_score_history": best_pair_score_history,
+            "best_pair_score_history_summary": _score_history_summary(best_pair_score_history),
+            "pair_score_history_map": dict(pair_score_history_map),
             "rng_state_b64": _b64_pickle(rng.getstate()),
             "seen_g": sorted(seen_g),
             "seen_f": sorted(seen_f),
@@ -10920,6 +11075,9 @@ def run_pref_loss_coevo(
                     float(improve_eps),
                 )
 
+        for rec in pair_records:
+            _append_pair_score_history(pair_score_history_map, rec)
+
         improved_this_gen = False
         if isinstance(best_so_far, dict):
             try:
@@ -11424,9 +11582,13 @@ def run_pref_loss_coevo(
                     "better_than_incumbent": True,
                 }
         if best_pair is not None:
+            best_pair_score_history = _current_best_pair_score_history()
+            best_pair["score_history"] = list(best_pair_score_history)
+            best_pair["score_history_summary"] = _score_history_summary(best_pair_score_history)
             _atomic_write_json(os.path.join(run_dir, "best_pair.json"), best_pair)
             gid_best = str(best_pair.get("g_id", "")).strip()
             fid_best = str(best_pair.get("f_id", "")).strip()
+            best_pair_eval_meta = _best_pair_eval_metadata(best_pair)
 
             best_builder = _best_pair_artifact_entry(
                 cid=gid_best,
@@ -11438,6 +11600,9 @@ def run_pref_loss_coevo(
                 ref_ir_fn=_ref_builder_ir if gid_best == G_REF_ID else None,
             )
             if best_builder is not None:
+                best_builder.update(best_pair_eval_meta)
+                best_builder["score_history"] = list(best_pair_score_history)
+                best_builder["score_history_summary"] = _score_history_summary(best_pair_score_history)
                 _atomic_write_json(os.path.join(run_dir, "best_builder.json"), dict(best_builder))
             else:
                 LOGGER.warning("Failed to resolve best_builder.json for best_pair g_id=%s", gid_best)
@@ -11452,9 +11617,22 @@ def run_pref_loss_coevo(
                 ref_ir_fn=_ref_loss_ir if fid_best == F_REF_ID else None,
             )
             if best_loss is not None:
+                best_loss.update(best_pair_eval_meta)
+                best_loss["score_history"] = list(best_pair_score_history)
+                best_loss["score_history_summary"] = _score_history_summary(best_pair_score_history)
                 _atomic_write_json(os.path.join(run_dir, "best_loss.json"), dict(best_loss))
             else:
                 LOGGER.warning("Failed to resolve best_loss.json for best_pair f_id=%s", fid_best)
+
+            _atomic_write_json(
+                os.path.join(run_dir, "best_pair_score_history.json"),
+                {
+                    "g_id": gid_best,
+                    "f_id": fid_best,
+                    "history": list(best_pair_score_history),
+                    "summary": _score_history_summary(best_pair_score_history),
+                },
+            )
 
         if isinstance(best_builder_cost, dict):
             best_builder_cost_artifact: Dict[str, Any] = dict(best_builder_cost)
