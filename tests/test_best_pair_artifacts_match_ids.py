@@ -143,3 +143,61 @@ def test_score_history_summary_reports_latest_and_mean(monkeypatch):
     assert summary["worst"] == -0.01
     assert summary["latest"] == -0.02
     assert summary["mean"] == (-0.01 - 0.03 - 0.02) / 3
+
+
+def test_resolve_best_pair_record_prefers_hf_record_over_later_gate_refresh(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    best_so_far = {
+        "score": -0.031,
+        "builder_id": "g_best",
+        "loss_id": "f_best",
+        "stage_final": "high_fidelity",
+        "generation": 4,
+        "phase": "loss",
+    }
+    pair_records = [
+        {
+            "generation": 6,
+            "pair_index": 4,
+            "g_id": "g_best",
+            "f_id": "f_best",
+            "stage": "gate",
+            "stage_final": "none",
+            "score": 0.0,
+            "final_score": None,
+            "phase": "loss",
+        }
+    ]
+    pair_cache_records = [
+        {
+            "generation": 4,
+            "pair_index": 4,
+            "g_id": "g_best",
+            "f_id": "f_best",
+            "stage": "high_fidelity",
+            "stage_final": "high_fidelity",
+            "score": -0.031,
+            "final_score": -0.031,
+            "phase": "loss",
+            "fitness": {"delta_mean": -0.031},
+            "g_ir": {"code": "def generated_builder(x, extra):\n    return x\n"},
+            "f_ir": {"code": "def generated_loss(batch, model_output, extra):\n    return 0.0\n"},
+        }
+    ]
+
+    resolved = loop._resolve_best_pair_record(
+        best_so_far=best_so_far,
+        pair_records=pair_records,
+        pair_cache_records=pair_cache_records,
+        metric_mode="minimize",
+    )
+
+    assert resolved is not None
+    assert resolved["generation"] == 4
+    assert resolved["pair_index"] == 4
+    assert resolved["stage_final"] == "high_fidelity"
+    assert resolved["final_score"] == -0.031

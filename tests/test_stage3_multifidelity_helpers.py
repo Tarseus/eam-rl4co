@@ -130,6 +130,55 @@ def test_select_stage3_builder_promotions_uses_feasible_then_cost(monkeypatch):
     assert promoted == [("g2", "f_fixed"), ("g1", "f_fixed")]
 
 
+def test_select_best_builder_cost_from_archive_blocks_performance_drift(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    archive = {
+        "g1": {"builder_id": "g1", "perf": 1.00, "cost": 120.0},
+        "g2": {"builder_id": "g2", "perf": 1.01, "cost": 40.0},
+        "g3": {"builder_id": "g3", "perf": 1.03, "cost": 10.0},
+    }
+
+    selected = loop._select_best_builder_cost_from_archive(
+        builder_archive=archive,
+        metric_mode="minimize",
+        slack=0.02,
+    )
+
+    assert selected["best_perf"] == 1.0
+    assert selected["selected"]["builder_id"] == "g2"
+    assert [x["builder_id"] for x in selected["feasible"]] == ["g2", "g1"]
+    assert [x["builder_id"] for x in selected["infeasible"]] == ["g3"]
+
+
+def test_select_best_builder_cost_from_archive_reanchors_when_better_perf_arrives(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    archive = {
+        "g1": {"builder_id": "g1", "perf": 1.00, "cost": 120.0},
+        "g2": {"builder_id": "g2", "perf": 1.01, "cost": 40.0},
+        "g4": {"builder_id": "g4", "perf": 0.98, "cost": 200.0},
+    }
+
+    selected = loop._select_best_builder_cost_from_archive(
+        builder_archive=archive,
+        metric_mode="minimize",
+        slack=0.02,
+    )
+
+    assert selected["best_perf"] == 0.98
+    assert selected["threshold"] == 1.0
+    assert selected["selected"]["builder_id"] == "g1"
+    assert [x["builder_id"] for x in selected["feasible"]] == ["g1", "g4"]
+    assert [x["builder_id"] for x in selected["infeasible"]] == ["g2"]
+
+
 def test_build_pair_descriptor_keeps_builder_memory_metrics(monkeypatch):
     repo_root = Path(__file__).resolve().parents[1]
     monkeypatch.syspath_prepend(str(repo_root / "PTP"))
@@ -312,3 +361,151 @@ def test_resolve_stage3_baseline_reference_entry_prefers_multiseed_best(monkeypa
     assert source == "multiseed_best"
     assert entry["seed"] == 321
     assert entry["aggregated_objective"] == 8.5
+
+
+def test_stage3_init_specs_accept_arbitrary_checkpoint_list(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "baseline": {
+            "include_scratch": True,
+            "checkpoints": [
+                "baseline/tsp50_epoch_50.ckpt",
+                "baseline/tsp50_epoch_100.ckpt",
+                "baseline/custom_final.ckpt",
+            ],
+        }
+    }
+
+    init_specs = loop._stage3_init_specs_from_baseline_cfg(cfg)
+
+    assert init_specs == [
+        ("scratch", None),
+        ("ckpt_50", "baseline/tsp50_epoch_50.ckpt"),
+        ("ckpt_100", "baseline/tsp50_epoch_100.ckpt"),
+        ("ckpt_custom_final", "baseline/custom_final.ckpt"),
+    ]
+
+
+def test_iter_stage3_scenario_cfgs_merges_scenario_specific_overrides(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [100],
+        "generator_params": {
+            "offline_train_path": "offline_data/tsp100_train.pt",
+            "offline_val_paths": {"100": "offline_data/tsp100_val.pt"},
+        },
+        "baseline": {
+            "include_scratch": True,
+            "checkpoints": ["baseline/epoch_135.ckpt", "baseline/epoch_409.ckpt"],
+            "mini_eval_paths": {200: "baseline/mini_eval/baseline_minitrain_tsp100_K200.json"},
+            "scenarios": [
+                {
+                    "name": "tsp50",
+                    "train_problem_size": 50,
+                    "valid_problem_sizes": [50],
+                    "generator_params": {
+                        "offline_train_path": "offline_data/tsp50_train.pt",
+                        "offline_val_paths": {"50": "offline_data/tsp50_val.pt"},
+                    },
+                    "baseline": {
+                        "checkpoints": [
+                            "baseline/tsp50_epoch_50.ckpt",
+                            "baseline/tsp50_epoch_100.ckpt",
+                        ],
+                        "mini_eval_paths": {200: "baseline/mini_eval/baseline_minitrain_tsp50_K200.json"},
+                    },
+                },
+                {
+                    "name": "cvrp100",
+                    "problem": "cvrp",
+                    "env_name": "cvrp",
+                    "train_problem_size": 100,
+                    "valid_problem_sizes": [100],
+                    "generator_params": {
+                        "offline_train_path": "offline_data/cvrp100_train.pt",
+                        "offline_val_paths": {"100": "offline_data/cvrp100_val.pt"},
+                    },
+                    "baseline": {
+                        "checkpoints": [
+                            "baseline/cvrp100_epoch_100.ckpt",
+                            "baseline/cvrp100_epoch_200.ckpt",
+                        ],
+                        "mini_eval_paths": {200: "baseline/mini_eval/baseline_minitrain_cvrp100_K200.json"},
+                    },
+                },
+            ],
+        },
+    }
+
+    scenarios = loop._iter_stage3_scenario_cfgs(cfg)
+
+    assert [item["name"] for item in scenarios] == ["tsp50", "cvrp100"]
+    assert scenarios[0]["cfg"]["train_problem_size"] == 50
+    assert scenarios[0]["cfg"]["generator_params"]["offline_train_path"] == "offline_data/tsp50_train.pt"
+    assert scenarios[0]["cfg"]["baseline"]["checkpoints"] == [
+        "baseline/tsp50_epoch_50.ckpt",
+        "baseline/tsp50_epoch_100.ckpt",
+    ]
+    assert "scenarios" not in scenarios[0]["cfg"]["baseline"]
+    assert scenarios[1]["cfg"]["problem"] == "cvrp"
+    assert scenarios[1]["cfg"]["env_name"] == "cvrp"
+    assert scenarios[1]["cfg"]["baseline"]["mini_eval_paths"][200] == (
+        "baseline/mini_eval/baseline_minitrain_cvrp100_K200.json"
+    )
+
+
+def test_build_stage3_eval_signature_tracks_scenario_name_and_all_checkpoints(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    monkeypatch.setattr(loop, "_file_sha1_cached", lambda path: f"sha1:{path}")
+
+    cfg = {
+        "problem": "cvrp",
+        "env_name": "cvrp",
+        "train_problem_size": 50,
+        "valid_problem_sizes": [50],
+        "f1_steps": 200,
+        "generator_params": {
+            "offline_train_path": "offline_data/cvrp50_train.pt",
+            "offline_val_paths": {"50": "offline_data/cvrp50_val.pt"},
+        },
+        "baseline": {
+            "include_scratch": True,
+            "checkpoints": [
+                "baseline/cvrp50_epoch_50.ckpt",
+                "baseline/cvrp50_epoch_100.ckpt",
+            ],
+        },
+        "stage3_scenario_name": "cvrp50_mid_late",
+    }
+
+    sig = loop._build_stage3_eval_signature(cfg)
+
+    assert sig["scenario_name"] == "cvrp50_mid_late"
+    assert sig["include_scratch"] is True
+    assert sig["checkpoints"] == [
+        {
+            "name": "ckpt_50",
+            "path": "baseline/cvrp50_epoch_50.ckpt",
+            "sha1": "sha1:baseline/cvrp50_epoch_50.ckpt",
+        },
+        {
+            "name": "ckpt_100",
+            "path": "baseline/cvrp50_epoch_100.ckpt",
+            "sha1": "sha1:baseline/cvrp50_epoch_100.ckpt",
+        },
+    ]

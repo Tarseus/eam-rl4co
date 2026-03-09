@@ -68,6 +68,7 @@ budgets:
   hf_epochs: 0
 
 alternating_schedule:
+  start_phase: builder
   loss_generations: 10
   pair_generations: 10
   final_loss_generations: 2
@@ -95,10 +96,79 @@ baseline:
     200: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
     1000: baseline/mini_eval/baseline_minitrain_tsp100_K1000.json
   checkpoints:
-    - baseline/epoch_135.ckpt
-    - baseline/epoch_409.ckpt
+    - baseline/tsp100_epoch_135.ckpt
+    - baseline/tsp100_epoch_409.ckpt
   include_scratch: true
   multiseed_compare_enabled: false
+  scenarios:
+    - name: tsp50
+      problem: tsp
+      env_name: tsp
+      train_problem_size: 50
+      valid_problem_sizes: [50]
+      generator_params:
+        offline_train_path: offline_data/tsp50_train.pt
+        offline_val_paths:
+          "50": offline_data/tsp50_val.pt
+      baseline:
+        mini_eval_paths:
+          200: baseline/mini_eval/baseline_minitrain_tsp50_K200.json
+          1000: baseline/mini_eval/baseline_minitrain_tsp50_K1000.json
+        checkpoints:
+          - baseline/tsp50_epoch_50.ckpt
+          - baseline/tsp50_epoch_100.ckpt
+    - name: tsp100
+      problem: tsp
+      env_name: tsp
+      train_problem_size: 100
+      valid_problem_sizes: [100]
+      generator_params:
+        offline_train_path: offline_data/tsp100_train.pt
+        offline_val_paths:
+          "100": offline_data/tsp100_val.pt
+      baseline:
+        mini_eval_paths:
+          200: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
+          1000: baseline/mini_eval/baseline_minitrain_tsp100_K1000.json
+        checkpoints:
+          - baseline/tsp100_epoch_135.ckpt
+          - baseline/tsp100_epoch_409.ckpt
+    - name: cvrp50
+      problem: cvrp
+      env_name: cvrp
+      train_problem_size: 50
+      valid_problem_sizes: [50]
+      policy_kwargs:
+        po4cops_compat: true
+      generator_params:
+        offline_train_path: offline_data/cvrp50_train.pt
+        offline_val_paths:
+          "50": offline_data/cvrp50_val.pt
+      baseline:
+        mini_eval_paths:
+          200: baseline/mini_eval/baseline_minitrain_cvrp50_K200.json
+          1000: baseline/mini_eval/baseline_minitrain_cvrp50_K1000.json
+        checkpoints:
+          - baseline/cvrp50_epoch_50.ckpt
+          - baseline/cvrp50_epoch_100.ckpt
+    - name: cvrp100
+      problem: cvrp
+      env_name: cvrp
+      train_problem_size: 100
+      valid_problem_sizes: [100]
+      policy_kwargs:
+        po4cops_compat: true
+      generator_params:
+        offline_train_path: offline_data/cvrp100_train.pt
+        offline_val_paths:
+          "100": offline_data/cvrp100_val.pt
+      baseline:
+        mini_eval_paths:
+          200: baseline/mini_eval/baseline_minitrain_cvrp100_K200.json
+          1000: baseline/mini_eval/baseline_minitrain_cvrp100_K1000.json
+        checkpoints:
+          - baseline/cvrp100_epoch_100.ckpt
+          - baseline/cvrp100_epoch_200.ckpt
 
 generator_params:
   offline_train_path: offline_data/tsp100_train.pt
