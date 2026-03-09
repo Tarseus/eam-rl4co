@@ -235,11 +235,46 @@ def _resolve_training_seed(cfg_yaml: Mapping[str, Any], *, default: int = 1234) 
 
 def _stage3_multiseed_compare_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     seed0 = _resolve_training_seed(cfg_yaml)
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, Mapping):
+        baseline_cfg = {}
+    compare_raw = baseline_cfg.get("multiseed_compare", {}) or {}
+    if not isinstance(compare_raw, Mapping):
+        compare_raw = {}
+    calib_raw = cfg_yaml.get("improve_eps_calibration", {}) or {}
+    if not isinstance(calib_raw, Mapping):
+        calib_raw = {}
+
+    enabled = bool(compare_raw.get("enabled", baseline_cfg.get("multiseed_compare_enabled", False)))
+    n_seeds = int(compare_raw.get("n_seeds", compare_raw.get("N", 0)) or 0)
+    seed_stride = int(compare_raw.get("seed_stride", 997) or 997)
+    seed0_out = int(compare_raw.get("seed0", seed0) or seed0)
+
+    if bool(calib_raw.get("enabled", False)):
+        enabled = True if not enabled else bool(enabled)
+        if n_seeds <= 0:
+            n_seeds = int(calib_raw.get("N", 0) or 0)
+        if "seed0" not in compare_raw:
+            seed0_out = int(seed0) + 999
+        if "seed_stride" not in compare_raw:
+            seed_stride = int(calib_raw.get("seed_stride", seed_stride) or seed_stride)
+
+    if not enabled:
+        return {
+            "enabled": False,
+            "n_seeds": 1,
+            "seed0": int(seed0),
+            "seed_stride": 0,
+        }
+
+    n_seeds = max(1, min(int(n_seeds or 1), 128))
+    if int(seed_stride) == 0:
+        seed_stride = 997
     return {
-        "enabled": False,
-        "n_seeds": 1,
-        "seed0": int(seed0),
-        "seed_stride": 0,
+        "enabled": True,
+        "n_seeds": int(n_seeds),
+        "seed0": int(seed0_out),
+        "seed_stride": int(seed_stride),
     }
 
 
@@ -446,21 +481,13 @@ def _ensure_stage3_baseline_multiseed_cache(
         )
         return None
 
-    ckpts = baseline_cfg.get("checkpoints") or []
-    if not isinstance(ckpts, list) or len(ckpts) < 2:
+    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
+    if not init_specs:
         LOGGER.warning(
-            "stage3 multiseed baseline skipped: baseline.checkpoints invalid (need [ckpt_135, ckpt_409])."
+            "stage3 multiseed baseline skipped: no init sources configured (need scratch and/or baseline.checkpoints)."
         )
         return None
-    ckpt_135 = _abs_from_repo_root(str(ckpts[0]))
-    ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
-    include_scratch = bool(baseline_cfg.get("include_scratch", True))
-
-    init_specs: List[Tuple[str, str | None]] = []
-    if include_scratch:
-        init_specs.append(("scratch", None))
-    init_specs.append(("ckpt_135", str(ckpt_135)))
-    init_specs.append(("ckpt_409", str(ckpt_409)))
+    include_scratch = bool(any(init_ckpt is None for _, init_ckpt in init_specs))
 
     cache_path = _stage3_baseline_multiseed_cache_path(
         cfg_yaml,
@@ -620,25 +647,167 @@ def _load_stage3_baseline_multiseed_cache_for_cfg(cfg_yaml: Mapping[str, Any]) -
     return dict(payload)
 
 
+def _stage3_scenario_name_from_cfg(cfg_yaml: Mapping[str, Any]) -> str:
+    explicit = cfg_yaml.get("stage3_scenario_name")
+    if explicit is not None and str(explicit).strip():
+        return str(explicit).strip()
+    problem = str(cfg_yaml.get("problem") or cfg_yaml.get("env_name") or "tsp").strip().lower()
+    train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
+    return f"{problem}{int(train_problem_size)}"
+
+
+def _stage3_slug(value: Any) -> str:
+    raw = str(value or "").strip().lower()
+    slug = re.sub(r"[^a-z0-9]+", "_", raw).strip("_")
+    return slug or "item"
+
+
+def _stage3_init_specs_from_baseline_cfg(cfg_yaml: Mapping[str, Any]) -> List[Tuple[str, str | None]]:
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, Mapping):
+        baseline_cfg = {}
+
+    include_scratch = bool(baseline_cfg.get("include_scratch", True))
+    ckpts = baseline_cfg.get("checkpoints") or []
+    if not isinstance(ckpts, Sequence) or isinstance(ckpts, (str, bytes)):
+        ckpts = []
+
+    init_specs: List[Tuple[str, str | None]] = []
+    if include_scratch:
+        init_specs.append(("scratch", None))
+
+    used_names = {str(name) for name, _ in init_specs}
+    for idx, ckpt in enumerate(ckpts):
+        if ckpt is None or not str(ckpt).strip():
+            continue
+        ckpt_s = str(ckpt)
+        epoch = _infer_baseline_epoch_from_path(ckpt_s)
+        if epoch is not None:
+            init_name = f"ckpt_{int(epoch)}"
+        else:
+            stem = os.path.splitext(os.path.basename(ckpt_s))[0]
+            init_name = f"ckpt_{_stage3_slug(stem)}"
+        if init_name in used_names:
+            stem = os.path.splitext(os.path.basename(ckpt_s))[0]
+            init_name = f"ckpt_{int(idx):03d}_{_stage3_slug(stem)}"
+        suffix = 2
+        base_name = str(init_name)
+        while init_name in used_names:
+            init_name = f"{base_name}_{int(suffix)}"
+            suffix += 1
+        used_names.add(str(init_name))
+        init_specs.append((str(init_name), ckpt_s))
+
+    return init_specs
+
+
+def _apply_stage3_scenario_overrides(cfg_yaml: Mapping[str, Any], scenario_cfg: Mapping[str, Any]) -> Dict[str, Any]:
+    out = dict(cfg_yaml)
+
+    baseline_out = dict(cfg_yaml.get("baseline", {}) or {}) if isinstance(cfg_yaml.get("baseline", {}) or {}, Mapping) else {}
+    generator_out = dict(cfg_yaml.get("generator_params", {}) or {}) if isinstance(cfg_yaml.get("generator_params", {}) or {}, Mapping) else {}
+    env_kwargs_out = dict(cfg_yaml.get("env_kwargs", {}) or {}) if isinstance(cfg_yaml.get("env_kwargs", {}) or {}, Mapping) else {}
+    policy_kwargs_out = dict(cfg_yaml.get("policy_kwargs", {}) or {}) if isinstance(cfg_yaml.get("policy_kwargs", {}) or {}, Mapping) else {}
+
+    baseline_shorthand_keys = {
+        "checkpoints",
+        "mini_eval_path",
+        "mini_eval_paths",
+        "include_scratch",
+        "multiseed_compare_enabled",
+        "multiseed_compare",
+    }
+    generator_shorthand_keys = {"offline_train_path", "offline_val_paths"}
+
+    for key, value in dict(scenario_cfg).items():
+        if key in {"name", "baseline", "generator_params", "env_kwargs", "policy_kwargs"}:
+            continue
+        if key in baseline_shorthand_keys:
+            baseline_out[str(key)] = value
+            continue
+        if key in generator_shorthand_keys:
+            generator_out[str(key)] = value
+            continue
+        out[str(key)] = value
+
+    baseline_extra = scenario_cfg.get("baseline", {}) or {}
+    if isinstance(baseline_extra, Mapping):
+        baseline_out.update(dict(baseline_extra))
+    baseline_out.pop("scenarios", None)
+
+    generator_extra = scenario_cfg.get("generator_params", {}) or {}
+    if isinstance(generator_extra, Mapping):
+        generator_out.update(dict(generator_extra))
+
+    env_kwargs_extra = scenario_cfg.get("env_kwargs", {}) or {}
+    if isinstance(env_kwargs_extra, Mapping):
+        env_kwargs_out.update(dict(env_kwargs_extra))
+
+    policy_kwargs_extra = scenario_cfg.get("policy_kwargs", {}) or {}
+    if isinstance(policy_kwargs_extra, Mapping):
+        policy_kwargs_out.update(dict(policy_kwargs_extra))
+
+    out["baseline"] = baseline_out
+    out["generator_params"] = generator_out
+    out["env_kwargs"] = env_kwargs_out
+    out["policy_kwargs"] = policy_kwargs_out
+    out["stage3_scenario_name"] = str(
+        scenario_cfg.get("name") or _stage3_scenario_name_from_cfg(out)
+    )
+    return out
+
+
+def _iter_stage3_scenario_cfgs(cfg_yaml: Mapping[str, Any]) -> List[Dict[str, Any]]:
+    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
+    if not isinstance(baseline_cfg, Mapping):
+        baseline_cfg = {}
+
+    raw_scenarios = baseline_cfg.get("scenarios") or []
+    if not isinstance(raw_scenarios, list):
+        raw_scenarios = []
+
+    if not raw_scenarios:
+        single_cfg = dict(cfg_yaml)
+        single_baseline = dict(baseline_cfg)
+        single_baseline.pop("scenarios", None)
+        single_cfg["baseline"] = single_baseline
+        single_cfg["stage3_scenario_name"] = _stage3_scenario_name_from_cfg(single_cfg)
+        return [{"name": str(single_cfg["stage3_scenario_name"]), "cfg": single_cfg}]
+
+    scenarios: List[Dict[str, Any]] = []
+    for idx, raw in enumerate(raw_scenarios):
+        if not isinstance(raw, Mapping):
+            continue
+        scenario_cfg = _apply_stage3_scenario_overrides(cfg_yaml, raw)
+        name = str(raw.get("name") or scenario_cfg.get("stage3_scenario_name") or f"scenario_{int(idx)}")
+        scenario_cfg["stage3_scenario_name"] = name
+        scenarios.append({"name": name, "cfg": scenario_cfg})
+
+    if scenarios:
+        return scenarios
+
+    single_cfg = dict(cfg_yaml)
+    single_baseline = dict(baseline_cfg)
+    single_baseline.pop("scenarios", None)
+    single_cfg["baseline"] = single_baseline
+    single_cfg["stage3_scenario_name"] = _stage3_scenario_name_from_cfg(single_cfg)
+    return [{"name": str(single_cfg["stage3_scenario_name"]), "cfg": single_cfg}]
+
+
 def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     baseline_cfg = cfg_yaml.get("baseline", {}) or {}
     generator_params = cfg_yaml.get("generator_params", {}) or {}
 
     offline_train = generator_params.get("offline_train_path")
     offline_val_paths = generator_params.get("offline_val_paths") or {}
-
-    ckpts = baseline_cfg.get("checkpoints") or []
-    ckpt_135 = ckpts[0] if len(ckpts) > 0 else None
-    ckpt_409 = ckpts[1] if len(ckpts) > 1 else None
+    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
 
     if not offline_train or not offline_val_paths:
         raise ValueError(
             "stage3 requires offline_train_path and offline_val_paths in generator_params"
         )
-    if not ckpt_135 or not ckpt_409:
-        raise ValueError(
-            "stage3 requires baseline.checkpoints=[ckpt_135, ckpt_409] (two paths)"
-        )
+    if not init_specs:
+        raise ValueError("stage3 requires at least one init source (scratch and/or baseline.checkpoints)")
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
     policy_name = str(cfg_yaml.get("policy_name") or "")
@@ -681,6 +850,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
 
     sig = {
         "protocol": "stage3_offline_minitrain_v1",
+        "scenario_name": str(_stage3_scenario_name_from_cfg(cfg_yaml)),
         "env_name": env_name,
         "policy_name": policy_name,
         "policy_kwargs": policy_kwargs,
@@ -704,10 +874,16 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
             "train": {"path": str(offline_train), "sha1": str(offline_train_sha1)},
             "val": offline_val_sig,
         },
-        "checkpoints": {
-            "ckpt_135": {"path": str(ckpt_135), "sha1": _file_sha1_cached(str(ckpt_135))},
-            "ckpt_409": {"path": str(ckpt_409), "sha1": _file_sha1_cached(str(ckpt_409))},
-        },
+        "include_scratch": bool(any(init_ckpt is None for _, init_ckpt in init_specs)),
+        "checkpoints": [
+            {
+                "name": str(init_name),
+                "path": str(init_ckpt),
+                "sha1": _file_sha1_cached(str(init_ckpt)),
+            }
+            for init_name, init_ckpt in init_specs
+            if init_ckpt is not None
+        ],
     }
     if hf_epochs > 0 and hf_instances_per_epoch > 0:
         sig["budget_mode"] = "epochs"
@@ -923,11 +1099,10 @@ def _ensure_stage3_baseline_mini_eval(
             "eval_signature": expected_sig,
         }
 
-    ckpts = baseline_cfg.get("checkpoints") or []
-    if not isinstance(ckpts, list) or len(ckpts) < 2:
-        raise ValueError("stage3 baseline requires baseline.checkpoints=[ckpt_135, ckpt_409]")
+    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
+    if not init_specs:
+        raise ValueError("stage3 baseline requires at least one init source (scratch and/or baseline.checkpoints)")
 
-    include_scratch = bool(baseline_cfg.get("include_scratch", True))
     scratch_init_seed = int(_resolve_training_seed(cfg_yaml))
     train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
     valid_problem_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [train_problem_size])]
@@ -970,12 +1145,6 @@ def _ensure_stage3_baseline_mini_eval(
         cfg_hf["hf_epochs"] = 0
         cfg_hf["hf_instances_per_epoch"] = 0
     hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=str(device_str))
-
-    init_specs: List[Tuple[str, str | None]] = []
-    if include_scratch:
-        init_specs.append(("scratch", None))
-    init_specs.append(("ckpt_135", str(ckpts[0])))
-    init_specs.append(("ckpt_409", str(ckpts[1])))
 
     objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
     per_init: Dict[str, Any] = {}
@@ -1937,6 +2106,102 @@ def _best_pair_eval_metadata(
         if src in best_pair:
             out[dst] = best_pair.get(src)
     return out
+
+
+def _pair_record_effective_score(rec: Mapping[str, Any] | None) -> float | None:
+    if not isinstance(rec, Mapping):
+        return None
+    for key in ("final_score", "score"):
+        try:
+            value = float(rec.get(key))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(value):
+            return value
+    return None
+
+
+def _resolve_best_pair_record(
+    *,
+    best_so_far: Mapping[str, Any] | None,
+    pair_records: Sequence[Mapping[str, Any]] | None,
+    pair_cache_records: Sequence[Mapping[str, Any]] | None = None,
+    metric_mode: str = "minimize",
+) -> Dict[str, Any] | None:
+    if not isinstance(best_so_far, Mapping):
+        return None
+
+    gid_best = str(best_so_far.get("builder_id", "")).strip()
+    fid_best = str(best_so_far.get("loss_id", "")).strip()
+    if not gid_best or not fid_best:
+        return None
+
+    target_score = _pair_record_effective_score({"score": best_so_far.get("score")})
+    target_generation = _safe_int(best_so_far.get("generation", -1), -1)
+    target_phase = str(best_so_far.get("phase", "")).strip()
+    target_stage_final = str(best_so_far.get("stage_final", "")).strip()
+
+    candidates: List[Dict[str, Any]] = []
+    seen: set[Tuple[Any, ...]] = set()
+    for source in (pair_records or []), (pair_cache_records or []):
+        for rec in source:
+            if not isinstance(rec, Mapping):
+                continue
+            if str(rec.get("g_id", "")).strip() != gid_best or str(rec.get("f_id", "")).strip() != fid_best:
+                continue
+            sig = (
+                _safe_int(rec.get("generation", -1), -1),
+                _safe_int(rec.get("pair_index", -1), -1),
+                str(rec.get("phase", "")),
+                str(rec.get("stage", "")),
+                str(rec.get("stage_final", "")),
+                str(rec.get("eval_budget_signature", "")),
+                _pair_record_effective_score(rec),
+            )
+            if sig in seen:
+                continue
+            seen.add(sig)
+            candidates.append(dict(rec))
+
+    if not candidates:
+        return None
+
+    def _stage_rank(rec: Mapping[str, Any]) -> int:
+        stage_final = str(rec.get("stage_final", rec.get("stage", ""))).strip().lower()
+        return 1 if stage_final == "high_fidelity" else 0
+
+    def _score_matches(rec: Mapping[str, Any]) -> bool:
+        cand_score = _pair_record_effective_score(rec)
+        if cand_score is None or target_score is None:
+            return False
+        return abs(cand_score - target_score) <= 1e-12
+
+    def _meta_matches(rec: Mapping[str, Any]) -> bool:
+        return (
+            _safe_int(rec.get("generation", -1), -1) == target_generation
+            and str(rec.get("phase", "")).strip() == target_phase
+            and str(rec.get("stage_final", rec.get("stage", ""))).strip() == target_stage_final
+        )
+
+    matched = [rec for rec in candidates if _score_matches(rec) or _meta_matches(rec)]
+    pool = matched or candidates
+
+    def _sort_key(rec: Mapping[str, Any]) -> Tuple[Any, ...]:
+        score = _pair_record_effective_score(rec)
+        score_key = float("inf")
+        if score is not None:
+            score_key = score if str(metric_mode).strip().lower() == "minimize" else -score
+        return (
+            1 if _score_matches(rec) else 0,
+            1 if _meta_matches(rec) else 0,
+            _stage_rank(rec),
+            1 if isinstance(rec.get("fitness"), Mapping) else 0,
+            -score_key,
+            _safe_int(rec.get("generation", -1), -1),
+            _safe_int(rec.get("pair_index", -1), -1),
+        )
+
+    return dict(max(pool, key=_sort_key))
 
 
 def _pair_history_key(g_id: Any, f_id: Any) -> str:
@@ -3116,6 +3381,134 @@ def _compute_builder_constraint_state(
     }
 
 
+def _merge_builder_archive_entry(
+    incumbent: Mapping[str, Any] | None,
+    candidate: Mapping[str, Any],
+    *,
+    metric_mode: str,
+) -> Dict[str, Any]:
+    merged = dict(incumbent) if isinstance(incumbent, Mapping) else {}
+    cand = dict(candidate)
+
+    if not merged:
+        return cand
+
+    merged_cost = None
+    cand_cost = None
+    try:
+        merged_cost = float(merged.get("cost"))
+    except (TypeError, ValueError):
+        merged_cost = None
+    try:
+        cand_cost = float(cand.get("cost"))
+    except (TypeError, ValueError):
+        cand_cost = None
+
+    merged_perf = None
+    cand_perf = None
+    try:
+        merged_perf = float(merged.get("perf"))
+    except (TypeError, ValueError):
+        merged_perf = None
+    try:
+        cand_perf = float(cand.get("perf"))
+    except (TypeError, ValueError):
+        cand_perf = None
+
+    if cand_cost is not None and math.isfinite(cand_cost):
+        if merged_cost is None or not math.isfinite(merged_cost) or cand_cost < merged_cost:
+            merged["cost"] = float(cand_cost)
+
+    if cand_perf is not None and math.isfinite(cand_perf):
+        if merged_perf is None or not math.isfinite(merged_perf) or _is_better_than_reference(
+            cand_score=float(cand_perf),
+            reference_score=float(merged_perf),
+            metric_mode=metric_mode,
+            improve_eps=0.0,
+        ):
+            merged["perf"] = float(cand_perf)
+            if cand.get("perf_ref") is not None:
+                merged["perf_ref"] = dict(cand.get("perf_ref") or {})
+            for key in ("generation", "phase"):
+                if cand.get(key) is not None:
+                    merged[key] = cand.get(key)
+
+    merged["builder_id"] = str(cand.get("builder_id") or merged.get("builder_id") or "")
+    merged["num_records"] = int(cand.get("num_records", merged.get("num_records", 0)) or 0)
+    return merged
+
+
+def _select_best_builder_cost_from_archive(
+    *,
+    builder_archive: Mapping[str, Mapping[str, Any]],
+    metric_mode: str,
+    slack: float,
+) -> Dict[str, Any] | None:
+    if not isinstance(builder_archive, Mapping):
+        return None
+
+    best_perf = None
+    candidates: List[Dict[str, Any]] = []
+    for raw in builder_archive.values():
+        if not isinstance(raw, Mapping):
+            continue
+        try:
+            perf = float(raw.get("perf"))
+            cost = float(raw.get("cost"))
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(perf) or not math.isfinite(cost):
+            continue
+        if best_perf is None or _is_better_than_reference(
+            cand_score=float(perf),
+            reference_score=best_perf,
+            metric_mode=metric_mode,
+            improve_eps=0.0,
+        ):
+            best_perf = float(perf)
+        candidates.append(dict(raw))
+
+    if best_perf is None or not candidates:
+        return None
+
+    threshold = float(best_perf - float(slack)) if str(metric_mode) == "maximize" else float(best_perf + float(slack))
+    feasible: List[Dict[str, Any]] = []
+    infeasible: List[Dict[str, Any]] = []
+    for cand in candidates:
+        perf = float(cand.get("perf"))
+        is_feasible = bool(perf >= (float(best_perf) - float(slack))) if str(metric_mode) == "maximize" else bool(
+            perf <= (float(best_perf) + float(slack))
+        )
+        cand["best_perf_anchor"] = float(best_perf)
+        cand["threshold"] = float(threshold)
+        cand["slack"] = float(slack)
+        cand["feasible"] = bool(is_feasible)
+        cand["selection_sort_key"] = list(
+            _builder_selection_sort_key(
+                feasible=bool(is_feasible),
+                cost=float(cand.get("cost")),
+                perf=float(cand.get("perf")),
+                metric_mode=metric_mode,
+            )
+        )
+        if bool(is_feasible):
+            feasible.append(cand)
+        else:
+            infeasible.append(cand)
+
+    feasible.sort(key=lambda x: tuple(x.get("selection_sort_key", [])))
+    infeasible.sort(key=lambda x: tuple(x.get("selection_sort_key", [])))
+    selected = feasible[0] if feasible else None
+    return {
+        "best_perf": float(best_perf),
+        "threshold": float(threshold),
+        "slack": float(slack),
+        "feasible": feasible,
+        "infeasible": infeasible,
+        "selected": (dict(selected) if isinstance(selected, Mapping) else None),
+    }
+
+
 def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     cfg = dict(cfg_yaml)
     preset = str(cfg.get("preset", "advanced") or "advanced").strip().lower()
@@ -3432,6 +3825,7 @@ def _resolve_alternating_phase_and_budgets(
     alternating_builder_generations: int,
     alternating_rounds: int,
     alternating_final_loss_generations: int,
+    alternating_start_phase: str,
 ) -> Tuple[str, int, int, int, int, int]:
     """Resolve phase and pair budgets for one generation.
 
@@ -3450,6 +3844,9 @@ def _resolve_alternating_phase_and_budgets(
     cycle_len = 0
 
     if bool(alternating_schedule_enabled):
+        start_phase = str(alternating_start_phase or "loss").strip().lower()
+        if start_phase not in {"loss", "builder"}:
+            start_phase = "loss"
         cycle_len = int(max(0, int(alternating_loss_generations)) + max(0, int(alternating_builder_generations)))
         cycle_len_eff = max(cycle_len, 1)
         cycle_pos = int(int(generation) % int(cycle_len_eff))
@@ -3474,7 +3871,13 @@ def _resolve_alternating_phase_and_budgets(
         elif int(alternating_rounds) > 0 and round_idx >= int(alternating_rounds):
             loss_budget_now = 0
             builder_budget_now = 0
-        elif cycle_pos < int(max(0, int(alternating_loss_generations))):
+        elif (
+            start_phase == "loss"
+            and cycle_pos < int(max(0, int(alternating_loss_generations)))
+        ) or (
+            start_phase == "builder"
+            and cycle_pos >= int(max(0, int(alternating_builder_generations)))
+        ):
             loss_budget_now = int(pairing_budget)
             builder_budget_now = 0
         else:
@@ -7145,71 +7548,11 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         record["elapsed_s"] = float(time.time() - t0)
         return record
 
-    # Stage3: discovery-style offline mini-train fitness, compared against a precomputed baseline JSON.
-    baseline_cfg = cfg.get("baseline", {}) or {}
-    mini_eval_path = _resolve_stage3_baseline_mini_eval_path(cfg, baseline_cfg)
-    if not mini_eval_path:
-        record["pair_ok"] = False
-        record["pair_reason"] = "stage3_fatal"
-        record["fatal_error"] = (
-            "baseline mini_eval_path is required for stage3 "
-            f"(fidelity={_stage3_fidelity_key(cfg)}; set baseline.mini_eval_path or baseline.mini_eval_paths)"
-        )
-        record["score"] = float("inf")
-        record["elapsed_s"] = float(time.time() - t0)
-        return record
-
+    # Stage3: discovery-style offline mini-train fitness, compared against one or more
+    # precomputed baseline JSONs. Multi-scenario configs aggregate deltas across all
+    # configured scenarios and init checkpoints.
+    scenario_entries = _iter_stage3_scenario_cfgs(cfg)
     try:
-        baseline_payload = _load_baseline_mini_eval(str(mini_eval_path))
-        expected_sig = _build_stage3_eval_signature(cfg)
-        got_sig = baseline_payload.get("eval_signature")
-        if got_sig != expected_sig:
-            record["pair_ok"] = False
-            record["pair_reason"] = "stage3_fatal"
-            record["fatal_error"] = "baseline eval_signature mismatch (re-run scripts/eval_baseline_minitrain.py)"
-            record["expected_eval_signature"] = expected_sig
-            record["got_eval_signature"] = got_sig
-            record["score"] = float("inf")
-            record["elapsed_s"] = float(time.time() - t0)
-            return record
-
-        per_init_base = baseline_payload.get("per_init")
-        if not isinstance(per_init_base, dict):
-            raise ValueError("baseline JSON missing per_init dict")
-        multiseed_baseline = _load_stage3_baseline_multiseed_cache_for_cfg(cfg)
-
-        ckpts = baseline_cfg.get("checkpoints") or []
-        if not isinstance(ckpts, list) or len(ckpts) < 2:
-            raise ValueError("baseline.checkpoints must contain [ckpt_135, ckpt_409]")
-        ckpt_135 = _abs_from_repo_root(str(ckpts[0]))
-        ckpt_409 = _abs_from_repo_root(str(ckpts[1]))
-
-        include_scratch = bool(baseline_cfg.get("include_scratch", True))
-        scratch_init_seed = int(_resolve_training_seed(cfg))
-
-        hf_epochs_cfg = int(cfg.get("hf_epochs", 0) or 0)
-        hf_inst_cfg = int(cfg.get("hf_instances_per_epoch", 0) or 0)
-
-        # Budget: step-mode uses K=f1_steps; epoch-mode uses hf_epochs/hf_instances_per_epoch.
-        K = int(cfg.get("f1_steps", 32) or 32)
-        cfg_hf = dict(cfg)
-        cfg_hf["f1_steps"] = int(K)
-        if not (hf_epochs_cfg > 0 and hf_inst_cfg > 0):
-            cfg_hf["hf_epochs"] = 0
-            cfg_hf["hf_instances_per_epoch"] = 0
-        hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=device_str)
-
-        valid_sizes = [int(v) for v in cfg_hf.get("valid_problem_sizes", list(hf_cfg.valid_problem_sizes))]
-        if not valid_sizes:
-            valid_sizes = [int(hf_cfg.train_problem_size)]
-        valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
-
-        init_specs: List[Tuple[str, str | None]] = []
-        if include_scratch:
-            init_specs.append(("scratch", None))
-        init_specs.append(("ckpt_135", str(ckpt_135)))
-        init_specs.append(("ckpt_409", str(ckpt_409)))
-
         # Route stage3 mini-train logs to a per-pair file (like free_loss_discovery).
         file_handler: logging.Handler | None = None
         fl_logger = logging.getLogger("fitness.free_loss_fidelity")
@@ -7255,129 +7598,246 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 file_handler = None
 
         adapter = _CompiledBuilderAdapter(compiled_g)
-        per_init: Dict[str, Any] = {}
-        deltas: List[float] = []
+        per_scenario: Dict[str, Any] = {}
+        all_deltas: List[float] = []
+        all_per_init: Dict[str, Any] = {}
+        any_error = False
+        baseline_mini_eval_paths: Dict[str, str] = {}
+        baseline_multiseed_cache_paths: Dict[str, str | None] = {}
+        baseline_compare_modes: Dict[str, str] = {}
+        eval_signatures: Dict[str, Any] = {}
 
         fl_logger.info(
-            "Stage3 offline mini-train start gen=%d pair_index=%d K=%d seed=%d valid_sizes=%s baseline_json=%s",
+            "Stage3 offline mini-train start gen=%d pair_index=%d scenarios=%s",
             int(generation),
             int(pair_index),
-            int(K),
-            int(scratch_init_seed),
-            list(valid_sizes),
-            str(mini_eval_path),
+            [str(entry.get("name")) for entry in scenario_entries],
         )
 
-        for init_name, init_ckpt in init_specs:
-            base_entry, base_source = _resolve_stage3_baseline_reference_entry(
-                str(init_name),
-                per_init_base=per_init_base,
-                multiseed_cache=multiseed_baseline,
-            )
-            if not isinstance(base_entry, dict):
-                raise ValueError(f"baseline JSON missing per_init[{init_name}]")
-            try:
-                base_agg = float(base_entry.get("aggregated_objective"))
-            except (TypeError, ValueError):
-                raise ValueError(f"baseline per_init[{init_name}].aggregated_objective is invalid")
-            base_by_size_raw = base_entry.get("val_objective_by_size", {})
-            base_by_size: Dict[int, float] = {}
-            if isinstance(base_by_size_raw, dict):
-                for k, v in base_by_size_raw.items():
-                    try:
-                        base_by_size[int(k)] = float(v)
-                    except Exception:  # noqa: BLE001
-                        continue
-
-            cand_by_size: Dict[int, float] = {}
-            cand_agg: float
-            error: str | None = None
-            try:
-                free_cfg = FreeLossFidelityConfig(
-                    hf=hf_cfg,
-                    f1_steps=int(K),
-                    f2_steps=0,
-                    f3_enabled=False,
-                    init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
-                    init_checkpoint_epoch=None,
+        for scenario_entry in scenario_entries:
+            scenario_name = str(scenario_entry.get("name") or "scenario")
+            scenario_cfg = dict(scenario_entry.get("cfg") or {})
+            baseline_cfg = scenario_cfg.get("baseline", {}) or {}
+            mini_eval_path = _resolve_stage3_baseline_mini_eval_path(scenario_cfg, baseline_cfg)
+            if not mini_eval_path:
+                raise ValueError(
+                    "baseline mini_eval_path is required for stage3 "
+                    f"(scenario={scenario_name}, fidelity={_stage3_fidelity_key(scenario_cfg)})"
                 )
-                fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
-                size_objectives_raw = fitness.get("size_objectives", {})
-                size_objectives: Dict[int, float] = {}
-                if isinstance(size_objectives_raw, dict):
-                    for k, v in size_objectives_raw.items():
+
+            baseline_payload = _load_baseline_mini_eval(str(mini_eval_path))
+            expected_sig = _build_stage3_eval_signature(scenario_cfg)
+            got_sig = baseline_payload.get("eval_signature")
+            if got_sig != expected_sig:
+                raise ValueError(
+                    f"baseline eval_signature mismatch for scenario={scenario_name} "
+                    "(re-run scripts/eval_baseline_minitrain.py)"
+                )
+
+            per_init_base = baseline_payload.get("per_init")
+            if not isinstance(per_init_base, dict):
+                raise ValueError(f"baseline JSON missing per_init dict for scenario={scenario_name}")
+            multiseed_baseline = _load_stage3_baseline_multiseed_cache_for_cfg(scenario_cfg)
+
+            init_specs = _stage3_init_specs_from_baseline_cfg(scenario_cfg)
+            if not init_specs:
+                raise ValueError(f"scenario={scenario_name} has no init sources configured")
+
+            scratch_init_seed = int(_resolve_training_seed(scenario_cfg))
+            hf_epochs_cfg = int(scenario_cfg.get("hf_epochs", 0) or 0)
+            hf_inst_cfg = int(scenario_cfg.get("hf_instances_per_epoch", 0) or 0)
+
+            # Budget: step-mode uses K=f1_steps; epoch-mode uses hf_epochs/hf_instances_per_epoch.
+            K = int(scenario_cfg.get("f1_steps", 32) or 32)
+            cfg_hf = dict(scenario_cfg)
+            cfg_hf["f1_steps"] = int(K)
+            if not (hf_epochs_cfg > 0 and hf_inst_cfg > 0):
+                cfg_hf["hf_epochs"] = 0
+                cfg_hf["hf_instances_per_epoch"] = 0
+            hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=device_str)
+
+            valid_sizes = [int(v) for v in cfg_hf.get("valid_problem_sizes", list(hf_cfg.valid_problem_sizes))]
+            if not valid_sizes:
+                valid_sizes = [int(hf_cfg.train_problem_size)]
+            valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
+
+            scenario_per_init: Dict[str, Any] = {}
+            scenario_deltas: List[float] = []
+            scenario_any_error = False
+
+            fl_logger.info(
+                "Stage3 scenario start gen=%d pair_index=%d scenario=%s K=%d seed=%d valid_sizes=%s baseline_json=%s",
+                int(generation),
+                int(pair_index),
+                str(scenario_name),
+                int(K),
+                int(scratch_init_seed),
+                list(valid_sizes),
+                str(mini_eval_path),
+            )
+
+            for init_name, init_ckpt in init_specs:
+                base_entry, base_source = _resolve_stage3_baseline_reference_entry(
+                    str(init_name),
+                    per_init_base=per_init_base,
+                    multiseed_cache=multiseed_baseline,
+                )
+                if not isinstance(base_entry, dict):
+                    raise ValueError(f"baseline JSON missing per_init[{init_name}] for scenario={scenario_name}")
+                try:
+                    base_agg = float(base_entry.get("aggregated_objective"))
+                except (TypeError, ValueError):
+                    raise ValueError(
+                        f"baseline per_init[{init_name}].aggregated_objective is invalid for scenario={scenario_name}"
+                    )
+                base_by_size_raw = base_entry.get("val_objective_by_size", {})
+                base_by_size: Dict[int, float] = {}
+                if isinstance(base_by_size_raw, dict):
+                    for k, v in base_by_size_raw.items():
                         try:
-                            size_objectives[int(k)] = float(v)
+                            base_by_size[int(k)] = float(v)
                         except Exception:  # noqa: BLE001
                             continue
-                for sz in valid_sizes:
-                    if int(sz) not in size_objectives:
-                        raise RuntimeError(f"Missing fitness.size_objectives[{int(sz)}]")
-                    cand_by_size[int(sz)] = float(size_objectives[int(sz)])
-                cand_agg = float(sum(float(cand_by_size[int(sz)]) for sz in valid_sizes) / float(len(valid_sizes)))
-                if not math.isfinite(cand_agg):
-                    raise RuntimeError("Non-finite candidate aggregated objective")
-            except Exception as exc:  # noqa: BLE001
-                error = f"{type(exc).__name__}: {exc}"
-                try:
-                    fl_logger.exception(
-                        "Stage3 mini-train FAILED init=%s g_id=%s f_id=%s device=%s",
-                        str(init_name),
-                        str(record.get("g_id")),
-                        str(record.get("f_id")),
-                        str(device_str),
-                    )
-                except Exception:  # noqa: BLE001
-                    pass
-                cand_by_size = {int(sz): 1.0e9 for sz in valid_sizes}
-                cand_agg = 1.0e9
 
-            delta = float(cand_agg) - float(base_agg)
-            deltas.append(float(delta))
-            per_init[str(init_name)] = {
-                "obj_cand_by_size": {str(int(k)): float(v) for k, v in cand_by_size.items()},
-                "obj_base_by_size": {str(int(k)): float(base_by_size.get(int(k), float("nan"))) for k in valid_sizes},
-                "obj_cand": float(cand_agg),
-                "obj_base": float(base_agg),
-                "delta": float(delta),
-                "baseline_source": str(base_source),
-                "baseline_seed": (
-                    int(base_entry.get("seed"))
-                    if str(base_source) == "multiseed_best" and base_entry.get("seed") is not None
-                    else None
-                ),
-                "init_checkpoint": str(init_ckpt) if init_ckpt else None,
-                "error": error,
+                cand_by_size: Dict[int, float] = {}
+                cand_agg: float
+                error: str | None = None
+                try:
+                    free_cfg = FreeLossFidelityConfig(
+                        hf=hf_cfg,
+                        f1_steps=int(K),
+                        f2_steps=0,
+                        f3_enabled=False,
+                        init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
+                        init_checkpoint_epoch=None,
+                    )
+                    fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+                    size_objectives_raw = fitness.get("size_objectives", {})
+                    size_objectives: Dict[int, float] = {}
+                    if isinstance(size_objectives_raw, dict):
+                        for k, v in size_objectives_raw.items():
+                            try:
+                                size_objectives[int(k)] = float(v)
+                            except Exception:  # noqa: BLE001
+                                continue
+                    for sz in valid_sizes:
+                        if int(sz) not in size_objectives:
+                            raise RuntimeError(f"Missing fitness.size_objectives[{int(sz)}]")
+                        cand_by_size[int(sz)] = float(size_objectives[int(sz)])
+                    cand_agg = float(sum(float(cand_by_size[int(sz)]) for sz in valid_sizes) / float(len(valid_sizes)))
+                    if not math.isfinite(cand_agg):
+                        raise RuntimeError("Non-finite candidate aggregated objective")
+                except Exception as exc:  # noqa: BLE001
+                    error = f"{type(exc).__name__}: {exc}"
+                    try:
+                        fl_logger.exception(
+                            "Stage3 mini-train FAILED scenario=%s init=%s g_id=%s f_id=%s device=%s",
+                            str(scenario_name),
+                            str(init_name),
+                            str(record.get("g_id")),
+                            str(record.get("f_id")),
+                            str(device_str),
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                    cand_by_size = {int(sz): 1.0e9 for sz in valid_sizes}
+                    cand_agg = 1.0e9
+
+                delta = float(cand_agg) - float(base_agg)
+                scenario_deltas.append(float(delta))
+                scenario_any_error = scenario_any_error or bool(error)
+                init_record = {
+                    "obj_cand_by_size": {str(int(k)): float(v) for k, v in cand_by_size.items()},
+                    "obj_base_by_size": {str(int(k)): float(base_by_size.get(int(k), float("nan"))) for k in valid_sizes},
+                    "obj_cand": float(cand_agg),
+                    "obj_base": float(base_agg),
+                    "delta": float(delta),
+                    "baseline_source": str(base_source),
+                    "baseline_seed": (
+                        int(base_entry.get("seed"))
+                        if str(base_source) == "multiseed_best" and base_entry.get("seed") is not None
+                        else None
+                    ),
+                    "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+                    "error": error,
+                }
+                scenario_per_init[str(init_name)] = init_record
+                flat_init_name = (
+                    str(init_name)
+                    if len(scenario_entries) == 1
+                    else f"{scenario_name}:{str(init_name)}"
+                )
+                all_per_init[str(flat_init_name)] = dict(init_record)
+
+            scenario_delta_mean = (
+                float(sum(scenario_deltas) / float(len(scenario_deltas))) if scenario_deltas else float("inf")
+            )
+            scenario_delta_worst = float(max(scenario_deltas)) if scenario_deltas else float("inf")
+
+            any_error = any_error or bool(scenario_any_error)
+            all_deltas.extend(float(d) for d in scenario_deltas)
+            baseline_mini_eval_paths[str(scenario_name)] = str(mini_eval_path)
+            baseline_multiseed_cache_paths[str(scenario_name)] = (
+                str(multiseed_baseline.get("cache_path"))
+                if isinstance(multiseed_baseline, dict) and multiseed_baseline.get("cache_path")
+                else None
+            )
+            baseline_compare_modes[str(scenario_name)] = (
+                "multiseed_best"
+                if isinstance(multiseed_baseline, dict) and multiseed_baseline.get("best_per_init")
+                else "mini_eval"
+            )
+            eval_signatures[str(scenario_name)] = expected_sig
+            per_scenario[str(scenario_name)] = {
+                "scenario_name": str(scenario_name),
+                "problem": str(scenario_cfg.get("problem") or scenario_cfg.get("env_name") or "tsp"),
+                "env_name": str(scenario_cfg.get("env_name") or scenario_cfg.get("problem") or "tsp"),
+                "train_problem_size": int(scenario_cfg.get("train_problem_size", 20) or 20),
+                "valid_problem_sizes": list(valid_sizes),
+                "baseline_mini_eval_path": str(mini_eval_path),
+                "baseline_multiseed_cache_path": baseline_multiseed_cache_paths[str(scenario_name)],
+                "baseline_compare_mode": baseline_compare_modes[str(scenario_name)],
+                "eval_signature": expected_sig,
+                "K": int(K),
+                "per_init": scenario_per_init,
+                "delta_mean": float(scenario_delta_mean),
+                "delta_worst": float(scenario_delta_worst),
             }
 
-        delta_mean = float(sum(deltas) / float(len(deltas))) if deltas else float("inf")
-        delta_worst = float(max(deltas)) if deltas else float("inf")
-        any_error = any(isinstance(v, dict) and v.get("error") for v in per_init.values())
+        delta_mean = float(sum(all_deltas) / float(len(all_deltas))) if all_deltas else float("inf")
+        delta_worst = float(max(all_deltas)) if all_deltas else float("inf")
 
         record["pair_ok"] = not any_error
         record["pair_reason"] = "ok_stage3_offline_minitrain" if not any_error else "stage3_runtime_error"
         record["fitness"] = {
-            "per_init": per_init,
+            "per_init": all_per_init,
+            "per_scenario": per_scenario,
+            "scenario_names": list(per_scenario.keys()),
             "delta_mean": float(delta_mean),
             "delta_worst": float(delta_worst),
-            "baseline_mini_eval_path": str(mini_eval_path),
+            "baseline_mini_eval_path": (
+                next(iter(baseline_mini_eval_paths.values())) if len(baseline_mini_eval_paths) == 1 else None
+            ),
+            "baseline_mini_eval_paths": baseline_mini_eval_paths,
             "baseline_multiseed_cache_path": (
-                str(multiseed_baseline.get("cache_path"))
-                if isinstance(multiseed_baseline, dict) and multiseed_baseline.get("cache_path")
+                next(iter(baseline_multiseed_cache_paths.values()))
+                if len(baseline_multiseed_cache_paths) == 1
                 else None
             ),
+            "baseline_multiseed_cache_paths": baseline_multiseed_cache_paths,
             "baseline_compare_mode": (
-                "multiseed_best"
-                if isinstance(multiseed_baseline, dict) and multiseed_baseline.get("best_per_init")
-                else "mini_eval"
+                next(iter(baseline_compare_modes.values()))
+                if len(set(baseline_compare_modes.values())) == 1 and baseline_compare_modes
+                else "mixed"
             ),
-            "eval_signature": expected_sig,
-            "valid_problem_sizes": list(valid_sizes),
-            "K": int(K),
+            "baseline_compare_modes": baseline_compare_modes,
+            "eval_signature": (
+                next(iter(eval_signatures.values())) if len(eval_signatures) == 1 else eval_signatures
+            ),
         }
         record["score"] = float("inf") if any_error else float(delta_mean)
         record["better_than_baseline_mean"] = bool(delta_mean < 0.0)
-        record["better_than_baseline_strict"] = bool(deltas and all(float(d) < 0.0 for d in deltas))
+        record["better_than_baseline_strict"] = bool(all_deltas and all(float(d) < 0.0 for d in all_deltas))
         fl_logger.info(
             "Stage3 offline mini-train DONE gen=%d pair_index=%d score=%s any_error=%s",
             int(generation),
@@ -7591,6 +8051,13 @@ def run_pref_loss_coevo(
             0,
         ),
     )
+    alternating_start_phase = str(alternating_schedule_raw.get("start_phase", "loss") or "loss").strip().lower()
+    if alternating_start_phase not in {"loss", "builder"}:
+        LOGGER.warning(
+            "Invalid alternating_schedule.start_phase=%r; falling back to 'loss'.",
+            alternating_schedule_raw.get("start_phase"),
+        )
+        alternating_start_phase = "loss"
     alternating_rounds = max(0, _safe_int(alternating_schedule_raw.get("rounds", 0), 0))
     alternating_schedule_enabled = bool(alternating_loss_generations > 0 and alternating_builder_generations > 0)
 
@@ -7757,19 +8224,30 @@ def run_pref_loss_coevo(
                 LOGGER.warning("Failed to apply calibrated improve_eps (ignored): %s", str(exc))
 
     if bool(eval_stages.get("stage3_high_fidelity", True)):
-        baseline_prepare_cfgs: List[Mapping[str, Any]] = [cfg_yaml]
+        baseline_prepare_cfgs: List[Tuple[str, Mapping[str, Any]]] = []
+        scenario_entries = _iter_stage3_scenario_cfgs(cfg_yaml)
         if bool(stage3_multifidelity_cfg.get("enabled")) and stage3_multifidelity_cfg.get("rounds"):
             rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
             rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
-            baseline_prepare_cfgs = [_apply_stage3_round_overrides(cfg_yaml, rc) for rc in rounds] or [cfg_yaml]
+            for scenario_entry in scenario_entries:
+                scenario_name = str(scenario_entry.get("name") or "scenario")
+                scenario_cfg = dict(scenario_entry.get("cfg") or {})
+                for rc in rounds:
+                    baseline_prepare_cfgs.append((scenario_name, _apply_stage3_round_overrides(scenario_cfg, rc)))
+        else:
+            baseline_prepare_cfgs = [
+                (str(scenario_entry.get("name") or "scenario"), dict(scenario_entry.get("cfg") or {}))
+                for scenario_entry in scenario_entries
+            ]
 
         baseline_prepare_summaries: List[Dict[str, Any]] = []
         seen_stage3_keys: set[str] = set()
-        for cfg_stage3 in baseline_prepare_cfgs:
+        for scenario_name, cfg_stage3 in baseline_prepare_cfgs:
             fidelity_key = _stage3_fidelity_key(cfg_stage3)
-            if str(fidelity_key) in seen_stage3_keys:
+            cache_key = f"{scenario_name}::{str(fidelity_key)}"
+            if cache_key in seen_stage3_keys:
                 continue
-            seen_stage3_keys.add(str(fidelity_key))
+            seen_stage3_keys.add(cache_key)
             prepared = _ensure_stage3_baseline_mini_eval(
                 cfg_yaml=cfg_stage3,
                 operator_whitelist=operator_whitelist,
@@ -7777,6 +8255,7 @@ def run_pref_loss_coevo(
             )
             baseline_prepare_summaries.append(
                 {
+                    "scenario": str(scenario_name),
                     "fidelity": str(fidelity_key),
                     "path": str(prepared.get("path")),
                     "cached": bool(prepared.get("cached", False)),
@@ -7784,7 +8263,8 @@ def run_pref_loss_coevo(
                 }
             )
             LOGGER.info(
-                "Stage3 baseline mini-eval prepared fidelity=%s path=%s cached=%s regenerated=%s",
+                "Stage3 baseline mini-eval prepared scenario=%s fidelity=%s path=%s cached=%s regenerated=%s",
+                str(scenario_name),
                 str(fidelity_key),
                 str(prepared.get("path")),
                 str(bool(prepared.get("cached", False))),
@@ -7800,22 +8280,33 @@ def run_pref_loss_coevo(
                 pass
     stage3_multiseed_cfg = _stage3_multiseed_compare_cfg(cfg_yaml)
     if bool(eval_stages.get("stage3_high_fidelity", True)) and bool(stage3_multiseed_cfg.get("enabled", False)):
-        preload_cfgs: List[Mapping[str, Any]] = [cfg_yaml]
+        preload_cfgs: List[Tuple[str, Mapping[str, Any]]] = []
+        scenario_entries = _iter_stage3_scenario_cfgs(cfg_yaml)
         if bool(stage3_multifidelity_cfg.get("enabled")) and stage3_multifidelity_cfg.get("rounds"):
             rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
             rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
-            preload_cfgs = [_apply_stage3_round_overrides(cfg_yaml, rc) for rc in rounds] or [cfg_yaml]
+            for scenario_entry in scenario_entries:
+                scenario_name = str(scenario_entry.get("name") or "scenario")
+                scenario_cfg = dict(scenario_entry.get("cfg") or {})
+                for rc in rounds:
+                    preload_cfgs.append((scenario_name, _apply_stage3_round_overrides(scenario_cfg, rc)))
+        else:
+            preload_cfgs = [
+                (str(scenario_entry.get("name") or "scenario"), dict(scenario_entry.get("cfg") or {}))
+                for scenario_entry in scenario_entries
+            ]
 
         seen_preload_keys: set[str] = set()
         preload_summaries: List[Dict[str, Any]] = []
-        for cfg_stage3 in preload_cfgs:
+        for scenario_name, cfg_stage3 in preload_cfgs:
             try:
                 fidelity_key = _stage3_fidelity_key(cfg_stage3)
             except Exception:  # noqa: BLE001
                 fidelity_key = "unknown"
-            if str(fidelity_key) in seen_preload_keys:
+            cache_key = f"{scenario_name}::{str(fidelity_key)}"
+            if cache_key in seen_preload_keys:
                 continue
-            seen_preload_keys.add(str(fidelity_key))
+            seen_preload_keys.add(cache_key)
             try:
                 preload_payload = _ensure_stage3_baseline_multiseed_cache(
                     cfg_yaml=cfg_stage3,
@@ -7828,6 +8319,7 @@ def run_pref_loss_coevo(
                 if isinstance(preload_payload, dict):
                     preload_summaries.append(
                         {
+                            "scenario": str(scenario_name),
                             "fidelity": str(preload_payload.get("fidelity", fidelity_key)),
                             "cache_path": str(preload_payload.get("cache_path")),
                             "baseline_mini_eval_path": str(preload_payload.get("baseline_mini_eval_path")),
@@ -7837,7 +8329,8 @@ def run_pref_loss_coevo(
                     )
             except Exception as exc:  # noqa: BLE001
                 LOGGER.warning(
-                    "Failed to prepare stage3 multiseed baseline cache for fidelity=%s: %s",
+                    "Failed to prepare stage3 multiseed baseline cache for scenario=%s fidelity=%s: %s",
+                    str(scenario_name),
                     str(fidelity_key),
                     str(exc),
                 )
@@ -7857,7 +8350,8 @@ def run_pref_loss_coevo(
         LOGGER.warning("search_mode=coevo is supported but not encouraged; prefer search_mode=alternating.")
     if search_mode == "alternating" and alternating_schedule_enabled:
         LOGGER.info(
-            "Alternating schedule enabled: loss_generations=%d builder_generations=%d final_loss_generations=%d rounds=%s",
+            "Alternating schedule enabled: start_phase=%s loss_generations=%d builder_generations=%d final_loss_generations=%d rounds=%s",
+            str(alternating_start_phase),
             int(alternating_loss_generations),
             int(alternating_builder_generations),
             int(alternating_final_loss_generations),
@@ -8102,6 +8596,11 @@ def run_pref_loss_coevo(
     best_builder_cost: Dict[str, Any] | None = None
     if resume_state and isinstance(resume_state.get("best_builder_cost"), dict):
         best_builder_cost = dict(resume_state.get("best_builder_cost", {}))
+    builder_cost_archive: Dict[str, Dict[str, Any]] = {}
+    if resume_state and isinstance(resume_state.get("builder_cost_archive"), Mapping):
+        for gid, raw in dict(resume_state.get("builder_cost_archive") or {}).items():
+            if isinstance(raw, Mapping) and str(gid):
+                builder_cost_archive[str(gid)] = dict(raw)
     pair_score_history_map: Dict[str, List[Dict[str, Any]]] = {}
     if resume_state and isinstance(resume_state.get("pair_score_history_map"), Mapping):
         for key, value in dict(resume_state.get("pair_score_history_map", {})).items():
@@ -8148,6 +8647,7 @@ def run_pref_loss_coevo(
         "search_mode": str(search_mode),
         "alternating_schedule": {
             "enabled": bool(alternating_schedule_enabled),
+            "start_phase": str(alternating_start_phase),
             "loss_generations": int(alternating_loss_generations),
             "builder_generations": int(alternating_builder_generations),
             "final_loss_generations": int(alternating_final_loss_generations),
@@ -8378,6 +8878,7 @@ def run_pref_loss_coevo(
             "search_mode": str(search_mode),
             "alternating_schedule": {
                 "enabled": bool(alternating_schedule_enabled),
+                "start_phase": str(alternating_start_phase),
                 "loss_generations": int(alternating_loss_generations),
                 "builder_generations": int(alternating_builder_generations),
                 "final_loss_generations": int(alternating_final_loss_generations),
@@ -8390,6 +8891,7 @@ def run_pref_loss_coevo(
             "last_generation": int(last_generation),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
             "best_builder_cost": dict(best_builder_cost) if isinstance(best_builder_cost, dict) else None,
+            "builder_cost_archive": dict(builder_cost_archive),
             "best_pair_ids": (
                 {
                     "builder_id": str(best_so_far.get("builder_id")),
@@ -8418,6 +8920,7 @@ def run_pref_loss_coevo(
             "search_mode": str(search_mode),
             "alternating_schedule": {
                 "enabled": bool(alternating_schedule_enabled),
+                "start_phase": str(alternating_start_phase),
                 "loss_generations": int(alternating_loss_generations),
                 "builder_generations": int(alternating_builder_generations),
                 "final_loss_generations": int(alternating_final_loss_generations),
@@ -8429,6 +8932,7 @@ def run_pref_loss_coevo(
             "eval_stages": dict(eval_stages),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
             "best_builder_cost": dict(best_builder_cost) if isinstance(best_builder_cost, dict) else None,
+            "builder_cost_archive": dict(builder_cost_archive),
             "best_score": (float(best_so_far.get("score")) if isinstance(best_so_far, dict) else None),
             "best_pair_ids": (
                 {
@@ -8496,6 +9000,7 @@ def run_pref_loss_coevo(
             alternating_builder_generations=int(alternating_builder_generations),
             alternating_rounds=int(alternating_rounds),
             alternating_final_loss_generations=int(alternating_final_loss_generations),
+            alternating_start_phase=str(alternating_start_phase),
         )
         generation_phase_label = str(alternating_phase_hint) if str(search_mode) == "alternating" else "coevo"
         runtime_trace.heartbeat(
@@ -10643,10 +11148,6 @@ def run_pref_loss_coevo(
                 rounds_raw = stage3_multifidelity_cfg.get("rounds") or []
                 rounds = [dict(r) for r in rounds_raw if isinstance(r, dict)]
                 if len(rounds) >= 2:
-                    baseline_cfg = cfg_yaml.get("baseline", {}) or {}
-                    if not isinstance(baseline_cfg, dict):
-                        baseline_cfg = {}
-
                     base_fidelity = _stage3_fidelity_key(cfg_yaml)
                     base_idx: int | None = None
                     for i, rc in enumerate(rounds):
@@ -10662,10 +11163,16 @@ def run_pref_loss_coevo(
                         base_idx = 0
 
                     missing: List[str] = []
-                    for rc in rounds[base_idx:]:
-                        cfg_r = _apply_stage3_round_overrides(cfg_yaml, rc)
-                        if not _resolve_stage3_baseline_mini_eval_path(cfg_r, baseline_cfg):
-                            missing.append(str(rc.get("name") or _stage3_fidelity_key(cfg_r)))
+                    for scenario_entry in _iter_stage3_scenario_cfgs(cfg_yaml):
+                        scenario_name = str(scenario_entry.get("name") or "scenario")
+                        scenario_cfg = dict(scenario_entry.get("cfg") or {})
+                        for rc in rounds[base_idx:]:
+                            cfg_r = _apply_stage3_round_overrides(scenario_cfg, rc)
+                            baseline_cfg_r = cfg_r.get("baseline", {}) or {}
+                            if not _resolve_stage3_baseline_mini_eval_path(cfg_r, baseline_cfg_r):
+                                missing.append(
+                                    f"{scenario_name}:{str(rc.get('name') or _stage3_fidelity_key(cfg_r))}"
+                                )
                     if missing:
                         raise RuntimeError(
                             "stage3_multifidelity enabled but missing baseline.mini_eval_paths entries for: "
@@ -11332,45 +11839,74 @@ def run_pref_loss_coevo(
                 metric_mode=metric_mode,
                 slack=improve_eps,
             )
-            builder_candidate = (
-                dict(builder_constraint_state.get("selected"))
-                if isinstance(builder_constraint_state, Mapping) and isinstance(builder_constraint_state.get("selected"), Mapping)
-                else None
-            )
-            if builder_candidate is not None:
-                incumbent_cost = None
-                if isinstance(best_builder_cost, dict):
-                    try:
-                        incumbent_cost = float(best_builder_cost.get("cost"))
-                    except (TypeError, ValueError):
-                        incumbent_cost = None
-                candidate_cost = float(builder_candidate.get("cost"))
-                should_update_builder_cost = (
-                    incumbent_cost is None or candidate_cost < float(incumbent_cost)
-                )
-                if should_update_builder_cost:
-                    best_builder_cost = {
-                        "builder_id": str(builder_candidate.get("builder_id")),
-                        "cost": float(candidate_cost),
-                        "perf": float(builder_candidate.get("perf")),
-                        "metric_mode": str(metric_mode),
-                        "slack": float(improve_eps),
-                        "best_perf": builder_candidate.get("best_perf"),
-                        "threshold": builder_candidate.get("threshold"),
-                        "generation": int(gen),
-                        "phase": str(generation_phase_label),
-                        "perf_ref": dict(builder_candidate.get("perf_ref") or {}),
-                    }
-                    LOGGER.info(
-                        "NEW BEST_BUILDER_COST: builder=%s cost=%s perf=%s best_perf=%s slack=%s gen=%d phase=%s",
-                        best_builder_cost.get("builder_id"),
-                        best_builder_cost.get("cost"),
-                        best_builder_cost.get("perf"),
-                        best_builder_cost.get("best_perf"),
-                        best_builder_cost.get("slack"),
-                        int(gen),
-                        str(generation_phase_label),
+            if isinstance(builder_constraint_state, Mapping):
+                for gid, stat in dict(builder_constraint_state.get("builders") or {}).items():
+                    if not isinstance(stat, Mapping) or not str(gid):
+                        continue
+                    stat_copy = dict(stat)
+                    stat_copy["generation"] = int(gen)
+                    stat_copy["phase"] = str(generation_phase_label)
+                    builder_cost_archive[str(gid)] = _merge_builder_archive_entry(
+                        builder_cost_archive.get(str(gid)),
+                        stat_copy,
+                        metric_mode=metric_mode,
                     )
+
+                global_builder_selection = _select_best_builder_cost_from_archive(
+                    builder_archive=builder_cost_archive,
+                    metric_mode=metric_mode,
+                    slack=improve_eps,
+                )
+                builder_candidate = (
+                    dict(global_builder_selection.get("selected"))
+                    if isinstance(global_builder_selection, Mapping) and isinstance(global_builder_selection.get("selected"), Mapping)
+                    else None
+                )
+                if builder_candidate is not None:
+                    incumbent_id = str(best_builder_cost.get("builder_id")) if isinstance(best_builder_cost, dict) else None
+                    candidate_id = str(builder_candidate.get("builder_id"))
+                    incumbent_cost = None
+                    candidate_cost = None
+                    if isinstance(best_builder_cost, dict):
+                        try:
+                            incumbent_cost = float(best_builder_cost.get("cost"))
+                        except (TypeError, ValueError):
+                            incumbent_cost = None
+                    try:
+                        candidate_cost = float(builder_candidate.get("cost"))
+                    except (TypeError, ValueError):
+                        candidate_cost = None
+                    should_update_builder_cost = (
+                        incumbent_id != candidate_id
+                        or incumbent_cost is None
+                        or candidate_cost is None
+                        or abs(float(candidate_cost) - float(incumbent_cost)) > 1e-12
+                    )
+                    if should_update_builder_cost:
+                        best_builder_cost = {
+                            "builder_id": str(builder_candidate.get("builder_id")),
+                            "cost": float(builder_candidate.get("cost")),
+                            "perf": float(builder_candidate.get("perf")),
+                            "metric_mode": str(metric_mode),
+                            "slack": float(improve_eps),
+                            "best_perf": global_builder_selection.get("best_perf"),
+                            "best_perf_anchor": global_builder_selection.get("best_perf"),
+                            "threshold": global_builder_selection.get("threshold"),
+                            "generation": int(builder_candidate.get("generation", gen) or gen),
+                            "phase": str(builder_candidate.get("phase", generation_phase_label)),
+                            "perf_ref": dict(builder_candidate.get("perf_ref") or {}),
+                            "feasible_count": int(len(global_builder_selection.get("feasible") or [])),
+                        }
+                        LOGGER.info(
+                            "NEW BEST_BUILDER_COST: builder=%s cost=%s perf=%s best_perf_anchor=%s slack=%s gen=%d phase=%s",
+                            best_builder_cost.get("builder_id"),
+                            best_builder_cost.get("cost"),
+                            best_builder_cost.get("perf"),
+                            best_builder_cost.get("best_perf_anchor"),
+                            best_builder_cost.get("slack"),
+                            int(best_builder_cost.get("generation", gen) or gen),
+                            str(best_builder_cost.get("phase", generation_phase_label)),
+                        )
 
         def _candidate_descriptor(cid: str, *, kind: str) -> Dict[str, Any]:
             xs: List[float] = []
@@ -11562,10 +12098,12 @@ def run_pref_loss_coevo(
         if isinstance(best_so_far, dict):
             gid_best = str(best_so_far.get("builder_id"))
             fid_best = str(best_so_far.get("loss_id"))
-            for rec in pair_records:
-                if str(rec.get("g_id")) == gid_best and str(rec.get("f_id")) == fid_best:
-                    best_pair = dict(rec)
-                    break
+            best_pair = _resolve_best_pair_record(
+                best_so_far=best_so_far,
+                pair_records=pair_records,
+                pair_cache_records=list(caches.pair_cache.values()),
+                metric_mode=metric_mode,
+            )
             if best_pair is None:
                 best_pair = {
                     "g_id": gid_best,

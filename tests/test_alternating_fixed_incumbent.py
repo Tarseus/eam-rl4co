@@ -101,6 +101,7 @@ def test_alternating_schedule_supports_final_loss_tail(monkeypatch):
         alternating_builder_generations=3,
         alternating_rounds=1,
         alternating_final_loss_generations=2,
+        alternating_start_phase="loss",
     )
     phase3 = loop._resolve_alternating_phase_and_budgets(
         search_mode="alternating",
@@ -113,6 +114,7 @@ def test_alternating_schedule_supports_final_loss_tail(monkeypatch):
         alternating_builder_generations=3,
         alternating_rounds=1,
         alternating_final_loss_generations=2,
+        alternating_start_phase="loss",
     )
     phase5 = loop._resolve_alternating_phase_and_budgets(
         search_mode="alternating",
@@ -125,6 +127,7 @@ def test_alternating_schedule_supports_final_loss_tail(monkeypatch):
         alternating_builder_generations=3,
         alternating_rounds=1,
         alternating_final_loss_generations=2,
+        alternating_start_phase="loss",
     )
     phase7 = loop._resolve_alternating_phase_and_budgets(
         search_mode="alternating",
@@ -137,6 +140,7 @@ def test_alternating_schedule_supports_final_loss_tail(monkeypatch):
         alternating_builder_generations=3,
         alternating_rounds=1,
         alternating_final_loss_generations=2,
+        alternating_start_phase="loss",
     )
 
     assert phase0[0] == "loss"
@@ -144,3 +148,55 @@ def test_alternating_schedule_supports_final_loss_tail(monkeypatch):
     assert phase5[0] == "loss"
     assert phase5[1] == 8 and phase5[2] == 0
     assert phase7[0] == "none"
+
+
+def test_alternating_schedule_supports_builder_first(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    phase0 = loop._resolve_alternating_phase_and_budgets(
+        search_mode="alternating",
+        generation=0,
+        pairing_budget=8,
+        pairing_budget_loss=4,
+        pairing_budget_builder=4,
+        alternating_schedule_enabled=True,
+        alternating_loss_generations=2,
+        alternating_builder_generations=3,
+        alternating_rounds=1,
+        alternating_final_loss_generations=2,
+        alternating_start_phase="builder",
+    )
+    phase2 = loop._resolve_alternating_phase_and_budgets(
+        search_mode="alternating",
+        generation=2,
+        pairing_budget=8,
+        pairing_budget_loss=4,
+        pairing_budget_builder=4,
+        alternating_schedule_enabled=True,
+        alternating_loss_generations=2,
+        alternating_builder_generations=3,
+        alternating_rounds=1,
+        alternating_final_loss_generations=2,
+        alternating_start_phase="builder",
+    )
+    phase5 = loop._resolve_alternating_phase_and_budgets(
+        search_mode="alternating",
+        generation=5,
+        pairing_budget=8,
+        pairing_budget_loss=4,
+        pairing_budget_builder=4,
+        alternating_schedule_enabled=True,
+        alternating_loss_generations=2,
+        alternating_builder_generations=3,
+        alternating_rounds=1,
+        alternating_final_loss_generations=2,
+        alternating_start_phase="builder",
+    )
+
+    assert phase0[0] == "builder"
+    assert phase2[0] == "builder"
+    assert phase5[0] == "loss"
+    assert phase5[1] == 8 and phase5[2] == 0

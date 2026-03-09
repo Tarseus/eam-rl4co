@@ -81,7 +81,13 @@ class OfflineSplitGenerator:
     - Data is always loaded to CPU; callers can move the returned TensorDict to GPU.
     """
 
-    def __init__(self, train_path: str, val_path: str, device: str = "cpu") -> None:
+    def __init__(
+        self,
+        train_path: str,
+        val_path: str,
+        device: str = "cpu",
+        extra_attrs: Mapping[str, Any] | None = None,
+    ) -> None:
         self.train_path = str(train_path)
         self.val_path = str(val_path)
         self.device = str(device or "cpu")
@@ -92,6 +98,12 @@ class OfflineSplitGenerator:
         self.train_cursor = 0
         self.val_cursor = 0
         self._split = "train"
+
+        if isinstance(extra_attrs, Mapping):
+            for key, value in dict(extra_attrs).items():
+                if not key or str(key).startswith("_"):
+                    continue
+                setattr(self, str(key), value)
 
     def set_split(self, phase: str) -> None:
         p = str(phase or "train").strip().lower()
@@ -702,10 +714,17 @@ def _rl4co_build_env(
                 "Offline generator requires both offline_train_path and offline_val_path "
                 f"(got train={offline_train_path!r} val={offline_val_path!r})"
             )
+        original_generator = getattr(env, "generator", None)
+        preserved_generator_attrs: Dict[str, Any] = {}
+        if original_generator is not None:
+            for attr_name in ("vehicle_capacity",):
+                if hasattr(original_generator, attr_name):
+                    preserved_generator_attrs[str(attr_name)] = getattr(original_generator, attr_name)
         env.generator = OfflineSplitGenerator(
             train_path=str(offline_train_path),
             val_path=str(offline_val_path),
             device="cpu",
+            extra_attrs=preserved_generator_attrs,
         )
 
     return env
@@ -715,6 +734,7 @@ def _rl4co_build_policy(cfg: HighFidelityConfig, env):
     from rl4co.models.zoo.am import AttentionModelPolicy
     from rl4co.models.zoo.l2d.policy import L2DPolicy
     from rl4co.models.zoo.matnet.model import select_matnet_policy
+    from rl4co.models.zoo.pomo.po4cops_cvrp_policy import PO4COPsCVRPPolicy
     from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
 
     env_name = _rl4co_env_name(cfg)
@@ -737,7 +757,14 @@ def _rl4co_build_policy(cfg: HighFidelityConfig, env):
                 "env_name": env.name,
             }
             policy_kwargs_with_defaults.update(policy_kwargs)
-            policy = PO4COPsTSPPolicy(**policy_kwargs_with_defaults)
+            if env.name == "tsp":
+                policy = PO4COPsTSPPolicy(**policy_kwargs_with_defaults)
+            elif env.name == "cvrp":
+                policy = PO4COPsCVRPPolicy(**policy_kwargs_with_defaults)
+            else:
+                raise ValueError(
+                    f"po4cops_compat currently supports only tsp/cvrp, got: {env.name}"
+                )
         else:
             policy_defaults = {
                 "num_encoder_layers": 6,
