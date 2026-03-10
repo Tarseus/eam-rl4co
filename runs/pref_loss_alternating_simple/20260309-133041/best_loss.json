@@ -1,0 +1,83 @@
+{
+  "id": "f_ref",
+  "ir": {
+    "name": "ref_logsigmoid",
+    "intuition": "Reference loss: negative logsigmoid on log-prob winner-loser gap.",
+    "pseudocode": "loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
+    "hyperparams": {
+      "alpha": 1.0,
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "logprob_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "mean",
+      "constraint_family": "weight_optional"
+    },
+    "operators_used": [
+      "logsigmoid"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "cost_a",
+        "cost_b",
+        "log_prob_w",
+        "log_prob_l",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    logit = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n    w = batch.get('weight')\n    loss = -ops.logsigmoid(logit)\n    if w is not None:\n        loss = loss * w\n    return loss.mean()\n",
+    "theoretical_basis": ""
+  },
+  "stage": "high_fidelity",
+  "stage_final": "high_fidelity",
+  "score": -0.027303417523701985,
+  "final_score": -0.027303417523701985,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage3_high_fidelity"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled"
+  },
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "compare_target": "incumbent",
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "reference_score": -0.026784658432006836,
+  "better_than_incumbent": true,
+  "best_pair_generation": 3,
+  "best_pair_phase": "builder",
+  "best_pair_last_phase_label": "baseline",
+  "best_pair_last_phase_reference_score": Infinity,
+  "score_history": [
+    {
+      "generation": 3,
+      "pair_index": 9,
+      "phase": "builder",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.027303417523701985,
+      "eval_budget_signature": "e0ab3ab70b1ebd49",
+      "reference_score": -0.026784658432006836
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      -0.027303417523701985
+    ],
+    "best": -0.027303417523701985,
+    "worst": -0.027303417523701985,
+    "mean": -0.027303417523701985,
+    "latest": -0.027303417523701985
+  }
+}

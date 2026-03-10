@@ -1,0 +1,1119 @@
+{
+  "generation": 3,
+  "pair_index": 9,
+  "g_id": "g003_004_039d726d",
+  "f_id": "f_ref",
+  "g_ir": {
+    "name": "objective_difference_with_tiezone_clamp",
+    "intuition": "Creates pairwise preferences by comparing objectives and applies a tie-zone constraint to filter out negligible differences, ensuring meaningful pairs with clamped weights.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "Euclidean",
+      "cap_family": "pairwise",
+      "weight_family": "clamped_binary",
+      "constraint_family": "tiezone_filter"
+    },
+    "operators_used": [
+      "compute_difference",
+      "mask_better_pairs",
+      "clamp",
+      "tiezone_filter"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    diff = objective[:, :, None] - objective[:, None, :]\n    tiezone_threshold = 1e-3\n    # mask for strictly better pairs outside the tie zone\n    mask = (diff < -tiezone_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # compute raw weights as negative differences, clamp minimum at zero\n    raw_weights = (-diff[b_idx, winner_idx, loser_idx]).clamp(min=0)\n    # normalize weights to max 1 (clamp)\n    weights = raw_weights.clamp(max=1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weights, meta={'builder': 'objective_difference_with_tiezone_clamp'})"
+  },
+  "f_ir": {
+    "name": "ref_logsigmoid",
+    "intuition": "Reference loss: negative logsigmoid on log-prob winner-loser gap.",
+    "pseudocode": "loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
+    "hyperparams": {
+      "alpha": 1.0,
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "logprob_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "mean",
+      "constraint_family": "weight_optional"
+    },
+    "operators_used": [
+      "logsigmoid"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "cost_a",
+        "cost_b",
+        "log_prob_w",
+        "log_prob_l",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    logit = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n    w = batch.get('weight')\n    loss = -ops.logsigmoid(logit)\n    if w is not None:\n        loss = loss * w\n    return loss.mean()\n",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:2",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "e0ab3ab70b1ebd49",
+  "score": -0.027303417523701985,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 1.0,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": [],
+  "descriptor": null,
+  "joint_gate_repaired": false,
+  "joint_gate_repair_attempts": 0,
+  "f_id_before_repair": null,
+  "f_id_after_repair": null,
+  "builder_gate_repaired": false,
+  "builder_gate_repair_attempts": 0,
+  "g_id_before_repair": null,
+  "g_id_after_repair": null,
+  "builder_gate_repair_reports": [],
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "sandbox_gate": {
+    "ok": true,
+    "generation": 3,
+    "pair_index": 9,
+    "failure_kind": null,
+    "reason": "ok",
+    "checks": [
+      {
+        "variant": "visible",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      },
+      {
+        "variant": "hidden",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      }
+    ],
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen003_pair009_g003_004_039d726_f_ref/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen003_pair009_g003_004_039d726_f_ref/result.json"
+  },
+  "sandbox_gate_ok": true,
+  "sandbox_gate_reason": "ok",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": {
+    "failed_gate": null,
+    "failure_kind": null,
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 1.0,
+      "loss": 0.4642719030380249,
+      "loss_swap": 1.0309386253356934,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 0.4642719030380249
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [],
+    "variant": "visible"
+  },
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "elapsed_s": 657.1046833992004,
+  "stage": "high_fidelity",
+  "phase": "builder",
+  "proxy_score": 0.0,
+  "hf_log_file": "gen003_pair009_cuda_0_g003_004_039d726d_f_ref.log",
+  "fitness": {
+    "per_init": {
+      "tsp50:scratch": {
+        "obj_cand_by_size": {
+          "50": 5.927485942840576
+        },
+        "obj_base_by_size": {
+          "50": 5.900556564331055
+        },
+        "obj_cand": 5.927485942840576,
+        "obj_base": 5.900556564331055,
+        "delta": 0.026929378509521484,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": null,
+        "error": null
+      },
+      "tsp50:ckpt_50": {
+        "obj_cand_by_size": {
+          "50": 5.776523590087891
+        },
+        "obj_base_by_size": {
+          "50": 5.781803607940674
+        },
+        "obj_cand": 5.776523590087891,
+        "obj_base": 5.781803607940674,
+        "delta": -0.005280017852783203,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/tsp50_epoch_50.ckpt",
+        "error": null
+      },
+      "tsp50:ckpt_100": {
+        "obj_cand_by_size": {
+          "50": 5.778232574462891
+        },
+        "obj_base_by_size": {
+          "50": 5.767087936401367
+        },
+        "obj_cand": 5.778232574462891,
+        "obj_base": 5.767087936401367,
+        "delta": 0.011144638061523438,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/tsp50_epoch_100.ckpt",
+        "error": null
+      },
+      "tsp100:scratch": {
+        "obj_cand_by_size": {
+          "100": 8.338384628295898
+        },
+        "obj_base_by_size": {
+          "100": 8.29881477355957
+        },
+        "obj_cand": 8.338384628295898,
+        "obj_base": 8.29881477355957,
+        "delta": 0.039569854736328125,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": null,
+        "error": null
+      },
+      "tsp100:ckpt_135": {
+        "obj_cand_by_size": {
+          "100": 7.873602867126465
+        },
+        "obj_base_by_size": {
+          "100": 7.900528907775879
+        },
+        "obj_cand": 7.873602867126465,
+        "obj_base": 7.900528907775879,
+        "delta": -0.026926040649414062,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+        "error": null
+      },
+      "tsp100:ckpt_409": {
+        "obj_cand_by_size": {
+          "100": 7.8539862632751465
+        },
+        "obj_base_by_size": {
+          "100": 7.868048667907715
+        },
+        "obj_cand": 7.8539862632751465,
+        "obj_base": 7.868048667907715,
+        "delta": -0.01406240463256836,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/tsp100_epoch_409.ckpt",
+        "error": null
+      },
+      "cvrp50:scratch": {
+        "obj_cand_by_size": {
+          "50": 11.270479202270508
+        },
+        "obj_base_by_size": {
+          "50": 11.45305061340332
+        },
+        "obj_cand": 11.270479202270508,
+        "obj_base": 11.45305061340332,
+        "delta": -0.1825714111328125,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": null,
+        "error": null
+      },
+      "cvrp50:ckpt_50": {
+        "obj_cand_by_size": {
+          "50": 10.26101303100586
+        },
+        "obj_base_by_size": {
+          "50": 10.245138168334961
+        },
+        "obj_cand": 10.26101303100586,
+        "obj_base": 10.245138168334961,
+        "delta": 0.015874862670898438,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/cvrp50_epoch_50.ckpt",
+        "error": null
+      },
+      "cvrp50:ckpt_100": {
+        "obj_cand_by_size": {
+          "50": 10.18704605102539
+        },
+        "obj_base_by_size": {
+          "50": 10.223941802978516
+        },
+        "obj_cand": 10.18704605102539,
+        "obj_base": 10.223941802978516,
+        "delta": -0.036895751953125,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/cvrp50_epoch_100.ckpt",
+        "error": null
+      },
+      "cvrp100:scratch": {
+        "obj_cand_by_size": {
+          "100": 17.730873107910156
+        },
+        "obj_base_by_size": {
+          "100": 17.906877517700195
+        },
+        "obj_cand": 17.730873107910156,
+        "obj_base": 17.906877517700195,
+        "delta": -0.17600440979003906,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": null,
+        "error": null
+      },
+      "cvrp100:ckpt_100": {
+        "obj_cand_by_size": {
+          "100": 15.958833694458008
+        },
+        "obj_base_by_size": {
+          "100": 15.93821907043457
+        },
+        "obj_cand": 15.958833694458008,
+        "obj_base": 15.93821907043457,
+        "delta": 0.0206146240234375,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/cvrp100_epoch_100.ckpt",
+        "error": null
+      },
+      "cvrp100:ckpt_200": {
+        "obj_cand_by_size": {
+          "100": 15.908987045288086
+        },
+        "obj_base_by_size": {
+          "100": 15.909021377563477
+        },
+        "obj_cand": 15.908987045288086,
+        "obj_base": 15.909021377563477,
+        "delta": -3.4332275390625e-05,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/cvrp100_epoch_200.ckpt",
+        "error": null
+      }
+    },
+    "per_scenario": {
+      "tsp50": {
+        "scenario_name": "tsp50",
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 50,
+        "valid_problem_sizes": [
+          50
+        ],
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp50_K200.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_offline_minitrain_v1",
+          "scenario_name": "tsp50",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "K": 200,
+          "train_problem_size": 50,
+          "valid_problem_sizes": [
+            50
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 512,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "offline": {
+            "train": {
+              "path": "offline_data/tsp50_train.pt",
+              "sha1": "12ba1f920aa4174cd6f5828d92e19e692dcf962b"
+            },
+            "val": {
+              "50": {
+                "path": "offline_data/tsp50_val.pt",
+                "sha1": "9be6c82a3d437bf48cc21233320b689422b0d045"
+              }
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_50",
+              "path": "baseline/tsp50_epoch_50.ckpt",
+              "sha1": "5cab9bc3daf52eb1482601190cfad6b1b7d43b3c"
+            },
+            {
+              "name": "ckpt_100",
+              "path": "baseline/tsp50_epoch_100.ckpt",
+              "sha1": "daff53f9bbc892c1d24fe816564b256af7111dcf"
+            }
+          ]
+        },
+        "K": 200,
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "50": 5.927485942840576
+            },
+            "obj_base_by_size": {
+              "50": 5.900556564331055
+            },
+            "obj_cand": 5.927485942840576,
+            "obj_base": 5.900556564331055,
+            "delta": 0.026929378509521484,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null
+          },
+          "ckpt_50": {
+            "obj_cand_by_size": {
+              "50": 5.776523590087891
+            },
+            "obj_base_by_size": {
+              "50": 5.781803607940674
+            },
+            "obj_cand": 5.776523590087891,
+            "obj_base": 5.781803607940674,
+            "delta": -0.005280017852783203,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp50_epoch_50.ckpt",
+            "error": null
+          },
+          "ckpt_100": {
+            "obj_cand_by_size": {
+              "50": 5.778232574462891
+            },
+            "obj_base_by_size": {
+              "50": 5.767087936401367
+            },
+            "obj_cand": 5.778232574462891,
+            "obj_base": 5.767087936401367,
+            "delta": 0.011144638061523438,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp50_epoch_100.ckpt",
+            "error": null
+          }
+        },
+        "delta_mean": 0.01093133290608724,
+        "delta_worst": 0.026929378509521484
+      },
+      "tsp100": {
+        "scenario_name": "tsp100",
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_offline_minitrain_v1",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 512,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "offline": {
+            "train": {
+              "path": "offline_data/tsp100_train.pt",
+              "sha1": "fe90b9f7429ed09e2e0a559bb912a5eb89dd33f6"
+            },
+            "val": {
+              "100": {
+                "path": "offline_data/tsp100_val.pt",
+                "sha1": "2447829eafedafbd05428f4cb5793804aca9e0ed"
+              }
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            },
+            {
+              "name": "ckpt_409",
+              "path": "baseline/tsp100_epoch_409.ckpt",
+              "sha1": "a7cadfaaf32b0c8ae7930abc18775fb1b82864a0"
+            }
+          ]
+        },
+        "K": 200,
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 8.338384628295898
+            },
+            "obj_base_by_size": {
+              "100": 8.29881477355957
+            },
+            "obj_cand": 8.338384628295898,
+            "obj_base": 8.29881477355957,
+            "delta": 0.039569854736328125,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null
+          },
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 7.873602867126465
+            },
+            "obj_base_by_size": {
+              "100": 7.900528907775879
+            },
+            "obj_cand": 7.873602867126465,
+            "obj_base": 7.900528907775879,
+            "delta": -0.026926040649414062,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+            "error": null
+          },
+          "ckpt_409": {
+            "obj_cand_by_size": {
+              "100": 7.8539862632751465
+            },
+            "obj_base_by_size": {
+              "100": 7.868048667907715
+            },
+            "obj_cand": 7.8539862632751465,
+            "obj_base": 7.868048667907715,
+            "delta": -0.01406240463256836,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_409.ckpt",
+            "error": null
+          }
+        },
+        "delta_mean": -0.00047286351521809894,
+        "delta_worst": 0.039569854736328125
+      },
+      "cvrp50": {
+        "scenario_name": "cvrp50",
+        "problem": "cvrp",
+        "env_name": "cvrp",
+        "train_problem_size": 50,
+        "valid_problem_sizes": [
+          50
+        ],
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp50_K200.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_offline_minitrain_v1",
+          "scenario_name": "cvrp50",
+          "env_name": "cvrp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "K": 200,
+          "train_problem_size": 50,
+          "valid_problem_sizes": [
+            50
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 512,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "offline": {
+            "train": {
+              "path": "offline_data/cvrp50_train.pt",
+              "sha1": "4779b880b68efd2fa2ed3f9e177838175f26eb12"
+            },
+            "val": {
+              "50": {
+                "path": "offline_data/cvrp50_val.pt",
+                "sha1": "7960f4e2f5deea1dc610f7b278b3eb19f1e3be85"
+              }
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_50",
+              "path": "baseline/cvrp50_epoch_50.ckpt",
+              "sha1": "d4e208002ec6d75e29b254d76e74635502c281e4"
+            },
+            {
+              "name": "ckpt_100",
+              "path": "baseline/cvrp50_epoch_100.ckpt",
+              "sha1": "0dd688ba0cd80b377bd5faf37061f2eeea19dd6c"
+            }
+          ]
+        },
+        "K": 200,
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "50": 11.270479202270508
+            },
+            "obj_base_by_size": {
+              "50": 11.45305061340332
+            },
+            "obj_cand": 11.270479202270508,
+            "obj_base": 11.45305061340332,
+            "delta": -0.1825714111328125,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null
+          },
+          "ckpt_50": {
+            "obj_cand_by_size": {
+              "50": 10.26101303100586
+            },
+            "obj_base_by_size": {
+              "50": 10.245138168334961
+            },
+            "obj_cand": 10.26101303100586,
+            "obj_base": 10.245138168334961,
+            "delta": 0.015874862670898438,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/cvrp50_epoch_50.ckpt",
+            "error": null
+          },
+          "ckpt_100": {
+            "obj_cand_by_size": {
+              "50": 10.18704605102539
+            },
+            "obj_base_by_size": {
+              "50": 10.223941802978516
+            },
+            "obj_cand": 10.18704605102539,
+            "obj_base": 10.223941802978516,
+            "delta": -0.036895751953125,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/cvrp50_epoch_100.ckpt",
+            "error": null
+          }
+        },
+        "delta_mean": -0.06786410013834636,
+        "delta_worst": 0.015874862670898438
+      },
+      "cvrp100": {
+        "scenario_name": "cvrp100",
+        "problem": "cvrp",
+        "env_name": "cvrp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp100_K200.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_offline_minitrain_v1",
+          "scenario_name": "cvrp100",
+          "env_name": "cvrp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 512,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "offline": {
+            "train": {
+              "path": "offline_data/cvrp100_train.pt",
+              "sha1": "e918996764a30acef881816f25608ed72f717cca"
+            },
+            "val": {
+              "100": {
+                "path": "offline_data/cvrp100_val.pt",
+                "sha1": "f777b63097e7e7d831229646208a58b2bed49e01"
+              }
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_100",
+              "path": "baseline/cvrp100_epoch_100.ckpt",
+              "sha1": "64b0504473634ce48072c951c2cda6ed97091e2f"
+            },
+            {
+              "name": "ckpt_200",
+              "path": "baseline/cvrp100_epoch_200.ckpt",
+              "sha1": "04482eccab204f4fe5671fd4865d7f293f3d7d7a"
+            }
+          ]
+        },
+        "K": 200,
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 17.730873107910156
+            },
+            "obj_base_by_size": {
+              "100": 17.906877517700195
+            },
+            "obj_cand": 17.730873107910156,
+            "obj_base": 17.906877517700195,
+            "delta": -0.17600440979003906,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null
+          },
+          "ckpt_100": {
+            "obj_cand_by_size": {
+              "100": 15.958833694458008
+            },
+            "obj_base_by_size": {
+              "100": 15.93821907043457
+            },
+            "obj_cand": 15.958833694458008,
+            "obj_base": 15.93821907043457,
+            "delta": 0.0206146240234375,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/cvrp100_epoch_100.ckpt",
+            "error": null
+          },
+          "ckpt_200": {
+            "obj_cand_by_size": {
+              "100": 15.908987045288086
+            },
+            "obj_base_by_size": {
+              "100": 15.909021377563477
+            },
+            "obj_cand": 15.908987045288086,
+            "obj_base": 15.909021377563477,
+            "delta": -3.4332275390625e-05,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/cvrp100_epoch_200.ckpt",
+            "error": null
+          }
+        },
+        "delta_mean": -0.05180803934733073,
+        "delta_worst": 0.0206146240234375
+      }
+    },
+    "scenario_names": [
+      "tsp50",
+      "tsp100",
+      "cvrp50",
+      "cvrp100"
+    ],
+    "delta_mean": -0.027303417523701985,
+    "delta_worst": 0.039569854736328125,
+    "baseline_mini_eval_path": null,
+    "baseline_mini_eval_paths": {
+      "tsp50": "baseline/mini_eval/baseline_minitrain_tsp50_K200.json",
+      "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
+      "cvrp50": "baseline/mini_eval/baseline_minitrain_cvrp50_K200.json",
+      "cvrp100": "baseline/mini_eval/baseline_minitrain_cvrp100_K200.json"
+    },
+    "baseline_multiseed_cache_path": null,
+    "baseline_multiseed_cache_paths": {
+      "tsp50": null,
+      "tsp100": null,
+      "cvrp50": null,
+      "cvrp100": null
+    },
+    "baseline_compare_mode": "mini_eval",
+    "baseline_compare_modes": {
+      "tsp50": "mini_eval",
+      "tsp100": "mini_eval",
+      "cvrp50": "mini_eval",
+      "cvrp100": "mini_eval"
+    },
+    "eval_signature": {
+      "tsp50": {
+        "protocol": "stage3_offline_minitrain_v1",
+        "scenario_name": "tsp50",
+        "env_name": "tsp",
+        "policy_name": "pomo",
+        "policy_kwargs": {
+          "po4cops_compat": true
+        },
+        "env_kwargs": {},
+        "rollout_strategy": "auto",
+        "objective_sign": "neg_reward",
+        "alpha": 0.05,
+        "K": 200,
+        "train_problem_size": 50,
+        "valid_problem_sizes": [
+          50
+        ],
+        "train_batch_size": 64,
+        "num_validation_episodes": 512,
+        "validation_batch_size": 64,
+        "pomo_size": null,
+        "learning_rate": 0.0003,
+        "weight_decay": 1e-06,
+        "size_aggregation": "mean",
+        "size_cvar_alpha": 0.2,
+        "scratch_init_seed": 1234,
+        "offline": {
+          "train": {
+            "path": "offline_data/tsp50_train.pt",
+            "sha1": "12ba1f920aa4174cd6f5828d92e19e692dcf962b"
+          },
+          "val": {
+            "50": {
+              "path": "offline_data/tsp50_val.pt",
+              "sha1": "9be6c82a3d437bf48cc21233320b689422b0d045"
+            }
+          }
+        },
+        "include_scratch": true,
+        "checkpoints": [
+          {
+            "name": "ckpt_50",
+            "path": "baseline/tsp50_epoch_50.ckpt",
+            "sha1": "5cab9bc3daf52eb1482601190cfad6b1b7d43b3c"
+          },
+          {
+            "name": "ckpt_100",
+            "path": "baseline/tsp50_epoch_100.ckpt",
+            "sha1": "daff53f9bbc892c1d24fe816564b256af7111dcf"
+          }
+        ]
+      },
+      "tsp100": {
+        "protocol": "stage3_offline_minitrain_v1",
+        "scenario_name": "tsp100",
+        "env_name": "tsp",
+        "policy_name": "pomo",
+        "policy_kwargs": {
+          "po4cops_compat": true
+        },
+        "env_kwargs": {},
+        "rollout_strategy": "auto",
+        "objective_sign": "neg_reward",
+        "alpha": 0.05,
+        "K": 200,
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "train_batch_size": 64,
+        "num_validation_episodes": 512,
+        "validation_batch_size": 64,
+        "pomo_size": null,
+        "learning_rate": 0.0003,
+        "weight_decay": 1e-06,
+        "size_aggregation": "mean",
+        "size_cvar_alpha": 0.2,
+        "scratch_init_seed": 1234,
+        "offline": {
+          "train": {
+            "path": "offline_data/tsp100_train.pt",
+            "sha1": "fe90b9f7429ed09e2e0a559bb912a5eb89dd33f6"
+          },
+          "val": {
+            "100": {
+              "path": "offline_data/tsp100_val.pt",
+              "sha1": "2447829eafedafbd05428f4cb5793804aca9e0ed"
+            }
+          }
+        },
+        "include_scratch": true,
+        "checkpoints": [
+          {
+            "name": "ckpt_135",
+            "path": "baseline/tsp100_epoch_135.ckpt",
+            "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+          },
+          {
+            "name": "ckpt_409",
+            "path": "baseline/tsp100_epoch_409.ckpt",
+            "sha1": "a7cadfaaf32b0c8ae7930abc18775fb1b82864a0"
+          }
+        ]
+      },
+      "cvrp50": {
+        "protocol": "stage3_offline_minitrain_v1",
+        "scenario_name": "cvrp50",
+        "env_name": "cvrp",
+        "policy_name": "pomo",
+        "policy_kwargs": {
+          "po4cops_compat": true
+        },
+        "env_kwargs": {},
+        "rollout_strategy": "auto",
+        "objective_sign": "neg_reward",
+        "alpha": 0.05,
+        "K": 200,
+        "train_problem_size": 50,
+        "valid_problem_sizes": [
+          50
+        ],
+        "train_batch_size": 64,
+        "num_validation_episodes": 512,
+        "validation_batch_size": 64,
+        "pomo_size": null,
+        "learning_rate": 0.0003,
+        "weight_decay": 1e-06,
+        "size_aggregation": "mean",
+        "size_cvar_alpha": 0.2,
+        "scratch_init_seed": 1234,
+        "offline": {
+          "train": {
+            "path": "offline_data/cvrp50_train.pt",
+            "sha1": "4779b880b68efd2fa2ed3f9e177838175f26eb12"
+          },
+          "val": {
+            "50": {
+              "path": "offline_data/cvrp50_val.pt",
+              "sha1": "7960f4e2f5deea1dc610f7b278b3eb19f1e3be85"
+            }
+          }
+        },
+        "include_scratch": true,
+        "checkpoints": [
+          {
+            "name": "ckpt_50",
+            "path": "baseline/cvrp50_epoch_50.ckpt",
+            "sha1": "d4e208002ec6d75e29b254d76e74635502c281e4"
+          },
+          {
+            "name": "ckpt_100",
+            "path": "baseline/cvrp50_epoch_100.ckpt",
+            "sha1": "0dd688ba0cd80b377bd5faf37061f2eeea19dd6c"
+          }
+        ]
+      },
+      "cvrp100": {
+        "protocol": "stage3_offline_minitrain_v1",
+        "scenario_name": "cvrp100",
+        "env_name": "cvrp",
+        "policy_name": "pomo",
+        "policy_kwargs": {
+          "po4cops_compat": true
+        },
+        "env_kwargs": {},
+        "rollout_strategy": "auto",
+        "objective_sign": "neg_reward",
+        "alpha": 0.05,
+        "K": 200,
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "train_batch_size": 64,
+        "num_validation_episodes": 512,
+        "validation_batch_size": 64,
+        "pomo_size": null,
+        "learning_rate": 0.0003,
+        "weight_decay": 1e-06,
+        "size_aggregation": "mean",
+        "size_cvar_alpha": 0.2,
+        "scratch_init_seed": 1234,
+        "offline": {
+          "train": {
+            "path": "offline_data/cvrp100_train.pt",
+            "sha1": "e918996764a30acef881816f25608ed72f717cca"
+          },
+          "val": {
+            "100": {
+              "path": "offline_data/cvrp100_val.pt",
+              "sha1": "f777b63097e7e7d831229646208a58b2bed49e01"
+            }
+          }
+        },
+        "include_scratch": true,
+        "checkpoints": [
+          {
+            "name": "ckpt_100",
+            "path": "baseline/cvrp100_epoch_100.ckpt",
+            "sha1": "64b0504473634ce48072c951c2cda6ed97091e2f"
+          },
+          {
+            "name": "ckpt_200",
+            "path": "baseline/cvrp100_epoch_200.ckpt",
+            "sha1": "04482eccab204f4fe5671fd4865d7f293f3d7d7a"
+          }
+        ]
+      }
+    },
+    "cheap_only": false,
+    "proxy_score": 0.0
+  },
+  "better_than_baseline_mean": true,
+  "better_than_baseline_strict": false,
+  "device_str": "cuda:2",
+  "device_physical_str": "cuda:2",
+  "hf_subprocess_log": "hf_subprocess/gen003_pair009_cuda_2/subprocess.log",
+  "hf_subprocess_result": "hf_subprocess/gen003_pair009_cuda_2/result.json",
+  "better_than_incumbent": true,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage3_high_fidelity"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled"
+  },
+  "stage_final": "high_fidelity",
+  "final_score": -0.027303417523701985,
+  "metric_mode": "minimize",
+  "compare_target": "incumbent",
+  "improve_eps": 0.0,
+  "last_phase_label": "baseline",
+  "last_phase_reference_score": Infinity,
+  "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
+  "reference_score": -0.026784658432006836,
+  "delta_vs_incumbent": 0.0005187590916951486,
+  "delta_vs_last_phase": Infinity,
+  "better_than_last_phase": true,
+  "seed_records": {},
+  "score_history": [
+    {
+      "generation": 3,
+      "pair_index": 9,
+      "phase": "builder",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.027303417523701985,
+      "eval_budget_signature": "e0ab3ab70b1ebd49",
+      "reference_score": -0.026784658432006836
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      -0.027303417523701985
+    ],
+    "best": -0.027303417523701985,
+    "worst": -0.027303417523701985,
+    "mean": -0.027303417523701985,
+    "latest": -0.027303417523701985
+  }
+}
