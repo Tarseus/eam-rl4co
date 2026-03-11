@@ -212,6 +212,18 @@ def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
         "abs": torch.abs,
         "tanh": torch.tanh,
         "relu": F.relu,
+        "sum": torch.sum,
+        "mean": torch.mean,
+        "stack": torch.stack,
+        "cat": torch.cat,
+        "ones_like": torch.ones_like,
+        "zeros_like": torch.zeros_like,
+        "sqrt": lambda x: torch.sqrt(torch.clamp(x, min=1e-8)),
+        "add": torch.add,
+        "sub": torch.sub,
+        "mul": torch.mul,
+        "div": lambda a, b: torch.div(a, torch.clamp(b, min=1e-8)),
+        "neg": torch.neg,
         "clamp": lambda x, min=-10.0, max=10.0: torch.clamp(x, min=min, max=max),
         "normalize": _safe_normalize,
         "zscore": _safe_zscore,
@@ -305,7 +317,14 @@ def compile_free_loss(ir: FreeLossIR, *, operator_whitelist: Sequence[str] | Non
             }
             if extra:
                 merged_extra.update(extra)
-            return fn(batch, model_output, merged_extra)
+            # Backward-compatible guard: some generated losses read log_prob_* from
+            # model_output instead of batch; provide those aliases when available.
+            merged_model_output: Dict[str, torch.Tensor] = dict(model_output or {})
+            for key in ("log_prob_w", "log_prob_l"):
+                value = batch.get(key) if isinstance(batch, Mapping) else None
+                if key not in merged_model_output and isinstance(value, torch.Tensor):
+                    merged_model_output[key] = value
+            return fn(batch, merged_model_output, merged_extra)
     else:
         # Backward-compatible fallback: use a simple template-based loss
         # when no explicit code is provided in the IR.
