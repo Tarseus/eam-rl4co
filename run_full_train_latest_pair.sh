@@ -15,6 +15,8 @@ cd "$ROOT_DIR"
 # Notes:
 # - If the first arg contains '=' (Hydra override), RUNS_ROOT/EXPERIMENT fall back to defaults.
 # - Uses `best_pair.json` from the latest run directory under RUNS_ROOT (lexicographic sort).
+# - By default the script adds low-variance training overrides unless you explicitly pass your own:
+#   `seed=1234`, `trainer.deterministic=true`, `trainer.devices=[0]`, `matmul_precision=highest`.
 
 RUNS_ROOT_DEFAULT="runs/pref_loss_alternating_simple"
 EXPERIMENT_DEFAULT="routing/pomo-po4cops-tsp100-po"
@@ -103,6 +105,11 @@ CMD=(
   "model.pref_pair_json_path=${best_pair_path}"
 )
 
+has_seed_override=false
+has_deterministic_override=false
+has_devices_override=false
+has_matmul_precision_override=false
+
 # Lightning raises if enable_progress_bar=false but RichProgressBar is still in callbacks.
 # Some experiment configs disable the progress bar but keep the callback via callbacks/default.yaml.
 # Default to disabling the RichProgressBar callback unless the user explicitly overrides it or
@@ -110,6 +117,18 @@ CMD=(
 disable_rich_progress_bar=true
 for arg in "$@"; do
   case "$arg" in
+    seed=*)
+      has_seed_override=true
+      ;;
+    trainer.deterministic=*)
+      has_deterministic_override=true
+      ;;
+    trainer.devices=*)
+      has_devices_override=true
+      ;;
+    matmul_precision=*)
+      has_matmul_precision_override=true
+      ;;
     trainer.enable_progress_bar=true|trainer.enable_progress_bar=True)
       disable_rich_progress_bar=false
       ;;
@@ -120,6 +139,19 @@ for arg in "$@"; do
 done
 if [[ "$disable_rich_progress_bar" == "true" ]]; then
   CMD+=("~callbacks.rich_progress_bar")
+fi
+
+if [[ "$has_seed_override" == "false" ]]; then
+  CMD+=("seed=1234")
+fi
+if [[ "$has_deterministic_override" == "false" ]]; then
+  CMD+=("trainer.deterministic=true")
+fi
+if [[ "$has_devices_override" == "false" ]]; then
+  CMD+=("trainer.devices=[0]")
+fi
+if [[ "$has_matmul_precision_override" == "false" ]]; then
+  CMD+=("matmul_precision=highest")
 fi
 
 CMD+=("$@")
