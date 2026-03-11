@@ -1,83 +1,66 @@
 {
-  "id": "f_ref",
+  "id": "f020_000_4aee5e46",
   "ir": {
-    "name": "ref_logsigmoid",
-    "intuition": "Reference loss: negative logsigmoid on log-prob winner-loser gap.",
-    "pseudocode": "loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
+    "name": "loss_logsigmoid_010_cost_gap_weighted_mean_norm_clip_sigmoid_norm",
+    "intuition": "Replace the weighted median aggregation with a weighted mean aggregation to smooth the final pairwise loss value while keeping the same sigmoid-based cost gap normalization and margin log-sigmoid loss structure. This yields a differentiable, stable, and scale-invariant loss with consistent pairwise semantics.",
+    "pseudocode": "norm_cost_gap = sigmoid(cost_gap) + 1e-8\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) - margin * cost_gap, -20, 20)\nloss = mean(weight * (-logsigmoid(x)) / norm_cost_gap)",
     "hyperparams": {
-      "alpha": 1.0,
       "paradigm_family": "pairwise_margin",
-      "signal_family": "logprob_gap",
+      "signal_family": "cost_gap",
       "link_family": "logsigmoid",
-      "agg_family": "mean",
-      "constraint_family": "weight_optional"
+      "agg_family": "weighted_mean",
+      "constraint_family": "normalization_scale_invariant"
     },
     "operators_used": [
-      "logsigmoid"
+      "logsigmoid",
+      "clamp",
+      "mean",
+      "mul",
+      "div",
+      "sub",
+      "sigmoid",
+      "add"
     ],
     "implementation_hint": {
       "expects": [
-        "cost_a",
-        "cost_b",
         "log_prob_w",
         "log_prob_l",
-        "weight"
+        "weight",
+        "cost_gap"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    logit = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n    w = batch.get('weight')\n    loss = -ops.logsigmoid(logit)\n    if w is not None:\n        loss = loss * w\n    return loss.mean()\n",
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_gap = batch['cost_gap'].detach()\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 3.0))\n    margin = 0.12\n    norm_cost_gap = ops.add(ops.sigmoid(cost_gap), 1e-8)\n    x = ops.sub(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(margin, cost_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    raw_loss = -ops.logsigmoid(x)\n    weighted_loss = weight * raw_loss / norm_cost_gap\n    loss = ops.mean(weighted_loss)\n    return loss",
     "theoretical_basis": ""
   },
   "stage": "high_fidelity",
-  "stage_final": "high_fidelity",
-  "score": -0.027303417523701985,
-  "final_score": -0.027303417523701985,
-  "stages_enabled": {
-    "stage0_gate": true,
-    "stage1_proxy": false,
-    "stage2_micro_unroll": false,
-    "stage3_high_fidelity": true
-  },
-  "stages_ran": [
-    "stage0_gate",
-    "stage3_high_fidelity"
-  ],
-  "stages_skipped": {
-    "stage1_proxy": "disabled",
-    "stage2_micro_unroll": "disabled"
-  },
+  "score": -0.049770077069600425,
   "pair_ok": true,
   "pair_reason": "ok_stage3_offline_minitrain",
-  "compare_target": "incumbent",
-  "metric_mode": "minimize",
-  "improve_eps": 0.0,
-  "reference_score": -0.026784658432006836,
-  "better_than_incumbent": true,
-  "best_pair_generation": 3,
-  "best_pair_phase": "builder",
-  "best_pair_last_phase_label": "baseline",
-  "best_pair_last_phase_reference_score": Infinity,
+  "better_than_incumbent": false,
+  "best_pair_generation": 20,
+  "best_pair_phase": "loss",
   "score_history": [
     {
-      "generation": 3,
-      "pair_index": 9,
-      "phase": "builder",
+      "generation": 20,
+      "pair_index": 26,
+      "phase": "loss",
       "stage": "high_fidelity",
       "stage_final": "high_fidelity",
-      "score": -0.027303417523701985,
-      "eval_budget_signature": "e0ab3ab70b1ebd49",
-      "reference_score": -0.026784658432006836
+      "score": -0.049770077069600425,
+      "eval_budget_signature": "c1bdf4457ac13068",
+      "reference_score": -0.049623688062032066
     }
   ],
   "score_history_summary": {
     "count": 1,
     "scores": [
-      -0.027303417523701985
+      -0.049770077069600425
     ],
-    "best": -0.027303417523701985,
-    "worst": -0.027303417523701985,
-    "mean": -0.027303417523701985,
-    "latest": -0.027303417523701985
+    "best": -0.049770077069600425,
+    "worst": -0.049770077069600425,
+    "mean": -0.049770077069600425,
+    "latest": -0.049770077069600425
   }
 }

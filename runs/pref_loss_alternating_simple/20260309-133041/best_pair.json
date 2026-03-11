@@ -1,8 +1,8 @@
 {
-  "generation": 3,
-  "pair_index": 9,
+  "generation": 20,
+  "pair_index": 26,
   "g_id": "g003_004_039d726d",
-  "f_id": "f_ref",
+  "f_id": "f020_000_4aee5e46",
   "g_ir": {
     "name": "objective_difference_with_tiezone_clamp",
     "intuition": "Creates pairwise preferences by comparing objectives and applies a tie-zone constraint to filter out negligible differences, ensuring meaningful pairs with clamped weights.",
@@ -29,39 +29,44 @@
     "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    diff = objective[:, :, None] - objective[:, None, :]\n    tiezone_threshold = 1e-3\n    # mask for strictly better pairs outside the tie zone\n    mask = (diff < -tiezone_threshold)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # compute raw weights as negative differences, clamp minimum at zero\n    raw_weights = (-diff[b_idx, winner_idx, loser_idx]).clamp(min=0)\n    # normalize weights to max 1 (clamp)\n    weights = raw_weights.clamp(max=1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weights, meta={'builder': 'objective_difference_with_tiezone_clamp'})"
   },
   "f_ir": {
-    "name": "ref_logsigmoid",
-    "intuition": "Reference loss: negative logsigmoid on log-prob winner-loser gap.",
-    "pseudocode": "loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
+    "name": "loss_logsigmoid_010_cost_gap_weighted_mean_norm_clip_sigmoid_norm",
+    "intuition": "Replace the weighted median aggregation with a weighted mean aggregation to smooth the final pairwise loss value while keeping the same sigmoid-based cost gap normalization and margin log-sigmoid loss structure. This yields a differentiable, stable, and scale-invariant loss with consistent pairwise semantics.",
+    "pseudocode": "norm_cost_gap = sigmoid(cost_gap) + 1e-8\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) - margin * cost_gap, -20, 20)\nloss = mean(weight * (-logsigmoid(x)) / norm_cost_gap)",
     "hyperparams": {
-      "alpha": 1.0,
       "paradigm_family": "pairwise_margin",
-      "signal_family": "logprob_gap",
+      "signal_family": "cost_gap",
       "link_family": "logsigmoid",
-      "agg_family": "mean",
-      "constraint_family": "weight_optional"
+      "agg_family": "weighted_mean",
+      "constraint_family": "normalization_scale_invariant"
     },
     "operators_used": [
-      "logsigmoid"
+      "logsigmoid",
+      "clamp",
+      "mean",
+      "mul",
+      "div",
+      "sub",
+      "sigmoid",
+      "add"
     ],
     "implementation_hint": {
       "expects": [
-        "cost_a",
-        "cost_b",
         "log_prob_w",
         "log_prob_l",
-        "weight"
+        "weight",
+        "cost_gap"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    logit = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n    w = batch.get('weight')\n    loss = -ops.logsigmoid(logit)\n    if w is not None:\n        loss = loss * w\n    return loss.mean()\n",
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_gap = batch['cost_gap'].detach()\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 3.0))\n    margin = 0.12\n    norm_cost_gap = ops.add(ops.sigmoid(cost_gap), 1e-8)\n    x = ops.sub(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(margin, cost_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    raw_loss = -ops.logsigmoid(x)\n    weighted_loss = weight * raw_loss / norm_cost_gap\n    loss = ops.mean(weighted_loss)\n    return loss",
     "theoretical_basis": ""
   },
-  "device": "cuda:2",
+  "device": "cuda:3",
   "cheap_gate_on": false,
   "high_fidelity_on": true,
-  "eval_budget_signature": "e0ab3ab70b1ebd49",
-  "score": -0.027303417523701985,
+  "eval_budget_signature": "c1bdf4457ac13068",
+  "score": -0.049770077069600425,
   "proxy_metrics": {
     "cheap_effective_grad_ratio": 1.0,
     "cheap_semantic_pass_rate": 1.0
@@ -85,8 +90,8 @@
   "f_compile_reason": "ok",
   "sandbox_gate": {
     "ok": true,
-    "generation": 3,
-    "pair_index": 9,
+    "generation": 20,
+    "pair_index": 26,
     "failure_kind": null,
     "reason": "ok",
     "checks": [
@@ -101,13 +106,13 @@
         "variant": "hidden",
         "round": 0,
         "builder_gate_ok": true,
-        "joint_gate_ok": true,
-        "joint_failure_kind": null
+        "joint_gate_ok": false,
+        "joint_failure_kind": "joint_preference_violation"
       }
     ],
     "exit_code": 0,
-    "sandbox_log": "stage0_sandbox/gen003_pair009_g003_004_039d726_f_ref/subprocess.log",
-    "sandbox_result": "stage0_sandbox/gen003_pair009_g003_004_039d726_f_ref/result.json"
+    "sandbox_log": "stage0_sandbox/gen020_pair026_g003_004_039d726_f020_000_4aee5e4/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen020_pair026_g003_004_039d726_f020_000_4aee5e4/result.json"
   },
   "sandbox_gate_ok": true,
   "sandbox_gate_reason": "ok",
@@ -154,11 +159,11 @@
       "grad_w_pass_rate": 1.0,
       "grad_l_pass_rate": 1.0,
       "effective_grad_ratio": 1.0,
-      "loss": 0.4642719030380249,
-      "loss_swap": 1.0309386253356934,
+      "loss": 0.38670405745506287,
+      "loss_swap": 2.630396842956543,
       "swap_ok": true,
       "swap_check_mode": "data",
-      "swap_ref_loss": 0.4642719030380249
+      "swap_ref_loss": 0.38670405745506287
     },
     "threshold": {
       "min_pass_rate": 0.8,
@@ -172,23 +177,23 @@
   },
   "pair_ok": true,
   "pair_reason": "ok_stage3_offline_minitrain",
-  "elapsed_s": 657.1046833992004,
+  "elapsed_s": 3201.7079870700836,
   "stage": "high_fidelity",
-  "phase": "builder",
-  "proxy_score": 0.0,
-  "hf_log_file": "gen003_pair009_cuda_0_g003_004_039d726d_f_ref.log",
+  "phase": "loss",
+  "proxy_score": 0.027805407842000324,
+  "hf_log_file": "gen020_pair026_cuda_0_g003_004_039d726d_f020_000_4aee5e46.log",
   "fitness": {
     "per_init": {
       "tsp50:scratch": {
         "obj_cand_by_size": {
-          "50": 5.927485942840576
+          "50": 5.88862943649292
         },
         "obj_base_by_size": {
-          "50": 5.900556564331055
+          "50": 5.934887886047363
         },
-        "obj_cand": 5.927485942840576,
-        "obj_base": 5.900556564331055,
-        "delta": 0.026929378509521484,
+        "obj_cand": 5.88862943649292,
+        "obj_base": 5.934887886047363,
+        "delta": -0.04625844955444336,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": null,
@@ -196,14 +201,14 @@
       },
       "tsp50:ckpt_50": {
         "obj_cand_by_size": {
-          "50": 5.776523590087891
+          "50": 5.796819686889648
         },
         "obj_base_by_size": {
-          "50": 5.781803607940674
+          "50": 5.808066368103027
         },
-        "obj_cand": 5.776523590087891,
-        "obj_base": 5.781803607940674,
-        "delta": -0.005280017852783203,
+        "obj_cand": 5.796819686889648,
+        "obj_base": 5.808066368103027,
+        "delta": -0.011246681213378906,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/tsp50_epoch_50.ckpt",
@@ -211,14 +216,14 @@
       },
       "tsp50:ckpt_100": {
         "obj_cand_by_size": {
-          "50": 5.778232574462891
+          "50": 5.812204837799072
         },
         "obj_base_by_size": {
-          "50": 5.767087936401367
+          "50": 5.782285690307617
         },
-        "obj_cand": 5.778232574462891,
-        "obj_base": 5.767087936401367,
-        "delta": 0.011144638061523438,
+        "obj_cand": 5.812204837799072,
+        "obj_base": 5.782285690307617,
+        "delta": 0.029919147491455078,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/tsp50_epoch_100.ckpt",
@@ -226,14 +231,14 @@
       },
       "tsp100:scratch": {
         "obj_cand_by_size": {
-          "100": 8.338384628295898
+          "100": 8.149829864501953
         },
         "obj_base_by_size": {
-          "100": 8.29881477355957
+          "100": 8.214790344238281
         },
-        "obj_cand": 8.338384628295898,
-        "obj_base": 8.29881477355957,
-        "delta": 0.039569854736328125,
+        "obj_cand": 8.149829864501953,
+        "obj_base": 8.214790344238281,
+        "delta": -0.06496047973632812,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": null,
@@ -241,14 +246,14 @@
       },
       "tsp100:ckpt_135": {
         "obj_cand_by_size": {
-          "100": 7.873602867126465
+          "100": 7.916924476623535
         },
         "obj_base_by_size": {
-          "100": 7.900528907775879
+          "100": 7.926835060119629
         },
-        "obj_cand": 7.873602867126465,
-        "obj_base": 7.900528907775879,
-        "delta": -0.026926040649414062,
+        "obj_cand": 7.916924476623535,
+        "obj_base": 7.926835060119629,
+        "delta": -0.00991058349609375,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
@@ -256,14 +261,14 @@
       },
       "tsp100:ckpt_409": {
         "obj_cand_by_size": {
-          "100": 7.8539862632751465
+          "100": 7.8631157875061035
         },
         "obj_base_by_size": {
-          "100": 7.868048667907715
+          "100": 7.884729385375977
         },
-        "obj_cand": 7.8539862632751465,
-        "obj_base": 7.868048667907715,
-        "delta": -0.01406240463256836,
+        "obj_cand": 7.8631157875061035,
+        "obj_base": 7.884729385375977,
+        "delta": -0.021613597869873047,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/tsp100_epoch_409.ckpt",
@@ -271,14 +276,14 @@
       },
       "cvrp50:scratch": {
         "obj_cand_by_size": {
-          "50": 11.270479202270508
+          "50": 11.005448341369629
         },
         "obj_base_by_size": {
-          "50": 11.45305061340332
+          "50": 11.200485229492188
         },
-        "obj_cand": 11.270479202270508,
-        "obj_base": 11.45305061340332,
-        "delta": -0.1825714111328125,
+        "obj_cand": 11.005448341369629,
+        "obj_base": 11.200485229492188,
+        "delta": -0.1950368881225586,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": null,
@@ -286,14 +291,14 @@
       },
       "cvrp50:ckpt_50": {
         "obj_cand_by_size": {
-          "50": 10.26101303100586
+          "50": 10.247066497802734
         },
         "obj_base_by_size": {
-          "50": 10.245138168334961
+          "50": 10.269207954406738
         },
-        "obj_cand": 10.26101303100586,
-        "obj_base": 10.245138168334961,
-        "delta": 0.015874862670898438,
+        "obj_cand": 10.247066497802734,
+        "obj_base": 10.269207954406738,
+        "delta": -0.022141456604003906,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/cvrp50_epoch_50.ckpt",
@@ -301,14 +306,14 @@
       },
       "cvrp50:ckpt_100": {
         "obj_cand_by_size": {
-          "50": 10.18704605102539
+          "50": 10.236217498779297
         },
         "obj_base_by_size": {
-          "50": 10.223941802978516
+          "50": 10.253987312316895
         },
-        "obj_cand": 10.18704605102539,
-        "obj_base": 10.223941802978516,
-        "delta": -0.036895751953125,
+        "obj_cand": 10.236217498779297,
+        "obj_base": 10.253987312316895,
+        "delta": -0.017769813537597656,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/cvrp50_epoch_100.ckpt",
@@ -316,14 +321,14 @@
       },
       "cvrp100:scratch": {
         "obj_cand_by_size": {
-          "100": 17.730873107910156
+          "100": 16.950878143310547
         },
         "obj_base_by_size": {
-          "100": 17.906877517700195
+          "100": 17.161285400390625
         },
-        "obj_cand": 17.730873107910156,
-        "obj_base": 17.906877517700195,
-        "delta": -0.17600440979003906,
+        "obj_cand": 16.950878143310547,
+        "obj_base": 17.161285400390625,
+        "delta": -0.21040725708007812,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": null,
@@ -331,14 +336,14 @@
       },
       "cvrp100:ckpt_100": {
         "obj_cand_by_size": {
-          "100": 15.958833694458008
+          "100": 16.01570701599121
         },
         "obj_base_by_size": {
-          "100": 15.93821907043457
+          "100": 16.02873420715332
         },
-        "obj_cand": 15.958833694458008,
-        "obj_base": 15.93821907043457,
-        "delta": 0.0206146240234375,
+        "obj_cand": 16.01570701599121,
+        "obj_base": 16.02873420715332,
+        "delta": -0.013027191162109375,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/cvrp100_epoch_100.ckpt",
@@ -346,14 +351,14 @@
       },
       "cvrp100:ckpt_200": {
         "obj_cand_by_size": {
-          "100": 15.908987045288086
+          "100": 15.976972579956055
         },
         "obj_base_by_size": {
-          "100": 15.909021377563477
+          "100": 15.99176025390625
         },
-        "obj_cand": 15.908987045288086,
-        "obj_base": 15.909021377563477,
-        "delta": -3.4332275390625e-05,
+        "obj_cand": 15.976972579956055,
+        "obj_base": 15.99176025390625,
+        "delta": -0.014787673950195312,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/cvrp100_epoch_200.ckpt",
@@ -369,7 +374,7 @@
         "valid_problem_sizes": [
           50
         ],
-        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp50_K200.json",
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp50_K1000.json",
         "baseline_multiseed_cache_path": null,
         "baseline_compare_mode": "mini_eval",
         "eval_signature": {
@@ -384,7 +389,7 @@
           "rollout_strategy": "auto",
           "objective_sign": "neg_reward",
           "alpha": 0.05,
-          "K": 200,
+          "K": 1000,
           "train_problem_size": 50,
           "valid_problem_sizes": [
             50
@@ -424,18 +429,18 @@
             }
           ]
         },
-        "K": 200,
+        "K": 1000,
         "per_init": {
           "scratch": {
             "obj_cand_by_size": {
-              "50": 5.927485942840576
+              "50": 5.88862943649292
             },
             "obj_base_by_size": {
-              "50": 5.900556564331055
+              "50": 5.934887886047363
             },
-            "obj_cand": 5.927485942840576,
-            "obj_base": 5.900556564331055,
-            "delta": 0.026929378509521484,
+            "obj_cand": 5.88862943649292,
+            "obj_base": 5.934887886047363,
+            "delta": -0.04625844955444336,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": null,
@@ -443,14 +448,14 @@
           },
           "ckpt_50": {
             "obj_cand_by_size": {
-              "50": 5.776523590087891
+              "50": 5.796819686889648
             },
             "obj_base_by_size": {
-              "50": 5.781803607940674
+              "50": 5.808066368103027
             },
-            "obj_cand": 5.776523590087891,
-            "obj_base": 5.781803607940674,
-            "delta": -0.005280017852783203,
+            "obj_cand": 5.796819686889648,
+            "obj_base": 5.808066368103027,
+            "delta": -0.011246681213378906,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/tsp50_epoch_50.ckpt",
@@ -458,22 +463,22 @@
           },
           "ckpt_100": {
             "obj_cand_by_size": {
-              "50": 5.778232574462891
+              "50": 5.812204837799072
             },
             "obj_base_by_size": {
-              "50": 5.767087936401367
+              "50": 5.782285690307617
             },
-            "obj_cand": 5.778232574462891,
-            "obj_base": 5.767087936401367,
-            "delta": 0.011144638061523438,
+            "obj_cand": 5.812204837799072,
+            "obj_base": 5.782285690307617,
+            "delta": 0.029919147491455078,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/tsp50_epoch_100.ckpt",
             "error": null
           }
         },
-        "delta_mean": 0.01093133290608724,
-        "delta_worst": 0.026929378509521484
+        "delta_mean": -0.009195327758789062,
+        "delta_worst": 0.029919147491455078
       },
       "tsp100": {
         "scenario_name": "tsp100",
@@ -483,7 +488,7 @@
         "valid_problem_sizes": [
           100
         ],
-        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_K1000.json",
         "baseline_multiseed_cache_path": null,
         "baseline_compare_mode": "mini_eval",
         "eval_signature": {
@@ -498,7 +503,7 @@
           "rollout_strategy": "auto",
           "objective_sign": "neg_reward",
           "alpha": 0.05,
-          "K": 200,
+          "K": 1000,
           "train_problem_size": 100,
           "valid_problem_sizes": [
             100
@@ -538,18 +543,18 @@
             }
           ]
         },
-        "K": 200,
+        "K": 1000,
         "per_init": {
           "scratch": {
             "obj_cand_by_size": {
-              "100": 8.338384628295898
+              "100": 8.149829864501953
             },
             "obj_base_by_size": {
-              "100": 8.29881477355957
+              "100": 8.214790344238281
             },
-            "obj_cand": 8.338384628295898,
-            "obj_base": 8.29881477355957,
-            "delta": 0.039569854736328125,
+            "obj_cand": 8.149829864501953,
+            "obj_base": 8.214790344238281,
+            "delta": -0.06496047973632812,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": null,
@@ -557,14 +562,14 @@
           },
           "ckpt_135": {
             "obj_cand_by_size": {
-              "100": 7.873602867126465
+              "100": 7.916924476623535
             },
             "obj_base_by_size": {
-              "100": 7.900528907775879
+              "100": 7.926835060119629
             },
-            "obj_cand": 7.873602867126465,
-            "obj_base": 7.900528907775879,
-            "delta": -0.026926040649414062,
+            "obj_cand": 7.916924476623535,
+            "obj_base": 7.926835060119629,
+            "delta": -0.00991058349609375,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
@@ -572,22 +577,22 @@
           },
           "ckpt_409": {
             "obj_cand_by_size": {
-              "100": 7.8539862632751465
+              "100": 7.8631157875061035
             },
             "obj_base_by_size": {
-              "100": 7.868048667907715
+              "100": 7.884729385375977
             },
-            "obj_cand": 7.8539862632751465,
-            "obj_base": 7.868048667907715,
-            "delta": -0.01406240463256836,
+            "obj_cand": 7.8631157875061035,
+            "obj_base": 7.884729385375977,
+            "delta": -0.021613597869873047,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/tsp100_epoch_409.ckpt",
             "error": null
           }
         },
-        "delta_mean": -0.00047286351521809894,
-        "delta_worst": 0.039569854736328125
+        "delta_mean": -0.032161553700764976,
+        "delta_worst": -0.00991058349609375
       },
       "cvrp50": {
         "scenario_name": "cvrp50",
@@ -597,7 +602,7 @@
         "valid_problem_sizes": [
           50
         ],
-        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp50_K200.json",
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp50_K1000.json",
         "baseline_multiseed_cache_path": null,
         "baseline_compare_mode": "mini_eval",
         "eval_signature": {
@@ -612,7 +617,7 @@
           "rollout_strategy": "auto",
           "objective_sign": "neg_reward",
           "alpha": 0.05,
-          "K": 200,
+          "K": 1000,
           "train_problem_size": 50,
           "valid_problem_sizes": [
             50
@@ -652,18 +657,18 @@
             }
           ]
         },
-        "K": 200,
+        "K": 1000,
         "per_init": {
           "scratch": {
             "obj_cand_by_size": {
-              "50": 11.270479202270508
+              "50": 11.005448341369629
             },
             "obj_base_by_size": {
-              "50": 11.45305061340332
+              "50": 11.200485229492188
             },
-            "obj_cand": 11.270479202270508,
-            "obj_base": 11.45305061340332,
-            "delta": -0.1825714111328125,
+            "obj_cand": 11.005448341369629,
+            "obj_base": 11.200485229492188,
+            "delta": -0.1950368881225586,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": null,
@@ -671,14 +676,14 @@
           },
           "ckpt_50": {
             "obj_cand_by_size": {
-              "50": 10.26101303100586
+              "50": 10.247066497802734
             },
             "obj_base_by_size": {
-              "50": 10.245138168334961
+              "50": 10.269207954406738
             },
-            "obj_cand": 10.26101303100586,
-            "obj_base": 10.245138168334961,
-            "delta": 0.015874862670898438,
+            "obj_cand": 10.247066497802734,
+            "obj_base": 10.269207954406738,
+            "delta": -0.022141456604003906,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/cvrp50_epoch_50.ckpt",
@@ -686,22 +691,22 @@
           },
           "ckpt_100": {
             "obj_cand_by_size": {
-              "50": 10.18704605102539
+              "50": 10.236217498779297
             },
             "obj_base_by_size": {
-              "50": 10.223941802978516
+              "50": 10.253987312316895
             },
-            "obj_cand": 10.18704605102539,
-            "obj_base": 10.223941802978516,
-            "delta": -0.036895751953125,
+            "obj_cand": 10.236217498779297,
+            "obj_base": 10.253987312316895,
+            "delta": -0.017769813537597656,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/cvrp50_epoch_100.ckpt",
             "error": null
           }
         },
-        "delta_mean": -0.06786410013834636,
-        "delta_worst": 0.015874862670898438
+        "delta_mean": -0.07831605275472005,
+        "delta_worst": -0.017769813537597656
       },
       "cvrp100": {
         "scenario_name": "cvrp100",
@@ -711,7 +716,7 @@
         "valid_problem_sizes": [
           100
         ],
-        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp100_K200.json",
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp100_K1000.json",
         "baseline_multiseed_cache_path": null,
         "baseline_compare_mode": "mini_eval",
         "eval_signature": {
@@ -726,7 +731,7 @@
           "rollout_strategy": "auto",
           "objective_sign": "neg_reward",
           "alpha": 0.05,
-          "K": 200,
+          "K": 1000,
           "train_problem_size": 100,
           "valid_problem_sizes": [
             100
@@ -766,18 +771,18 @@
             }
           ]
         },
-        "K": 200,
+        "K": 1000,
         "per_init": {
           "scratch": {
             "obj_cand_by_size": {
-              "100": 17.730873107910156
+              "100": 16.950878143310547
             },
             "obj_base_by_size": {
-              "100": 17.906877517700195
+              "100": 17.161285400390625
             },
-            "obj_cand": 17.730873107910156,
-            "obj_base": 17.906877517700195,
-            "delta": -0.17600440979003906,
+            "obj_cand": 16.950878143310547,
+            "obj_base": 17.161285400390625,
+            "delta": -0.21040725708007812,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": null,
@@ -785,14 +790,14 @@
           },
           "ckpt_100": {
             "obj_cand_by_size": {
-              "100": 15.958833694458008
+              "100": 16.01570701599121
             },
             "obj_base_by_size": {
-              "100": 15.93821907043457
+              "100": 16.02873420715332
             },
-            "obj_cand": 15.958833694458008,
-            "obj_base": 15.93821907043457,
-            "delta": 0.0206146240234375,
+            "obj_cand": 16.01570701599121,
+            "obj_base": 16.02873420715332,
+            "delta": -0.013027191162109375,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/cvrp100_epoch_100.ckpt",
@@ -800,22 +805,22 @@
           },
           "ckpt_200": {
             "obj_cand_by_size": {
-              "100": 15.908987045288086
+              "100": 15.976972579956055
             },
             "obj_base_by_size": {
-              "100": 15.909021377563477
+              "100": 15.99176025390625
             },
-            "obj_cand": 15.908987045288086,
-            "obj_base": 15.909021377563477,
-            "delta": -3.4332275390625e-05,
+            "obj_cand": 15.976972579956055,
+            "obj_base": 15.99176025390625,
+            "delta": -0.014787673950195312,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/cvrp100_epoch_200.ckpt",
             "error": null
           }
         },
-        "delta_mean": -0.05180803934733073,
-        "delta_worst": 0.0206146240234375
+        "delta_mean": -0.07940737406412761,
+        "delta_worst": -0.013027191162109375
       }
     },
     "scenario_names": [
@@ -824,14 +829,14 @@
       "cvrp50",
       "cvrp100"
     ],
-    "delta_mean": -0.027303417523701985,
-    "delta_worst": 0.039569854736328125,
+    "delta_mean": -0.049770077069600425,
+    "delta_worst": 0.029919147491455078,
     "baseline_mini_eval_path": null,
     "baseline_mini_eval_paths": {
-      "tsp50": "baseline/mini_eval/baseline_minitrain_tsp50_K200.json",
-      "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_K200.json",
-      "cvrp50": "baseline/mini_eval/baseline_minitrain_cvrp50_K200.json",
-      "cvrp100": "baseline/mini_eval/baseline_minitrain_cvrp100_K200.json"
+      "tsp50": "baseline/mini_eval/baseline_minitrain_tsp50_K1000.json",
+      "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_K1000.json",
+      "cvrp50": "baseline/mini_eval/baseline_minitrain_cvrp50_K1000.json",
+      "cvrp100": "baseline/mini_eval/baseline_minitrain_cvrp100_K1000.json"
     },
     "baseline_multiseed_cache_path": null,
     "baseline_multiseed_cache_paths": {
@@ -860,7 +865,7 @@
         "rollout_strategy": "auto",
         "objective_sign": "neg_reward",
         "alpha": 0.05,
-        "K": 200,
+        "K": 1000,
         "train_problem_size": 50,
         "valid_problem_sizes": [
           50
@@ -912,7 +917,7 @@
         "rollout_strategy": "auto",
         "objective_sign": "neg_reward",
         "alpha": 0.05,
-        "K": 200,
+        "K": 1000,
         "train_problem_size": 100,
         "valid_problem_sizes": [
           100
@@ -964,7 +969,7 @@
         "rollout_strategy": "auto",
         "objective_sign": "neg_reward",
         "alpha": 0.05,
-        "K": 200,
+        "K": 1000,
         "train_problem_size": 50,
         "valid_problem_sizes": [
           50
@@ -1016,7 +1021,7 @@
         "rollout_strategy": "auto",
         "objective_sign": "neg_reward",
         "alpha": 0.05,
-        "K": 200,
+        "K": 1000,
         "train_problem_size": 100,
         "valid_problem_sizes": [
           100
@@ -1058,62 +1063,38 @@
       }
     },
     "cheap_only": false,
-    "proxy_score": 0.0
+    "proxy_score": 0.027805407842000324
   },
   "better_than_baseline_mean": true,
   "better_than_baseline_strict": false,
-  "device_str": "cuda:2",
-  "device_physical_str": "cuda:2",
-  "hf_subprocess_log": "hf_subprocess/gen003_pair009_cuda_2/subprocess.log",
-  "hf_subprocess_result": "hf_subprocess/gen003_pair009_cuda_2/result.json",
-  "better_than_incumbent": true,
-  "stages_enabled": {
-    "stage0_gate": true,
-    "stage1_proxy": false,
-    "stage2_micro_unroll": false,
-    "stage3_high_fidelity": true
-  },
-  "stages_ran": [
-    "stage0_gate",
-    "stage3_high_fidelity"
-  ],
-  "stages_skipped": {
-    "stage1_proxy": "disabled",
-    "stage2_micro_unroll": "disabled"
-  },
-  "stage_final": "high_fidelity",
-  "final_score": -0.027303417523701985,
-  "metric_mode": "minimize",
-  "compare_target": "incumbent",
-  "improve_eps": 0.0,
-  "last_phase_label": "baseline",
-  "last_phase_reference_score": Infinity,
-  "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
-  "reference_score": -0.026784658432006836,
-  "delta_vs_incumbent": 0.0005187590916951486,
-  "delta_vs_last_phase": Infinity,
-  "better_than_last_phase": true,
+  "device_str": "cuda:3",
+  "device_physical_str": "cuda:3",
+  "hf_subprocess_log": "hf_subprocess/gen020_pair026_cuda_3/subprocess.log",
+  "hf_subprocess_result": "hf_subprocess/gen020_pair026_cuda_3/result.json",
+  "better_than_incumbent": false,
+  "hf_round_name": "K1000",
+  "hf_fidelity_key": "K1000",
   "seed_records": {},
   "score_history": [
     {
-      "generation": 3,
-      "pair_index": 9,
-      "phase": "builder",
+      "generation": 20,
+      "pair_index": 26,
+      "phase": "loss",
       "stage": "high_fidelity",
       "stage_final": "high_fidelity",
-      "score": -0.027303417523701985,
-      "eval_budget_signature": "e0ab3ab70b1ebd49",
-      "reference_score": -0.026784658432006836
+      "score": -0.049770077069600425,
+      "eval_budget_signature": "c1bdf4457ac13068",
+      "reference_score": -0.049623688062032066
     }
   ],
   "score_history_summary": {
     "count": 1,
     "scores": [
-      -0.027303417523701985
+      -0.049770077069600425
     ],
-    "best": -0.027303417523701985,
-    "worst": -0.027303417523701985,
-    "mean": -0.027303417523701985,
-    "latest": -0.027303417523701985
+    "best": -0.049770077069600425,
+    "worst": -0.049770077069600425,
+    "mean": -0.049770077069600425,
+    "latest": -0.049770077069600425
   }
 }

@@ -1,0 +1,170 @@
+{
+  "generation": 21,
+  "index": 6,
+  "id": "f021_006_f451e31e",
+  "signature": "f451e31efe874d404b78c72a6c365c42e0eb22f2",
+  "family": "pairwise_margin|advantage_gap|weighted_sum_normalized|smooth_clipping_normalization_scale_invariant",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=weighted_sum_normalized|constraint=smooth_clipping_normalization_scale_invariant",
+  "origin": "REPAIR",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "REPAIR",
+  "parents": [
+    "f017_000_08f12aaf"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "a3da82f1e486da7d0a9ebb9479e386223dfe05ee",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+  "llm_seed": 798811536,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "prompt_sha1": "a3da82f1e486da7d0a9ebb9479e386223dfe05ee"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "996a30a334feac358cc4a0708e7d19caf51f0e6c"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8571428571428571,
+    "best_similarity_parts": {
+      "bigram": 0.5945945945945946,
+      "unigram": 0.8571428571428571,
+      "call": 0.8125
+    },
+    "neighbors": [
+      {
+        "sig": "0601a63a55293729fd714994129b346293ba37eb",
+        "name": "weighted_squared_advantage_gap_logsigmoid_margin_clipped_norm_abs_advantagemargin",
+        "similarity": 0.8571428571428571,
+        "similarity_parts": {
+          "bigram": 0.5945945945945946,
+          "unigram": 0.8571428571428571,
+          "call": 0.8125
+        },
+        "call_names_top": [
+          "batch.get",
+          "detach",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.pow",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "595284a8783fff1037a4fb99cb86da1802127468",
+        "name": "loss_pairwise_advantage_gap_tanh_margin_threshold_weighted_sum",
+        "similarity": 0.8125,
+        "similarity_parts": {
+          "bigram": 0.21951219512195122,
+          "unigram": 0.6666666666666666,
+          "call": 0.8125
+        },
+        "call_names_top": [
+          "batch.get",
+          "detach",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.clamp",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.softplus",
+          "ops.sub",
+          "ops.sum",
+          "ops.tanh"
+        ]
+      },
+      {
+        "sig": "08f12aaf8df7b6c62aa085d08db885f568530e7b",
+        "name": "weighted_scaled_logsigmoid_advantage_gap_margin_squared_norm",
+        "similarity": 0.8095238095238095,
+        "similarity_parts": {
+          "bigram": 0.6666666666666666,
+          "unigram": 0.8095238095238095,
+          "call": 0.75
+        },
+        "call_names_top": [
+          "batch.get",
+          "detach",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.pow",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_logsigmoid_squared_advantage_gap_clipped_normalized_v2",
+    "intuition": "Fixed potential high similarity by introducing adaptive margin scaled by the absolute advantage_gap instead of squared, and incorporating a soft margin clipping with tanh to smoothly limit margin influence. Also normalized loss by weighted sum of absolute advantage_gap plus epsilon to maintain scale invariance and stable gradients, enhancing preference sensitivity while preventing extreme margin penalties.",
+    "pseudocode": "adv_abs = abs(advantage_gap)\nadaptive_margin = margin * adv_abs\nclipped_margin = 0.5 * (ops.tanh(adaptive_margin) + 1.0) * adaptive_margin  # smooth clipping\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) - clipped_margin, -20, 20)\nraw_loss = -logsigmoid(x)\nloss = sum(weight * raw_loss) / (sum(weight * adv_abs) + epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "smooth_clipping_normalization_scale_invariant"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "sum",
+      "mul",
+      "div",
+      "sub",
+      "neg",
+      "abs",
+      "tanh"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batch['advantage_gap'].detach()\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    margin = 0.1\n    adv_abs = ops.abs(advantage_gap)\n    adaptive_margin = ops.mul(margin, adv_abs)\n    # Smooth clipping: clipped_margin = 0.5 * (tanh(adaptive_margin) + 1) * adaptive_margin\n    clip_factor = ops.mul(0.5, ops.add(ops.tanh(adaptive_margin), 1.0))\n    clipped_margin = ops.mul(clip_factor, adaptive_margin)\n    raw_margin = ops.sub(ops.mul(alpha * scale, ops.sub(lpw, lpl)), clipped_margin)\n    x = ops.clamp(raw_margin, -20.0, 20.0)\n    raw_loss = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(weight, raw_loss)\n    denom = ops.sum(ops.mul(weight, adv_abs)) + 1e-8\n    loss = ops.sum(weighted_loss) / denom\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
