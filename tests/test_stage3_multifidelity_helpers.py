@@ -59,6 +59,7 @@ def test_select_stage3_promotions_respects_improve_eps(monkeypatch):
     promoted = loop._select_stage3_promotions(
         records,
         promote_top_m=0,
+        promote_top_frac=None,
         promote_if_better_than_incumbent=True,
         incumbent_ref_score=-0.015,
         metric_mode="minimize",
@@ -72,6 +73,7 @@ def test_select_stage3_promotions_respects_improve_eps(monkeypatch):
     promoted2 = loop._select_stage3_promotions(
         records,
         promote_top_m=1,
+        promote_top_frac=None,
         promote_if_better_than_incumbent=False,
         incumbent_ref_score=-0.015,
         metric_mode="minimize",
@@ -121,6 +123,7 @@ def test_select_stage3_builder_promotions_uses_feasible_then_cost(monkeypatch):
     promoted = loop._select_stage3_builder_promotions(
         records,
         promote_top_m=2,
+        promote_top_frac=None,
         metric_mode="minimize",
         slack=0.02,
         fixed_loss_id="f_fixed",
@@ -128,6 +131,33 @@ def test_select_stage3_builder_promotions_uses_feasible_then_cost(monkeypatch):
     )
 
     assert promoted == [("g2", "f_fixed"), ("g1", "f_fixed")]
+
+
+def test_select_stage3_promotions_supports_top_fraction(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    records = [
+        {"pair_ok": True, "g_id": "g1", "f_id": "f1", "score": 0.10},
+        {"pair_ok": True, "g_id": "g2", "f_id": "f2", "score": 0.20},
+        {"pair_ok": True, "g_id": "g3", "f_id": "f3", "score": 0.30},
+        {"pair_ok": True, "g_id": "g4", "f_id": "f4", "score": 0.40},
+    ]
+
+    promoted = loop._select_stage3_promotions(
+        records,
+        promote_top_m=32,
+        promote_top_frac=0.5,
+        promote_if_better_than_incumbent=False,
+        incumbent_ref_score=None,
+        metric_mode="minimize",
+        improve_eps=0.0,
+        always_include_pair=None,
+    )
+
+    assert promoted == [("g1", "f1"), ("g2", "f2")]
 
 
 def test_select_best_builder_cost_from_archive_blocks_performance_drift(monkeypatch):

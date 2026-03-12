@@ -2872,6 +2872,7 @@ def _select_stage3_promotions(
     records: Sequence[Mapping[str, Any]],
     *,
     promote_top_m: int,
+    promote_top_frac: float | None,
     promote_if_better_than_incumbent: bool,
     incumbent_ref_score: float | None,
     metric_mode: str,
@@ -2917,7 +2918,11 @@ def _select_stage3_promotions(
         promoted.append(k)
         seen.add(k)
 
-    m = max(int(promote_top_m), 0)
+    m = _resolve_stage3_promotion_count(
+        total_candidates=int(len(scored)),
+        promote_top_m=int(promote_top_m),
+        promote_top_frac=promote_top_frac,
+    )
     if m > 0:
         for s, gid, fid in scored[:m]:
             k = (gid, fid)
@@ -2933,6 +2938,7 @@ def _select_stage3_builder_promotions(
     records: Sequence[Mapping[str, Any]],
     *,
     promote_top_m: int,
+    promote_top_frac: float | None,
     metric_mode: str,
     slack: float,
     fixed_loss_id: str | None,
@@ -2979,7 +2985,11 @@ def _select_stage3_builder_promotions(
         promoted.append(always_include_pair)
         seen.add(always_include_pair)
 
-    m = max(int(promote_top_m), 0)
+    m = _resolve_stage3_promotion_count(
+        total_candidates=int(len(list(state.get("feasible") or []))),
+        promote_top_m=int(promote_top_m),
+        promote_top_frac=promote_top_frac,
+    )
     for stat in list(state.get("feasible") or [])[:m]:
         ref = stat.get("perf_ref")
         if not isinstance(ref, Mapping):
@@ -2991,6 +3001,26 @@ def _select_stage3_builder_promotions(
         seen.add(pair)
 
     return promoted
+
+
+def _resolve_stage3_promotion_count(
+    *,
+    total_candidates: int,
+    promote_top_m: int,
+    promote_top_frac: float | None,
+) -> int:
+    total = max(int(total_candidates), 0)
+    if promote_top_frac is not None:
+        try:
+            frac = float(promote_top_frac)
+        except (TypeError, ValueError):
+            frac = 0.0
+        if math.isfinite(frac):
+            frac = min(max(float(frac), 0.0), 1.0)
+            if frac <= 0.0 or total <= 0:
+                return 0
+            return max(1, int(math.ceil(float(total) * float(frac))))
+    return max(int(promote_top_m), 0)
 
 
 def _cap_parent_pool_by_family(
@@ -11227,6 +11257,14 @@ def run_pref_loss_coevo(
                                 incumbent_ref_score = None
 
                         promote_top_m = int(curr_round.get("promote_top_m", 0) or 0)
+                        promote_top_frac_raw = curr_round.get("promote_top_frac")
+                        if promote_top_frac_raw is None:
+                            promote_top_frac = None
+                        else:
+                            try:
+                                promote_top_frac = float(promote_top_frac_raw)
+                            except (TypeError, ValueError):
+                                promote_top_frac = None
                         promote_if_better = bool(curr_round.get("promote_if_better_than_incumbent", False))
                         always_include_inc = bool(curr_round.get("always_include_incumbent", True))
                         always_pair = None
@@ -11239,6 +11277,7 @@ def run_pref_loss_coevo(
                             promoted = _select_stage3_builder_promotions(
                                 pool_records,
                                 promote_top_m=int(promote_top_m),
+                                promote_top_frac=promote_top_frac,
                                 metric_mode=str(metric_mode),
                                 slack=float(improve_eps),
                                 fixed_loss_id=str(alternating_fixed_loss_id),
@@ -11248,6 +11287,7 @@ def run_pref_loss_coevo(
                             promoted = _select_stage3_promotions(
                                 pool_records,
                                 promote_top_m=int(promote_top_m),
+                                promote_top_frac=promote_top_frac,
                                 promote_if_better_than_incumbent=bool(promote_if_better),
                                 incumbent_ref_score=incumbent_ref_score,
                                 metric_mode=str(metric_mode),
@@ -11290,13 +11330,14 @@ def run_pref_loss_coevo(
                         promoted = uniq
 
                         LOGGER.info(
-                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d promote_if_better=%s include_incumbent=%s",
+                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d top_frac=%s promote_if_better=%s include_incumbent=%s",
                             int(gen),
                             str(curr_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, curr_round))),
                             str(next_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, next_round))),
                             int(len(promoted)),
                             int(len(pool_pairs)),
                             int(promote_top_m),
+                            (str(promote_top_frac) if promote_top_frac is not None else "None"),
                             str(bool(promote_if_better)),
                             str(bool(always_include_inc)),
                         )
