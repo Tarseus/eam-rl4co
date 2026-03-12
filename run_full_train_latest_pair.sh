@@ -106,7 +106,7 @@ CMD=(
 )
 
 has_seed_override=false
-has_deterministic_override=false
+has_deterministic_override=true
 has_devices_override=false
 has_matmul_precision_override=false
 
