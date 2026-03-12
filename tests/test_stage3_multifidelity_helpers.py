@@ -61,6 +61,8 @@ def test_select_stage3_promotions_respects_improve_eps(monkeypatch):
         promote_top_m=0,
         promote_top_frac=None,
         promote_if_better_than_incumbent=True,
+        promote_only_if_better_than_baseline=False,
+        promote_baseline_mode="mean",
         incumbent_ref_score=-0.015,
         metric_mode="minimize",
         improve_eps=0.004,
@@ -75,6 +77,8 @@ def test_select_stage3_promotions_respects_improve_eps(monkeypatch):
         promote_top_m=1,
         promote_top_frac=None,
         promote_if_better_than_incumbent=False,
+        promote_only_if_better_than_baseline=False,
+        promote_baseline_mode="mean",
         incumbent_ref_score=-0.015,
         metric_mode="minimize",
         improve_eps=0.004,
@@ -151,6 +155,8 @@ def test_select_stage3_promotions_supports_top_fraction(monkeypatch):
         promote_top_m=32,
         promote_top_frac=0.5,
         promote_if_better_than_incumbent=False,
+        promote_only_if_better_than_baseline=False,
+        promote_baseline_mode="mean",
         incumbent_ref_score=None,
         metric_mode="minimize",
         improve_eps=0.0,
@@ -158,6 +164,35 @@ def test_select_stage3_promotions_supports_top_fraction(monkeypatch):
     )
 
     assert promoted == [("g1", "f1"), ("g2", "f2")]
+
+
+def test_select_stage3_promotions_can_require_beating_baseline(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    records = [
+        {"pair_ok": True, "g_id": "g1", "f_id": "f1", "score": 0.10, "better_than_baseline_mean": True},
+        {"pair_ok": True, "g_id": "g2", "f_id": "f2", "score": 0.05, "better_than_baseline_mean": False},
+        {"pair_ok": True, "g_id": "g3", "f_id": "f3", "score": 0.20, "better_than_baseline_mean": True},
+        {"pair_ok": True, "g_id": "g4", "f_id": "f4", "score": 0.01, "better_than_baseline_mean": False},
+    ]
+
+    promoted = loop._select_stage3_promotions(
+        records,
+        promote_top_m=32,
+        promote_top_frac=0.5,
+        promote_if_better_than_incumbent=False,
+        promote_only_if_better_than_baseline=True,
+        promote_baseline_mode="mean",
+        incumbent_ref_score=None,
+        metric_mode="minimize",
+        improve_eps=0.0,
+        always_include_pair=("g2", "f2"),
+    )
+
+    assert promoted == [("g1", "f1")]
 
 
 def test_select_best_builder_cost_from_archive_blocks_performance_drift(monkeypatch):
