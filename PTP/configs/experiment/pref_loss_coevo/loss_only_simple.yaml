@@ -14,7 +14,7 @@ improve_eps_calibration:
 stage3_multifidelity:
   enabled: true
   rounds:
-    - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_m: 32, promote_if_better_than_incumbent: true, always_include_incumbent: true }
+    - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_frac: 0.5, promote_if_better_than_incumbent: true, always_include_incumbent: true }
     - { name: epoch2_inst100000, hf_epochs: 2, hf_instances_per_epoch: 100000 }
 builder_min_coverage: 0.0
 seed_with_po4cops_default: false
