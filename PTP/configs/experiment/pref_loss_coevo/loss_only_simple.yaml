@@ -1,7 +1,7 @@
 preset: simple
-search_mode: alternating  # Use `loss_only` to freeze builder and search only loss.
+search_mode: loss_only
 seed: 1234
-output_root: runs/pref_loss_alternating_simple
+output_root: runs/pref_loss_loss_only_simple
 
 metric_mode: minimize
 improve_eps: 0.0
@@ -14,10 +14,8 @@ improve_eps_calibration:
 stage3_multifidelity:
   enabled: true
   rounds:
-    # Round-0: quick filter (淘汰明显差的)
-    - { name: K200, f1_steps: 200, promote_top_m: 32, promote_if_better_than_incumbent: true, always_include_incumbent: true }
-    # Round-1: confirmation (选真正的胜者)
-    - { name: K1000, f1_steps: 1000 }
+    - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_m: 32, promote_if_better_than_incumbent: true, always_include_incumbent: true }
+    - { name: epoch2_inst100000, hf_epochs: 2, hf_instances_per_epoch: 100000 }
 builder_min_coverage: 0.0
 seed_with_po4cops_default: false
 llm_init_only: true
@@ -62,42 +60,52 @@ proxy_gate_repair:
 drop_pref_cache_before_micro_unroll: true
 
 budgets:
-  generations: 30
+  generations: 10
   pairing_budget_per_gen: 128
   high_fidelity_top_m: 999999
-  hf_epochs: 0
+  hf_epochs: 1
 
-alternating_schedule:
-  start_phase: builder
-  loss_generations: 10
-  pair_generations: 10
-  final_loss_generations: 2
-  rounds: 1
-
-# Stage3 offline mini-train protocol (explicit, used by eval_signature).
+# Stage3 high-fidelity protocol (explicit, used by eval_signature/cache key).
 f1_steps: 200
-hf_epochs: 0
-hf_instances_per_epoch: 0
+hf_epochs: 1
+hf_instances_per_epoch: 100000
 train_problem_size: 100
 valid_problem_sizes: [100]
 train_batch_size: 64
-num_validation_episodes: 512
+num_validation_episodes: 10000
 validation_batch_size: 64
 pomo_size: null
 loss_observables: [seq_len, log_prob_mean, advantage, entropy, log_prob_step]
 ref_policy_source: none
 scratch_init_seed: 1234
+backend: rl4co
+env_name: tsp
+generator_params:
+  num_loc: 100
 policy_name: pomo
 policy_kwargs:
   po4cops_compat: true
+  embed_dim: 128
+  num_encoder_layers: 6
+  decoder_layer_num: 1
+  qkv_dim: 16
+  num_heads: 8
+  feedforward_hidden: 512
+  tanh_clipping: 50
+  eval_type: argmax
+  val_decode_type: greedy
+  test_decode_type: greedy
+rollout_strategy: auto
+objective_sign: neg_reward
+learning_rate: 0.0003
+weight_decay: 0.000001
 
 baseline:
   mini_eval_paths:
-    200: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
-    1000: baseline/mini_eval/baseline_minitrain_tsp100_K1000.json
+    epoch1_inst100000: baseline/mini_eval/baseline_minitrain_tsp100_epoch1_inst100000.json
+    epoch2_inst100000: baseline/mini_eval/baseline_minitrain_tsp100_epoch2_inst100000.json
   checkpoints:
     - baseline/tsp100_epoch_135.ckpt
-    - baseline/tsp100_epoch_409.ckpt
   include_scratch: true
   multiseed_compare_enabled: false
   scenarios:
@@ -107,32 +115,26 @@ baseline:
       train_problem_size: 50
       valid_problem_sizes: [50]
       generator_params:
-        offline_train_path: offline_data/tsp50_train.pt
-        offline_val_paths:
-          "50": offline_data/tsp50_val.pt
+        num_loc: 50
       baseline:
         mini_eval_paths:
-          200: baseline/mini_eval/baseline_minitrain_tsp50_K200.json
-          1000: baseline/mini_eval/baseline_minitrain_tsp50_K1000.json
+          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_tsp50_epoch1_inst100000.json
+          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_tsp50_epoch2_inst100000.json
         checkpoints:
           - baseline/tsp50_epoch_50.ckpt
-          - baseline/tsp50_epoch_100.ckpt
     - name: tsp100
       problem: tsp
       env_name: tsp
       train_problem_size: 100
       valid_problem_sizes: [100]
       generator_params:
-        offline_train_path: offline_data/tsp100_train.pt
-        offline_val_paths:
-          "100": offline_data/tsp100_val.pt
+        num_loc: 100
       baseline:
         mini_eval_paths:
-          200: baseline/mini_eval/baseline_minitrain_tsp100_K200.json
-          1000: baseline/mini_eval/baseline_minitrain_tsp100_K1000.json
+          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_tsp100_epoch1_inst100000.json
+          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_tsp100_epoch2_inst100000.json
         checkpoints:
           - baseline/tsp100_epoch_135.ckpt
-          - baseline/tsp100_epoch_409.ckpt
     - name: cvrp50
       problem: cvrp
       env_name: cvrp
@@ -141,16 +143,13 @@ baseline:
       policy_kwargs:
         po4cops_compat: true
       generator_params:
-        offline_train_path: offline_data/cvrp50_train.pt
-        offline_val_paths:
-          "50": offline_data/cvrp50_val.pt
+        num_loc: 50
       baseline:
         mini_eval_paths:
-          200: baseline/mini_eval/baseline_minitrain_cvrp50_K200.json
-          1000: baseline/mini_eval/baseline_minitrain_cvrp50_K1000.json
+          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch1_inst100000.json
+          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch2_inst100000.json
         checkpoints:
           - baseline/cvrp50_epoch_50.ckpt
-          - baseline/cvrp50_epoch_100.ckpt
     - name: cvrp100
       problem: cvrp
       env_name: cvrp
@@ -159,23 +158,13 @@ baseline:
       policy_kwargs:
         po4cops_compat: true
       generator_params:
-        offline_train_path: offline_data/cvrp100_train.pt
-        offline_val_paths:
-          "100": offline_data/cvrp100_val.pt
+        num_loc: 100
       baseline:
         mini_eval_paths:
-          200: baseline/mini_eval/baseline_minitrain_cvrp100_K200.json
-          1000: baseline/mini_eval/baseline_minitrain_cvrp100_K1000.json
+          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch1_inst100000.json
+          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch2_inst100000.json
         checkpoints:
           - baseline/cvrp100_epoch_100.ckpt
-          - baseline/cvrp100_epoch_200.ckpt
-
-generator_params:
-  offline_train_path: offline_data/tsp100_train.pt
-  offline_val_paths:
-    "100": offline_data/tsp100_val.pt
-
-# "20": offline_data/tsp20_val.pt
 
 builder_pair_budget:
   per_instance: 8192
@@ -186,9 +175,9 @@ population:
   n_candidates_builder: 16
   keep_top_k: 8
 
-# Keep alternating search but still use Double-EoH operators on both sides.
+# Builder-side search is frozen in loss_only mode.
 builder_llm:
-  enabled: true
+  enabled: false
   offline_mode: false
   parent_p: 5
   seed_reserve: 0
