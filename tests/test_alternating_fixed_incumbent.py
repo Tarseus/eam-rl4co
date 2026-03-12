@@ -200,3 +200,44 @@ def test_alternating_schedule_supports_builder_first(monkeypatch):
     assert phase2[0] == "builder"
     assert phase5[0] == "loss"
     assert phase5[1] == 8 and phase5[2] == 0
+
+
+def test_loss_only_search_mode_uses_full_budget_for_loss(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    phase = loop._resolve_alternating_phase_and_budgets(
+        search_mode="loss_only",
+        generation=7,
+        pairing_budget=8,
+        pairing_budget_loss=4,
+        pairing_budget_builder=4,
+        alternating_schedule_enabled=True,
+        alternating_loss_generations=2,
+        alternating_builder_generations=3,
+        alternating_rounds=1,
+        alternating_final_loss_generations=2,
+        alternating_start_phase="builder",
+    )
+
+    assert phase == ("loss", 8, 0, -1, -1, 0)
+
+
+def test_resolve_runtime_config_accepts_loss_only_search_mode(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg, _meta = loop._resolve_runtime_config(
+        {
+            "preset": "simple",
+            "search_mode": "loss_only",
+            "budgets": {"generations": 3, "pairing_budget_per_gen": 8},
+            "population": {"n_candidates_loss": 4, "n_candidates_builder": 4, "keep_top_k": 2},
+        }
+    )
+
+    assert cfg["search_mode"] == "loss_only"

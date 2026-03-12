@@ -802,9 +802,10 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     offline_val_paths = generator_params.get("offline_val_paths") or {}
     init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
 
-    if not offline_train or not offline_val_paths:
+    uses_offline_data = bool(offline_train or offline_val_paths)
+    if uses_offline_data and (not offline_train or not offline_val_paths):
         raise ValueError(
-            "stage3 requires offline_train_path and offline_val_paths in generator_params"
+            "stage3 offline mode requires both offline_train_path and offline_val_paths in generator_params"
         )
     if not init_specs:
         raise ValueError("stage3 requires at least one init source (scratch and/or baseline.checkpoints)")
@@ -839,17 +840,31 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     num_validation_episodes = int(cfg_yaml.get("num_validation_episodes", 128) or 128)
     scratch_init_seed = int(_resolve_training_seed(cfg_yaml))
 
-    offline_train_sha1 = _file_sha1_cached(str(offline_train))
-    offline_val_sig: Dict[str, Any] = {}
-    if isinstance(offline_val_paths, dict):
-        for size_s, pth in sorted(((str(k), v) for k, v in offline_val_paths.items()), key=lambda kv: int(kv[0])):
-            offline_val_sig[str(size_s)] = {
-                "path": str(pth),
-                "sha1": _file_sha1_cached(str(pth)),
-            }
+    data_sig: Dict[str, Any]
+    protocol = "stage3_online_minitrain_v1"
+    if uses_offline_data:
+        offline_train_sha1 = _file_sha1_cached(str(offline_train))
+        offline_val_sig: Dict[str, Any] = {}
+        if isinstance(offline_val_paths, dict):
+            for size_s, pth in sorted(((str(k), v) for k, v in offline_val_paths.items()), key=lambda kv: int(kv[0])):
+                offline_val_sig[str(size_s)] = {
+                    "path": str(pth),
+                    "sha1": _file_sha1_cached(str(pth)),
+                }
+        data_sig = {
+            "mode": "offline",
+            "train": {"path": str(offline_train), "sha1": str(offline_train_sha1)},
+            "val": offline_val_sig,
+        }
+        protocol = "stage3_offline_minitrain_v1"
+    else:
+        data_sig = {
+            "mode": "online",
+            "generator_params": dict(generator_params),
+        }
 
     sig = {
-        "protocol": "stage3_offline_minitrain_v1",
+        "protocol": str(protocol),
         "scenario_name": str(_stage3_scenario_name_from_cfg(cfg_yaml)),
         "env_name": env_name,
         "policy_name": policy_name,
@@ -870,10 +885,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         "size_aggregation": size_aggregation,
         "size_cvar_alpha": size_cvar_alpha,
         "scratch_init_seed": int(scratch_init_seed),
-        "offline": {
-            "train": {"path": str(offline_train), "sha1": str(offline_train_sha1)},
-            "val": offline_val_sig,
-        },
+        "data": data_sig,
         "include_scratch": bool(any(init_ckpt is None for _, init_ckpt in init_specs)),
         "checkpoints": [
             {
@@ -986,8 +998,8 @@ def _stage3_pre_minitrain_eval(
     num_validation_episodes: int,
     train_batch_size: int,
     scratch_init_seed: int,
-    offline_train: str,
-    offline_val_by_size: Mapping[int, str],
+    offline_train: str | None = None,
+    offline_val_by_size: Mapping[int, str] | None = None,
 ) -> Tuple[Dict[int, float], float]:
     from fitness.free_loss_fidelity import (
         _evaluate_rl4co_model,
@@ -997,10 +1009,15 @@ def _stage3_pre_minitrain_eval(
     )
 
     generator_params = dict(cfg_yaml.get("generator_params", {}) or {})
-    generator_params["offline_train_path"] = str(offline_train)
-    generator_params["offline_val_paths"] = {
-        str(int(k)): str(v) for k, v in offline_val_by_size.items()
-    }
+    if offline_train or offline_val_by_size:
+        if not offline_train or not offline_val_by_size:
+            raise ValueError(
+                "stage3 pre-mini-train eval requires both offline_train and offline_val_by_size when using offline data"
+            )
+        generator_params["offline_train_path"] = str(offline_train)
+        generator_params["offline_val_paths"] = {
+            str(int(k)): str(v) for k, v in offline_val_by_size.items()
+        }
 
     hf_cfg = HighFidelityConfig(
         problem=str(cfg_yaml.get("problem", "tsp")),
@@ -1114,16 +1131,19 @@ def _ensure_stage3_baseline_mini_eval(
     generator_params = dict(cfg_yaml.get("generator_params", {}) or {})
     offline_train = generator_params.get("offline_train_path")
     offline_val_paths = generator_params.get("offline_val_paths") or {}
-    if not offline_train or not isinstance(offline_val_paths, Mapping):
-        raise ValueError(
-            "stage3 baseline auto-cache requires generator_params.offline_train_path and offline_val_paths"
-        )
-    offline_val_by_size: Dict[int, str] = {}
-    for sz in valid_problem_sizes:
-        p = offline_val_paths.get(str(int(sz)), offline_val_paths.get(int(sz)))
-        if not p:
-            raise ValueError(f"Missing offline_val_paths[{int(sz)}] for stage3 baseline auto-cache")
-        offline_val_by_size[int(sz)] = str(p)
+    uses_offline_data = bool(offline_train or offline_val_paths)
+    offline_val_by_size: Dict[int, str] | None = None
+    if uses_offline_data:
+        if not offline_train or not isinstance(offline_val_paths, Mapping):
+            raise ValueError(
+                "stage3 baseline auto-cache offline mode requires generator_params.offline_train_path and offline_val_paths"
+            )
+        offline_val_by_size = {}
+        for sz in valid_problem_sizes:
+            p = offline_val_paths.get(str(int(sz)), offline_val_paths.get(int(sz)))
+            if not p:
+                raise ValueError(f"Missing offline_val_paths[{int(sz)}] for stage3 baseline auto-cache")
+            offline_val_by_size[int(sz)] = str(p)
 
     compiled_builder = compile_preference_builder(
         _ref_builder_ir(),
@@ -1157,7 +1177,7 @@ def _ensure_stage3_baseline_mini_eval(
             num_validation_episodes=int(num_validation_episodes),
             train_batch_size=int(train_batch_size),
             scratch_init_seed=int(scratch_init_seed),
-            offline_train=str(offline_train),
+            offline_train=(str(offline_train) if offline_train else None),
             offline_val_by_size=offline_val_by_size,
         )
 
@@ -2741,9 +2761,13 @@ def _normalize_metric_mode(value: Any) -> str:
 
 def _normalize_search_mode(value: Any, *, default_mode: str) -> str:
     mode = str(value or default_mode).strip().lower()
-    if mode not in {"alternating", "coevo"}:
+    if mode not in {"alternating", "coevo", "loss_only"}:
         return str(default_mode)
     return mode
+
+
+def _uses_fixed_side_search(search_mode: Any) -> bool:
+    return str(search_mode or "").strip().lower() in {"alternating", "loss_only"}
 
 
 def _normalize_operator_name(name: str, side: str) -> str:
@@ -3834,6 +3858,8 @@ def _resolve_alternating_phase_and_budgets(
     """
 
     mode = str(search_mode).strip().lower()
+    if mode == "loss_only":
+        return "loss", int(pairing_budget), 0, -1, -1, 0
     if mode != "alternating":
         return "coevo", int(pairing_budget_loss), int(pairing_budget_builder), -1, -1, 0
 
@@ -8348,6 +8374,8 @@ def run_pref_loss_coevo(
             LOGGER.warning("preset=simple: advanced keys are ignored: %s", ignored_keys)
     if search_mode == "coevo":
         LOGGER.warning("search_mode=coevo is supported but not encouraged; prefer search_mode=alternating.")
+    elif search_mode == "loss_only":
+        LOGGER.info("search_mode=loss_only: builder population and selection are frozen; only losses are searched.")
     if search_mode == "alternating" and alternating_schedule_enabled:
         LOGGER.info(
             "Alternating schedule enabled: start_phase=%s loss_generations=%d builder_generations=%d final_loss_generations=%d rounds=%s",
@@ -9002,7 +9030,7 @@ def run_pref_loss_coevo(
             alternating_final_loss_generations=int(alternating_final_loss_generations),
             alternating_start_phase=str(alternating_start_phase),
         )
-        generation_phase_label = str(alternating_phase_hint) if str(search_mode) == "alternating" else "coevo"
+        generation_phase_label = str(alternating_phase_hint) if _uses_fixed_side_search(search_mode) else "coevo"
         runtime_trace.heartbeat(
             extra={
                 "stage": "generation_loop",
@@ -9028,7 +9056,9 @@ def run_pref_loss_coevo(
 
         builder_llm_enabled_this_gen = bool(builder_cfg.get("enabled", False))
         loss_llm_enabled_this_gen = bool(loss_cfg.get("enabled", False))
-        if str(search_mode) == "alternating":
+        if str(search_mode) == "loss_only":
+            builder_llm_enabled_this_gen = False
+        elif str(search_mode) == "alternating":
             builder_llm_enabled_this_gen = bool(builder_llm_enabled_this_gen and alternating_phase_hint in {"builder", "mixed"})
             loss_llm_enabled_this_gen = bool(loss_llm_enabled_this_gen and alternating_phase_hint in {"loss", "mixed"})
 
@@ -9042,9 +9072,10 @@ def run_pref_loss_coevo(
             llm_cfg_for_gen["builder"] = builder_cfg_for_gen
             llm_cfg_for_gen["loss"] = loss_cfg_for_gen
             llm_cfg_for_gen["enabled"] = bool(builder_llm_enabled_this_gen or loss_llm_enabled_this_gen)
-            if str(search_mode) == "alternating":
+            if _uses_fixed_side_search(search_mode):
                 LOGGER.info(
-                    "Alternating LLM gating gen=%d phase=%s llm_enabled(builder=%s,loss=%s)",
+                    "%s LLM gating gen=%d phase=%s llm_enabled(builder=%s,loss=%s)",
+                    str(search_mode),
                     int(gen),
                     str(alternating_phase_hint),
                     str(builder_llm_enabled_this_gen),
@@ -9142,12 +9173,8 @@ def run_pref_loss_coevo(
             }
         )
 
-        builder_population_active = not (
-            str(search_mode) == "alternating" and str(alternating_phase_hint) == "loss"
-        )
-        loss_population_active = not (
-            str(search_mode) == "alternating" and str(alternating_phase_hint) == "builder"
-        )
+        builder_population_active = not (_uses_fixed_side_search(search_mode) and str(alternating_phase_hint) == "loss")
+        loss_population_active = not (_uses_fixed_side_search(search_mode) and str(alternating_phase_hint) == "builder")
         builder_offspring_target = 0
         loss_offspring_target = 0
         if bool(builder_population_active):
@@ -9871,10 +9898,10 @@ def run_pref_loss_coevo(
         alternating_active_phase = "none"
         alternating_fixed_builder_id: str | None = None
         alternating_fixed_loss_id: str | None = None
-        if str(search_mode) == "alternating":
+        if _uses_fixed_side_search(search_mode):
             loss_budget_now = int(alternating_loss_budget_now)
             builder_budget_now = int(alternating_builder_budget_now)
-            if alternating_schedule_enabled:
+            if str(search_mode) == "alternating" and alternating_schedule_enabled:
                 LOGGER.info(
                     "Alternating block status: round=%d cycle_pos=%d/%d budgets(loss=%d,builder=%d)",
                     int(alternating_round_idx),
@@ -10743,7 +10770,7 @@ def run_pref_loss_coevo(
                 if (bool(r.get("pair_ok")) if stage1_proxy_enabled else True)
                 and str(r.get("stage")) != "anchor"
             ]
-            if str(search_mode) == "alternating":
+            if _uses_fixed_side_search(search_mode):
                 if alternating_active_phase == "loss" and alternating_fixed_builder_id:
                     mu_candidates = [
                         r for r in mu_candidates if str(r.get("g_id")) == str(alternating_fixed_builder_id)
@@ -10906,7 +10933,7 @@ def run_pref_loss_coevo(
             top_m = int(cfg_yaml.get("high_fidelity_top_m", max(1, min(len(pair_records), pairing_budget // 4))) or 1)
             # Stage3 must include *all* gate-passed pairs (no top-m truncation).
             candidates = [r for r in pair_records if bool(r.get("pair_ok")) and str(r.get("stage")) != "anchor"]
-            if str(search_mode) == "alternating":
+            if _uses_fixed_side_search(search_mode):
                 if alternating_active_phase == "loss" and alternating_fixed_builder_id:
                     candidates = [
                         r for r in candidates if str(r.get("g_id")) == str(alternating_fixed_builder_id)
@@ -11818,12 +11845,8 @@ def run_pref_loss_coevo(
         _append_jsonl(gate_repair_jsonl, joint_gate_repair_attempt_records_gen)
 
         fitness_g, fitness_f = _credit_assignment_v2(pair_records=pair_records)
-        builder_selection_active = not (
-            str(search_mode) == "alternating" and str(alternating_active_phase) == "loss"
-        )
-        loss_selection_active = not (
-            str(search_mode) == "alternating" and str(alternating_active_phase) == "builder"
-        )
+        builder_selection_active = not (_uses_fixed_side_search(search_mode) and str(alternating_active_phase) == "loss")
+        loss_selection_active = not (_uses_fixed_side_search(search_mode) and str(alternating_active_phase) == "builder")
         builder_perf_map: Dict[str, float] = {}
         builder_constraint_state: Dict[str, Any] | None = None
         builder_ok_records = [

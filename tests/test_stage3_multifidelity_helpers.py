@@ -509,3 +509,41 @@ def test_build_stage3_eval_signature_tracks_scenario_name_and_all_checkpoints(mo
             "sha1": "sha1:baseline/cvrp50_epoch_100.ckpt",
         },
     ]
+
+
+def test_build_stage3_eval_signature_supports_online_epoch_mode(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    monkeypatch.syspath_prepend(str(repo_root / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [100],
+        "hf_epochs": 1,
+        "hf_instances_per_epoch": 100000,
+        "generator_params": {"num_loc": 100},
+        "baseline": {
+            "include_scratch": True,
+            "checkpoints": ["baseline/tsp100_epoch_135.ckpt"],
+        },
+        "stage3_scenario_name": "tsp100_online_epoch1",
+    }
+
+    monkeypatch.setattr(loop, "_file_sha1_cached", lambda path: f"sha1:{path}")
+
+    sig = loop._build_stage3_eval_signature(cfg)
+
+    assert sig["protocol"] == "stage3_online_minitrain_v1"
+    assert sig["data"] == {"mode": "online", "generator_params": {"num_loc": 100}}
+    assert sig["hf_epochs"] == 1
+    assert sig["hf_instances_per_epoch"] == 100000
+    assert sig["checkpoints"] == [
+        {
+            "name": "ckpt_135",
+            "path": "baseline/tsp100_epoch_135.ckpt",
+            "sha1": "sha1:baseline/tsp100_epoch_135.ckpt",
+        }
+    ]
