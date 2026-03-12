@@ -1608,6 +1608,25 @@ def _hf_subprocess_failure_record(
     return fixed
 
 
+def _resolve_hf_timeout_s(
+    cfg_like: Mapping[str, Any] | None,
+    *,
+    default: float | None = None,
+) -> float | None:
+    """Return the configured HF task timeout in seconds, or None when disabled."""
+
+    raw = cfg_like.get("high_fidelity_task_timeout_s", default) if isinstance(cfg_like, Mapping) else default
+    if raw is None:
+        return None
+    try:
+        timeout_s = float(raw)
+    except (TypeError, ValueError):
+        return default
+    if (not math.isfinite(timeout_s)) or timeout_s <= 0.0:
+        return None
+    return max(1.0, timeout_s)
+
+
 def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
     *,
     hf_tasks: Sequence[Mapping[str, Any]],
@@ -1627,7 +1646,6 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
 
     max_workers = max(1, int(max_workers))
     max_workers = min(int(max_workers), max(1, len(device_list)), max(1, len(hf_tasks)))
-    timeout_default = 3600.0
 
     pending: List[Dict[str, Any]] = [dict(t) for t in hf_tasks]
     active: List[Dict[str, Any]] = []
@@ -1673,11 +1691,7 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
             result_path = os.path.join(task_dir, "result.json")
             log_path = os.path.join(task_dir, "subprocess.log")
             _atomic_write_json(payload_path, task)
-            timeout_raw = task.get("cfg_yaml", {}).get("high_fidelity_task_timeout_s", timeout_default)
-            try:
-                timeout_s = max(1.0, float(timeout_raw))
-            except (TypeError, ValueError):
-                timeout_s = timeout_default
+            timeout_s = _resolve_hf_timeout_s(task.get("cfg_yaml"), default=None)
 
             log_fh = open(log_path, "w", encoding="utf-8")  # noqa: SIM115
             proc = subprocess.Popen(  # noqa: S603
@@ -1703,7 +1717,8 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
                     "result_path": result_path,
                     "log_path": log_path,
                     "log_fh": log_fh,
-                    "deadline": float(time.time() + timeout_s),
+                    "deadline": (float(time.time() + timeout_s) if timeout_s is not None else None),
+                    "timeout_s": timeout_s,
                     "device_physical_str": physical_device,
                     "key": _task_key(task),
                 }
@@ -1732,7 +1747,8 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
             result_path = str(meta["result_path"])
             key = meta["key"]
             exitcode = proc.poll()
-            timed_out = now > float(meta["deadline"])
+            deadline_raw = meta.get("deadline")
+            timed_out = (deadline_raw is not None) and (now > float(deadline_raw))
 
             if exitcode is None and not timed_out:
                 continue
@@ -7976,11 +7992,7 @@ def _hf_pinned_device_worker(  # noqa: PLR0912
             fixed = dict(payload)
             fixed["device_str"] = str(device_str)
             cfg_yaml = fixed.get("cfg_yaml")
-            hf_timeout_s_raw = cfg_yaml.get("high_fidelity_task_timeout_s", 3600.0) if isinstance(cfg_yaml, Mapping) else 3600.0
-            try:
-                hf_timeout_s = max(1.0, float(hf_timeout_s_raw))
-            except (TypeError, ValueError):
-                hf_timeout_s = 3600.0
+            hf_timeout_s = _resolve_hf_timeout_s(cfg_yaml, default=None)
 
             import multiprocessing as mp
 
@@ -7991,16 +8003,21 @@ def _hf_pinned_device_worker(  # noqa: PLR0912
             try:
                 child.start()
                 child_conn.close()
-                deadline = time.time() + float(hf_timeout_s)
+                deadline = (time.time() + float(hf_timeout_s)) if hf_timeout_s is not None else None
                 rec = None
                 while True:
-                    remaining = float(deadline - time.time())
-                    if parent_conn.poll(max(0.0, min(1.0, remaining))):
+                    if deadline is None:
+                        remaining = None
+                        poll_s = 1.0
+                    else:
+                        remaining = float(deadline - time.time())
+                        poll_s = max(0.0, min(1.0, remaining))
+                    if parent_conn.poll(poll_s):
                         rec = dict(parent_conn.recv())
                         break
                     if not child.is_alive():
                         break
-                    if remaining <= 0.0:
+                    if remaining is not None and remaining <= 0.0:
                         break
 
                 if rec is None:
