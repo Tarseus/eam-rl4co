@@ -2874,6 +2874,8 @@ def _select_stage3_promotions(
     promote_top_m: int,
     promote_top_frac: float | None,
     promote_if_better_than_incumbent: bool,
+    promote_only_if_better_than_baseline: bool,
+    promote_baseline_mode: str,
     incumbent_ref_score: float | None,
     metric_mode: str,
     improve_eps: float,
@@ -2881,6 +2883,8 @@ def _select_stage3_promotions(
 ) -> List[Tuple[str, str]]:
     scored: List[Tuple[float, str, str]] = []
     better: List[Tuple[str, str]] = []
+    baseline_gate_mode = str(promote_baseline_mode or "mean").strip().lower()
+    eligible_pairs: set[Tuple[str, str]] = set()
     for r in records:
         if not bool(r.get("pair_ok")):
             continue
@@ -2892,6 +2896,15 @@ def _select_stage3_promotions(
             continue
         if not math.isfinite(s):
             continue
+        baseline_ok = True
+        if bool(promote_only_if_better_than_baseline):
+            if baseline_gate_mode == "strict":
+                baseline_ok = bool(r.get("better_than_baseline_strict"))
+            else:
+                baseline_ok = bool(r.get("better_than_baseline_mean"))
+        if not baseline_ok:
+            continue
+        eligible_pairs.add((gid, fid))
         scored.append((float(s), gid, fid))
         if promote_if_better_than_incumbent:
             if _is_better_than_reference(
@@ -2907,7 +2920,7 @@ def _select_stage3_promotions(
     seen: set[Tuple[str, str]] = set()
 
     if always_include_pair is not None:
-        if always_include_pair not in seen:
+        if always_include_pair in eligible_pairs and always_include_pair not in seen:
             promoted.append(always_include_pair)
             seen.add(always_include_pair)
 
@@ -11266,6 +11279,10 @@ def run_pref_loss_coevo(
                             except (TypeError, ValueError):
                                 promote_top_frac = None
                         promote_if_better = bool(curr_round.get("promote_if_better_than_incumbent", False))
+                        promote_only_if_better_than_baseline = bool(
+                            curr_round.get("promote_only_if_better_than_baseline", False)
+                        )
+                        promote_baseline_mode = str(curr_round.get("promote_baseline_mode", "mean") or "mean")
                         always_include_inc = bool(curr_round.get("always_include_incumbent", True))
                         always_pair = None
                         if always_include_inc and isinstance(best_so_far, dict):
@@ -11289,6 +11306,8 @@ def run_pref_loss_coevo(
                                 promote_top_m=int(promote_top_m),
                                 promote_top_frac=promote_top_frac,
                                 promote_if_better_than_incumbent=bool(promote_if_better),
+                                promote_only_if_better_than_baseline=bool(promote_only_if_better_than_baseline),
+                                promote_baseline_mode=str(promote_baseline_mode),
                                 incumbent_ref_score=incumbent_ref_score,
                                 metric_mode=str(metric_mode),
                                 improve_eps=float(improve_eps),
@@ -11330,7 +11349,7 @@ def run_pref_loss_coevo(
                         promoted = uniq
 
                         LOGGER.info(
-                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d top_frac=%s promote_if_better=%s include_incumbent=%s",
+                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d top_frac=%s promote_if_better=%s promote_if_better_than_baseline=%s baseline_mode=%s include_incumbent=%s",
                             int(gen),
                             str(curr_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, curr_round))),
                             str(next_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, next_round))),
@@ -11339,6 +11358,8 @@ def run_pref_loss_coevo(
                             int(promote_top_m),
                             (str(promote_top_frac) if promote_top_frac is not None else "None"),
                             str(bool(promote_if_better)),
+                            str(bool(promote_only_if_better_than_baseline)),
+                            str(promote_baseline_mode),
                             str(bool(always_include_inc)),
                         )
                         if not promoted:
