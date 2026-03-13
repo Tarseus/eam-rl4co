@@ -1,0 +1,109 @@
+{
+  "generation": 1,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f001_001_60ecd8b8",
+    "ir": {
+      "name": "loss_pairwise_relativistic_advantage_exp_clamped_repair",
+      "intuition": "Fix by clamping normalized advantage gap to avoid zeros and ensure stable weighted terms for correct gradient.",
+      "pseudocode": "adv_gap = advantage_l - advantage_w\nadv_norm = normalize(adv_gap).clamp(min=eps)\ndiff = log_prob_w - log_prob_l\nexp_diff = exp(diff)\nweighted_exp = exp_diff * adv_norm * weight\nloss = mean(-log(weighted_exp / (1 + weighted_exp)))",
+      "hyperparams": {
+        "paradigm_family": "pairwise_relativistic",
+        "signal_family": "advantage_gap_normalized",
+        "link_family": "exp_normalized_logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "normalization_stabilized"
+      },
+      "operators_used": [
+        "exp",
+        "log",
+        "mul",
+        "sub",
+        "mean",
+        "normalize",
+        "neg",
+        "add",
+        "ones_like",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', lpw.new_ones(lpw.shape))\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n\n    advantage_gap = ops.sub(adv_l, adv_w)  # reversed order for correct gradient direction\n    advantage_norm = ops.normalize(advantage_gap)\n    advantage_norm = ops.clamp(advantage_norm, min=eps)\n\n    diff = ops.sub(lpw, lpl)\n    exp_diff = ops.exp(diff)\n\n    weighted_exp = ops.mul(exp_diff, advantage_norm)\n    weighted_exp = ops.mul(weighted_exp, weight)\n    weighted_exp = ops.clamp(weighted_exp, min=eps)\n\n    log_w_exp = ops.log(weighted_exp)\n    log_denom = ops.log(ops.add(weighted_exp, ops.ones_like(weighted_exp)))\n    loss = ops.neg(ops.sub(log_w_exp, log_denom))\n\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

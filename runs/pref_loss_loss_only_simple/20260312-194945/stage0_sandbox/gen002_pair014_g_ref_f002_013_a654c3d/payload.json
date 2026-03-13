@@ -1,0 +1,107 @@
+{
+  "generation": 2,
+  "pair_index": 14,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_013_a654c3df",
+    "ir": {
+      "name": "pairwise_marginexp_advantage_costgap_weighted_loss",
+      "intuition": "Exponentially penalize small margins formed by preference difference scaled by combined cost and advantage gaps, with epsilon and clamping for numeric stability.",
+      "pseudocode": "eps=1e-6\npref_diff = log_prob_w - log_prob_l\ncombined_signal = cost_gap + advantage_gap + eps\nclamped_margin = clamp(pref_diff * combined_signal, max=20)\nloss_terms = weight * exp(-clamped_margin)\nloss = mean(loss_terms)",
+      "hyperparams": {
+        "paradigm_family": "pairwise",
+        "signal_family": "preference+quality",
+        "link_family": "expmargin",
+        "agg_family": "mean",
+        "constraint_family": "none",
+        "other_hparams": "epsilon=1e-6 for numerical stability, margin clamped max 20 to avoid overflow"
+      },
+      "operators_used": [
+        "sub",
+        "add",
+        "exp",
+        "mul",
+        "mean",
+        "clamp",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n    advantage_gap = batch['advantage_gap']\n    pref_diff = ops.sub(log_prob_w, log_prob_l)\n    combined_signal = ops.add(cost_gap, ops.add(advantage_gap, eps))\n    margin_raw = ops.mul(pref_diff, combined_signal)\n    margin = ops.clamp(margin_raw, max=20.0)\n    loss_terms = ops.mul(weight, ops.exp(ops.neg(margin)))\n    loss = ops.mean(loss_terms)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

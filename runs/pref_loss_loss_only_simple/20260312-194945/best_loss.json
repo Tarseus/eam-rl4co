@@ -1,0 +1,91 @@
+{
+  "id": "f001_001_60ecd8b8",
+  "ir": {
+    "name": "loss_pairwise_relativistic_advantage_exp_clamped_repair",
+    "intuition": "Fix by clamping normalized advantage gap to avoid zeros and ensure stable weighted terms for correct gradient.",
+    "pseudocode": "adv_gap = advantage_l - advantage_w\nadv_norm = normalize(adv_gap).clamp(min=eps)\ndiff = log_prob_w - log_prob_l\nexp_diff = exp(diff)\nweighted_exp = exp_diff * adv_norm * weight\nloss = mean(-log(weighted_exp / (1 + weighted_exp)))",
+    "hyperparams": {
+      "paradigm_family": "pairwise_relativistic",
+      "signal_family": "advantage_gap_normalized",
+      "link_family": "exp_normalized_logsigmoid",
+      "agg_family": "mean",
+      "constraint_family": "normalization_stabilized"
+    },
+    "operators_used": [
+      "exp",
+      "log",
+      "mul",
+      "sub",
+      "mean",
+      "normalize",
+      "neg",
+      "add",
+      "ones_like",
+      "clamp"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_w",
+        "advantage_l"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', lpw.new_ones(lpw.shape))\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n\n    advantage_gap = ops.sub(adv_l, adv_w)  # reversed order for correct gradient direction\n    advantage_norm = ops.normalize(advantage_gap)\n    advantage_norm = ops.clamp(advantage_norm, min=eps)\n\n    diff = ops.sub(lpw, lpl)\n    exp_diff = ops.exp(diff)\n\n    weighted_exp = ops.mul(exp_diff, advantage_norm)\n    weighted_exp = ops.mul(weighted_exp, weight)\n    weighted_exp = ops.clamp(weighted_exp, min=eps)\n\n    log_w_exp = ops.log(weighted_exp)\n    log_denom = ops.log(ops.add(weighted_exp, ops.ones_like(weighted_exp)))\n    loss = ops.neg(ops.sub(log_w_exp, log_denom))\n\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "stage": "high_fidelity",
+  "stage_final": "high_fidelity",
+  "score": 0.0024894367218020186,
+  "final_score": 0.0024894367218020186,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage3_high_fidelity"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled"
+  },
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "compare_target": "incumbent",
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "reference_score": 0.011342358303070399,
+  "better_than_incumbent": true,
+  "best_pair_generation": 1,
+  "best_pair_phase": "loss",
+  "best_pair_last_phase_label": "baseline",
+  "best_pair_last_phase_reference_score": Infinity,
+  "score_history": [
+    {
+      "generation": 1,
+      "pair_index": 6,
+      "phase": "loss",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": 0.0024894367218020186,
+      "eval_budget_signature": "0b33ec1f93506f38",
+      "reference_score": 0.011342358303070399
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      0.0024894367218020186
+    ],
+    "best": 0.0024894367218020186,
+    "worst": 0.0024894367218020186,
+    "mean": 0.0024894367218020186,
+    "latest": 0.0024894367218020186
+  }
+}
