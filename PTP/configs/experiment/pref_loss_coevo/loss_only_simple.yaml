@@ -16,6 +16,10 @@ stage3_multifidelity:
   rounds:
     - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_frac: 0.5, promote_if_better_than_incumbent: true, promote_only_if_better_than_baseline: true, always_include_incumbent: true }
     - { name: epoch2_inst100000, hf_epochs: 2, hf_instances_per_epoch: 100000 }
+stage3_early_prune:
+  enabled: true
+  scenario_name: tsp50
+  max_init_ratio_to_baseline: 2.0
 builder_min_coverage: 0.0
 seed_with_po4cops_default: false
 llm_init_only: true

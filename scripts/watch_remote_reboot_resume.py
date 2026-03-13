@@ -337,6 +337,45 @@ def _attempt_resume(
         _log(f"waiting_boot_grace_s={boot_grace_s:.1f}")
         time.sleep(boot_grace_s)
 
+    latest = _probe_latest_run(
+        client,
+        remote_workdir=remote_workdir,
+        config_path=config_path,
+        remote_python_bin=python_bin,
+        timeout_s=cmd_timeout_s,
+    )
+    if not isinstance(latest, dict):
+        _log("resume_check_degraded: latest_run_probe_returned_non_dict")
+        return False
+
+    if not bool(latest.get("ok")):
+        latest_reason = str(latest.get("reason", "probe_failed") or "probe_failed")
+        if latest_reason in {"output_root_missing", "no_resumable_runs"}:
+            _log(f"resume_check_noop: latest_run_unavailable reason={latest_reason}")
+            return False
+        _log(
+            "resume_check_degraded: "
+            + f"latest_run_probe_failed reason={latest_reason} "
+            + f"stderr={str(latest.get('stderr', '') or '').strip()} "
+            + f"stdout={str(latest.get('stdout', '') or '').strip()}"
+        )
+        return False
+
+    latest_run_dir = str(latest.get("latest_run_dir", "") or "")
+    next_generation = latest.get("checkpoint_next_generation")
+    target_generations = latest.get("target_generations")
+    completed = bool(latest.get("completed"))
+    _log(
+        "latest_run_probe: "
+        + f"run_dir={latest_run_dir} "
+        + f"next_generation={next_generation} "
+        + f"target_generations={target_generations} "
+        + f"completed={completed}"
+    )
+    if completed:
+        _log("resume_check_noop: latest_run_already_completed")
+        return False
+
     # Keep the process probe aligned with the standalone PowerShell SSH test:
     # use the configured command timeout and a direct remote command.
     running, running_err = _remote_pref_loss_running(client, timeout_s=cmd_timeout_s)
@@ -386,7 +425,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--config",
         type=str,
-        default="PTP/configs/experiment/pref_loss_coevo/alternating_simple.yaml",
+        default="PTP/configs/experiment/pref_loss_coevo/loss_only_simple.yaml",
         help="Remote config path (absolute or relative to --remote-workdir).",
     )
     p.add_argument("--poll-s", type=float, default=15.0, help="Polling interval in seconds.")

@@ -794,6 +794,75 @@ def _iter_stage3_scenario_cfgs(cfg_yaml: Mapping[str, Any]) -> List[Dict[str, An
     return [{"name": str(single_cfg["stage3_scenario_name"]), "cfg": single_cfg}]
 
 
+def _stage3_early_prune_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    raw = cfg_yaml.get("stage3_early_prune", {}) or {}
+    if not isinstance(raw, Mapping):
+        return {"enabled": False}
+
+    try:
+        max_init_ratio = float(raw.get("max_init_ratio_to_baseline", float("inf")))
+    except (TypeError, ValueError):
+        max_init_ratio = float("inf")
+    try:
+        max_mean_ratio = float(raw.get("max_mean_ratio_to_baseline", float("inf")))
+    except (TypeError, ValueError):
+        max_mean_ratio = float("inf")
+
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "scenario_name": str(raw.get("scenario_name") or "tsp50"),
+        "max_init_ratio_to_baseline": float(max_init_ratio),
+        "max_mean_ratio_to_baseline": float(max_mean_ratio),
+    }
+
+
+def _stage3_check_early_prune(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    scenario_name: str,
+    scenario_per_init: Mapping[str, Any],
+) -> Dict[str, Any] | None:
+    prune_cfg = _stage3_early_prune_cfg(cfg_yaml)
+    if not bool(prune_cfg.get("enabled", False)):
+        return None
+    if str(scenario_name) != str(prune_cfg.get("scenario_name") or ""):
+        return None
+
+    max_init_ratio = float(prune_cfg.get("max_init_ratio_to_baseline", float("inf")))
+    max_mean_ratio = float(prune_cfg.get("max_mean_ratio_to_baseline", float("inf")))
+    init_ratios: Dict[str, float] = {}
+    triggered_inits: Dict[str, float] = {}
+
+    for init_name, init_record in dict(scenario_per_init or {}).items():
+        if not isinstance(init_record, Mapping):
+            continue
+        try:
+            obj_cand = float(init_record.get("obj_cand"))
+            obj_base = float(init_record.get("obj_base"))
+        except (TypeError, ValueError):
+            continue
+        if not (math.isfinite(obj_cand) and math.isfinite(obj_base) and obj_base > 0.0):
+            continue
+        ratio = float(obj_cand / obj_base)
+        init_ratios[str(init_name)] = float(ratio)
+        if math.isfinite(max_init_ratio) and ratio > max_init_ratio:
+            triggered_inits[str(init_name)] = float(ratio)
+
+    mean_ratio = float(sum(init_ratios.values()) / float(len(init_ratios))) if init_ratios else float("nan")
+    trigger_mean = bool(math.isfinite(max_mean_ratio) and math.isfinite(mean_ratio) and mean_ratio > max_mean_ratio)
+    if not triggered_inits and not trigger_mean:
+        return None
+
+    return {
+        "scenario_name": str(scenario_name),
+        "init_ratios": {str(k): float(v) for k, v in init_ratios.items()},
+        "triggered_inits": {str(k): float(v) for k, v in triggered_inits.items()},
+        "mean_ratio": float(mean_ratio) if math.isfinite(mean_ratio) else None,
+        "max_init_ratio_to_baseline": float(max_init_ratio),
+        "max_mean_ratio_to_baseline": float(max_mean_ratio) if math.isfinite(max_mean_ratio) else None,
+    }
+
+
 def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     baseline_cfg = cfg_yaml.get("baseline", {}) or {}
     generator_params = cfg_yaml.get("generator_params", {}) or {}
@@ -3250,6 +3319,57 @@ def _stored_selection_sort_key(entry: Mapping[str, Any], *, fallback_key: str) -
     if not math.isfinite(score):
         score = float("inf")
     return (float(score),)
+
+
+def _refresh_loss_population_scores_from_history(
+    entries: Sequence[Mapping[str, Any]],
+    pair_score_history_map: Mapping[str, Any] | None,
+    *,
+    metric_mode: str,
+) -> List[Dict[str, Any]]:
+    if not entries:
+        return []
+    if not isinstance(pair_score_history_map, Mapping):
+        return [dict(e) for e in entries]
+
+    score_by_loss_id: Dict[str, float] = {}
+    for pair_key, hist in pair_score_history_map.items():
+        if not isinstance(pair_key, str) or "::" not in pair_key or not isinstance(hist, list):
+            continue
+        _, loss_id = pair_key.split("::", 1)
+        best_score = score_by_loss_id.get(str(loss_id))
+        for item in hist:
+            if not isinstance(item, Mapping):
+                continue
+            try:
+                score = float(item.get("final_score", item.get("score")))
+            except (TypeError, ValueError):
+                continue
+            if not math.isfinite(score):
+                score = float("inf")
+            if best_score is None or _is_better_than_reference(
+                cand_score=score,
+                reference_score=best_score,
+                metric_mode=metric_mode,
+                improve_eps=0.0,
+            ):
+                best_score = float(score)
+        if best_score is not None:
+            score_by_loss_id[str(loss_id)] = float(best_score)
+
+    refreshed: List[Dict[str, Any]] = []
+    for entry in entries:
+        item = dict(entry)
+        loss_id = str(item.get("id") or "")
+        if loss_id in score_by_loss_id:
+            item["fitness"] = float(score_by_loss_id[loss_id])
+        refreshed.append(item)
+
+    refreshed.sort(
+        key=lambda x: float(x.get("fitness", float("-inf") if str(metric_mode) == "maximize" else float("inf"))),
+        reverse=bool(str(metric_mode) == "maximize"),
+    )
+    return refreshed
 
 
 def _extract_builder_cost(rec: Mapping[str, Any]) -> float | None:
@@ -7691,6 +7811,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         baseline_multiseed_cache_paths: Dict[str, str | None] = {}
         baseline_compare_modes: Dict[str, str] = {}
         eval_signatures: Dict[str, Any] = {}
+        early_prune_report: Dict[str, Any] | None = None
 
         fl_logger.info(
             "Stage3 offline mini-train start gen=%d pair_index=%d scenarios=%s",
@@ -7889,11 +8010,33 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "delta_worst": float(scenario_delta_worst),
             }
 
+            if early_prune_report is None:
+                early_prune_report = _stage3_check_early_prune(
+                    cfg_yaml=cfg_yaml,
+                    scenario_name=str(scenario_name),
+                    scenario_per_init=scenario_per_init,
+                )
+                if early_prune_report is not None:
+                    any_error = True
+                    fl_logger.warning(
+                        "Stage3 early prune triggered gen=%d pair_index=%d scenario=%s report=%s",
+                        int(generation),
+                        int(pair_index),
+                        str(scenario_name),
+                        dict(early_prune_report),
+                    )
+                    break
+
         delta_mean = float(sum(all_deltas) / float(len(all_deltas))) if all_deltas else float("inf")
         delta_worst = float(max(all_deltas)) if all_deltas else float("inf")
 
-        record["pair_ok"] = not any_error
-        record["pair_reason"] = "ok_stage3_offline_minitrain" if not any_error else "stage3_runtime_error"
+        if early_prune_report is not None:
+            record["pair_ok"] = False
+            record["pair_reason"] = "stage3_early_pruned"
+            record["stage3_early_prune"] = dict(early_prune_report)
+        else:
+            record["pair_ok"] = not any_error
+            record["pair_reason"] = "ok_stage3_offline_minitrain" if not any_error else "stage3_runtime_error"
         record["fitness"] = {
             "per_init": all_per_init,
             "per_scenario": per_scenario,
@@ -7920,6 +8063,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 next(iter(eval_signatures.values())) if len(eval_signatures) == 1 else eval_signatures
             ),
         }
+        if early_prune_report is not None:
+            record["fitness"]["early_prune"] = dict(early_prune_report)
         record["score"] = float("inf") if any_error else float(delta_mean)
         record["better_than_baseline_mean"] = bool(delta_mean < 0.0)
         record["better_than_baseline_strict"] = bool(all_deltas and all(float(d) < 0.0 for d in all_deltas))
@@ -8662,6 +8807,28 @@ def run_pref_loss_coevo(
     hof_f: List[Dict[str, Any]] = list(resume_state.get("hof_f", [])) if resume_state else []
     archive_g: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_g", {})) if resume_state else {}
     archive_f: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_f", {})) if resume_state else {}
+    if resume_state:
+        pair_score_history_map_resume = resume_state.get("pair_score_history_map", {})
+        resident_pop_f = _refresh_loss_population_scores_from_history(
+            resident_pop_f,
+            pair_score_history_map_resume,
+            metric_mode=metric_mode,
+        )
+        if elites_f:
+            resident_lookup_f = {str(item.get("id") or ""): dict(item) for item in resident_pop_f}
+            refreshed_elites_f: List[Dict[str, Any]] = []
+            for item in elites_f:
+                loss_id = str((item or {}).get("id") or "")
+                if loss_id and loss_id in resident_lookup_f:
+                    refreshed_elites_f.append(dict(resident_lookup_f[loss_id]))
+                elif isinstance(item, Mapping):
+                    refreshed_elites_f.append(dict(item))
+            refreshed_elites_f = _refresh_loss_population_scores_from_history(
+                refreshed_elites_f,
+                pair_score_history_map_resume,
+                metric_mode=metric_mode,
+            )
+            elites_f = list(refreshed_elites_f[: max(0, min(len(refreshed_elites_f), len(elites_f)))])
     best_so_far: Dict[str, Any] | None = None
     if resume_state and isinstance(resume_state.get("best_so_far"), dict):
         best_so_far = dict(resume_state.get("best_so_far", {}))
