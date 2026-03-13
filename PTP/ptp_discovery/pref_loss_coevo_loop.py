@@ -8012,7 +8012,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
             if early_prune_report is None:
                 early_prune_report = _stage3_check_early_prune(
-                    cfg_yaml=cfg_yaml,
+                    cfg_yaml=cfg,
                     scenario_name=str(scenario_name),
                     scenario_per_init=scenario_per_init,
                 )
