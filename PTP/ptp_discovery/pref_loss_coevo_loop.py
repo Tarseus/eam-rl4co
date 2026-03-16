@@ -2230,6 +2230,52 @@ def _pair_record_effective_score(rec: Mapping[str, Any] | None) -> float | None:
     return None
 
 
+def _select_best_valid_pair_record(
+    records: Sequence[Mapping[str, Any]] | None,
+    *,
+    metric_mode: str,
+) -> Dict[str, Any] | None:
+    if not records:
+        return None
+
+    candidates: List[Dict[str, Any]] = []
+    for rec in records:
+        if not isinstance(rec, Mapping):
+            continue
+        if not bool(rec.get("pair_ok")):
+            continue
+        if str(rec.get("stage")) == "anchor":
+            continue
+        if str(rec.get("g_id")) == G_REF_ID and str(rec.get("f_id")) == F_REF_ID:
+            continue
+        score = _pair_record_effective_score(rec)
+        if score is None or not math.isfinite(score):
+            continue
+        candidates.append(dict(rec))
+
+    if not candidates:
+        return None
+
+    def _stage_rank(rec: Mapping[str, Any]) -> int:
+        stage_final = str(rec.get("stage_final", rec.get("stage", ""))).strip().lower()
+        return 1 if stage_final == "high_fidelity" else 0
+
+    def _sort_key(rec: Mapping[str, Any]) -> Tuple[Any, ...]:
+        score = _pair_record_effective_score(rec)
+        score_key = float("inf")
+        if score is not None:
+            score_key = score if str(metric_mode).strip().lower() == "minimize" else -score
+        return (
+            _stage_rank(rec),
+            1 if isinstance(rec.get("fitness"), Mapping) else 0,
+            -score_key,
+            _safe_int(rec.get("generation", -1), -1),
+            _safe_int(rec.get("pair_index", -1), -1),
+        )
+
+    return dict(max(candidates, key=_sort_key))
+
+
 def _resolve_best_pair_record(
     *,
     best_so_far: Mapping[str, Any] | None,
@@ -2318,6 +2364,8 @@ def _pair_history_key(g_id: Any, f_id: Any) -> str:
 
 
 def _pair_score_history_entry(rec: Mapping[str, Any]) -> Dict[str, Any] | None:
+    if not bool(rec.get("pair_ok")):
+        return None
     try:
         final_score = float(rec.get("final_score"))
     except (TypeError, ValueError):
@@ -2373,6 +2421,17 @@ def _append_pair_score_history(
         if last_sig == entry_sig:
             return
     history.append(entry)
+
+
+def _rebuild_pair_score_history_map(
+    records: Sequence[Mapping[str, Any]] | None,
+) -> Dict[str, List[Dict[str, Any]]]:
+    out: Dict[str, List[Dict[str, Any]]] = {}
+    for rec in records or []:
+        if not isinstance(rec, Mapping):
+            continue
+        _append_pair_score_history(out, rec)
+    return out
 
 
 def _score_history_summary(history: Sequence[Mapping[str, Any]] | None) -> Dict[str, Any]:
@@ -4030,6 +4089,8 @@ def _resolve_final_score(
     *,
     eval_stages: Mapping[str, bool],
 ) -> Tuple[str, float | None]:
+    if not bool(rec.get("pair_ok")):
+        return "none", None
     hf_enabled = bool(eval_stages.get("stage3_high_fidelity", False))
     micro_enabled = bool(eval_stages.get("stage2_micro_unroll", False))
     proxy_enabled = bool(eval_stages.get("stage1_proxy", False))
@@ -9235,6 +9296,61 @@ def run_pref_loss_coevo(
         for sig in eval_sigs_to_load:
             loaded_total += int(load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=sig))
         LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sigs=%s)", loaded_total, eval_sigs_to_load)
+        rebuilt_pair_score_history_map = _rebuild_pair_score_history_map(list(caches.pair_cache.values()))
+        if rebuilt_pair_score_history_map:
+            pair_score_history_map = dict(rebuilt_pair_score_history_map)
+            resident_pop_f = _refresh_loss_population_scores_from_history(
+                resident_pop_f,
+                pair_score_history_map,
+                metric_mode=metric_mode,
+            )
+            if elites_f:
+                resident_lookup_f = {str(item.get("id") or ""): dict(item) for item in resident_pop_f}
+                refreshed_elites_f: List[Dict[str, Any]] = []
+                for item in elites_f:
+                    loss_id = str((item or {}).get("id") or "")
+                    if loss_id and loss_id in resident_lookup_f:
+                        refreshed_elites_f.append(dict(resident_lookup_f[loss_id]))
+                    elif isinstance(item, Mapping):
+                        refreshed_elites_f.append(dict(item))
+                elites_f = list(
+                    _refresh_loss_population_scores_from_history(
+                        refreshed_elites_f,
+                        pair_score_history_map,
+                        metric_mode=metric_mode,
+                    )[: max(0, min(len(refreshed_elites_f), len(elites_f)))]
+                )
+        resolved_resume_best = _resolve_best_pair_record(
+            best_so_far=best_so_far,
+            pair_records=None,
+            pair_cache_records=list(caches.pair_cache.values()),
+            metric_mode=metric_mode,
+        )
+        if (best_so_far is None) or (not isinstance(resolved_resume_best, Mapping)) or (not bool(resolved_resume_best.get("pair_ok"))):
+            rebuilt_best_rec = _select_best_valid_pair_record(
+                list(caches.pair_cache.values()),
+                metric_mode=metric_mode,
+            )
+            if rebuilt_best_rec is not None:
+                rebuilt_best_score = _pair_record_effective_score(rebuilt_best_rec)
+                if rebuilt_best_score is not None:
+                    LOGGER.warning(
+                        "Rebuilt incumbent from persisted valid pair records: old_best=%s new_best=%s pair=(%s,%s) stage=%s gen=%s",
+                        (dict(best_so_far) if isinstance(best_so_far, dict) else None),
+                        float(rebuilt_best_score),
+                        rebuilt_best_rec.get("g_id"),
+                        rebuilt_best_rec.get("f_id"),
+                        rebuilt_best_rec.get("stage_final", rebuilt_best_rec.get("stage")),
+                        rebuilt_best_rec.get("generation"),
+                    )
+                    best_so_far = {
+                        "score": float(rebuilt_best_score),
+                        "builder_id": str(rebuilt_best_rec.get("g_id")),
+                        "loss_id": str(rebuilt_best_rec.get("f_id")),
+                        "stage_final": str(rebuilt_best_rec.get("stage_final", rebuilt_best_rec.get("stage", "none"))),
+                        "generation": int(_safe_int(rebuilt_best_rec.get("generation", -1), -1)),
+                        "phase": str(rebuilt_best_rec.get("phase", "coevo")),
+                    }
 
     if best_so_far is None:
         if baseline_early_valid is not None:
@@ -11925,6 +12041,14 @@ def run_pref_loss_coevo(
                 rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
                 rec["delta_vs_last_phase"] = None
                 continue
+            if not bool(rec.get("pair_ok")):
+                rec["better_than_incumbent"] = False
+                rec["delta_vs_incumbent"] = None
+                rec["better_than_last_phase"] = (False if last_phase_reference_score is not None else None)
+                rec["delta_vs_last_phase"] = None
+                rec["final_score"] = None
+                rec["stage_final"] = "none"
+                continue
 
             final_score = rec.get("final_score")
             if final_score is None:
@@ -12018,6 +12142,8 @@ def run_pref_loss_coevo(
                 (str(rec.get("g_id")) == G_REF_ID and str(rec.get("f_id")) == F_REF_ID)
                 or str(rec.get("stage")) == "anchor"
             ):
+                continue
+            if not bool(rec.get("pair_ok")):
                 continue
             try:
                 score_f = float(rec.get("final_score"))
