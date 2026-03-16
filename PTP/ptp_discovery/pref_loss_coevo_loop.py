@@ -3119,7 +3119,14 @@ def _normalize_stage3_multifidelity_cfg(raw: Any) -> Dict[str, Any]:
     if enabled and not rounds:
         # Default: quick filter then a stronger confirmation.
         rounds = [
-            {"name": "K200", "f1_steps": 200, "promote_top_m": 32, "promote_if_better_than_incumbent": True, "always_include_incumbent": True},
+            {
+                "name": "K200",
+                "f1_steps": 200,
+                "promote_top_m": 32,
+                "promote_if_better_than_incumbent": True,
+                "promote_selection_mode": "union",
+                "always_include_incumbent": True,
+            },
             {"name": "K1000", "f1_steps": 1000, "promote_top_m": 0},
         ]
     return {"enabled": bool(enabled), "rounds": rounds}
@@ -3150,6 +3157,7 @@ def _select_stage3_promotions(
     promote_top_m: int,
     promote_top_frac: float | None,
     promote_if_better_than_incumbent: bool,
+    promote_selection_mode: str,
     promote_only_if_better_than_baseline: bool,
     promote_baseline_mode: str,
     incumbent_ref_score: float | None,
@@ -3159,7 +3167,11 @@ def _select_stage3_promotions(
 ) -> List[Tuple[str, str]]:
     scored: List[Tuple[float, str, str]] = []
     better: List[Tuple[str, str]] = []
+    better_set: set[Tuple[str, str]] = set()
     baseline_gate_mode = str(promote_baseline_mode or "mean").strip().lower()
+    selection_mode = str(promote_selection_mode or "union").strip().lower()
+    if selection_mode not in {"union", "intersection"}:
+        selection_mode = "union"
     eligible_pairs: set[Tuple[str, str]] = set()
     for r in records:
         if not bool(r.get("pair_ok")):
@@ -3189,7 +3201,9 @@ def _select_stage3_promotions(
                 metric_mode=str(metric_mode),
                 improve_eps=float(improve_eps),
             ):
-                better.append((gid, fid))
+                pair_key = (gid, fid)
+                better.append(pair_key)
+                better_set.add(pair_key)
 
     scored.sort(key=lambda x: float(x[0]), reverse=bool(str(metric_mode) == "maximize"))
     promoted: List[Tuple[str, str]] = []
@@ -3200,12 +3214,13 @@ def _select_stage3_promotions(
             promoted.append(always_include_pair)
             seen.add(always_include_pair)
 
-    for gid, fid in better:
-        k = (gid, fid)
-        if k in seen:
-            continue
-        promoted.append(k)
-        seen.add(k)
+    if selection_mode == "union":
+        for gid, fid in better:
+            k = (gid, fid)
+            if k in seen:
+                continue
+            promoted.append(k)
+            seen.add(k)
 
     m = _resolve_stage3_promotion_count(
         total_candidates=int(len(scored)),
@@ -3213,7 +3228,10 @@ def _select_stage3_promotions(
         promote_top_frac=promote_top_frac,
     )
     if m > 0:
-        for s, gid, fid in scored[:m]:
+        top_candidates = scored[:m]
+        if selection_mode == "intersection" and bool(promote_if_better_than_incumbent):
+            top_candidates = [(s, gid, fid) for (s, gid, fid) in top_candidates if (gid, fid) in better_set]
+        for s, gid, fid in top_candidates:
             k = (gid, fid)
             if k in seen:
                 continue
@@ -11752,6 +11770,7 @@ def run_pref_loss_coevo(
                                 promote_top_m=int(promote_top_m),
                                 promote_top_frac=promote_top_frac,
                                 promote_if_better_than_incumbent=bool(promote_if_better),
+                                promote_selection_mode=str(curr_round.get("promote_selection_mode", "union") or "union"),
                                 promote_only_if_better_than_baseline=bool(promote_only_if_better_than_baseline),
                                 promote_baseline_mode=str(promote_baseline_mode),
                                 incumbent_ref_score=incumbent_ref_score,
@@ -11795,7 +11814,7 @@ def run_pref_loss_coevo(
                         promoted = uniq
 
                         LOGGER.info(
-                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d top_frac=%s promote_if_better=%s promote_if_better_than_baseline=%s baseline_mode=%s include_incumbent=%s",
+                            "HF MF promote gen=%d: %s -> %s next_pool=%d (from=%d) top_m=%d top_frac=%s promote_if_better=%s selection_mode=%s promote_if_better_than_baseline=%s baseline_mode=%s include_incumbent=%s",
                             int(gen),
                             str(curr_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, curr_round))),
                             str(next_round.get("name") or _stage3_fidelity_key(_apply_stage3_round_overrides(cfg_yaml, next_round))),
@@ -11804,6 +11823,7 @@ def run_pref_loss_coevo(
                             int(promote_top_m),
                             (str(promote_top_frac) if promote_top_frac is not None else "None"),
                             str(bool(promote_if_better)),
+                            str(curr_round.get("promote_selection_mode", "union") or "union"),
                             str(bool(promote_only_if_better_than_baseline)),
                             str(promote_baseline_mode),
                             str(bool(always_include_inc)),

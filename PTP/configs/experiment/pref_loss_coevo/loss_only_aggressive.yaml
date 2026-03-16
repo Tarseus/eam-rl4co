@@ -16,7 +16,7 @@ stage3_multifidelity:
   rounds:
     # Use a harder first-round cut so stage2/stage3 focus on families that already
     # look competitive after proxy/micro filtering.
-    - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_frac: 0.33, promote_if_better_than_incumbent: true, promote_only_if_better_than_baseline: true, always_include_incumbent: true }
+    - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_frac: 0.33, promote_if_better_than_incumbent: true, promote_selection_mode: intersection, promote_only_if_better_than_baseline: true, always_include_incumbent: true }
     - { name: epoch2_inst100000, hf_epochs: 2, hf_instances_per_epoch: 100000, promote_top_m: 8, promote_if_better_than_incumbent: true, always_include_incumbent: true }
 builder_min_coverage: 0.0
 seed_with_po4cops_default: false
