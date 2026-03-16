@@ -94,6 +94,14 @@ pref_semantic_min_pass_rate: 0.8
 pref_semantic_swap_tolerance: 0.001
 pref_semantic_gap_min_ratio: 0.9
 
+# CO-alignment gates
+co_gate_enabled: true
+co_gate_hidden_variant: false
+co_sensitivity_min_abs_delta: 0.001
+co_sensitivity_min_rel_delta: 0.01
+co_invariance_max_abs_delta: 0.005
+co_invariance_max_rel_delta: 0.05
+
 # Optional persistence hooks for caches (default: in-memory only).
 # If set to a subdirectory name, pair_cache records are persisted as JSON files under run_dir/<cache_persist_dir>.
 cache_persist_dir: null

@@ -53,9 +53,13 @@ from fitness.pref_loss_fidelity import (
 )
 from ptp_discovery.free_loss_compiler import CompiledFreeLoss, CompileError, compile_free_loss
 from ptp_discovery.free_loss_gates import (
+    AffineInvarianceGateResult,
     JointPreferenceGateResult,
+    ObjectiveSensitivityGateResult,
     StaticGateResult,
+    run_affine_invariance_gate,
     run_joint_preference_gates,
+    run_objective_sensitivity_gate,
     run_preference_builder_gates,
     run_preference_semantic_gates,
     run_static_gates,
@@ -2835,6 +2839,134 @@ def _safe_bool(value: Any, default: bool) -> bool:
         if v in {"0", "false", "no", "n", "off"}:
             return False
     return bool(value)
+
+
+def _run_co_alignment_gates_for_loss(
+    compiled_f: CompiledFreeLoss,
+    cfg: Mapping[str, Any],
+) -> Dict[str, Any]:
+    co_enabled = _safe_bool(cfg.get("co_gate_enabled", True), True)
+    hidden_enabled = _safe_bool(cfg.get("co_gate_hidden_variant", False), False)
+
+    out: Dict[str, Any] = {
+        "co_enabled": bool(co_enabled),
+        "co_ok": True,
+        "co_reason": "disabled" if not co_enabled else "ok",
+        "co_failed_gate": None,
+        "co_failure_kind": None,
+        "co_sensitivity_ok": None,
+        "co_invariance_ok": None,
+        "co_sensitivity_visible_ok": None,
+        "co_sensitivity_visible_reason": None,
+        "co_sensitivity_visible_abs_delta": None,
+        "co_sensitivity_visible_rel_delta": None,
+        "co_sensitivity_visible_trace": None,
+        "co_sensitivity_hidden_ok": None,
+        "co_sensitivity_hidden_reason": None,
+        "co_sensitivity_hidden_abs_delta": None,
+        "co_sensitivity_hidden_rel_delta": None,
+        "co_sensitivity_hidden_trace": None,
+        "co_invariance_visible_ok": None,
+        "co_invariance_visible_reason": None,
+        "co_invariance_visible_abs_delta": None,
+        "co_invariance_visible_rel_delta": None,
+        "co_invariance_visible_trace": None,
+        "co_invariance_hidden_ok": None,
+        "co_invariance_hidden_reason": None,
+        "co_invariance_hidden_abs_delta": None,
+        "co_invariance_hidden_rel_delta": None,
+        "co_invariance_hidden_trace": None,
+    }
+    if not co_enabled:
+        return out
+
+    sens_vis: ObjectiveSensitivityGateResult = run_objective_sensitivity_gate(
+        compiled_f,
+        min_abs_delta=_safe_float(cfg.get("co_sensitivity_min_abs_delta", 1e-3), 1e-3),
+        min_rel_delta=_safe_float(cfg.get("co_sensitivity_min_rel_delta", 1e-2), 1e-2),
+        variant="visible",
+    )
+    inv_vis: AffineInvarianceGateResult = run_affine_invariance_gate(
+        compiled_f,
+        max_abs_delta=_safe_float(cfg.get("co_invariance_max_abs_delta", 1e-3), 1e-3),
+        max_rel_delta=_safe_float(cfg.get("co_invariance_max_rel_delta", 1e-2), 1e-2),
+        variant="visible",
+    )
+
+    sens_hid: ObjectiveSensitivityGateResult | None = None
+    inv_hid: AffineInvarianceGateResult | None = None
+
+    if hidden_enabled and sens_vis.ok and inv_vis.ok:
+        sens_hid = run_objective_sensitivity_gate(
+            compiled_f,
+            min_abs_delta=_safe_float(cfg.get("co_sensitivity_min_abs_delta", 1e-3), 1e-3),
+            min_rel_delta=_safe_float(cfg.get("co_sensitivity_min_rel_delta", 1e-2), 1e-2),
+            variant="hidden",
+        )
+        inv_hid = run_affine_invariance_gate(
+            compiled_f,
+            max_abs_delta=_safe_float(cfg.get("co_invariance_max_abs_delta", 1e-3), 1e-3),
+            max_rel_delta=_safe_float(cfg.get("co_invariance_max_rel_delta", 1e-2), 1e-2),
+            variant="hidden",
+        )
+
+    out.update(
+        {
+            "co_enabled": True,
+            "co_sensitivity_ok": bool(sens_vis.ok) and (True if sens_hid is None else bool(sens_hid.ok)),
+            "co_invariance_ok": bool(inv_vis.ok) and (True if inv_hid is None else bool(inv_hid.ok)),
+            "co_sensitivity_visible_ok": bool(sens_vis.ok),
+            "co_sensitivity_visible_reason": str(sens_vis.reason),
+            "co_sensitivity_visible_abs_delta": sens_vis.abs_delta,
+            "co_sensitivity_visible_rel_delta": sens_vis.rel_delta,
+            "co_sensitivity_visible_trace": sens_vis.trace,
+            "co_sensitivity_hidden_ok": None if sens_hid is None else bool(sens_hid.ok),
+            "co_sensitivity_hidden_reason": None if sens_hid is None else str(sens_hid.reason),
+            "co_sensitivity_hidden_abs_delta": None if sens_hid is None else sens_hid.abs_delta,
+            "co_sensitivity_hidden_rel_delta": None if sens_hid is None else sens_hid.rel_delta,
+            "co_sensitivity_hidden_trace": None if sens_hid is None else sens_hid.trace,
+            "co_invariance_visible_ok": bool(inv_vis.ok),
+            "co_invariance_visible_reason": str(inv_vis.reason),
+            "co_invariance_visible_abs_delta": inv_vis.abs_delta,
+            "co_invariance_visible_rel_delta": inv_vis.rel_delta,
+            "co_invariance_visible_trace": inv_vis.trace,
+            "co_invariance_hidden_ok": None if inv_hid is None else bool(inv_hid.ok),
+            "co_invariance_hidden_reason": None if inv_hid is None else str(inv_hid.reason),
+            "co_invariance_hidden_abs_delta": None if inv_hid is None else inv_hid.abs_delta,
+            "co_invariance_hidden_rel_delta": None if inv_hid is None else inv_hid.rel_delta,
+            "co_invariance_hidden_trace": None if inv_hid is None else inv_hid.trace,
+        }
+    )
+
+    co_ok = bool(out["co_sensitivity_ok"]) and bool(out["co_invariance_ok"])
+    out["co_ok"] = co_ok
+    if co_ok:
+        out["co_reason"] = "ok"
+        return out
+
+    if not sens_vis.ok:
+        failed_gate = "ObjectiveSensitivity"
+        reason = str(sens_vis.reason)
+        trace = sens_vis.trace if isinstance(sens_vis.trace, dict) else {}
+    elif not inv_vis.ok:
+        failed_gate = "AffineInvariance"
+        reason = str(inv_vis.reason)
+        trace = inv_vis.trace if isinstance(inv_vis.trace, dict) else {}
+    elif sens_hid is not None and not sens_hid.ok:
+        failed_gate = "ObjectiveSensitivity"
+        reason = str(sens_hid.reason)
+        trace = sens_hid.trace if isinstance(sens_hid.trace, dict) else {}
+    else:
+        failed_gate = "AffineInvariance"
+        reason = str(inv_hid.reason if inv_hid is not None else "co_gate_failed")
+        trace = inv_hid.trace if (inv_hid is not None and isinstance(inv_hid.trace, dict)) else {}
+
+    out["co_reason"] = reason
+    out["co_failed_gate"] = failed_gate
+    out["co_failure_kind"] = trace.get("failure_kind") if isinstance(trace, dict) else None
+    if out["co_failure_kind"] is None and reason:
+        out["co_failure_kind"] = str(reason)
+    return out
 
 
 def _normalize_metric_mode(value: Any) -> str:
@@ -6897,10 +7029,16 @@ def _cheap_eval_pair_cached(
             "joint_gate_trace": joint_gate_trace,
         }
     )
+    base.update(_run_co_alignment_gates_for_loss(f_comp, cfg_yaml))
 
+    co_ok = bool(base.get("co_ok", True))
     if cheap_gate_on and (not builder_ok or not joint_ok):
         base["pair_ok"] = False
         base["pair_reason"] = "cheap_proxy_gate_failed"
+        base["score"] = float("inf")
+    elif cheap_gate_on and (not co_ok):
+        base["pair_ok"] = False
+        base["pair_reason"] = "co_gate_failed"
         base["score"] = float("inf")
     else:
         base["pair_ok"] = True
@@ -7738,6 +7876,14 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             record["score"] = float("inf")
             record["elapsed_s"] = float(time.time() - t0)
             return record
+
+    record.update(_run_co_alignment_gates_for_loss(compiled_f, cfg))
+    if cheap_gate_on and (not bool(record.get("co_ok", True))):
+        record["pair_ok"] = False
+        record["pair_reason"] = "co_gate_failed"
+        record["score"] = float("inf")
+        record["elapsed_s"] = float(time.time() - t0)
+        return record
 
     if not high_fidelity_on:
         eff = float(joint_gate.effective_grad_ratio or 0.0)
@@ -11938,7 +12084,15 @@ def run_pref_loss_coevo(
         # Pair-level gate failure kinds.
         gate_kind_ctr: collections.Counter[str] = collections.Counter()
         for rec in pair_records:
-            for k in ("builder_gate_trace", "joint_gate_trace", "pref_semantic_trace"):
+            for k in (
+                "builder_gate_trace",
+                "joint_gate_trace",
+                "pref_semantic_trace",
+                "co_sensitivity_visible_trace",
+                "co_sensitivity_hidden_trace",
+                "co_invariance_visible_trace",
+                "co_invariance_hidden_trace",
+            ):
                 t = rec.get(k)
                 if not isinstance(t, dict):
                     continue
@@ -12073,6 +12227,32 @@ def run_pref_loss_coevo(
                     "joint_gate_ok": rec.get("joint_gate_ok"),
                     "joint_gate_reason": rec.get("joint_gate_reason"),
                     "joint_gate_trace": rec.get("joint_gate_trace"),
+                    "co_ok": rec.get("co_ok"),
+                    "co_reason": rec.get("co_reason"),
+                    "co_failed_gate": rec.get("co_failed_gate"),
+                    "co_failure_kind": rec.get("co_failure_kind"),
+                    "co_sensitivity_ok": rec.get("co_sensitivity_ok"),
+                    "co_invariance_ok": rec.get("co_invariance_ok"),
+                    "co_sensitivity_visible_ok": rec.get("co_sensitivity_visible_ok"),
+                    "co_sensitivity_visible_reason": rec.get("co_sensitivity_visible_reason"),
+                    "co_sensitivity_visible_abs_delta": rec.get("co_sensitivity_visible_abs_delta"),
+                    "co_sensitivity_visible_rel_delta": rec.get("co_sensitivity_visible_rel_delta"),
+                    "co_sensitivity_visible_trace": rec.get("co_sensitivity_visible_trace"),
+                    "co_sensitivity_hidden_ok": rec.get("co_sensitivity_hidden_ok"),
+                    "co_sensitivity_hidden_reason": rec.get("co_sensitivity_hidden_reason"),
+                    "co_sensitivity_hidden_abs_delta": rec.get("co_sensitivity_hidden_abs_delta"),
+                    "co_sensitivity_hidden_rel_delta": rec.get("co_sensitivity_hidden_rel_delta"),
+                    "co_sensitivity_hidden_trace": rec.get("co_sensitivity_hidden_trace"),
+                    "co_invariance_visible_ok": rec.get("co_invariance_visible_ok"),
+                    "co_invariance_visible_reason": rec.get("co_invariance_visible_reason"),
+                    "co_invariance_visible_abs_delta": rec.get("co_invariance_visible_abs_delta"),
+                    "co_invariance_visible_rel_delta": rec.get("co_invariance_visible_rel_delta"),
+                    "co_invariance_visible_trace": rec.get("co_invariance_visible_trace"),
+                    "co_invariance_hidden_ok": rec.get("co_invariance_hidden_ok"),
+                    "co_invariance_hidden_reason": rec.get("co_invariance_hidden_reason"),
+                    "co_invariance_hidden_abs_delta": rec.get("co_invariance_hidden_abs_delta"),
+                    "co_invariance_hidden_rel_delta": rec.get("co_invariance_hidden_rel_delta"),
+                    "co_invariance_hidden_trace": rec.get("co_invariance_hidden_trace"),
                     "pref_semantic_ok": rec.get("pref_semantic_ok"),
                     "pref_semantic_reason": rec.get("pref_semantic_reason"),
                     "pref_semantic_trace": rec.get("pref_semantic_trace"),
