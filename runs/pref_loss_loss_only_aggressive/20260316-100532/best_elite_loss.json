@@ -1,0 +1,143 @@
+{
+  "generation": 1,
+  "index": 12,
+  "id": "f001_012_56058d2b",
+  "signature": "56058d2ba95708bd410abd47629023df326c7a66",
+  "family": "preference|difference|sum|nonnegative",
+  "family_signature": "paradigm=preference|signal=difference|agg=sum|constraint=nonnegative",
+  "origin": "STRUCTURE_SHIFT",
+  "origin_base": "STRUCTURE_SHIFT",
+  "op_type": "LOSS_STRUCTURE_SHIFT",
+  "parents": [
+    "f000_015_b8163dcf"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "0471655b906841dea61fd26044d95ae7f8d6aa53",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+  "llm_seed": 1277520574,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_STRUCTURE_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "prompt_sha1": "0471655b906841dea61fd26044d95ae7f8d6aa53"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8,
+    "best_similarity_parts": {
+      "bigram": 0.6363636363636364,
+      "unigram": 0.8,
+      "call": 0.7142857142857143
+    },
+    "neighbors": [
+      {
+        "sig": "b8163dcfefdc86087cfd5e56b869ea23e2c7dcd3",
+        "name": "pairwise_preference_loss",
+        "similarity": 0.8,
+        "similarity_parts": {
+          "bigram": 0.6363636363636364,
+          "unigram": 0.8,
+          "call": 0.7142857142857143
+        },
+        "call_names_top": [
+          "batch.get",
+          "ops.clamp",
+          "ops.mean",
+          "ops.mul",
+          "ops.sub",
+          "ops.zscore"
+        ]
+      },
+      {
+        "sig": "c9bab8d8e6ee5dcb056be2fe69c6a3d30492c081",
+        "name": "loss_logsigmoid_norm_001_sum_agg",
+        "similarity": 0.47368421052631576,
+        "similarity_parts": {
+          "bigram": 0.11428571428571428,
+          "unigram": 0.47368421052631576,
+          "call": 0.42857142857142855
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.sqrt",
+          "ops.sub",
+          "ops.sum",
+          "ops.zscore"
+        ]
+      },
+      {
+        "sig": "d88e2fef217b87304b606c97bd10ffc093b0404d",
+        "name": "pairwise_preference_loss_clipped_symmetry",
+        "similarity": 0.4666666666666667,
+        "similarity_parts": {
+          "bigram": 0.08695652173913043,
+          "unigram": 0.4666666666666667,
+          "call": 0.36363636363636365
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.sub"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_preference_loss_sum_aggregation",
+    "intuition": "This loss encourages the model to assign higher log probabilities to preferred samples by comparing pairwise differences in log probabilities weighted by preference signals, aggregating the losses by summation instead of averaging to emphasize total accumulated pair loss.",
+    "pseudocode": "loss = sum_over_pairs(weight * (log_prob_l - log_prob_w))",
+    "hyperparams": {
+      "paradigm_family": "preference",
+      "signal_family": "difference",
+      "link_family": "pairwise",
+      "agg_family": "sum",
+      "constraint_family": "nonnegative"
+    },
+    "operators_used": [
+      "logsigmoid"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "cost_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch.get('cost_gap', None)\n    if cost_gap is not None:\n        modifier = ops.clamp(ops.zscore(cost_gap), min=0.0)\n        weight = ops.mul(weight, modifier)\n    diff = ops.sub(log_prob_l, log_prob_w)\n    weighted_diff = ops.mul(weight, diff)\n    loss = ops.sum(weighted_diff)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -60432.366128721624,
+  "descriptor": {
+    "x": 0.40603397972881794,
+    "y": 0.0,
+    "cell": [
+      3,
+      0
+    ]
+  }
+}
