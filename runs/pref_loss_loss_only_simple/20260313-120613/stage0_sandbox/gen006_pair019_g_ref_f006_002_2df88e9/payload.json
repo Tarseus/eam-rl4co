@@ -1,0 +1,106 @@
+{
+  "generation": 6,
+  "pair_index": 19,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f006_002_2df88e95",
+    "ir": {
+      "name": "loss_sigmoid_pairwise_diff_margin_ranked_weighted_variance",
+      "intuition": "Shift paradigm from a margin-based pairwise logistic loss to a variance-regularized pairwise sigmoid loss that encourages both margin separation and consistency across the batch. The loss computes sigmoid differences weighted by rank-derived weights and penalizes variance of the logits difference, promoting not only correct ordering but also stable confidence. Aggregation involves weighted mean plus a variance penalty term with a constrained link function, enhancing robustness and novelty.",
+      "pseudocode": "diff = log_prob_w - log_prob_l\nrank_weights = sigmoid(delta_rank * rank_scale)\nweighted_diff = diff * rank_weights * weight\nmean_diff = sum(weighted_diff) / (sum(weight) + eps)\nvar_diff = sum(weight * ops.abs(diff - mean_diff)) / (sum(weight) + eps)\nloss = -logsigmoid(alpha * scale * mean_diff) + lambda_var * var_diff",
+      "hyperparams": {
+        "paradigm_family": "pairwise_variance_regularized",
+        "signal_family": "delta_rank_advantage_gap",
+        "link_family": "sigmoid_logsigmoid_combined",
+        "agg_family": "weighted_mean_plus_variance_penalty",
+        "constraint_family": "bounded_variance_regularization"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "sigmoid",
+        "sum",
+        "mul",
+        "div",
+        "sub",
+        "abs"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    delta_rank = batch['delta_rank']\n    advantage_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n\n    if weight is None:\n        weight = ops.ones_like(lpw)\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    lambda_var = float(extra.get('hyperparams', {}).get('lambda_var', 0.1))\n    rank_scale = float(extra.get('hyperparams', {}).get('rank_scale', 5.0))\n\n    eps = 1e-8\n    diff = ops.sub(lpw, lpl)  # log_prob_w - log_prob_l\n\n    # Weight ranks smoothly with sigmoid(delta_rank * rank_scale) to emphasize confident rank deltas\n    rank_weights = ops.sigmoid(ops.mul(delta_rank, rank_scale))\n\n    weighted_diff = ops.mul(ops.mul(diff, rank_weights), weight)\n    sum_weights = ops.sum(weight) + eps\n\n    mean_diff = ops.div(ops.sum(weighted_diff), sum_weights)\n\n    # Compute variance penalty as weighted average of absolute deviations\n    abs_dev = ops.abs(ops.sub(diff, mean_diff))\n    weighted_var = ops.div(ops.sum(ops.mul(abs_dev, weight)), sum_weights)\n\n    loss_pref = -ops.logsigmoid(ops.mul(alpha * scale, mean_diff))\n\n    loss = loss_pref + lambda_var * weighted_var\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

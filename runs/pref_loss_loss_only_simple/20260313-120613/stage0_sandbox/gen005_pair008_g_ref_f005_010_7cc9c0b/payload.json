@@ -1,0 +1,106 @@
+{
+  "generation": 5,
+  "pair_index": 8,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f005_010_7cc9c0b9",
+    "ir": {
+      "name": "loss_logsigmoid_007_cost_margin_scaled_nonlinear_v3_repair",
+      "intuition": "Replace unsupported ops.sign with numerically safe sign approximation; preserve original nonlinear scaling and cost margin scoring intact. Fix neg input to be a tensor.",
+      "pseudocode": "margin = margin_factor * scale\nprob_diff_raw = (log_prob_w - log_prob_l) * scale * alpha\nsign_mask = (prob_diff_raw > 0).float() * 2 - 1\nprob_diff = sign_mask * (ops.abs(prob_diff_raw) ** gamma)\ncost_weight = ops.sigmoid(cost_gap_coef * cost_gap)\nneg_margin = ops.neg(margin_tensor)  # margin as tensor\nscore = prob_diff * cost_weight - ops.softplus(neg_margin)\nclamped_score = ops.clamp(score, -20, 20)\nloss_per_pair = -weight * ops.logsigmoid(clamped_score)\nreturn sum(loss_per_pair) / (sum(weight) + 1e-8)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid_softplus_sigmoid_scaled_nonlinear",
+        "agg_family": "weighted_average",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "clamp",
+        "logsigmoid",
+        "sum",
+        "sigmoid",
+        "softplus",
+        "abs",
+        "pow",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 3.0))\n    margin_factor = float(extra.get('hyperparams', {}).get('margin_factor', 0.15))\n    cost_gap_coef = float(extra.get('hyperparams', {}).get('cost_gap_coef', 0.2))\n    gamma = float(extra.get('hyperparams', {}).get('gamma', 0.5))\n    margin = margin_factor * scale\n    margin_tensor = lpw.new_full(lpw.shape, margin)\n    prob_diff_raw = (lpw - lpl) * scale * alpha\n    sign_mask = (prob_diff_raw > 0).to(prob_diff_raw.dtype) * 2.0 - 1.0\n    prob_diff = sign_mask * (ops.abs(prob_diff_raw) ** gamma)\n    cost_weight = ops.sigmoid(cost_gap_coef * cost_gap)\n    neg_margin = ops.neg(margin_tensor)\n    score = prob_diff * cost_weight - ops.softplus(neg_margin)\n    score = ops.clamp(score, -20.0, 20.0)\n    loss_per_pair = -weight * ops.logsigmoid(score)\n    denom = ops.sum(weight) + 1e-8\n    return ops.sum(loss_per_pair) / denom",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

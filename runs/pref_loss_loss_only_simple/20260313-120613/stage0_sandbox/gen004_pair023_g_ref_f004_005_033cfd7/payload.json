@@ -1,0 +1,106 @@
+{
+  "generation": 4,
+  "pair_index": 23,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f004_005_033cfd7f",
+    "ir": {
+      "name": "pairwise_adv_margin_tau_fixed_v2_repaired",
+      "intuition": "Replace unsupported leaky_relu with relu-based leaky relu using ops.relu for asymmetry, keep original additive margin with advantage_gap, delta_rank, and clipped cost_gap signals.",
+      "pseudocode": "adv_scale = sigmoid(advantage_gap * 3.0 - 1.0) * 0.05\nrank_scale = (relu(delta_rank * 2.0) - 0.1 * relu(-delta_rank * 2.0)) * 0.04\nclipped_cost = clamp(cost_gap, 0, 0.1) * 0.1\nmargin = tau * (adv_scale + rank_scale + clipped_cost)\nx = alpha * scale * (log_prob_w - log_prob_l) - margin\nloss_per_pair = -logsigmoid(x) * weight\nloss = sum(loss_per_pair) / (sum(weight) + eps)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_delta_rank_cost_gap",
+        "link_family": "logsigmoid_smooth_margin_tau_additive",
+        "agg_family": "weighted_average",
+        "constraint_family": "normalization",
+        "tau": 1.7
+      },
+      "operators_used": [
+        "logsigmoid",
+        "sigmoid",
+        "relu",
+        "clamp",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "delta_rank",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n    cost_gap = batch['cost_gap']\n    weight = batch['weight']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2))\n    tau = float(extra.get('hyperparams', {}).get('tau', 1.7))\n\n    adv_scale = ops.sigmoid(advantage_gap * 3.0 - 1.0) * 0.05\n    pos = ops.relu(delta_rank * 2.0)\n    neg = ops.relu(-delta_rank * 2.0)\n    rank_scale = (pos - 0.1 * neg) * 0.04\n    clipped_cost = ops.clamp(cost_gap, 0.0, 0.1) * 0.1\n    margin = tau * (adv_scale + rank_scale + clipped_cost)\n\n    x = alpha * scale * (lpw - lpl) - margin\n    loss_per_pair = -ops.logsigmoid(x) * weight\n    denom = ops.sum(weight) + eps\n    return ops.sum(loss_per_pair) / denom",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

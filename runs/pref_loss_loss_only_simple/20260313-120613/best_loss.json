@@ -1,0 +1,63 @@
+{
+  "id": "f003_010_f74222ac",
+  "ir": {
+    "name": "loss_logsigmoid_004_cost_adv_rank_margin_normalized_v2",
+    "intuition": "Fixed the loss to reduce similarity by replacing simple sigmoid and tanh scaling with smoother nonlinear transforms and adding a shifted softplus to create a margin that varies nonlinearly with the signals. Also, replaced static margins by smooth, differentiable functions of advantage_gap and delta_rank, ensuring a more nuanced margin and hence distinct formula. This adjustment improves novelty while keeping the normalization constraint for scale invariance and preserving all required inputs and pairwise operations.",
+    "pseudocode": "adv_margin = softplus(advantage_gap * 5 - 2) * 0.03\nrank_margin = tanh(delta_rank * 3) * 0.025\nmargin = adv_margin + rank_margin\nx = alpha * scale * (log_prob_w - log_prob_l) - margin\nloss_per_pair = -logsigmoid(x) * weight\nloss = sum(loss_per_pair) / (sum(weight) + epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap_delta_rank",
+      "link_family": "logsigmoid_smooth_margin_v2",
+      "agg_family": "weighted_average",
+      "constraint_family": "normalization"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "softplus",
+      "tanh",
+      "sum"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n    weight = batch['weight']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2))\n\n    adv_margin = ops.softplus(advantage_gap * 5.0 - 2.0) * 0.03\n    rank_margin = ops.tanh(delta_rank * 3.0) * 0.025\n    margin = adv_margin + rank_margin\n\n    x = alpha * scale * (lpw - lpl) - margin\n    loss_per_pair = -ops.logsigmoid(x) * weight\n    denom = ops.sum(weight) + 1e-8\n    return ops.sum(loss_per_pair) / denom",
+    "theoretical_basis": ""
+  },
+  "stage": "high_fidelity",
+  "score": -0.005488120460509949,
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "better_than_incumbent": true,
+  "best_pair_generation": 3,
+  "best_pair_phase": "loss",
+  "score_history": [
+    {
+      "generation": 3,
+      "pair_index": 1,
+      "phase": "loss",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.005488120460509949,
+      "eval_budget_signature": "0b33ec1f93506f38",
+      "reference_score": -0.0014480981826778816
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      -0.005488120460509949
+    ],
+    "best": -0.005488120460509949,
+    "worst": -0.005488120460509949,
+    "mean": -0.005488120460509949,
+    "latest": -0.005488120460509949
+  }
+}

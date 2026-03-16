@@ -1,0 +1,103 @@
+{
+  "generation": 4,
+  "pair_index": 17,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f004_010_0fcef306",
+    "ir": {
+      "name": "pairwise_smooth_margin_loss_varnorm_adaptive_scale_clipped",
+      "intuition": "Inject a clipping constraint on the adaptive scale multiplier to stabilize extreme scaling values and prevent loss from exploding or vanishing. This enforces numerical stability and ensures the adaptive scale remains within a bounded range, while preserving the variance normalization and adaptive behavior.",
+      "pseudocode": "eps = 1e-6\nvar_adv = (advantage_gap - advantage_gap.mean()).pow(2).mean().sqrt() + eps\nvar_rank = (delta_rank - delta_rank.mean()).pow(2).mean().sqrt() + eps\ninv_var = 1.0 / (var_adv + var_rank)\ninv_var_clipped = clamp(inv_var, min_clip, max_clip)\nadv_norm = advantage_gap / var_adv\nrank_norm = delta_rank / var_rank\nadv_scaled = sigmoid(adv_norm) * margin_adv\nrank_scaled = tanh(rank_norm) * margin_rank\nmargin = adv_scaled + rank_scaled\nadaptive_scale = scale * inv_var_clipped\nx = alpha * adaptive_scale * (log_prob_w - log_prob_l) - margin\nloss = -logsigmoid(x) * weight\nloss = loss.mean()",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_delta_rank",
+        "link_family": "logsigmoid_smooth_margin_varnorm_adaptive_clamp",
+        "agg_family": "mean",
+        "constraint_family": "clipping"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "sigmoid",
+        "tanh",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    delta_r = batch['delta_rank']\n    weight = batch['weight']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2))\n    margin_adv = float(extra.get('hyperparams', {}).get('margin_adv', 0.05))\n    margin_rank = float(extra.get('hyperparams', {}).get('margin_rank', 0.02))\n    eps = float(extra.get('hyperparams', {}).get('eps', 1e-6))\n    min_clip = float(extra.get('hyperparams', {}).get('min_clip', 0.5))\n    max_clip = float(extra.get('hyperparams', {}).get('max_clip', 2.0))\n\n    adv_mean = adv_gap.mean()\n    adv_var = ((adv_gap - adv_mean).pow(2).mean()).sqrt() + eps\n    rank_mean = delta_r.mean()\n    rank_var = ((delta_r - rank_mean).pow(2).mean()).sqrt() + eps\n\n    inv_var = 1.0 / (adv_var + rank_var)\n    inv_var_clipped = ops.clamp(inv_var, min=min_clip, max=max_clip)\n\n    adv_normed = adv_gap / adv_var\n    rank_normed = delta_r / rank_var\n\n    adv_scaled = ops.sigmoid(adv_normed) * margin_adv\n    rank_scaled = ops.tanh(rank_normed) * margin_rank\n    margin = adv_scaled + rank_scaled\n\n    adaptive_scale = scale * inv_var_clipped\n\n    x = alpha * adaptive_scale * (lpw - lpl) - margin\n\n    loss = -ops.logsigmoid(x) * weight\n    return loss.mean()",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

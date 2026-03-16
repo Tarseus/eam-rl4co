@@ -1,0 +1,107 @@
+{
+  "generation": 6,
+  "pair_index": 10,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f006_013_d59d12c2",
+    "ir": {
+      "name": "loss_rank_regret_relaxed_margin_exp_aggregate",
+      "intuition": "Shift from a margin-based pairwise loss to a regret-based softmax loss that emphasizes relative regret differences modulated by rank gaps with exponential weighting and relaxed margin constraints for smoother gradients and implicitly weighted aggregation, enabling richer gradient signals and alternative semantics beyond strict margin maximization.",
+      "pseudocode": "regret_diff = advantage_w - advantage_l\nrank_factor = exp(-abs(delta_rank) * rank_scale)\nweighted_regret = regret_diff * rank_factor\nmargin_relax = softplus(margin - weighted_regret)\nx = alpha * (lpw - lpl) - margin_relax\nlogits = x * weight\nloss = -log(sum(exp(logits)) / sum(weight))",
+      "hyperparams": {
+        "paradigm_family": "pairwise_regret_softmax",
+        "signal_family": "advantage_gap_delta_rank",
+        "link_family": "softplus_relaxed_margin_exp",
+        "agg_family": "weighted_softmax_logsumexp",
+        "constraint_family": "normalization"
+      },
+      "operators_used": [
+        "exp",
+        "sub",
+        "mul",
+        "abs",
+        "softplus",
+        "sum",
+        "log"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    delta_rank = batch['delta_rank']\n    weight = batch['weight']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = float(extra.get('hyperparams', {}).get('margin', 0.1))\n    rank_scale = float(extra.get('hyperparams', {}).get('rank_scale', 3.0))\n    eps = 1e-8\n\n    regret_diff = ops.sub(advantage_w, advantage_l)  # advantage gap\n    rank_factor = ops.exp(ops.neg(ops.abs(ops.mul(delta_rank, rank_scale))))  # weight via rank gap\n\n    weighted_regret = ops.mul(regret_diff, rank_factor)\n    margin_relax = ops.softplus(ops.sub(margin, weighted_regret))\n\n    x = ops.sub(ops.mul(alpha, ops.sub(lpw, lpl)), margin_relax)\n\n    weighted_logits = ops.mul(x, weight)\n    sum_exp = ops.sum(ops.exp(weighted_logits)) + eps\n    sum_weight = ops.sum(weight) + eps\n\n    loss = -ops.log(sum_exp / sum_weight)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
