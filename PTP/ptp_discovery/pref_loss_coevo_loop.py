@@ -7961,6 +7961,15 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             or "PTP/prompts/free_loss_forward_error_repair.txt"
         )
     )
+    general_repair_prompt_path = _abs_from_repo_root(
+        str(
+            cfg.get(
+                "loss_gate_repair_prompt_path",
+                llm_prompts_cfg.get("loss_repair", "PTP/prompts/free_loss_repair.txt"),
+            )
+            or "PTP/prompts/free_loss_repair.txt"
+        )
+    )
     raw_repair_failure_kinds = cfg.get(
         "joint_gate_repair_only_failure_kinds",
         [
@@ -8003,6 +8012,325 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         ]
     repair_only_failure_kinds = {str(x) for x in raw_repair_failure_kinds if str(x).strip()}
     expects_repair_prompt_path = _abs_from_repo_root("PTP/prompts/free_loss_expects_repair.txt")
+    runtime_repair_failure_kinds = {
+        "forward_error",
+        "backward_error",
+        "pref_batch_to_loss_batch_error",
+        "loss_not_finite",
+        "grad_not_finite",
+        "missing_grads",
+        "numeric_stress_forward_error",
+        "numeric_stress_backward_error",
+        "numeric_stress_loss_not_finite",
+        "numeric_stress_grad_not_finite",
+        "numeric_stress_missing_grads",
+        "sandbox_builder_gate_failed",
+        "sandbox_runtime_error",
+        "sandbox_timeout",
+        "sandbox_no_result",
+        "sandbox_result_invalid",
+        "sandbox_gate_failed",
+        "compile_error",
+    }
+
+    def _co_failure_trace_from_record(rec: Mapping[str, Any]) -> Dict[str, Any] | None:
+        for key in (
+            "co_sensitivity_visible_trace",
+            "co_sensitivity_hidden_trace",
+            "co_invariance_visible_trace",
+            "co_invariance_hidden_trace",
+        ):
+            trace = rec.get(key)
+            if isinstance(trace, dict) and trace:
+                return dict(trace)
+        failure_kind = rec.get("co_failure_kind") or rec.get("co_reason")
+        if failure_kind is None:
+            return None
+        return {
+            "failed_gate": "COAlignment",
+            "failure_kind": str(failure_kind),
+            "message": str(rec.get("co_reason") or failure_kind),
+        }
+
+    def _select_loss_gate_repair_prompt_path(
+        *,
+        failure_stage: str,
+        failure_trace: Mapping[str, Any] | None,
+        pair_reason: str | None = None,
+    ) -> str:
+        failure_kind = (
+            str(failure_trace.get("failure_kind"))
+            if isinstance(failure_trace, Mapping) and failure_trace.get("failure_kind") is not None
+            else ""
+        )
+        if failure_kind in runtime_repair_failure_kinds:
+            return str(repair_prompt_path)
+        if str(pair_reason or "") in {"cheap_gate_failed", "f_compile_failed"}:
+            return str(repair_prompt_path)
+        if str(failure_stage) in {"joint_gate", "static_gate", "compile"}:
+            return str(repair_prompt_path)
+        return str(general_repair_prompt_path)
+
+    def _run_loss_gate_validation(
+        compiled_f_candidate: CompiledFreeLoss,
+        repaired_ir: FreeLossIR,
+    ) -> Dict[str, Any]:
+        joint_gate_candidate = run_joint_preference_gates(
+            compiled_f_candidate,
+            pref_batch=pref_batch,
+            feature_cache=feature_cache,
+            min_pass_rate=joint_min_pass_rate,
+            swap_tolerance=joint_swap_tolerance,
+            swap_check_mode=joint_swap_check_mode,
+            swap_test_margin=joint_swap_test_margin,
+            grad_eps=joint_grad_eps,
+            min_effective_grad_ratio=joint_min_effective_grad_ratio,
+            numeric_stress_enabled=joint_numeric_stress_enabled,
+            numeric_stress_margin=joint_numeric_stress_margin,
+            numeric_stress_aux_scale=joint_numeric_stress_aux_scale,
+            variant="visible",
+        )
+        sandbox_candidate = sandbox_gate_result
+        if sandbox_should_run:
+            sandbox_candidate = _run_stage0_sandbox_gate(
+                run_dir=str(run_dir_s),
+                generation=int(generation),
+                pair_index=int(pair_index),
+                g_id=str(record.get("g_id", "")),
+                f_id=str(record.get("f_id", "")),
+                g_ir=g_ir,
+                f_ir=repaired_ir,
+                operator_whitelist=list(operator_whitelist),
+                cfg_yaml=cfg,
+            )
+        if high_fidelity_on and sandbox_should_run and sandbox_gate_hard_block_hf and (not bool((sandbox_candidate or {}).get("ok", False))):
+            sandbox_trace = dict((sandbox_candidate or {}).get("trace") or {}) if isinstance((sandbox_candidate or {}).get("trace"), dict) else {}
+            sandbox_trace.setdefault("failed_gate", "Stage0Sandbox")
+            sandbox_trace["failure_kind"] = str((sandbox_candidate or {}).get("failure_kind") or "sandbox_gate_failed")
+            return {
+                "ok": False,
+                "failure_stage": "stage0_sandbox",
+                "pair_reason": "stage0_sandbox_failed",
+                "failure_reason": str((sandbox_candidate or {}).get("reason") or "sandbox_gate_failed"),
+                "failure_trace": sandbox_trace,
+                "joint_gate": joint_gate_candidate,
+                "sandbox_gate_result": sandbox_candidate,
+                "pref_sem": None,
+                "co_updates": None,
+            }
+        if cheap_gate_on and (not builder_gate.ok or not joint_gate_candidate.ok):
+            return {
+                "ok": False,
+                "failure_stage": "joint_gate",
+                "pair_reason": "cheap_gate_failed",
+                "failure_reason": str(joint_gate_candidate.reason),
+                "failure_trace": (
+                    dict(joint_gate_candidate.trace)
+                    if isinstance(joint_gate_candidate.trace, dict)
+                    else None
+                ),
+                "joint_gate": joint_gate_candidate,
+                "sandbox_gate_result": sandbox_candidate,
+                "pref_sem": None,
+                "co_updates": None,
+            }
+        pref_sem_candidate = None
+        if bool(cfg.get("pref_semantic_gate_enabled", False)):
+            pref_sem_candidate = run_preference_semantic_gates(
+                compiled_f_candidate,
+                trials=int(cfg.get("pref_semantic_trials", 6) or 6),
+                batch_size=int(cfg.get("pref_semantic_batch_size", 128) or 128),
+                min_pass_rate=float(cfg.get("pref_semantic_min_pass_rate", 0.8) or 0.8),
+                swap_tolerance=float(cfg.get("pref_semantic_swap_tolerance", 1e-3) or 1e-3),
+                gap_min_ratio=float(cfg.get("pref_semantic_gap_min_ratio", 0.9) or 0.9),
+                variant="visible",
+            )
+            if cheap_gate_on and (not bool(pref_sem_candidate.ok)):
+                return {
+                    "ok": False,
+                    "failure_stage": "pref_semantic",
+                    "pair_reason": "pref_semantic_failed",
+                    "failure_reason": str(pref_sem_candidate.reason),
+                    "failure_trace": (
+                        dict(pref_sem_candidate.trace)
+                        if isinstance(pref_sem_candidate.trace, dict)
+                        else None
+                    ),
+                    "joint_gate": joint_gate_candidate,
+                    "sandbox_gate_result": sandbox_candidate,
+                    "pref_sem": pref_sem_candidate,
+                    "co_updates": None,
+                }
+        co_updates_candidate = _run_co_alignment_gates_for_loss(compiled_f_candidate, cfg)
+        if cheap_gate_on and (not bool(co_updates_candidate.get("co_ok", True))):
+            co_trace = _co_failure_trace_from_record(co_updates_candidate)
+            return {
+                "ok": False,
+                "failure_stage": "co_gate",
+                "pair_reason": "co_gate_failed",
+                "failure_reason": str(co_updates_candidate.get("co_reason") or "co_gate_failed"),
+                "failure_trace": co_trace,
+                "joint_gate": joint_gate_candidate,
+                "sandbox_gate_result": sandbox_candidate,
+                "pref_sem": pref_sem_candidate,
+                "co_updates": co_updates_candidate,
+            }
+        return {
+            "ok": True,
+            "failure_stage": None,
+            "pair_reason": "ok_gate_only" if not high_fidelity_on else "ok_after_repair",
+            "failure_reason": None,
+            "failure_trace": None,
+            "joint_gate": joint_gate_candidate,
+            "sandbox_gate_result": sandbox_candidate,
+            "pref_sem": pref_sem_candidate,
+            "co_updates": co_updates_candidate,
+        }
+
+    def _attempt_loss_gate_repair(
+        *,
+        failure_stage: str,
+        failure_reason: str,
+        failure_trace: Mapping[str, Any] | None,
+        pair_reason: str,
+    ) -> Dict[str, Any] | None:
+        if not repair_enabled or repair_max_attempts <= 0 or str(record.get("f_id")) == F_REF_ID:
+            return None
+        try:
+            _configure_loss_llm_for_worker(cfg=cfg, run_dir=run_dir_s)
+        except Exception:  # noqa: BLE001
+            pass
+
+        current_ir = f_ir
+        current_failure_reason = str(failure_reason)
+        current_failure_trace = dict(failure_trace) if isinstance(failure_trace, Mapping) else None
+        for attempt_idx in range(repair_max_attempts):
+            attempt_no = int(attempt_idx + 1)
+            selected_prompt_path = _select_loss_gate_repair_prompt_path(
+                failure_stage=str(failure_stage),
+                failure_trace=current_failure_trace,
+                pair_reason=str(pair_reason),
+            )
+            attempt_record: Dict[str, Any] = {
+                "record_type": "joint_gate_repair_attempt",
+                "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "generation": int(generation),
+                "pair_index": int(pair_index),
+                "stage": str(failure_stage),
+                "g_id": str(g_entry["id"]),
+                "f_id_before": str(record["f_id"]),
+                "attempt": attempt_no,
+                "failure_kind_before": (
+                    str(current_failure_trace.get("failure_kind"))
+                    if isinstance(current_failure_trace, dict)
+                    and current_failure_trace.get("failure_kind") is not None
+                    else None
+                ),
+                "joint_gate_trace_before": current_failure_trace,
+                "builder_gate_trace": builder_gate.trace,
+                "code_before": _free_loss_code_digest(current_ir),
+                "repair_prompt_path": str(selected_prompt_path),
+                "static_ok": False,
+                "compile_ok": False,
+                "final_ok": False,
+            }
+            failure_payload = {
+                "stage": str(failure_stage),
+                "pair_reason": str(pair_reason),
+                "pair": {"g_id": str(g_entry["id"]), "f_id": str(record["f_id"])},
+                "failure_reason": str(current_failure_reason),
+                "failure_trace": current_failure_trace,
+                "builder_gate_trace": builder_gate.trace,
+                "operator_whitelist": list(operator_whitelist),
+            }
+            try:
+                repaired_ir = loss_llm_ops.repair_free_loss(
+                    selected_prompt_path,
+                    failed_ir=current_ir,
+                    failure_reason=failure_payload,
+                )
+                attempt_record["repair_call_ok"] = True
+            except Exception as exc:  # noqa: BLE001
+                attempt_record.update(
+                    {
+                        "repair_call_ok": False,
+                        "repair_error": str(exc),
+                        "repair_error_type": type(exc).__name__,
+                    }
+                )
+                joint_gate_repair_reports.append(attempt_record)
+                continue
+            try:
+                repaired_ir = loss_llm_ops.repair_expects_with_prompt(
+                    expects_repair_prompt_path,
+                    repaired_ir,
+                )
+                attempt_record["expects_repair_ok"] = True
+            except Exception as exc:  # noqa: BLE001
+                attempt_record["expects_repair_ok"] = False
+                attempt_record["expects_repair_error"] = str(exc)
+                attempt_record["expects_repair_error_type"] = type(exc).__name__
+            attempt_record["f_id_after"] = _sig_free_loss(repaired_ir)
+            attempt_record["code_after"] = _free_loss_code_digest(repaired_ir)
+            static_res = run_static_gates(repaired_ir, operator_whitelist=operator_whitelist)
+            attempt_record["static_ok"] = bool(static_res.ok)
+            attempt_record["static_reason"] = str(static_res.reason)
+            attempt_record["static_trace"] = static_res.trace
+            if not static_res.ok:
+                current_ir = repaired_ir
+                current_failure_reason = str(static_res.reason)
+                current_failure_trace = dict(static_res.trace) if isinstance(static_res.trace, dict) else None
+                attempt_record["joint_gate_trace_after"] = current_failure_trace
+                joint_gate_repair_reports.append(attempt_record)
+                continue
+            try:
+                compiled_f_repaired = compile_free_loss(
+                    repaired_ir,
+                    operator_whitelist=operator_whitelist,
+                )
+                attempt_record["compile_ok"] = True
+            except Exception as exc:  # noqa: BLE001
+                current_ir = repaired_ir
+                current_failure_reason = f"compile_error: {exc}"
+                current_failure_trace = {
+                    "failed_gate": "Compile",
+                    "failure_kind": "compile_error",
+                    "message": str(exc),
+                    "exception_type": type(exc).__name__,
+                }
+                attempt_record.update(
+                    {
+                        "compile_ok": False,
+                        "compile_error": str(exc),
+                        "compile_error_type": type(exc).__name__,
+                        "joint_gate_trace_after": current_failure_trace,
+                    }
+                )
+                joint_gate_repair_reports.append(attempt_record)
+                continue
+            validation = _run_loss_gate_validation(compiled_f_repaired, repaired_ir)
+            attempt_record["joint_gate_trace_after"] = validation.get("failure_trace")
+            attempt_record["final_ok"] = bool(validation.get("ok"))
+            if isinstance(validation.get("co_updates"), Mapping):
+                attempt_record["co_failure_kind_after"] = validation["co_updates"].get("co_failure_kind")
+                attempt_record["co_reason_after"] = validation["co_updates"].get("co_reason")
+            joint_gate_repair_reports.append(attempt_record)
+            current_ir = repaired_ir
+            current_failure_reason = str(validation.get("failure_reason") or "")
+            current_failure_trace = (
+                dict(validation["failure_trace"])
+                if isinstance(validation.get("failure_trace"), Mapping)
+                else None
+            )
+            if bool(validation.get("ok")):
+                return {
+                    "compiled_f": compiled_f_repaired,
+                    "f_ir": repaired_ir,
+                    "validation": validation,
+                    "attempt_no": attempt_no,
+                }
+        return None
+
     joint_failure_kind = (
         str(joint_gate.trace.get("failure_kind"))
         if isinstance(joint_gate.trace, dict) and joint_gate.trace.get("failure_kind") is not None
@@ -8011,7 +8339,6 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     if (
         repair_enabled
         and (not joint_gate.ok)
-        and joint_failure_kind in repair_only_failure_kinds
         and repair_max_attempts > 0
     ):
         try:
@@ -8056,13 +8383,19 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "builder_gate_trace": builder_gate.trace,
                 "operator_whitelist": list(operator_whitelist),
             }
+            selected_repair_prompt_path = _select_loss_gate_repair_prompt_path(
+                failure_stage="joint_gate",
+                failure_trace=current_failure_trace,
+                pair_reason="cheap_gate_failed",
+            )
             try:
                 repaired_ir = loss_llm_ops.repair_free_loss(
-                    repair_prompt_path,
+                    selected_repair_prompt_path,
                     failed_ir=current_ir,
                     failure_reason=failure_reason,
                 )
                 attempt_record["repair_call_ok"] = True
+                attempt_record["repair_prompt_path"] = str(selected_repair_prompt_path)
             except Exception as exc:  # noqa: BLE001
                 attempt_record.update(
                     {
@@ -8203,11 +8536,31 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     )
 
     if high_fidelity_on and sandbox_should_run and sandbox_gate_hard_block_hf and (not bool(record.get("sandbox_gate_ok"))):
-        record["pair_ok"] = False
-        record["pair_reason"] = "stage0_sandbox_failed"
-        record["score"] = float("inf")
-        record["elapsed_s"] = float(time.time() - t0)
-        return record
+        repair_out = _attempt_loss_gate_repair(
+            failure_stage="stage0_sandbox",
+            failure_reason=str(record.get("sandbox_gate_reason") or "sandbox_gate_failed"),
+            failure_trace=(record.get("sandbox_gate") if isinstance(record.get("sandbox_gate"), dict) else None),
+            pair_reason="stage0_sandbox_failed",
+        )
+        if repair_out is not None:
+            compiled_f = repair_out["compiled_f"]
+            f_ir = repair_out["f_ir"]
+            record["f_ir"] = asdict(f_ir)
+            joint_gate = repair_out["validation"]["joint_gate"]
+            sandbox_gate_result = repair_out["validation"]["sandbox_gate_result"]
+            record["joint_gate_repaired"] = True
+            record["joint_gate_repair_attempts"] = int(repair_out["attempt_no"])
+            record["f_id_before_repair"] = str(record["f_id"])
+            record["f_id_after_repair"] = str(_sig_free_loss(f_ir))
+            record["sandbox_gate"] = dict(sandbox_gate_result) if isinstance(sandbox_gate_result, dict) else None
+            record["sandbox_gate_ok"] = None if sandbox_gate_result is None else bool(sandbox_gate_result.get("ok"))
+            record["sandbox_gate_reason"] = None if sandbox_gate_result is None else str(sandbox_gate_result.get("reason", ""))
+        else:
+            record["pair_ok"] = False
+            record["pair_reason"] = "stage0_sandbox_failed"
+            record["score"] = float("inf")
+            record["elapsed_s"] = float(time.time() - t0)
+            return record
 
     if cheap_gate_on and (not builder_gate.ok or not joint_gate.ok):
         record["pair_ok"] = False
@@ -8234,19 +8587,58 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             }
         )
         if cheap_gate_on and not pref_sem.ok:
-            record["pair_ok"] = False
-            record["pair_reason"] = "pref_semantic_failed"
-            record["score"] = float("inf")
-            record["elapsed_s"] = float(time.time() - t0)
-            return record
+            repair_out = _attempt_loss_gate_repair(
+                failure_stage="pref_semantic",
+                failure_reason=str(pref_sem.reason),
+                failure_trace=(pref_sem.trace if isinstance(pref_sem.trace, dict) else None),
+                pair_reason="pref_semantic_failed",
+            )
+            if repair_out is not None:
+                compiled_f = repair_out["compiled_f"]
+                f_ir = repair_out["f_ir"]
+                record["f_ir"] = asdict(f_ir)
+                joint_gate = repair_out["validation"]["joint_gate"]
+                sandbox_gate_result = repair_out["validation"]["sandbox_gate_result"]
+                pref_sem = repair_out["validation"]["pref_sem"]
+                record["joint_gate_repaired"] = True
+                record["joint_gate_repair_attempts"] = int(repair_out["attempt_no"])
+                record["f_id_before_repair"] = str(record["f_id"])
+                record["f_id_after_repair"] = str(_sig_free_loss(f_ir))
+                record["pref_semantic_ok"] = bool(pref_sem.ok) if pref_sem is not None else None
+                record["pref_semantic_reason"] = str(pref_sem.reason) if pref_sem is not None else None
+                record["pref_semantic_trace"] = pref_sem.trace if pref_sem is not None else None
+            else:
+                record["pair_ok"] = False
+                record["pair_reason"] = "pref_semantic_failed"
+                record["score"] = float("inf")
+                record["elapsed_s"] = float(time.time() - t0)
+                return record
 
     record.update(_run_co_alignment_gates_for_loss(compiled_f, cfg))
     if cheap_gate_on and (not bool(record.get("co_ok", True))):
-        record["pair_ok"] = False
-        record["pair_reason"] = "co_gate_failed"
-        record["score"] = float("inf")
-        record["elapsed_s"] = float(time.time() - t0)
-        return record
+        repair_out = _attempt_loss_gate_repair(
+            failure_stage="co_gate",
+            failure_reason=str(record.get("co_reason") or "co_gate_failed"),
+            failure_trace=_co_failure_trace_from_record(record),
+            pair_reason="co_gate_failed",
+        )
+        if repair_out is not None:
+            compiled_f = repair_out["compiled_f"]
+            f_ir = repair_out["f_ir"]
+            record["f_ir"] = asdict(f_ir)
+            joint_gate = repair_out["validation"]["joint_gate"]
+            sandbox_gate_result = repair_out["validation"]["sandbox_gate_result"]
+            record["joint_gate_repaired"] = True
+            record["joint_gate_repair_attempts"] = int(repair_out["attempt_no"])
+            record["f_id_before_repair"] = str(record["f_id"])
+            record["f_id_after_repair"] = str(_sig_free_loss(f_ir))
+            record.update(_run_co_alignment_gates_for_loss(compiled_f, cfg))
+        else:
+            record["pair_ok"] = False
+            record["pair_reason"] = "co_gate_failed"
+            record["score"] = float("inf")
+            record["elapsed_s"] = float(time.time() - t0)
+            return record
 
     if not high_fidelity_on:
         eff = float(joint_gate.effective_grad_ratio or 0.0)
@@ -10492,10 +10884,34 @@ def run_pref_loss_coevo(
         p_builder_rep = str(llm_prompts_cfg.get("builder_repair", "") or "")
         p_builder_m3 = str(llm_prompts_cfg.get("builder_m3", "") or "")
         p_loss_rep = str(llm_prompts_cfg.get("loss_repair", "") or "")
+        p_loss_runtime_rep = str(
+            cfg_yaml.get("joint_gate_repair_prompt_path", "PTP/prompts/free_loss_forward_error_repair.txt")
+            or "PTP/prompts/free_loss_forward_error_repair.txt"
+        )
         p_loss_m3 = str(llm_prompts_cfg.get("loss_m3", "") or "")
         builder_repair_live_cfg = builder_cfg.get("repair", {}) if isinstance(builder_cfg.get("repair"), dict) else {}
         loss_repair_live_cfg = loss_cfg.get("repair", {}) if isinstance(loss_cfg.get("repair"), dict) else {}
         builder_gate_live_cfg = llm_cfg.get("builder_gate", {}) if isinstance(llm_cfg.get("builder_gate"), dict) else {}
+        runtime_repair_failure_kinds = {
+            "forward_error",
+            "backward_error",
+            "pref_batch_to_loss_batch_error",
+            "loss_not_finite",
+            "grad_not_finite",
+            "missing_grads",
+            "numeric_stress_forward_error",
+            "numeric_stress_backward_error",
+            "numeric_stress_loss_not_finite",
+            "numeric_stress_grad_not_finite",
+            "numeric_stress_missing_grads",
+            "sandbox_builder_gate_failed",
+            "sandbox_runtime_error",
+            "sandbox_timeout",
+            "sandbox_no_result",
+            "sandbox_result_invalid",
+            "sandbox_gate_failed",
+            "compile_error",
+        }
 
         if gate_repair_enabled:
             LOGGER.info(
@@ -10991,7 +11407,7 @@ def run_pref_loss_coevo(
                     and gate_repair_remaining > 0
                     and pair_key not in gate_repair_attempted_pairs
                     and not bool(rec.get("pair_ok"))
-                    and str(rec.get("pair_reason", "")) == "cheap_proxy_gate_failed"
+                    and str(rec.get("pair_reason", "")) in {"cheap_proxy_gate_failed", "co_gate_failed"}
                 ):
                     gate_repair_attempted = True
                     gate_repair_attempted_pairs.add(pair_key)
@@ -11136,8 +11552,17 @@ def run_pref_loss_coevo(
                                     "input_failure_stage": str(fail_payload.get("stage", "")),
                                     "input_failure_reason": str(fail_payload.get("reason", fail_payload.get("pair_reason", "")) or ""),
                                 }
+                                loss_failure_trace = fail_payload.get("joint_gate_trace")
+                                loss_failure_kind = (
+                                    str(loss_failure_trace.get("failure_kind"))
+                                    if isinstance(loss_failure_trace, dict) and loss_failure_trace.get("failure_kind") is not None
+                                    else ""
+                                )
+                                selected_loss_prompt = str(p_loss_rep)
+                                if str(fail_payload.get("pair_reason", "")) != "co_gate_failed" and loss_failure_kind in runtime_repair_failure_kinds:
+                                    selected_loss_prompt = str(p_loss_runtime_rep)
                                 prompt_sha = _build_free_loss_failure_prompt(
-                                    p_loss_rep,
+                                    selected_loss_prompt,
                                     candidate=f_ir,
                                     failure_reason=fail_payload,
                                     global_feedback=None,
@@ -11149,12 +11574,12 @@ def run_pref_loss_coevo(
                                         "attempt": int(_ra),
                                         "side": "loss",
                                         "llm_op": "REPAIR",
-                                        "prompt_path": str(p_loss_rep),
+                                        "prompt_path": str(selected_loss_prompt),
                                         "prompt_sha1": str(prompt_sha),
                                     }
                                 )
                                 candidate = loss_llm_ops.repair_free_loss(
-                                    p_loss_rep,
+                                    selected_loss_prompt,
                                     failed_ir=f_ir,
                                     failure_reason=fail_payload,
                                 )
