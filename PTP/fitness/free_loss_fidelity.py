@@ -1438,42 +1438,55 @@ def _evaluate_free_loss_candidate_rl4co(
 
     if steps_per_epoch > 0 and epochs_total_cfg > 0:
         if split_enabled:
-            if warm_epochs > 0 and not cfg.init_checkpoint_path:
-                logger.warning(
-                    "warmstart_hf_epochs=%d but init_checkpoint_path is not set; warm-start phase will train from scratch.",
-                    warm_epochs,
-                )
-
             scratch_res: Dict[str, Any] | None = None
             warm_res: Dict[str, Any] | None = None
+            has_init_ckpt = bool(cfg.init_checkpoint_path)
 
-            if scratch_epochs > 0:
-                scratch_res = _run_phase(
-                    phase="scratch",
-                    phase_epochs=scratch_epochs,
-                    init_ckpt=None,
-                    use_early_stop=False,
-                    extra_steps_f2=0,
-                    early_eval_steps_phase=0,
-                    baseline_early_valid_phase=None,
-                )
-            if warm_epochs > 0:
-                warm_res = _run_phase(
-                    phase="warmstart",
-                    phase_epochs=warm_epochs,
-                    init_ckpt=cfg.init_checkpoint_path,
-                    use_early_stop=True,
-                    extra_steps_f2=steps_f2_cfg,
-                    early_eval_steps_phase=int(early_eval_steps or 0),
-                    baseline_early_valid_phase=baseline_early_valid,
-                )
+            if has_init_ckpt:
+                if warm_epochs > 0:
+                    warm_res = _run_phase(
+                        phase="warmstart",
+                        phase_epochs=warm_epochs,
+                        init_ckpt=cfg.init_checkpoint_path,
+                        use_early_stop=True,
+                        extra_steps_f2=steps_f2_cfg,
+                        early_eval_steps_phase=int(early_eval_steps or 0),
+                        baseline_early_valid_phase=baseline_early_valid,
+                    )
+                elif scratch_epochs > 0:
+                    logger.info(
+                        "warmstart_hf_epochs=0 for checkpoint-backed init; falling back to scratch phase."
+                    )
+                    scratch_res = _run_phase(
+                        phase="scratch",
+                        phase_epochs=scratch_epochs,
+                        init_ckpt=None,
+                        use_early_stop=False,
+                        extra_steps_f2=0,
+                        early_eval_steps_phase=0,
+                        baseline_early_valid_phase=None,
+                    )
+            else:
+                if scratch_epochs > 0:
+                    scratch_res = _run_phase(
+                        phase="scratch",
+                        phase_epochs=scratch_epochs,
+                        init_ckpt=None,
+                        use_early_stop=False,
+                        extra_steps_f2=0,
+                        early_eval_steps_phase=0,
+                        baseline_early_valid_phase=None,
+                    )
+                elif warm_epochs > 0:
+                    logger.warning(
+                        "warmstart_hf_epochs=%d but init_checkpoint_path is not set; skipping warm-start phase.",
+                        warm_epochs,
+                    )
 
             primary_res = warm_res if warm_res is not None else scratch_res
             if primary_res is None:
                 raise RuntimeError("Split HF evaluation enabled but no phase was executed.")
 
-            # Fairness across stages: when both phases exist, compare the full 20-epoch
-            # horizon against the baseline (scratch slice + warm-start slice).
             if scratch_res is not None and warm_res is not None:
                 primary_phase = "scratch+warmstart"
                 primary_epochs_total = int(scratch_epochs + warm_epochs)
