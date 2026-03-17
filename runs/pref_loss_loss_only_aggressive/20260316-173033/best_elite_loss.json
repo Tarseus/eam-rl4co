@@ -1,0 +1,191 @@
+{
+  "generation": 0,
+  "index": 17,
+  "id": "f000_017_cc701dd3",
+  "signature": "4c70d5136e2dafcf747f8eddb6c6eef5a1332e21",
+  "family": "pairwise_ranking|advantage_gap|mean|none",
+  "family_signature": "paradigm=pairwise_ranking|signal=advantage_gap|agg=mean|constraint=none",
+  "origin": "REPAIR_GATE",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "LOSS_PARADIGM_SHIFT",
+  "parents": [
+    "bootstrap_f_000",
+    "bootstrap_f_001",
+    "bootstrap_f_002",
+    "bootstrap_f_004"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "bfce0cd1b8cf9fbd3b87f9e6767e9ba9f3e055d8",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+  "llm_seed": 1995021053,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "prompt_sha1": "bfce0cd1b8cf9fbd3b87f9e6767e9ba9f3e055d8"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "b14d0f3a0cd8e5b9cc3d1d394a43867f6bc56103"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "4af4759293808c1297ff3df9f123157d03b7ff5b"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "ed7a6baa97e41a8d785528773fe5ac45d2d23aec"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "1f1672aac29f1fb38145e3fb15f9309c274f6d4e"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "c98bd93ec8055adf56257232e80e2080a860b21d"
+    },
+    {
+      "attempt": 1,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "058726d4df2217b8d8da4c8e4fe1058165bf00f3"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.42105263157894735,
+    "best_similarity_parts": {
+      "bigram": 0.125,
+      "unigram": 0.42105263157894735,
+      "call": 0.3333333333333333
+    },
+    "neighbors": [
+      {
+        "sig": "fd6aaed6aecdd90ed2cbbd2424e9c5ead16b2907",
+        "name": "loss_logsigmoid_stabilized_001",
+        "similarity": 0.42105263157894735,
+        "similarity_parts": {
+          "bigram": 0.125,
+          "unigram": 0.42105263157894735,
+          "call": 0.3333333333333333
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.sub"
+        ]
+      },
+      {
+        "sig": "5becf070ddb2c558531058dd1efce4f6117e58dd",
+        "name": "loss_logsigmoid_001_normalized",
+        "similarity": 0.25,
+        "similarity_parts": {
+          "bigram": 0.05714285714285714,
+          "unigram": 0.25,
+          "call": 0.1875
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.sqrt"
+        ]
+      },
+      {
+        "sig": "ba61f65d2571e4cd14d81e65133d882cd2f8426d",
+        "name": "loss_rank_gap_tanh_advantage",
+        "similarity": 0.23809523809523808,
+        "similarity_parts": {
+          "bigram": 0.07692307692307693,
+          "unigram": 0.23809523809523808,
+          "call": 0.13333333333333333
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.relu",
+          "ops.tanh"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "stabilized_clamped_logsigmoid_advantage_loss",
+    "intuition": "This loss stabilizes training by computing a margin between the log probabilities of the winning and losing sequences, scaled by alpha and adjusted by a detached cost gap to incorporate quality difference. The margin is clamped to prevent extreme values causing numerical instability. Applying the negative logsigmoid ensures a smooth, differentiable loss that penalizes incorrect rankings softly. Weighting the loss enables emphasis on important pairs. Mean aggregation normalizes the loss across the batch. This clear explanation aligns with the loss implementation and highlights the reasoning behind each step.",
+    "pseudocode": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    margin = alpha * (lpw - lpl) - 0.05 * gap\n    margin = ops.clamp(margin, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(margin))\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+    "hyperparams": {
+      "paradigm_family": "pairwise",
+      "signal_family": "advantage",
+      "link_family": "logsigmoid_margin",
+      "agg_family": "mean",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "neg",
+      "clamp",
+      "mul",
+      "sub",
+      "mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "cost_a",
+        "cost_b"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = ops.sub(cost_b, cost_a).detach()\n    margin = ops.sub(ops.mul(alpha, ops.sub(lpw, lpl)), ops.mul(0.05, gap))\n    margin = ops.clamp(margin, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(margin))\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.009446075534820464,
+  "descriptor": {
+    "x": 0.8521756120026112,
+    "y": 0.4504088029265404,
+    "cell": [
+      6,
+      3
+    ]
+  }
+}
