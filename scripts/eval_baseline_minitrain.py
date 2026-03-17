@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Mapping, Sequence, Tuple
 import torch
 import yaml
 
+
 def _ensure_paths() -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     ptp_root = os.path.join(repo_root, "PTP")
@@ -57,6 +58,13 @@ def _objective_to_reward(obj: float, *, objective_sign: str) -> float:
     if sign == "neg_reward":
         return -float(obj)
     return float(obj)
+
+
+def _baseline_minitrain_eval_mode(cfg_yaml: Mapping[str, Any]) -> str:
+    env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    if env_name == "cvrp":
+        return "native_po_loss"
+    return "ref_free_loss"
 
 
 @torch.no_grad()
@@ -193,6 +201,7 @@ def _build_eval_signature(
     ckpt_409: str,
 ) -> Dict[str, Any]:
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
+    baseline_eval_mode = _baseline_minitrain_eval_mode(cfg_yaml)
     policy_name = str(cfg_yaml.get("policy_name") or "")
     policy_kwargs = dict(cfg_yaml.get("policy_kwargs", {}) or {})
     env_kwargs = dict(cfg_yaml.get("env_kwargs", {}) or {})
@@ -221,6 +230,7 @@ def _build_eval_signature(
 
     return {
         "protocol": "stage3_offline_minitrain_v1",
+        "baseline_eval_mode": str(baseline_eval_mode),
         "env_name": env_name,
         "policy_name": policy_name,
         "policy_kwargs": policy_kwargs,
@@ -251,6 +261,119 @@ def _build_eval_signature(
     }
 
 
+def _evaluate_one_init_native_po_loss(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    init_checkpoint: str | None,
+    K: int,
+    train_problem_size: int,
+    valid_problem_sizes: Sequence[int],
+    num_validation_episodes: int,
+    train_batch_size: int,
+    scratch_init_seed: int,
+    offline_train: str,
+    offline_val_by_size: Mapping[int, str],
+) -> Tuple[Dict[int, float], float]:
+    from torch.optim import Adam
+
+    from PTP.fitness.free_loss_fidelity import (
+        _evaluate_rl4co_model,
+        _load_policy_weights_from_checkpoint,
+        _rl4co_build_env,
+        _rl4co_build_policy,
+        _rl4co_rollout,
+    )
+    from PTP.fitness.ptp_high_fidelity import HighFidelityConfig, _set_seed, resolve_pomo_size
+    from rl4co.models.rl.reinforce.preference_losses import po_loss
+
+    generator_params = dict(cfg_yaml.get("generator_params", {}) or {})
+    generator_params["offline_train_path"] = str(offline_train)
+    generator_params["offline_val_paths"] = {str(int(k)): str(v) for k, v in offline_val_by_size.items()}
+
+    hf_cfg = HighFidelityConfig(
+        problem=str(cfg_yaml.get("problem", "cvrp")),
+        backend=str(cfg_yaml.get("backend", "rl4co") or "rl4co"),
+        env_name=str(cfg_yaml.get("env_name") or cfg_yaml.get("problem", "cvrp")),
+        env_kwargs=dict(cfg_yaml.get("env_kwargs", {}) or {}),
+        generator_params=generator_params,
+        policy_name=str(cfg_yaml.get("policy_name", "") or ""),
+        policy_kwargs=dict(cfg_yaml.get("policy_kwargs", {}) or {}),
+        rollout_strategy=str(cfg_yaml.get("rollout_strategy", "auto") or "auto"),
+        objective_sign=str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward"),
+        hf_steps=int(K),
+        hf_epochs=0,
+        hf_instances_per_epoch=0,
+        train_problem_size=int(train_problem_size),
+        valid_problem_sizes=tuple(int(x) for x in valid_problem_sizes),
+        train_batch_size=int(train_batch_size),
+        pomo_size=(int(cfg_yaml.get("pomo_size")) if cfg_yaml.get("pomo_size", None) is not None else None),
+        learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
+        weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
+        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        device=str(cfg_yaml.get("device", "cuda") or "cuda"),
+        seed=int(scratch_init_seed),
+        num_validation_episodes=int(num_validation_episodes),
+        validation_batch_size=int(cfg_yaml.get("validation_batch_size", 64) or 64),
+        generalization_penalty_weight=float(cfg_yaml.get("generalization_penalty_weight", 1.0) or 1.0),
+        size_aggregation=str(cfg_yaml.get("size_aggregation", "mean") or "mean"),
+        size_cvar_alpha=float(cfg_yaml.get("size_cvar_alpha", 0.2) or 0.2),
+        pool_version=str(cfg_yaml.get("pool_version", "v0") or "v0"),
+    )
+
+    _set_seed(int(hf_cfg.seed))
+    device_str = str(hf_cfg.device)
+    if device_str == "cuda" and not torch.cuda.is_available():
+        device_str = "cpu"
+    device = torch.device(device_str)
+
+    env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
+    policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
+    if init_checkpoint:
+        _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
+    policy = policy.to(device)
+    optimizer = Adam(
+        policy.parameters(),
+        lr=float(hf_cfg.learning_rate),
+        weight_decay=float(hf_cfg.weight_decay),
+    )
+
+    num_rollouts = resolve_pomo_size(hf_cfg.pomo_size, hf_cfg.train_problem_size)
+    steps = max(int(K), 0)
+    for _ in range(steps):
+        policy.train()
+        reward, log_likelihood = _rl4co_rollout(
+            env,
+            policy,
+            hf_cfg.train_batch_size,
+            num_rollouts,
+            phase="train",
+            rollout_strategy=str(rollout_strategy),
+            device=device,
+        )
+        loss, _ = po_loss(reward, log_likelihood, alpha=float(hf_cfg.alpha))
+        if not torch.isfinite(loss).all():
+            raise RuntimeError("Non-finite po_loss encountered during CVRP baseline mini-train")
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+    by_size: Dict[int, float] = {}
+    for sz in valid_problem_sizes:
+        obj = _evaluate_rl4co_model(
+            policy=policy,
+            cfg=hf_cfg,
+            problem_size=int(sz),
+            device=device,
+            num_episodes=int(num_validation_episodes),
+            batch_size=int(hf_cfg.validation_batch_size),
+            rollout_strategy=str(rollout_strategy),
+        )
+        by_size[int(sz)] = float(obj)
+
+    aggregated = _mean([by_size[int(sz)] for sz in valid_problem_sizes])
+    return by_size, float(aggregated)
+
+
 def _evaluate_one_init(
     *,
     cfg_yaml: Mapping[str, Any],
@@ -266,6 +389,21 @@ def _evaluate_one_init(
     offline_train: str,
     offline_val_by_size: Mapping[int, str],
 ) -> Tuple[Dict[int, float], float]:
+    eval_mode = _baseline_minitrain_eval_mode(cfg_yaml)
+    if str(eval_mode) == "native_po_loss":
+        return _evaluate_one_init_native_po_loss(
+            cfg_yaml=cfg_yaml,
+            init_checkpoint=init_checkpoint,
+            K=K,
+            train_problem_size=train_problem_size,
+            valid_problem_sizes=valid_problem_sizes,
+            num_validation_episodes=num_validation_episodes,
+            train_batch_size=train_batch_size,
+            scratch_init_seed=scratch_init_seed,
+            offline_train=offline_train,
+            offline_val_by_size=offline_val_by_size,
+        )
+
     from fitness.free_loss_fidelity import FreeLossFidelityConfig, evaluate_free_loss_candidate
     from fitness.ptp_high_fidelity import HighFidelityConfig
 
@@ -514,12 +652,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
         "config_path": str(args.config),
         "eval_signature": signature,
+        "baseline_eval_mode": str(_baseline_minitrain_eval_mode(cfg_yaml)),
         "per_init": per_init,
-        "reference": {
+    }
+    if str(_baseline_minitrain_eval_mode(cfg_yaml)) == "ref_free_loss":
+        payload["reference"] = {
             "builder_ir": asdict(_ref_builder_ir()),
             "loss_ir": asdict(_ref_loss_ir()),
-        },
-    }
+        }
+    else:
+        payload["reference"] = {
+            "loss_type": "po_loss",
+            "source": "native_rl4co_preference_loss",
+        }
 
     _atomic_write_json(str(args.out), payload)
     print(f"[baseline] wrote {args.out}", flush=True)
