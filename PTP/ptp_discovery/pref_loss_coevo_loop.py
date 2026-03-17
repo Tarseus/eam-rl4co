@@ -558,6 +558,15 @@ def _ensure_stage3_baseline_multiseed_cache(
                         f3_enabled=False,
                         init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
                         init_checkpoint_epoch=None,
+                        scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+                        warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+                        baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+                        baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
+                        baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+                        baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+                        baseline_epoch_window_violation_weight=float(
+                            cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+                        ),
                     )
                     fit = evaluate_free_loss_candidate(ref_loss, free_cfg, pref_builder=adapter)
                     size_objectives_raw = fit.get("size_objectives", {})
@@ -884,6 +893,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         raise ValueError("stage3 requires at least one init source (scratch and/or baseline.checkpoints)")
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
+    baseline_eval_mode = "native_po_loss" if env_name.strip().lower() == "cvrp" else "ref_free_loss"
     policy_name = str(cfg_yaml.get("policy_name") or "")
     policy_kwargs = dict(cfg_yaml.get("policy_kwargs", {}) or {})
     env_kwargs = dict(cfg_yaml.get("env_kwargs", {}) or {})
@@ -938,6 +948,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
 
     sig = {
         "protocol": str(protocol),
+        "baseline_eval_mode": str(baseline_eval_mode),
         "scenario_name": str(_stage3_scenario_name_from_cfg(cfg_yaml)),
         "env_name": env_name,
         "policy_name": policy_name,
@@ -1261,6 +1272,15 @@ def _ensure_stage3_baseline_mini_eval(
             f3_enabled=False,
             init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
             init_checkpoint_epoch=None,
+            scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+            warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+            baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+            baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
+            baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+            baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+            baseline_epoch_window_violation_weight=float(
+                cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+            ),
         )
         fitness = evaluate_free_loss_candidate(compiled_loss, free_cfg, pref_builder=adapter)
         size_objectives_raw = fitness.get("size_objectives", {})
@@ -8405,6 +8425,15 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                         f3_enabled=False,
                         init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
                         init_checkpoint_epoch=None,
+                        scratch_hf_epochs=int(scenario_cfg.get("scratch_hf_epochs", 0) or 0),
+                        warmstart_hf_epochs=int(scenario_cfg.get("warmstart_hf_epochs", 0) or 0),
+                        baseline_epoch_compare_offset=int(scenario_cfg.get("baseline_epoch_compare_offset", 0) or 0),
+                        baseline_epoch_violation_weight=float(scenario_cfg.get("baseline_epoch_violation_weight", 1.0)),
+                        baseline_epoch_tail_frac=float(scenario_cfg.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+                        baseline_epoch_window_k=int(scenario_cfg.get("baseline_epoch_window_k", 10) or 10),
+                        baseline_epoch_window_violation_weight=float(
+                            scenario_cfg.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+                        ),
                     )
                     fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
                     size_objectives_raw = fitness.get("size_objectives", {})
