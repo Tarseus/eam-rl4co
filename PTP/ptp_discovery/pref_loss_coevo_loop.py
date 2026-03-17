@@ -1434,6 +1434,153 @@ def _load_checkpoint(run_dir: str) -> Dict[str, Any]:
     return state
 
 
+def _normalize_loss_transfer_seed_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    raw = cfg_yaml.get("loss_transfer_seed", {}) or {}
+    if not isinstance(raw, Mapping):
+        return {"enabled": False}
+
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "source_run_dir": str(raw.get("source_run_dir", "") or "").strip(),
+        "source_checkpoint_path": str(raw.get("source_checkpoint_path", "") or "").strip(),
+        "source_pool": str(raw.get("source_pool", "elites") or "elites").strip().lower(),
+        "top_k": max(1, int(raw.get("top_k", 8) or 8)),
+        "max_per_family": max(0, int(raw.get("max_per_family", 2) or 2)),
+        "keep_source_fitness": bool(raw.get("keep_source_fitness", True)),
+        "reset_history": bool(raw.get("reset_history", False)),
+    }
+
+
+def _resolve_loss_transfer_seed_checkpoint_path(seed_cfg: Mapping[str, Any]) -> str:
+    ckpt_path = str(seed_cfg.get("source_checkpoint_path", "") or "").strip()
+    if ckpt_path:
+        return _abs_from_repo_root(ckpt_path)
+
+    run_dir = str(seed_cfg.get("source_run_dir", "") or "").strip()
+    if not run_dir:
+        raise ValueError("loss_transfer_seed requires source_checkpoint_path or source_run_dir")
+
+    return os.path.join(_abs_from_repo_root(run_dir), "checkpoint.json")
+
+
+def _load_loss_transfer_seed_entries(
+    checkpoint_path: str,
+    *,
+    source_pool: str = "elites",
+    top_k: int = 8,
+    max_per_family: int = 2,
+    keep_source_fitness: bool = True,
+    reset_history: bool = False,
+) -> List[Dict[str, Any]]:
+    payload = _load_json(checkpoint_path)
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"Invalid transfer checkpoint: {checkpoint_path}")
+
+    pool_key_map = {
+        "elites": "elites_f",
+        "resident": "resident_pop_f",
+        "hof": "hof_f",
+    }
+    pool_key = pool_key_map.get(str(source_pool).strip().lower(), "elites_f")
+    raw_entries = payload.get(pool_key, []) or []
+    if not isinstance(raw_entries, list):
+        raw_entries = []
+
+    ranked: List[Tuple[float, Dict[str, Any]]] = []
+    for raw in raw_entries:
+        if not isinstance(raw, Mapping):
+            continue
+        ir_raw = raw.get("ir")
+        if not isinstance(ir_raw, dict):
+            continue
+        try:
+            fit = float(raw.get("fitness", float("inf")))
+        except (TypeError, ValueError):
+            fit = float("inf")
+        ranked.append((float(fit), dict(raw)))
+
+    ranked.sort(key=lambda x: float(x[0]))
+
+    out: List[Dict[str, Any]] = []
+    family_counter: Dict[str, int] = {}
+
+    for _, raw in ranked:
+        ir_raw = raw.get("ir")
+        if not isinstance(ir_raw, dict):
+            continue
+
+        try:
+            ir = free_loss_ir_from_json(ir_raw)
+        except Exception:  # noqa: BLE001
+            continue
+        sig = str(raw.get("signature") or _sig_free_loss(ir))
+        family = str(raw.get("family") or _loss_family_id(ir))
+        family_signature = str(raw.get("family_signature") or _loss_family_signature(ir))
+
+        if max_per_family > 0:
+            used = int(family_counter.get(family_signature, 0))
+            if used >= int(max_per_family):
+                continue
+            family_counter[family_signature] = used + 1
+
+        src_id = str(raw.get("id") or sig[:8])
+        new_id = f"fseed_{len(out):03d}_{sig[:8]}"
+
+        hist: List[Dict[str, Any]] = []
+        if (not bool(reset_history)) and isinstance(raw.get("history"), list):
+            hist.extend([dict(item) for item in list(raw.get("history") or []) if isinstance(item, Mapping)])
+        hist.append(
+            {
+                "op": "TRANSFER_SEED",
+                "source_checkpoint": os.path.abspath(checkpoint_path),
+                "source_pool": str(source_pool),
+                "source_id": str(src_id),
+            }
+        )
+
+        try:
+            source_fitness = float(raw.get("fitness", 0.0))
+        except (TypeError, ValueError):
+            source_fitness = 0.0
+
+        out.append(
+            {
+                "generation": -1,
+                "index": int(len(out)),
+                "id": str(new_id),
+                "signature": str(sig),
+                "family": str(family),
+                "family_signature": str(family_signature),
+                "origin": "TRANSFER_SEED",
+                "origin_base": str(src_id),
+                "op_type": "TRANSFER_SEED",
+                "parents": [str(src_id)],
+                "attempt": 0,
+                "prompt_sha1": None,
+                "prompt_path": None,
+                "llm_seed": None,
+                "history": hist,
+                "novelty": None,
+                "ir": asdict(ir),
+                "static_ok": True,
+                "static_reason": "transfer_seed",
+                "static_trace": {},
+                "compile_ok": True,
+                "compile_reason": "transfer_seed",
+                "fitness": (float(source_fitness) if bool(keep_source_fitness) else 0.0),
+                "descriptor": raw.get("descriptor"),
+                "source_checkpoint": os.path.abspath(checkpoint_path),
+                "source_loss_id": str(src_id),
+                "source_fitness": raw.get("fitness"),
+            }
+        )
+
+        if len(out) >= int(top_k):
+            break
+
+    return out
+
+
 def _hf_scheduler_mode(cfg_yaml: Mapping[str, Any]) -> str:
     raw = cfg_yaml.get("high_fidelity_scheduler", cfg_yaml.get("hf_scheduler_mode", "subprocess"))
     mode = str(raw or "subprocess").strip().lower()
@@ -2230,10 +2377,108 @@ def _pair_record_effective_score(rec: Mapping[str, Any] | None) -> float | None:
     return None
 
 
+def _stage3_negative_priority(rec: Mapping[str, Any] | None) -> Tuple[int, int, float] | None:
+    if not isinstance(rec, Mapping):
+        return None
+
+    nonneg_raw = rec.get("stage3_nonnegative_scenario_count")
+    worst_raw = rec.get("stage3_worst_scenario_delta")
+    all_neg_raw = rec.get("stage3_all_scenarios_negative")
+    if nonneg_raw is not None or worst_raw is not None or all_neg_raw is not None:
+        try:
+            nonneg = int(nonneg_raw) if nonneg_raw is not None else 0
+        except (TypeError, ValueError):
+            nonneg = 0
+        try:
+            worst = float(worst_raw) if worst_raw is not None else float("inf")
+        except (TypeError, ValueError):
+            worst = float("inf")
+        all_neg = bool(all_neg_raw) if all_neg_raw is not None else bool(nonneg == 0)
+        return (0 if all_neg else 1, max(0, nonneg), float(worst))
+
+    fitness = rec.get("fitness")
+    if not isinstance(fitness, Mapping):
+        return None
+    per_scenario = fitness.get("per_scenario")
+    if not isinstance(per_scenario, Mapping):
+        return None
+
+    scenario_scores: List[float] = []
+    for item in per_scenario.values():
+        if not isinstance(item, Mapping):
+            continue
+        try:
+            delta = float(item.get("delta_mean"))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(delta):
+            scenario_scores.append(float(delta))
+    if not scenario_scores:
+        return None
+
+    nonneg = sum(1 for delta in scenario_scores if not (float(delta) < 0.0))
+    worst = float(max(scenario_scores))
+    return (0 if nonneg == 0 else 1, int(nonneg), float(worst))
+
+
+def _pair_record_beats_reference_record(
+    candidate: Mapping[str, Any] | None,
+    reference: Mapping[str, Any] | None,
+    *,
+    metric_mode: str,
+    improve_eps: float,
+    prefer_all_stage3_scenarios_negative: bool,
+) -> bool:
+    cand_score = _pair_record_effective_score(candidate)
+    ref_score = _pair_record_effective_score(reference)
+    if cand_score is None or not math.isfinite(cand_score):
+        return False
+
+    if prefer_all_stage3_scenarios_negative:
+        cand_priority = _stage3_negative_priority(candidate)
+        ref_priority = _stage3_negative_priority(reference)
+        if cand_priority is not None and ref_priority is not None and cand_priority != ref_priority:
+            return bool(cand_priority < ref_priority)
+
+    return _is_better_than_reference(
+        cand_score=float(cand_score),
+        reference_score=(float(ref_score) if ref_score is not None else None),
+        metric_mode=metric_mode,
+        improve_eps=improve_eps,
+    )
+
+
+def _pair_record_sort_key(
+    rec: Mapping[str, Any],
+    *,
+    metric_mode: str,
+    prefer_all_stage3_scenarios_negative: bool,
+) -> Tuple[Any, ...]:
+    score = _pair_record_effective_score(rec)
+    score_key = float("inf")
+    if score is not None and math.isfinite(score):
+        score_key = float(score) if str(metric_mode).strip().lower() == "minimize" else float(-score)
+
+    if prefer_all_stage3_scenarios_negative:
+        priority = _stage3_negative_priority(rec)
+        if priority is None:
+            priority = (2, 10**9, float("inf"))
+    else:
+        priority = (0, 0, float("-inf"))
+
+    return (
+        int(priority[0]),
+        int(priority[1]),
+        float(priority[2]),
+        float(score_key),
+    )
+
+
 def _select_best_valid_pair_record(
     records: Sequence[Mapping[str, Any]] | None,
     *,
     metric_mode: str,
+    prefer_all_stage3_scenarios_negative: bool = False,
 ) -> Dict[str, Any] | None:
     if not records:
         return None
@@ -2258,22 +2503,22 @@ def _select_best_valid_pair_record(
 
     def _stage_rank(rec: Mapping[str, Any]) -> int:
         stage_final = str(rec.get("stage_final", rec.get("stage", ""))).strip().lower()
-        return 1 if stage_final == "high_fidelity" else 0
+        return 0 if stage_final == "high_fidelity" else 1
 
     def _sort_key(rec: Mapping[str, Any]) -> Tuple[Any, ...]:
-        score = _pair_record_effective_score(rec)
-        score_key = float("inf")
-        if score is not None:
-            score_key = score if str(metric_mode).strip().lower() == "minimize" else -score
         return (
             _stage_rank(rec),
-            1 if isinstance(rec.get("fitness"), Mapping) else 0,
-            -score_key,
-            _safe_int(rec.get("generation", -1), -1),
-            _safe_int(rec.get("pair_index", -1), -1),
+            0 if isinstance(rec.get("fitness"), Mapping) else 1,
+            *_pair_record_sort_key(
+                rec,
+                metric_mode=metric_mode,
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
+            ),
+            -_safe_int(rec.get("generation", -1), -1),
+            -_safe_int(rec.get("pair_index", -1), -1),
         )
 
-    return dict(max(candidates, key=_sort_key))
+    return dict(min(candidates, key=_sort_key))
 
 
 def _resolve_best_pair_record(
@@ -2282,6 +2527,7 @@ def _resolve_best_pair_record(
     pair_records: Sequence[Mapping[str, Any]] | None,
     pair_cache_records: Sequence[Mapping[str, Any]] | None = None,
     metric_mode: str = "minimize",
+    prefer_all_stage3_scenarios_negative: bool = False,
 ) -> Dict[str, Any] | None:
     if not isinstance(best_so_far, Mapping):
         return None
@@ -2323,7 +2569,7 @@ def _resolve_best_pair_record(
 
     def _stage_rank(rec: Mapping[str, Any]) -> int:
         stage_final = str(rec.get("stage_final", rec.get("stage", ""))).strip().lower()
-        return 1 if stage_final == "high_fidelity" else 0
+        return 0 if stage_final == "high_fidelity" else 1
 
     def _score_matches(rec: Mapping[str, Any]) -> bool:
         cand_score = _pair_record_effective_score(rec)
@@ -2342,21 +2588,21 @@ def _resolve_best_pair_record(
     pool = matched or candidates
 
     def _sort_key(rec: Mapping[str, Any]) -> Tuple[Any, ...]:
-        score = _pair_record_effective_score(rec)
-        score_key = float("inf")
-        if score is not None:
-            score_key = score if str(metric_mode).strip().lower() == "minimize" else -score
         return (
-            1 if _score_matches(rec) else 0,
-            1 if _meta_matches(rec) else 0,
+            0 if _score_matches(rec) else 1,
+            0 if _meta_matches(rec) else 1,
             _stage_rank(rec),
-            1 if isinstance(rec.get("fitness"), Mapping) else 0,
-            -score_key,
-            _safe_int(rec.get("generation", -1), -1),
-            _safe_int(rec.get("pair_index", -1), -1),
+            0 if isinstance(rec.get("fitness"), Mapping) else 1,
+            *_pair_record_sort_key(
+                rec,
+                metric_mode=metric_mode,
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
+            ),
+            -_safe_int(rec.get("generation", -1), -1),
+            -_safe_int(rec.get("pair_index", -1), -1),
         )
 
-    return dict(max(pool, key=_sort_key))
+    return dict(min(pool, key=_sort_key))
 
 
 def _pair_history_key(g_id: Any, f_id: Any) -> str:
@@ -3161,11 +3407,13 @@ def _select_stage3_promotions(
     promote_only_if_better_than_baseline: bool,
     promote_baseline_mode: str,
     incumbent_ref_score: float | None,
+    incumbent_ref_record: Mapping[str, Any] | None,
     metric_mode: str,
     improve_eps: float,
     always_include_pair: Tuple[str, str] | None,
+    prefer_all_stage3_scenarios_negative: bool = False,
 ) -> List[Tuple[str, str]]:
-    scored: List[Tuple[float, str, str]] = []
+    scored: List[Dict[str, Any]] = []
     better: List[Tuple[str, str]] = []
     better_set: set[Tuple[str, str]] = set()
     baseline_gate_mode = str(promote_baseline_mode or "mean").strip().lower()
@@ -3193,19 +3441,29 @@ def _select_stage3_promotions(
         if not baseline_ok:
             continue
         eligible_pairs.add((gid, fid))
-        scored.append((float(s), gid, fid))
+        scored.append(dict(r))
         if promote_if_better_than_incumbent:
-            if _is_better_than_reference(
-                cand_score=float(s),
-                reference_score=incumbent_ref_score,
+            ref_record: Mapping[str, Any] | None = incumbent_ref_record
+            if not isinstance(ref_record, Mapping) and incumbent_ref_score is not None:
+                ref_record = {"score": float(incumbent_ref_score)}
+            if _pair_record_beats_reference_record(
+                dict(r),
+                ref_record,
                 metric_mode=str(metric_mode),
                 improve_eps=float(improve_eps),
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
             ):
                 pair_key = (gid, fid)
                 better.append(pair_key)
                 better_set.add(pair_key)
 
-    scored.sort(key=lambda x: float(x[0]), reverse=bool(str(metric_mode) == "maximize"))
+    scored.sort(
+        key=lambda rec: _pair_record_sort_key(
+            rec,
+            metric_mode=metric_mode,
+            prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
+        )
+    )
     promoted: List[Tuple[str, str]] = []
     seen: set[Tuple[str, str]] = set()
 
@@ -3230,8 +3488,14 @@ def _select_stage3_promotions(
     if m > 0:
         top_candidates = scored[:m]
         if selection_mode == "intersection" and bool(promote_if_better_than_incumbent):
-            top_candidates = [(s, gid, fid) for (s, gid, fid) in top_candidates if (gid, fid) in better_set]
-        for s, gid, fid in top_candidates:
+            top_candidates = [
+                rec
+                for rec in top_candidates
+                if (str(rec.get("g_id", "")), str(rec.get("f_id", ""))) in better_set
+            ]
+        for rec in top_candidates:
+            gid = str(rec.get("g_id", ""))
+            fid = str(rec.get("f_id", ""))
             k = (gid, fid)
             if k in seen:
                 continue
@@ -8254,6 +8518,19 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
         delta_mean = float(sum(all_deltas) / float(len(all_deltas))) if all_deltas else float("inf")
         delta_worst = float(max(all_deltas)) if all_deltas else float("inf")
+        scenario_delta_means: List[float] = []
+        for scenario_record in per_scenario.values():
+            if not isinstance(scenario_record, Mapping):
+                continue
+            try:
+                scenario_delta = float(scenario_record.get("delta_mean"))
+            except (TypeError, ValueError):
+                continue
+            if math.isfinite(scenario_delta):
+                scenario_delta_means.append(float(scenario_delta))
+        scenario_nonnegative_count = sum(1 for delta in scenario_delta_means if not (float(delta) < 0.0))
+        all_scenarios_negative = bool(scenario_delta_means) and bool(scenario_nonnegative_count == 0)
+        worst_scenario_delta = float(max(scenario_delta_means)) if scenario_delta_means else float("inf")
 
         if early_prune_report is not None:
             record["pair_ok"] = False
@@ -8268,6 +8545,9 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "scenario_names": list(per_scenario.keys()),
             "delta_mean": float(delta_mean),
             "delta_worst": float(delta_worst),
+            "all_scenarios_negative": bool(all_scenarios_negative),
+            "nonnegative_scenario_count": int(scenario_nonnegative_count),
+            "worst_scenario_delta": float(worst_scenario_delta),
             "baseline_mini_eval_path": (
                 next(iter(baseline_mini_eval_paths.values())) if len(baseline_mini_eval_paths) == 1 else None
             ),
@@ -8293,6 +8573,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         record["score"] = float("inf") if any_error else float(delta_mean)
         record["better_than_baseline_mean"] = bool(delta_mean < 0.0)
         record["better_than_baseline_strict"] = bool(all_deltas and all(float(d) < 0.0 for d in all_deltas))
+        record["better_than_baseline_all_scenarios"] = bool(all_scenarios_negative)
+        record["stage3_all_scenarios_negative"] = bool(all_scenarios_negative)
+        record["stage3_nonnegative_scenario_count"] = int(scenario_nonnegative_count)
+        record["stage3_worst_scenario_delta"] = float(worst_scenario_delta)
         fl_logger.info(
             "Stage3 offline mini-train DONE gen=%d pair_index=%d score=%s any_error=%s",
             int(generation),
@@ -8523,6 +8807,7 @@ def run_pref_loss_coevo(
     improve_eps = float(cfg_yaml.get("improve_eps", 0.0) or 0.0)
     eval_stages = _normalize_eval_stages(cfg_yaml)
     stage3_multifidelity_cfg = _normalize_stage3_multifidelity_cfg(cfg_yaml.get("stage3_multifidelity", {}))
+    prefer_all_stage3_scenarios_negative = bool(cfg_yaml.get("stage3_prefer_all_scenarios_negative", False))
 
     cheap_gate_on = bool(cfg_yaml.get("cheap_gate_on", True))
     high_fidelity_on = bool(cfg_yaml.get("high_fidelity_on", True))
@@ -9054,6 +9339,31 @@ def run_pref_loss_coevo(
                 metric_mode=metric_mode,
             )
             elites_f = list(refreshed_elites_f[: max(0, min(len(refreshed_elites_f), len(elites_f)))])
+    if resume_state is None:
+        loss_transfer_seed_cfg = _normalize_loss_transfer_seed_cfg(cfg_yaml)
+        if bool(loss_transfer_seed_cfg.get("enabled", False)) and (not resident_pop_f):
+            transfer_ckpt = _resolve_loss_transfer_seed_checkpoint_path(loss_transfer_seed_cfg)
+            imported_losses = _load_loss_transfer_seed_entries(
+                transfer_ckpt,
+                source_pool=str(loss_transfer_seed_cfg.get("source_pool", "elites")),
+                top_k=min(int(pop_f), int(loss_transfer_seed_cfg.get("top_k", 8) or 8)),
+                max_per_family=int(loss_transfer_seed_cfg.get("max_per_family", 2) or 2),
+                keep_source_fitness=bool(loss_transfer_seed_cfg.get("keep_source_fitness", True)),
+                reset_history=bool(loss_transfer_seed_cfg.get("reset_history", False)),
+            )
+            if imported_losses:
+                resident_pop_f = list(imported_losses)
+                elites_f = list(imported_losses[: max(0, int(elite_f))])
+                for item in imported_losses:
+                    sig = str(item.get("signature") or "").strip()
+                    if sig:
+                        seen_f.add(sig)
+                LOGGER.info(
+                    "Initialized loss population from transfer seeds: checkpoint=%s pool=%s imported=%d",
+                    str(transfer_ckpt),
+                    str(loss_transfer_seed_cfg.get("source_pool", "elites")),
+                    int(len(imported_losses)),
+                )
     best_so_far: Dict[str, Any] | None = None
     if resume_state and isinstance(resume_state.get("best_so_far"), dict):
         best_so_far = dict(resume_state.get("best_so_far", {}))
@@ -9343,11 +9653,13 @@ def run_pref_loss_coevo(
             pair_records=None,
             pair_cache_records=list(caches.pair_cache.values()),
             metric_mode=metric_mode,
+            prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
         )
         if (best_so_far is None) or (not isinstance(resolved_resume_best, Mapping)) or (not bool(resolved_resume_best.get("pair_ok"))):
             rebuilt_best_rec = _select_best_valid_pair_record(
                 list(caches.pair_cache.values()),
                 metric_mode=metric_mode,
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
             )
             if rebuilt_best_rec is not None:
                 rebuilt_best_score = _pair_record_effective_score(rebuilt_best_rec)
@@ -9368,6 +9680,9 @@ def run_pref_loss_coevo(
                         "stage_final": str(rebuilt_best_rec.get("stage_final", rebuilt_best_rec.get("stage", "none"))),
                         "generation": int(_safe_int(rebuilt_best_rec.get("generation", -1), -1)),
                         "phase": str(rebuilt_best_rec.get("phase", "coevo")),
+                        "stage3_all_scenarios_negative": rebuilt_best_rec.get("stage3_all_scenarios_negative"),
+                        "stage3_nonnegative_scenario_count": rebuilt_best_rec.get("stage3_nonnegative_scenario_count"),
+                        "stage3_worst_scenario_delta": rebuilt_best_rec.get("stage3_worst_scenario_delta"),
                     }
 
     if best_so_far is None:
@@ -11774,30 +12089,27 @@ def run_pref_loss_coevo(
                                 promote_only_if_better_than_baseline=bool(promote_only_if_better_than_baseline),
                                 promote_baseline_mode=str(promote_baseline_mode),
                                 incumbent_ref_score=incumbent_ref_score,
+                                incumbent_ref_record=(best_so_far if isinstance(best_so_far, Mapping) else None),
                                 metric_mode=str(metric_mode),
                                 improve_eps=float(improve_eps),
                                 always_include_pair=always_pair,
+                                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
                             )
                         always_promote_best = True if curr_round.get("always_promote_best") is None else bool(
                             curr_round.get("always_promote_best")
                         )
                         if always_promote_best and pool_records:
                             best_rec = None
-                            best_score = None
                             for rec in pool_records:
-                                try:
-                                    s = float(rec.get("score", float("inf")))
-                                except (TypeError, ValueError):
+                                if not bool(rec.get("pair_ok")):
                                     continue
-                                if not math.isfinite(s):
-                                    continue
-                                if best_score is None or _is_better_than_reference(
-                                    cand_score=float(s),
-                                    reference_score=best_score,
+                                if best_rec is None or _pair_record_beats_reference_record(
+                                    rec,
+                                    best_rec,
                                     metric_mode=str(metric_mode),
                                     improve_eps=0.0,
+                                    prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
                                 ):
-                                    best_score = float(s)
                                     best_rec = rec
                             if best_rec is not None:
                                 best_pair = (str(best_rec.get("g_id")), str(best_rec.get("f_id")))
@@ -12095,11 +12407,12 @@ def run_pref_loss_coevo(
                 continue
 
             delta = _score_delta(cand_score=cand_score_f, ref_score=reference_score, metric_mode=metric_mode)
-            better = _is_better_than_reference(
-                cand_score=cand_score_f,
-                reference_score=reference_score,
+            better = _pair_record_beats_reference_record(
+                rec,
+                (best_so_far if isinstance(best_so_far, Mapping) else None),
                 metric_mode=metric_mode,
                 improve_eps=improve_eps,
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
             )
             rec["better_than_incumbent"] = bool(better)
             rec["delta_vs_incumbent"] = delta
@@ -12130,6 +12443,9 @@ def run_pref_loss_coevo(
                     "stage_final": str(rec.get("stage_final", "none")),
                     "generation": int(gen),
                     "phase": str(rec.get("phase", "coevo")),
+                    "stage3_all_scenarios_negative": rec.get("stage3_all_scenarios_negative"),
+                    "stage3_nonnegative_scenario_count": rec.get("stage3_nonnegative_scenario_count"),
+                    "stage3_worst_scenario_delta": rec.get("stage3_worst_scenario_delta"),
                 }
                 LOGGER.info(
                     "NEW BEST: score=%s ref=%s delta=%s pair=(%s,%s) stage=%s gen=%d phase=%s threshold=%s compare_target=incumbent improve_eps=%s",
@@ -12249,7 +12565,6 @@ def run_pref_loss_coevo(
 
         # Best pair preview (for coevolution guidance).
         best_pair_preview: Dict[str, Any] | None = None
-        best_score_preview: float | None = None
         for rec in pair_records:
             if str(rec.get("g_id")) == G_REF_ID and str(rec.get("f_id")) == F_REF_ID:
                 continue
@@ -12257,22 +12572,24 @@ def run_pref_loss_coevo(
                 continue
             if not bool(rec.get("pair_ok")):
                 continue
-            try:
-                score_f = float(rec.get("final_score", rec.get("score", float("inf"))))
-            except (TypeError, ValueError):
-                continue
-            if _is_better_than_reference(
-                cand_score=score_f,
-                reference_score=best_score_preview,
+            if best_pair_preview is None or _pair_record_beats_reference_record(
+                rec,
+                best_pair_preview,
                 metric_mode=metric_mode,
                 improve_eps=0.0,
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
             ):
-                best_score_preview = score_f
+                score_f = _pair_record_effective_score(rec)
+                if score_f is None:
+                    continue
                 best_pair_preview = {
                     "g_id": rec.get("g_id"),
                     "f_id": rec.get("f_id"),
                     "score": score_f,
                     "stage": rec.get("stage"),
+                    "stage3_all_scenarios_negative": rec.get("stage3_all_scenarios_negative"),
+                    "stage3_nonnegative_scenario_count": rec.get("stage3_nonnegative_scenario_count"),
+                    "stage3_worst_scenario_delta": rec.get("stage3_worst_scenario_delta"),
                     "proxy_score": rec.get("proxy_score"),
                     "pair_reason": rec.get("pair_reason"),
                     "builder_gate_reason": rec.get("builder_gate_reason"),
@@ -12698,6 +13015,7 @@ def run_pref_loss_coevo(
                 pair_records=pair_records,
                 pair_cache_records=list(caches.pair_cache.values()),
                 metric_mode=metric_mode,
+                prefer_all_stage3_scenarios_negative=prefer_all_stage3_scenarios_negative,
             )
             if best_pair is None:
                 best_pair = {
