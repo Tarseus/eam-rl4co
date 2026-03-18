@@ -1,0 +1,163 @@
+{
+  "generation": 5,
+  "index": 2,
+  "id": "f005_002_1c87f731",
+  "signature": "1c87f73141c3bd0eb4e813511ccdd7e56dffe1b9",
+  "family": "pairwise_margin_rank_weighted|advantage_gap_delta_rank|weighted_mean|clamp_stabilized",
+  "family_signature": "paradigm=pairwise_margin_rank_weighted|signal=advantage_gap_delta_rank|agg=weighted_mean|constraint=clamp_stabilized",
+  "origin": "PARADIGM_SHIFT",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "LOSS_PARADIGM_SHIFT",
+  "parents": [
+    "f004_012_52eed4b6",
+    "f004_010_768ce53b",
+    "f004_009_8bc47121",
+    "f002_001_b6517213",
+    "f004_005_d9e9b2d8"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "92fb7e57040422ecac9f393747490a1cbfdeeb51",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+  "llm_seed": 257450282,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "prompt_sha1": "92fb7e57040422ecac9f393747490a1cbfdeeb51"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8461538461538461,
+    "best_similarity_parts": {
+      "bigram": 0.5172413793103449,
+      "unigram": 0.8125,
+      "call": 0.8461538461538461
+    },
+    "neighbors": [
+      {
+        "sig": "d9e9b2d889d7db5bb94764b70797241f9c3fea92",
+        "name": "loss_sum_logsigmoid_delta_rank_shift",
+        "similarity": 0.8461538461538461,
+        "similarity_parts": {
+          "bigram": 0.5172413793103449,
+          "unigram": 0.8125,
+          "call": 0.8461538461538461
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "52eed4b69cafc7dc1806872e66bd7037ba63e33b",
+        "name": "loss_delta_regret_exp_normalized_relu",
+        "similarity": 0.7333333333333333,
+        "similarity_parts": {
+          "bigram": 0.15789473684210525,
+          "unigram": 0.65,
+          "call": 0.7333333333333333
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.div",
+          "ops.exp",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.relu",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "cf248071dcd7e06cfa38569a8a2cf5bc1eac43d6",
+        "name": "loss_logsigmoid_000_cost_normalized_stabilized",
+        "similarity": 0.6875,
+        "similarity_parts": {
+          "bigram": 0.24390243902439024,
+          "unigram": 0.6190476190476191,
+          "call": 0.6875
+        },
+        "call_names_top": [
+          "batch.get",
+          "detach",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.sqrt",
+          "ops.sub"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_logsigmoid_advantage_gap_rank_weighted",
+    "intuition": "Shift to a weighted ranking-aware pairwise margin loss that combines advantage gap signal with a sigmoid-based smooth margin and ranks weight contribution by relative rank gap, aggregating losses by weighted mean. This loss emphasizes pairs with higher rank gaps and adapts weighting dynamically to prioritize more informative comparisons.",
+    "pseudocode": "rank_weight = clamp(1.0 + gamma * delta_rank, 0.1, 10.0)\nx = clamp(alpha * (lpw - lpl) - beta * advantage_gap, -20, 20)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight * rank_weight\nloss = sum(weighted_loss) / (sum(weight * rank_weight) + epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin_rank_weighted",
+      "signal_family": "advantage_gap_delta_rank",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_mean",
+      "constraint_family": "clamp_stabilized"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "mul",
+      "sum",
+      "add",
+      "div",
+      "sub"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.1)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.5)))\n    rank_weight = ops.clamp(ops.add(1.0, ops.mul(gamma, delta_rank)), 0.1, 10.0)\n    margin = ops.sub(lpw, lpl)\n    x = ops.clamp(ops.sub(ops.mul(alpha, margin), ops.mul(beta, advantage_gap)), -20.0, 20.0)\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(ops.mul(loss_per_pair, weight), rank_weight)\n    norm = ops.sum(ops.mul(weight, rank_weight)) + eps\n    loss = ops.div(ops.sum(weighted_loss), norm)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.0012620826721190248,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
