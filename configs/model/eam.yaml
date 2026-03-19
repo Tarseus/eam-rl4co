@@ -1,0 +1,49 @@
+_target_: rl4co.models.EAM
+
+baseline: "shared"
+num_augment: 8
+
+ea_kwargs:
+  num_generations: 3
+  mutation_rate: 0.1
+  crossover_rate: 0.6
+  selection_rate: 0.2
+  ea_prob: 1.0
+  ea_epoch: -1
+  improve_mode: "ga"
+
+mechanism:
+  enabled: true
+  variant: eam
+  log_every: 10
+  save_root: outputs/mechanism
+  base_traj: null
+  extra_traj: null
+  refine_budget: null
+  trigger_every: 1
+  diversity_metric: edge_jaccard
+  objective_sense: min
+  paired_gain: true
+  compute_delta_nll: true
+  seed: 0
+  backbone: null
+
+metrics:
+  train:
+    - loss
+    - reward
+    - max_reward
+    - ga_cost_gain
+    - mechanism_gain
+    - mechanism_delta_nll
+    - mechanism_diversity
+    - mechanism_paired_diversity
+    - t_decode
+    - t_ga
+    - t_diag
+  val:
+    - reward
+    - max_reward
+    - max_aug_reward
+  test: ${model.metrics.val}
+  log_on_step: true

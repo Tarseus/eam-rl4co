@@ -12,10 +12,12 @@ from eval_checkpoints import (
     resolve_model_class,
     set_global_seed,
 )
+from rl4co.models.zoo.earl.mechanism import (
+    DEPOT_ENVS,
+    actions_to_numpy as _actions_to_numpy,
+)
 from rl4co.models.zoo.earl.evolution import EA, evolution_worker
 from rl4co.models.zoo.earl.model import (
-    DEPOT_ENVS,
-    _actions_to_numpy,
     _edge_diversity,
     _edge_edit_diversity,
     _edge_usage_diversity,

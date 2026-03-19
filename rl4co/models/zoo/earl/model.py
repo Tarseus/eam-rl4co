@@ -25,6 +25,16 @@ from rl4co.utils.decoding import (
     get_decoding_strategy,
     get_log_likelihood,
 )
+from rl4co.models.zoo.earl.mechanism import (
+    AugmentController,
+    MechanismProbe,
+    align_improved_actions,
+    build_mechanism_config,
+    infer_num_traj,
+    infer_problem_size,
+    normalize_variant_name,
+    take_first_trajectories,
+)
 
 log = get_pylogger(__name__)
 
@@ -367,6 +377,7 @@ class EAM(REINFORCE):
         feats: list = None,
         num_starts: int = None,
         ea_kwargs: dict = {},
+        mechanism: dict = {},
         shared_buffer = None,
         **kwargs,
     ):
@@ -413,8 +424,11 @@ class EAM(REINFORCE):
         
         self.ea_prob = ea_kwargs.get("ea_prob")
         self.ea_epoch = ea_kwargs.get("ea_epoch")
-        self.improve_mode = ea_kwargs.get("improve_mode", "ga")
-        self.val_improve_mode = ea_kwargs.get("val_improve_mode")
+        self.improve_mode = normalize_variant_name(ea_kwargs.get("improve_mode", "ga"))
+        val_improve_mode = ea_kwargs.get("val_improve_mode")
+        self.val_improve_mode = (
+            None if val_improve_mode is None else normalize_variant_name(val_improve_mode)
+        )
         self.random_2opt_iters = ea_kwargs.get("random_2opt_iters")
         self.local_search_max_iterations = ea_kwargs.get("local_search_max_iterations")
         self.local_search_num_threads = ea_kwargs.get("local_search_num_threads")
@@ -424,8 +438,18 @@ class EAM(REINFORCE):
         self.val_random_2opt_iters = ea_kwargs.get("val_random_2opt_iters")
         self.val_local_search_max_iterations = ea_kwargs.get("val_local_search_max_iterations")
         self._ga_num_generations = ea_kwargs.get("num_generations", 1)
-        self._ga_diag_counter = 0
         self._local_search_warned = False
+        self.mechanism_cfg = build_mechanism_config(
+            env, baseline, mechanism, ea_kwargs, num_starts
+        )
+        self.augment_controller = AugmentController(self.mechanism_cfg)
+        self.mechanism_probe = MechanismProbe(
+            task_name=env.name,
+            size=infer_problem_size(env),
+            backbone=self.mechanism_cfg.backbone or "unknown",
+            config=self.mechanism_cfg,
+        )
+        self._latest_val_metric = None
 
     def on_train_epoch_start(self):
         self.improve_prob = step_schedule(self.current_epoch, self.ea_prob, self.ea_epoch)
@@ -471,15 +495,29 @@ class EAM(REINFORCE):
     def _align_improved_actions(
         self, improved_actions: Optional[torch.Tensor], original_actions: Optional[torch.Tensor]
     ) -> Optional[torch.Tensor]:
-        if improved_actions is None or original_actions is None:
-            return improved_actions
-        if improved_actions.dim() != original_actions.dim():
-            return improved_actions
-        if improved_actions.shape[-1] == original_actions.shape[-1]:
-            return improved_actions
-        if improved_actions.shape[-1] + 1 == original_actions.shape[-1]:
-            return torch.cat([original_actions[..., :1], improved_actions], dim=-1)
-        return improved_actions
+        return align_improved_actions(improved_actions, original_actions)
+
+    def _run_eam_evolution(
+        self, actions: torch.Tensor, td: TensorDict, budget: Optional[int]
+    ) -> tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
+        if not hasattr(self, "ea"):
+            return None, None
+        prev_num_generations = None
+        if budget is not None:
+            prev_num_generations = self.ea.num_generations
+            self.ea.num_generations = int(budget)
+        try:
+            improved_actions, _, population_actions = evolution_worker(
+                actions,
+                td,
+                self.ea,
+                self.env,
+                return_population=True,
+            )
+        finally:
+            if prev_num_generations is not None:
+                self.ea.num_generations = prev_num_generations
+        return improved_actions, population_actions
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
@@ -502,198 +540,197 @@ class EAM(REINFORCE):
         if phase == "train":
             original_out = None
             improved_out = None
+            mechanism_pack = None
             t_decode = 0.0
             t_ga = 0.0
             t_diag = 0.0
-            
-            def run_original_policy():
+
+            batch_size = td.batch_size[0]
+            base_n_start = (
+                1
+                if self.baseline_str == "rollout"
+                else self.augment_controller.resolve_base_traj(n_start)
+            )
+
+            def run_original_policy(num_starts_override=None):
                 nonlocal t_decode
                 t0 = time.perf_counter()
                 if self.baseline_str == "rollout":
-                    result = self.policy(td, self.env, phase=phase, num_starts=1, return_entropy=True)
+                    result = self.policy(
+                        td, self.env, phase=phase, num_starts=1, return_entropy=True
+                    )
                 else:
-                    result = self.policy(td, self.env, phase=phase, num_starts=n_start, return_entropy=True)
+                    result = self.policy(
+                        td,
+                        self.env,
+                        phase=phase,
+                        num_starts=num_starts_override or base_n_start,
+                        return_entropy=True,
+                    )
                 t_decode += time.perf_counter() - t0
                 return result
-            
-            def run_improved_policy(original_actions, td):
-                nonlocal t_decode, t_ga
-                
-                if np.random.random() > self.improve_prob:
-                    return None
-                
+
+            def evaluate_actions(actions: torch.Tensor, policy_td: TensorDict):
+                nonlocal t_decode
                 device = next(self.policy.parameters()).device
-                improved_actions = None
-                population_actions = None
-                
-                if self.improve_mode == "ga":
-                    if hasattr(self, "ea"):
-                        t0 = time.perf_counter()
-                        improved_actions, _, population_actions = evolution_worker(
-                            original_actions,
-                            td,
-                            self.ea,
-                            self.env,
-                            return_population=True,
-                        )
-                        t_ga += time.perf_counter() - t0
-                elif self.improve_mode == "resample":
-                    t0 = time.perf_counter()
-                    if self.baseline_str == "rollout":
-                        result = self.policy(
-                            td, self.env, phase=phase, num_starts=1, return_entropy=True
-                        )
-                    else:
-                        result = self.policy(
-                            td,
-                            self.env,
-                            phase=phase,
-                            num_starts=n_start,
-                            return_entropy=True,
-                        )
-                    t_decode += time.perf_counter() - t0
-                    return result
-                elif self.improve_mode == "random_2opt":
-                    t0 = time.perf_counter()
-                    num_iters = self._get_improve_iters(self.random_2opt_iters)
-                    improved_actions = self._apply_random_2opt(original_actions, num_iters)
-                    t_ga += time.perf_counter() - t0
-                elif self.improve_mode == "local_search":
-                    t0 = time.perf_counter()
-                    max_iters = self._get_improve_iters(self.local_search_max_iterations)
-                    improved_actions = self._apply_local_search(original_actions, td, max_iters)
-                    t_ga += time.perf_counter() - t0
-                else:
-                    raise ValueError(f"Unknown improve_mode: {self.improve_mode}")
-                
-                if improved_actions is not None:
-                    improved_actions = improved_actions.to(device=device)
-                    improved_actions = self._align_improved_actions(
-                        improved_actions, original_actions
+                eval_actions = actions.to(device=device)
+                eval_actions = self._align_improved_actions(eval_actions, original_out["actions"])
+                t0 = time.perf_counter()
+                if self.baseline_str == "rollout":
+                    result = self.policy(
+                        policy_td,
+                        self.env,
+                        phase=phase,
+                        num_starts=1,
+                        actions=eval_actions,
                     )
-                    t0 = time.perf_counter()
-                    if self.baseline_str == "rollout":
-                        result = self.policy(
-                            td, 
-                            self.env,
-                            phase=phase,
-                            num_starts=1,
-                            actions=improved_actions,
+                    result.update({"actions": eval_actions})
+                else:
+                    eval_n_start = infer_num_traj(eval_actions, batch_size)
+                    result = self.policy(
+                        policy_td,
+                        self.env,
+                        phase=phase,
+                        num_starts=eval_n_start,
+                        actions=eval_actions,
+                    )
+                    if result["actions"].shape[1] < eval_actions.shape[1]:
+                        padding_size = eval_actions.shape[1] - result["actions"].shape[1]
+                        result.update(
+                            {
+                                "actions": torch.nn.functional.pad(
+                                    result["actions"], (0, padding_size)
+                                )
+                            }
                         )
-                        
-                        result.update({"actions": improved_actions})
-                    else:
-                        result = self.policy(
-                            td, 
-                            self.env, 
-                            phase=phase, 
-                            num_starts=n_start, 
-                            actions=improved_actions,
+                t_decode += time.perf_counter() - t0
+                return result
+
+            def sample_resample_policy(extra_traj: int):
+                return run_original_policy(extra_traj)
+
+            def run_ga(actions: torch.Tensor, budget: Optional[int]):
+                nonlocal t_ga
+                t0 = time.perf_counter()
+                result = self._run_eam_evolution(actions, init_td, budget)
+                t_ga += time.perf_counter() - t0
+                return result
+
+            def run_random_only(actions: torch.Tensor, budget: int):
+                nonlocal t_ga
+                t0 = time.perf_counter()
+                result = self._apply_random_2opt(actions, budget)
+                t_ga += time.perf_counter() - t0
+                return result
+
+            def run_ls_only(actions: torch.Tensor, budget: int):
+                nonlocal t_ga
+                t0 = time.perf_counter()
+                result = self._apply_local_search(actions, init_td, budget)
+                t_ga += time.perf_counter() - t0
+                return result
+
+            original_out = run_original_policy(base_n_start)
+            if self.augment_controller.triggered(self.global_step, self.improve_prob):
+                mechanism_pack = self.augment_controller.augment(
+                    tau0=original_out["actions"],
+                    batch_size=batch_size,
+                    sample_fn=sample_resample_policy,
+                    ga_fn=run_ga,
+                    random_only_fn=run_random_only,
+                    ls_only_fn=run_ls_only,
+                )
+                if mechanism_pack is not None:
+                    improved_out = mechanism_pack.get("precomputed_out", None)
+                    if improved_out is None:
+                        improved_out = evaluate_actions(mechanism_pack["tauk"], init_td)
+                    if (
+                        improved_out is not None
+                        and mechanism_pack.get("population_actions", None) is not None
+                    ):
+                        improved_out.update(
+                            {"population_actions": mechanism_pack["population_actions"]}
                         )
-                        if result["actions"].shape[1] < original_actions.shape[1]:
-                            padding_size = original_actions.shape[1] - result["actions"].shape[1]
-                            result.update({"actions": torch.nn.functional.pad(result["actions"], (0, padding_size))})
-                    t_decode += time.perf_counter() - t0
-
-                    if population_actions is not None:
-                        result.update({"population_actions": population_actions})
-
-                    return result
-                    
-                return None
-            
-            original_out = run_original_policy()
-            improved_out = run_improved_policy(original_out["actions"], init_td)
 
             ga_used = improved_out is not None
-            compute_diag = False
-            if ga_used:
-                self._ga_diag_counter += 1
-                compute_diag = self._ga_diag_counter % 10 == 0
-
-            delta_nll = None
             ga_cost_gain = None
             ga_cost_gain_rel = None
-            edge_div = None
-            edge_entropy = None
-            edge_simpson = None
-            route_div = None
-            edit_edge_div = None
-            actions = None
+            mechanism_stats = None
             if ga_used:
-                actions = improved_out.get("actions", None)
-                pop_actions = improved_out.get("population_actions", None)
-                pop_size = _infer_ga_pop_size(
-                    pop_actions if pop_actions is not None else actions, td.batch_size[0]
+                pair_count = (
+                    mechanism_pack.get("pair_count")
+                    if mechanism_pack is not None
+                    else infer_num_traj(improved_out.get("actions", None), batch_size)
                 )
-                mean_base = original_out["reward"].mean()
-                mean_improved = improved_out["reward"].mean()
-                ga_cost_gain = (mean_improved - mean_base) * pop_size
-                denom = mean_base.abs() * pop_size + 1e-8
-                ga_cost_gain_rel = ga_cost_gain / denom
-            if ga_used and compute_diag:
-                t0 = time.perf_counter()
-                with torch.no_grad():
-                    delta_nll = (
-                        (-improved_out["log_likelihood"]).mean()
-                        - (-original_out["log_likelihood"]).mean()
-                    )
-                    close_tour = self.env.name == "tsp"
-                    ignore_zero = self.env.name in DEPOT_ENVS
-                    edge_div = 0.0
-                    edge_entropy = 0.0
-                    edge_simpson = 0.0
-                    route_div = 0.0
-                    edit_edge_div = 0.0
-                    div_actions = actions
-                    pop_actions = improved_out.get("population_actions", None)
-                    actions_b = _reshape_actions(actions, td.batch_size[0], None)
-                    pop_actions_b = _reshape_actions(pop_actions, td.batch_size[0], None)
-                    if pop_actions_b is not None and (
-                        actions_b is None or actions_b.shape[1] < pop_actions_b.shape[1]
-                    ):
-                        div_actions = pop_actions
-                    actions_np = _actions_to_numpy(div_actions, td.batch_size[0])
-                    if actions_np is not None:
-                        edge_div = _edge_diversity(
-                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
+                score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
+                scorek = self.mechanism_probe.adapter.reward_to_score(improved_out["reward"])
+                score0_trimmed = take_first_trajectories(score0, batch_size, pair_count)
+                scorek_trimmed = take_first_trajectories(scorek, batch_size, pair_count)
+                pair_gain = self.mechanism_probe.adapter.pair_gain(
+                    score0_trimmed, scorek_trimmed
+                )
+                ga_cost_gain = pair_gain.mean()
+                ga_cost_gain_rel = ga_cost_gain / (score0_trimmed.abs().mean() + 1e-8)
+
+                if self.mechanism_probe.should_log(self.global_step):
+                    t0 = time.perf_counter()
+                    with torch.no_grad():
+                        mechanism_stats = self.mechanism_probe.compute(
+                            variant=self.augment_controller.variant,
+                            batch_size=batch_size,
+                            tau0=original_out.get("actions", None),
+                            tauk=improved_out.get("actions", None),
+                            pair_count=pair_count,
+                            score0=score0,
+                            scorek=scorek,
+                            log_likelihood0=original_out.get("log_likelihood", None),
+                            log_likelihoodk=improved_out.get("log_likelihood", None),
+                            population_actions=(
+                                mechanism_pack.get("population_actions", None)
+                                if mechanism_pack is not None
+                                else None
+                            ),
+                            step=self.global_step,
+                            epoch=self.current_epoch,
+                            val_metric=self._latest_val_metric,
                         )
-                        edge_entropy, edge_simpson = _edge_usage_diversity(
-                            actions_np, close_tour=close_tour, ignore_zero=ignore_zero
-                        )
-                        if ignore_zero:
-                            route_div = _route_assignment_diversity(actions_np)
-                    original_np = _actions_to_numpy(original_out.get("actions", None), td.batch_size[0])
-                    improved_np = _actions_to_numpy(actions, td.batch_size[0])
-                    if original_np is not None and improved_np is not None:
-                        edit_edge_div = _edge_edit_diversity(
-                            original_np,
-                            improved_np,
-                            close_tour=close_tour,
-                            ignore_zero=ignore_zero,
-                        )
-                t_diag += time.perf_counter() - t0
+                        self.mechanism_probe.dump(mechanism_stats)
+                    t_diag += time.perf_counter() - t0
 
             if self.baseline_str == "rollout":
                 # using am as baseline
                 original_reward = unbatchify(original_out["reward"], (n_aug, 1))
-                original_log_likelihood = unbatchify(original_out["log_likelihood"], (n_aug, 1))
+                original_log_likelihood = unbatchify(
+                    original_out["log_likelihood"], (n_aug, 1)
+                )
             else:
-                # using pomo as baseline 
-                original_reward = unbatchify(original_out["reward"], (n_aug, n_start))
-                original_log_likelihood = unbatchify(original_out["log_likelihood"], (n_aug, n_start))
+                original_n_start = infer_num_traj(original_out.get("actions", None), batch_size)
+                original_reward = unbatchify(
+                    original_out["reward"], (n_aug, original_n_start)
+                )
+                original_log_likelihood = unbatchify(
+                    original_out["log_likelihood"], (n_aug, original_n_start)
+                )
             self.calculate_loss(td, batch, original_out, original_reward, original_log_likelihood)
-            original_loss = original_out["loss"]
             
             if improved_out is not None:
                 if self.baseline_str == "rollout":
                     # using am as baseline
                     improved_reward = unbatchify(improved_out["reward"], (n_aug, 1))
-                    improved_log_likelihood = unbatchify(improved_out["log_likelihood"], (n_aug, 1))
+                    improved_log_likelihood = unbatchify(
+                        improved_out["log_likelihood"], (n_aug, 1)
+                    )
                 else:
-                    improved_reward = unbatchify(improved_out["reward"], (n_aug, n_start))
-                    improved_log_likelihood = unbatchify(improved_out["log_likelihood"], (n_aug, n_start))
-                
+                    improved_n_start = infer_num_traj(
+                        improved_out.get("actions", None), batch_size
+                    )
+                    improved_reward = unbatchify(
+                        improved_out["reward"], (n_aug, improved_n_start)
+                    )
+                    improved_log_likelihood = unbatchify(
+                        improved_out["log_likelihood"], (n_aug, improved_n_start)
+                    )
+
                 out = original_out
                 combined_out = {
                     k: torch.cat([original_out[k], improved_out[k]], dim=0) 
@@ -728,17 +765,21 @@ class EAM(REINFORCE):
                     {
                         "ga_cost_gain": ga_cost_gain.detach(),
                         "ga_cost_gain_rel": ga_cost_gain_rel.detach(),
+                        "mechanism_gain": ga_cost_gain.detach(),
                     }
                 )
-            if ga_used and compute_diag and delta_nll is not None:
+            if mechanism_stats is not None:
                 out.update(
                     {
-                        "delta_nll": delta_nll.detach(),
-                        "diversity_edge": torch.tensor(edge_div, device=td.device),
-                        "diversity_edge_entropy": torch.tensor(edge_entropy, device=td.device),
-                        "diversity_edge_simpson": torch.tensor(edge_simpson, device=td.device),
-                        "diversity_route": torch.tensor(route_div, device=td.device),
-                        "diversity_edit_edge": torch.tensor(edit_edge_div, device=td.device),
+                        "mechanism_delta_nll": torch.tensor(
+                            mechanism_stats["delta_nll"], device=td.device
+                        ),
+                        "mechanism_diversity": torch.tensor(
+                            mechanism_stats["diversity"], device=td.device
+                        ),
+                        "mechanism_paired_diversity": torch.tensor(
+                            mechanism_stats["paired_diversity"], device=td.device
+                        ),
                     }
                 )
             
@@ -763,7 +804,7 @@ class EAM(REINFORCE):
                     improved_actions = None
                     original_actions = out.get("actions", None)
                     device = next(self.policy.parameters()).device
-                    if val_improve_mode == "ga":
+                    if val_improve_mode == "eam":
                         if hasattr(self, "ea") and original_actions is not None:
                             prev_num_generations = None
                             if self.val_num_generations is not None:
@@ -788,7 +829,7 @@ class EAM(REINFORCE):
                             improved_out = self.policy(
                                 init_td, self.env, phase=phase, num_starts=n_start
                             )
-                    elif val_improve_mode == "random_2opt":
+                    elif val_improve_mode == "random_only":
                         num_iters = self._get_improve_iters(
                             self.val_random_2opt_iters
                             if self.val_random_2opt_iters is not None
@@ -797,7 +838,7 @@ class EAM(REINFORCE):
                         improved_actions = self._apply_random_2opt(
                             original_actions, num_iters
                         )
-                    elif val_improve_mode == "local_search":
+                    elif val_improve_mode == "ls_only":
                         max_iters = self._get_improve_iters(
                             self.val_local_search_max_iterations
                             if self.val_local_search_max_iterations is not None
@@ -923,6 +964,14 @@ class EAM(REINFORCE):
                     out.update({"max_aug_reward_no_ls": raw_max_aug_reward})
             else:
                 out.update({"reward_no_ls": raw_val_reward})
+            if "max_aug_reward" in out:
+                self._latest_val_metric = float(out["max_aug_reward"].mean().item())
+            elif "max_reward" in out:
+                self._latest_val_metric = float(out["max_reward"].mean().item())
+            elif "reward" in out:
+                reward_tensor = out["reward"]
+                if isinstance(reward_tensor, torch.Tensor):
+                    self._latest_val_metric = float(reward_tensor.mean().item())
 
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
@@ -957,13 +1006,11 @@ class EAM(REINFORCE):
                                                    "rate_mean",
                                                    "rate_std",
                                                    "entropy",
-                                                   "delta_nll",
-                                                   "diversity_edge",
-                                                   "diversity_edge_entropy",
-                                                   "diversity_edge_simpson",
-                                                   "diversity_route",
-                                                   "diversity_edit_edge",
+                                                   "mechanism_diversity",
+                                                   "mechanism_paired_diversity",
+                                                   "mechanism_delta_nll",
                                                    "ga_cost_gain",
+                                                   "mechanism_gain",
                                                    "ga_cost_gain_rel",
                                                    "t_decode",
                                                    "t_ga",
