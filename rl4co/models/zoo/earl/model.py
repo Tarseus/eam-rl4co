@@ -571,13 +571,23 @@ class EAM(REINFORCE):
             prev_num_generations = self.ea.num_generations
             self.ea.num_generations = int(budget)
         try:
-            improved_actions, _, population_actions = evolution_worker(
-                actions,
-                td,
-                self.ea,
-                self.env,
-                return_population=return_population,
-            )
+            if return_population:
+                improved_actions, _, population_actions = evolution_worker(
+                    actions,
+                    td,
+                    self.ea,
+                    self.env,
+                    return_population=True,
+                )
+            else:
+                improved_actions, _ = evolution_worker(
+                    actions,
+                    td,
+                    self.ea,
+                    self.env,
+                    return_population=False,
+                )
+                population_actions = None
         finally:
             if prev_num_generations is not None:
                 self.ea.num_generations = prev_num_generations
@@ -1264,13 +1274,23 @@ class SymEAM(REINFORCE):
                 should_collect_population = (self._ga_diag_counter + 1) % 10 == 0
                 
                 t0 = time.perf_counter()
-                improved_actions, _, population_actions = evolution_worker(
-                    original_actions,
-                    td,
-                    self.ea,
-                    self.env,
-                    return_population=should_collect_population,
-                )
+                if should_collect_population:
+                    improved_actions, _, population_actions = evolution_worker(
+                        original_actions,
+                        td,
+                        self.ea,
+                        self.env,
+                        return_population=True,
+                    )
+                else:
+                    improved_actions, _ = evolution_worker(
+                        original_actions,
+                        td,
+                        self.ea,
+                        self.env,
+                        return_population=False,
+                    )
+                    population_actions = None
                 t_ga += time.perf_counter() - t0
                 
                 if improved_actions is not None:
