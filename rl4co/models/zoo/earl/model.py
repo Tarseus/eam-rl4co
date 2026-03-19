@@ -732,10 +732,7 @@ class EAM(REINFORCE):
                     )
 
                 out = original_out
-                combined_out = {
-                    k: torch.cat([original_out[k], improved_out[k]], dim=0) 
-                    for k in original_out.keys() if k in improved_out and isinstance(original_out[k], torch.Tensor)
-                }
+                combined_out = {}
                 combined_reward = torch.cat([original_reward, improved_reward], dim=0)
                 combined_log_likelihood = torch.cat([original_log_likelihood, improved_log_likelihood], dim=0)
                 
@@ -1302,7 +1299,7 @@ class SymEAM(REINFORCE):
                 improved_reward = unbatchify(improved_out["reward"], (n_aug, n_start))
                 improved_log_likelihood = unbatchify(improved_out["log_likelihood"], (n_aug, n_start))
 
-                keys_to_merge = ["reward", "log_likelihood", "actions", "proj_embeddings"]
+                keys_to_merge = ["reward", "log_likelihood", "proj_embeddings"]
                 combined_out = {
                     k: torch.cat([original_out[k], improved_out[k]], dim=0)
                     for k in keys_to_merge if k in original_out and k in improved_out
