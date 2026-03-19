@@ -289,6 +289,7 @@ class MechanismConfig:
     extra_traj: Optional[int] = None
     refine_budget: Optional[int] = None
     trigger_every: int = 1
+    trigger_mode: str = "bernoulli"
     log_every: int = 10
     save_root: str = "outputs/mechanism"
     diversity_metric: Optional[str] = None
@@ -318,6 +319,7 @@ def build_mechanism_config(
         extra_traj=mechanism.get("extra_traj", num_starts),
         refine_budget=mechanism.get("refine_budget", ea_kwargs.get("num_generations")),
         trigger_every=int(mechanism.get("trigger_every", 1) or 1),
+        trigger_mode=str(mechanism.get("trigger_mode", "bernoulli")),
         log_every=int(mechanism.get("log_every", 10) or 1),
         save_root=str(mechanism.get("save_root", "outputs/mechanism")),
         diversity_metric=mechanism.get("diversity_metric", infer_diversity_metric(task_name)),
@@ -340,6 +342,7 @@ class AugmentController:
         self.extra_traj = config.extra_traj
         self.refine_budget = config.refine_budget
         self.trigger_every = max(1, int(config.trigger_every))
+        self.trigger_mode = str(config.trigger_mode or "bernoulli")
 
     def resolve_base_traj(self, fallback: int) -> int:
         return max(1, int(self.base_traj if self.base_traj is not None else fallback))
@@ -360,6 +363,10 @@ class AugmentController:
             return False
         if improve_prob is None or improve_prob >= 1.0:
             return True
+        if self.trigger_mode == "periodic":
+            period = max(1, int(round(1.0 / max(float(improve_prob), 1e-8))))
+            effective_step = (step + 1) // self.trigger_every
+            return effective_step % period == 0
         return bool(np.random.random() <= improve_prob)
 
     def augment(
