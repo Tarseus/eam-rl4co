@@ -68,11 +68,11 @@ python run.py \
   experiment="${experiment}" \
   trainer.accelerator=gpu \
   +trainer.devices=1 \
-  trainer.max_steps="${max_steps}" \
+  +trainer.max_steps="${max_steps}" \
   trainer.max_epochs=9999 \
-  trainer.limit_val_batches=0 \
+  +trainer.limit_val_batches=0 \
   trainer.num_sanity_val_steps=0 \
-  trainer.log_every_n_steps=1 \
+  +trainer.log_every_n_steps=1 \
   test=False \
   seed="${seed}" \
   logger.csv.name="csv/${run_name}/" \
