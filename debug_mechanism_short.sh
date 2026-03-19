@@ -40,6 +40,7 @@ esac
 mkdir -p "${log_dir}"
 timestamp="$(date +%Y%m%d_%H%M%S)"
 stdout_log="${log_dir}/${run_name}_steps${max_steps}_seed${seed}_${timestamp}.log"
+exit_log="${stdout_log%.log}.exitcode"
 
 echo "Problem: ${problem}"
 echo "Variant: ${variant}"
@@ -47,6 +48,19 @@ echo "GPU: cuda:${gpu}"
 echo "Max steps: ${max_steps}"
 echo "Seed: ${seed}"
 echo "Stdout log: ${stdout_log}"
+
+cleanup() {
+  status=$?
+  {
+    echo "[debug] finished_at=$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "[debug] exit_code=${status}"
+  } | tee -a "${stdout_log}"
+  printf "%s\n" "${status}" > "${exit_log}"
+}
+
+trap cleanup EXIT
+trap 'echo "[debug] received_signal=INT at $(date '\''+%Y-%m-%d %H:%M:%S'\'')" | tee -a "${stdout_log}"' INT
+trap 'echo "[debug] received_signal=TERM at $(date '\''+%Y-%m-%d %H:%M:%S'\'')" | tee -a "${stdout_log}"' TERM
 
 CUDA_VISIBLE_DEVICES="${gpu}" \
 PYTHONUNBUFFERED=1 \

@@ -398,6 +398,34 @@ def _validate_actions_or_revert(
     return validated.to(device=original_actions.device)
 
 
+def _iterative_accept_improvement(
+    env: RL4COEnvBase,
+    td: TensorDict,
+    actions: torch.Tensor,
+    num_iters: int,
+) -> torch.Tensor:
+    if actions is None or num_iters <= 0:
+        return actions
+    current = actions.detach().cpu().clone()
+    td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
+    current_reward = env.get_reward(td_cpu, current)
+    for _ in range(num_iters):
+        if env.name == "cvrp":
+            candidate = _random_route_2opt_cvrp(current, 1).cpu()
+        elif env.name == "tsp":
+            candidate = _random_2opt(current, 1, keep_first=True).cpu()
+        else:
+            candidate = _random_2opt(current, 1, keep_first=True).cpu()
+            candidate = _validate_actions_or_revert(env, td_cpu, current, candidate).cpu()
+        candidate_reward = env.get_reward(td_cpu, candidate)
+        better = candidate_reward > current_reward
+        if better.any():
+            mask = better.view(-1, *([1] * (current.dim() - 1)))
+            current = torch.where(mask, candidate, current)
+            current_reward = torch.where(better, candidate_reward, current_reward)
+    return current.to(device=actions.device)
+
+
 DEFAULT_GA_POP_SIZE = 50
 
 
@@ -546,10 +574,13 @@ class EAM(REINFORCE):
         except AssertionError as exc:
             if not self._local_search_warned:
                 log.warning(
-                    "Local search is unavailable. Skipping improvement. Error: %s", exc
+                    "Local search is unavailable. Falling back to iterative mutation-accept improvement. Error: %s",
+                    exc,
                 )
                 self._local_search_warned = True
-            return None
+            improved = _iterative_accept_improvement(
+                self.env, td_cpu, actions_cpu, max_iterations
+            )
         return improved.to(device=actions.device)
 
     def _align_improved_actions(
