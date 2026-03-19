@@ -117,6 +117,14 @@ def align_improved_actions(
 ) -> Optional[torch.Tensor]:
     if improved_actions is None or original_actions is None:
         return improved_actions
+    if (
+        improved_actions.device != original_actions.device
+        or improved_actions.dtype != original_actions.dtype
+    ):
+        improved_actions = improved_actions.to(
+            device=original_actions.device,
+            dtype=original_actions.dtype,
+        )
     if improved_actions.dim() != original_actions.dim():
         return improved_actions
     if improved_actions.shape[-1] == original_actions.shape[-1]:
