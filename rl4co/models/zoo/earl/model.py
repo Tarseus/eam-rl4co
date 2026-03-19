@@ -769,7 +769,12 @@ class EAM(REINFORCE):
                 return result
 
             original_out = run_original_policy(base_n_start)
-            if self.augment_controller.triggered(self.global_step, self.improve_prob):
+            ga_triggered = self.augment_controller.triggered(
+                self.global_step, self.improve_prob
+            )
+            ga_candidate = False
+            ga_improved = False
+            if ga_triggered:
                 mechanism_pack = self.augment_controller.augment(
                     tau0=original_out["actions"],
                     batch_size=batch_size,
@@ -779,6 +784,7 @@ class EAM(REINFORCE):
                     ls_only_fn=run_ls_only,
                 )
                 if mechanism_pack is not None:
+                    ga_candidate = True
                     improved_out = mechanism_pack.get("precomputed_out", None)
                     if improved_out is None:
                         improved_out = evaluate_actions(mechanism_pack["tauk"], init_td)
@@ -807,6 +813,7 @@ class EAM(REINFORCE):
                 )
                 ga_cost_gain = pair_gain.mean()
                 ga_cost_gain_rel = ga_cost_gain / (score0_trimmed.abs().mean() + 1e-8)
+                ga_improved = bool(ga_cost_gain.item() > 1e-12)
 
                 if self.mechanism_cfg.enabled:
                     t0 = time.perf_counter()
@@ -891,7 +898,10 @@ class EAM(REINFORCE):
                     "t_decode": torch.tensor(t_decode, device=td.device),
                     "t_ga": torch.tensor(t_ga, device=td.device),
                     "t_diag": torch.tensor(t_diag, device=td.device),
+                    "ga_triggered": torch.tensor(float(ga_triggered), device=td.device),
+                    "ga_candidate": torch.tensor(float(ga_candidate), device=td.device),
                     "ga_applied": torch.tensor(float(ga_used), device=td.device),
+                    "ga_improved": torch.tensor(float(ga_improved), device=td.device),
                     "ga_cost_gain": torch.tensor(0.0, device=td.device),
                     "ga_cost_gain_rel": torch.tensor(0.0, device=td.device),
                     "mechanism_gain": torch.tensor(0.0, device=td.device),
@@ -1142,7 +1152,10 @@ class EAM(REINFORCE):
         self.train_metrics = metrics.get("train", ["loss", 
                                                    "reward", 
                                                    "max_reward",
+                                                   "ga_triggered",
+                                                   "ga_candidate",
                                                    "ga_applied",
+                                                   "ga_improved",
                                                    "alpha",
                                                    "rate_mean",
                                                    "rate_std",
