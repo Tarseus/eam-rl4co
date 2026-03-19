@@ -558,7 +558,11 @@ class EAM(REINFORCE):
         return align_improved_actions(improved_actions, original_actions)
 
     def _run_eam_evolution(
-        self, actions: torch.Tensor, td: TensorDict, budget: Optional[int]
+        self,
+        actions: torch.Tensor,
+        td: TensorDict,
+        budget: Optional[int],
+        return_population: bool = False,
     ) -> tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
         if not hasattr(self, "ea"):
             return None, None
@@ -572,7 +576,7 @@ class EAM(REINFORCE):
                 td,
                 self.ea,
                 self.env,
-                return_population=True,
+                return_population=return_population,
             )
         finally:
             if prev_num_generations is not None:
@@ -672,21 +676,38 @@ class EAM(REINFORCE):
             def run_ga(actions: torch.Tensor, budget: Optional[int]):
                 nonlocal t_ga
                 t0 = time.perf_counter()
-                result = self._run_eam_evolution(actions, init_td, budget)
+                collect_population = (
+                    self.augment_controller.variant == "eam"
+                    and self.mechanism_probe.should_log(self.global_step)
+                )
+                result = self._run_eam_evolution(
+                    actions,
+                    init_td,
+                    budget,
+                    return_population=collect_population,
+                )
                 t_ga += time.perf_counter() - t0
                 return result
 
             def run_random_only(actions: torch.Tensor, budget: int):
                 nonlocal t_ga
                 t0 = time.perf_counter()
-                result = self._apply_random_2opt(actions, init_td, budget)
+                num_iters = self._get_improve_iters(
+                    self.random_2opt_iters if self.random_2opt_iters is not None else budget
+                )
+                result = self._apply_random_2opt(actions, init_td, num_iters)
                 t_ga += time.perf_counter() - t0
                 return result
 
             def run_ls_only(actions: torch.Tensor, budget: int):
                 nonlocal t_ga
                 t0 = time.perf_counter()
-                result = self._apply_local_search(actions, init_td, budget)
+                max_iters = self._get_improve_iters(
+                    self.local_search_max_iterations
+                    if self.local_search_max_iterations is not None
+                    else budget
+                )
+                result = self._apply_local_search(actions, init_td, max_iters)
                 t_ga += time.perf_counter() - t0
                 return result
 
@@ -704,13 +725,6 @@ class EAM(REINFORCE):
                     improved_out = mechanism_pack.get("precomputed_out", None)
                     if improved_out is None:
                         improved_out = evaluate_actions(mechanism_pack["tauk"], init_td)
-                    if (
-                        improved_out is not None
-                        and mechanism_pack.get("population_actions", None) is not None
-                    ):
-                        improved_out.update(
-                            {"population_actions": mechanism_pack["population_actions"]}
-                        )
 
             ga_used = improved_out is not None
             ga_cost_gain = None
@@ -1247,6 +1261,7 @@ class SymEAM(REINFORCE):
                 device = next(self.policy.parameters()).device
                 improved_actions = None
                 population_actions = None
+                should_collect_population = (self._ga_diag_counter + 1) % 10 == 0
                 
                 t0 = time.perf_counter()
                 improved_actions, _, population_actions = evolution_worker(
@@ -1254,7 +1269,7 @@ class SymEAM(REINFORCE):
                     td,
                     self.ea,
                     self.env,
-                    return_population=True,
+                    return_population=should_collect_population,
                 )
                 t_ga += time.perf_counter() - t0
                 

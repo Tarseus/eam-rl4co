@@ -17,7 +17,7 @@ logger:
 
 model:
   baseline: shared
-  num_starts: 64
+  num_starts: null
   num_augment: 8
   batch_size: 64
   val_batch_size: 256
@@ -33,25 +33,29 @@ model:
     milestones: [80, 95]
     gamma: 0.1
   ea_kwargs:
-    num_generations: 64
+    num_generations: 3
     mutation_rate: 0.1
     crossover_rate: 0.6
     selection_rate: 0.2
-    ea_prob: 1.0
-    ea_epoch: -1
+    ea_prob: 0.01
+    ea_epoch: 700
     improve_mode: eam
     val_improve_mode: eam
-    val_improve: true
+    random_2opt_iters: 300
+    local_search_max_iterations: 300
+    val_random_2opt_iters: 300
+    val_local_search_max_iterations: 300
+    val_improve: false
     val_improve_prob: 1.0
-    val_num_generations: 64
+    val_num_generations: 0
   mechanism:
     enabled: true
     variant: eam
     log_every: 10
     save_root: outputs/mechanism
-    base_traj: 64
-    extra_traj: 64
-    refine_budget: 64
+    base_traj: null
+    extra_traj: null
+    refine_budget: 3
     trigger_every: 1
     diversity_metric: edge_jaccard
     objective_sense: min
@@ -63,5 +67,6 @@ model:
 trainer:
   max_epochs: 100
   precision: "32-true"
+  num_sanity_val_steps: 0
 
 seed: 1234
