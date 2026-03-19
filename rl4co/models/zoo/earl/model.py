@@ -805,6 +805,7 @@ class EAM(REINFORCE):
             )
             ga_candidate = False
             ga_improved = False
+            raw_improved_out = None
             if ga_triggered:
                 mechanism_pack = self.augment_controller.augment(
                     tau0=original_out["actions"],
@@ -816,16 +817,33 @@ class EAM(REINFORCE):
                 )
                 if mechanism_pack is not None:
                     ga_candidate = True
-                    improved_out = mechanism_pack.get("precomputed_out", None)
-                    if improved_out is None:
-                        improved_out = evaluate_actions(mechanism_pack["tauk"], init_td)
+                    raw_improved_out = mechanism_pack.get("precomputed_out", None)
+                    if raw_improved_out is None:
+                        raw_improved_out = evaluate_actions(mechanism_pack["tauk"], init_td)
                     improved_out = self._accept_non_worse_improvements(
-                        original_out, improved_out, batch_size
+                        original_out, raw_improved_out, batch_size
                     )
+                    if improved_out is not None:
+                        improved_pair_count = infer_num_traj(
+                            improved_out.get("actions", None), batch_size
+                        )
+                        original_reward_for_accept = take_first_trajectories(
+                            original_out.get("reward", None), batch_size, improved_pair_count
+                        )
+                        improved_reward_for_accept = improved_out.get("reward", None)
+                        if (
+                            original_reward_for_accept is not None
+                            and improved_reward_for_accept is not None
+                            and torch.allclose(
+                                improved_reward_for_accept,
+                                original_reward_for_accept,
+                            )
+                        ):
+                            improved_out = None
                     if improved_out is not None and mechanism_pack.get("tauk", None) is not None:
                         mechanism_pack["tauk"] = improved_out.get("actions", mechanism_pack["tauk"])
 
-            ga_used = improved_out is not None
+            ga_used = raw_improved_out is not None
             ga_cost_gain = None
             ga_cost_gain_rel = None
             mechanism_stats = None
@@ -833,10 +851,10 @@ class EAM(REINFORCE):
                 pair_count = (
                     mechanism_pack.get("pair_count")
                     if mechanism_pack is not None
-                    else infer_num_traj(improved_out.get("actions", None), batch_size)
+                    else infer_num_traj(raw_improved_out.get("actions", None), batch_size)
                 )
                 score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
-                scorek = self.mechanism_probe.adapter.reward_to_score(improved_out["reward"])
+                scorek = self.mechanism_probe.adapter.reward_to_score(raw_improved_out["reward"])
                 score0_trimmed = take_first_trajectories(score0, batch_size, pair_count)
                 scorek_trimmed = take_first_trajectories(scorek, batch_size, pair_count)
                 pair_gain = self.mechanism_probe.adapter.pair_gain(
@@ -853,12 +871,12 @@ class EAM(REINFORCE):
                             variant=self.augment_controller.variant,
                             batch_size=batch_size,
                             tau0=original_out.get("actions", None),
-                            tauk=improved_out.get("actions", None),
+                            tauk=raw_improved_out.get("actions", None),
                             pair_count=pair_count,
                             score0=score0,
                             scorek=scorek,
                             log_likelihood0=original_out.get("log_likelihood", None),
-                            log_likelihoodk=improved_out.get("log_likelihood", None),
+                            log_likelihoodk=raw_improved_out.get("log_likelihood", None),
                             population_actions=(
                                 mechanism_pack.get("population_actions", None)
                                 if mechanism_pack is not None
