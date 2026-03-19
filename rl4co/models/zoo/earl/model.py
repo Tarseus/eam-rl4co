@@ -345,6 +345,59 @@ def _random_2opt(actions: torch.Tensor, num_iters: int, keep_first: bool = True)
     return torch.from_numpy(actions_np).to(device=actions.device)
 
 
+def _route_ranges_from_cvrp(sequence: np.ndarray) -> list[tuple[int, int]]:
+    ranges = []
+    start = 0
+    for idx, node in enumerate(sequence):
+        if int(node) == 0:
+            if idx - start >= 2:
+                ranges.append((start, idx))
+            start = idx + 1
+    if len(sequence) - start >= 2:
+        ranges.append((start, len(sequence)))
+    return ranges
+
+
+def _random_route_2opt_cvrp(actions: torch.Tensor, num_iters: int) -> torch.Tensor:
+    if actions is None or actions.dim() != 2 or num_iters <= 0:
+        return actions
+    actions_np = actions.detach().cpu().numpy().copy()
+    rng = np.random.default_rng()
+    for _ in range(num_iters):
+        for batch_idx in range(actions_np.shape[0]):
+            route_ranges = _route_ranges_from_cvrp(actions_np[batch_idx])
+            if not route_ranges:
+                continue
+            route_start, route_end = route_ranges[rng.integers(0, len(route_ranges))]
+            if route_end - route_start < 2:
+                continue
+            i = int(rng.integers(route_start, route_end - 1))
+            j = int(rng.integers(i + 1, route_end))
+            actions_np[batch_idx, i : j + 1] = actions_np[batch_idx, i : j + 1][::-1]
+    return torch.from_numpy(actions_np).to(device=actions.device)
+
+
+def _validate_actions_or_revert(
+    env: RL4COEnvBase,
+    td: TensorDict,
+    original_actions: torch.Tensor,
+    candidate_actions: torch.Tensor,
+) -> torch.Tensor:
+    if candidate_actions is None:
+        return original_actions
+    validated = candidate_actions.detach().cpu().clone()
+    original_cpu = original_actions.detach().cpu()
+    td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
+    for batch_idx in range(candidate_actions.shape[0]):
+        try:
+            env.check_solution_validity(
+                td_cpu[batch_idx : batch_idx + 1], validated[batch_idx : batch_idx + 1]
+            )
+        except Exception:
+            validated[batch_idx] = original_cpu[batch_idx]
+    return validated.to(device=original_actions.device)
+
+
 DEFAULT_GA_POP_SIZE = 50
 
 
@@ -459,10 +512,17 @@ class EAM(REINFORCE):
             return max(1, int(override))
         return max(1, int(self._ga_num_generations or 1))
 
-    def _apply_random_2opt(self, actions: torch.Tensor, num_iters: int) -> Optional[torch.Tensor]:
+    def _apply_random_2opt(
+        self, actions: torch.Tensor, td: TensorDict, num_iters: int
+    ) -> Optional[torch.Tensor]:
         if actions is None:
             return None
-        return _random_2opt(actions, num_iters, keep_first=True)
+        if self.env.name == "tsp":
+            return _random_2opt(actions, num_iters, keep_first=True)
+        if self.env.name == "cvrp":
+            return _random_route_2opt_cvrp(actions, num_iters)
+        candidate = _random_2opt(actions, num_iters, keep_first=True)
+        return _validate_actions_or_revert(self.env, td, actions, candidate)
 
     def _apply_local_search(
         self, actions: torch.Tensor, td: TensorDict, max_iterations: int
@@ -619,7 +679,7 @@ class EAM(REINFORCE):
             def run_random_only(actions: torch.Tensor, budget: int):
                 nonlocal t_ga
                 t0 = time.perf_counter()
-                result = self._apply_random_2opt(actions, budget)
+                result = self._apply_random_2opt(actions, init_td, budget)
                 t_ga += time.perf_counter() - t0
                 return result
 
@@ -833,7 +893,7 @@ class EAM(REINFORCE):
                             else self.random_2opt_iters
                         )
                         improved_actions = self._apply_random_2opt(
-                            original_actions, num_iters
+                            original_actions, td, num_iters
                         )
                     elif val_improve_mode == "ls_only":
                         max_iters = self._get_improve_iters(
