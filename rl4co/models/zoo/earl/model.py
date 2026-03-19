@@ -593,6 +593,53 @@ class EAM(REINFORCE):
                 self.ea.num_generations = prev_num_generations
         return improved_actions, population_actions
 
+    def _accept_non_worse_improvements(
+        self,
+        original_out: dict[str, Any],
+        improved_out: Optional[dict[str, Any]],
+        batch_size: int,
+    ) -> Optional[dict[str, Any]]:
+        if improved_out is None:
+            return None
+        original_reward = original_out.get("reward", None)
+        improved_reward = improved_out.get("reward", None)
+        if original_reward is None or improved_reward is None:
+            return improved_out
+
+        original_actions = original_out.get("actions", None)
+        improved_actions = improved_out.get("actions", None)
+        pair_count = min(
+            infer_num_traj(original_actions, batch_size),
+            infer_num_traj(improved_actions, batch_size),
+        )
+        if pair_count <= 0:
+            return improved_out
+
+        original_reward = take_first_trajectories(original_reward, batch_size, pair_count)
+        improved_reward = take_first_trajectories(improved_reward, batch_size, pair_count)
+        better_mask = improved_reward > original_reward
+
+        accepted_out = dict(improved_out)
+        accepted_out["reward"] = torch.where(better_mask, improved_reward, original_reward)
+
+        for key in ("log_likelihood", "actions", "entropy"):
+            original_value = original_out.get(key, None)
+            improved_value = improved_out.get(key, None)
+            if original_value is None or improved_value is None:
+                continue
+            original_value = take_first_trajectories(original_value, batch_size, pair_count)
+            improved_value = take_first_trajectories(improved_value, batch_size, pair_count)
+            if original_value is None or improved_value is None:
+                continue
+            if original_value.shape != improved_value.shape:
+                continue
+            mask = better_mask
+            while mask.dim() < improved_value.dim():
+                mask = mask.unsqueeze(-1)
+            accepted_out[key] = torch.where(mask, improved_value, original_value)
+
+        return accepted_out
+
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
@@ -688,7 +735,7 @@ class EAM(REINFORCE):
                 t0 = time.perf_counter()
                 collect_population = (
                     self.augment_controller.variant == "eam"
-                    and self.mechanism_probe.should_log(self.global_step)
+                    and self.mechanism_cfg.enabled
                 )
                 result = self._run_eam_evolution(
                     actions,
@@ -735,6 +782,11 @@ class EAM(REINFORCE):
                     improved_out = mechanism_pack.get("precomputed_out", None)
                     if improved_out is None:
                         improved_out = evaluate_actions(mechanism_pack["tauk"], init_td)
+                    improved_out = self._accept_non_worse_improvements(
+                        original_out, improved_out, batch_size
+                    )
+                    if improved_out is not None and mechanism_pack.get("tauk", None) is not None:
+                        mechanism_pack["tauk"] = improved_out.get("actions", mechanism_pack["tauk"])
 
             ga_used = improved_out is not None
             ga_cost_gain = None
@@ -756,7 +808,7 @@ class EAM(REINFORCE):
                 ga_cost_gain = pair_gain.mean()
                 ga_cost_gain_rel = ga_cost_gain / (score0_trimmed.abs().mean() + 1e-8)
 
-                if self.mechanism_probe.should_log(self.global_step):
+                if self.mechanism_cfg.enabled:
                     t0 = time.perf_counter()
                     with torch.no_grad():
                         mechanism_stats = self.mechanism_probe.compute(
@@ -839,6 +891,13 @@ class EAM(REINFORCE):
                     "t_decode": torch.tensor(t_decode, device=td.device),
                     "t_ga": torch.tensor(t_ga, device=td.device),
                     "t_diag": torch.tensor(t_diag, device=td.device),
+                    "ga_applied": torch.tensor(float(ga_used), device=td.device),
+                    "ga_cost_gain": torch.tensor(0.0, device=td.device),
+                    "ga_cost_gain_rel": torch.tensor(0.0, device=td.device),
+                    "mechanism_gain": torch.tensor(0.0, device=td.device),
+                    "mechanism_delta_nll": torch.tensor(0.0, device=td.device),
+                    "mechanism_diversity": torch.tensor(0.0, device=td.device),
+                    "mechanism_paired_diversity": torch.tensor(0.0, device=td.device),
                 }
             )
             if ga_used and ga_cost_gain is not None:
@@ -1083,6 +1142,7 @@ class EAM(REINFORCE):
         self.train_metrics = metrics.get("train", ["loss", 
                                                    "reward", 
                                                    "max_reward",
+                                                   "ga_applied",
                                                    "alpha",
                                                    "rate_mean",
                                                    "rate_std",

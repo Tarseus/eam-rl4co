@@ -51,7 +51,7 @@ model:
   mechanism:
     enabled: true
     variant: eam
-    log_every: 10
+    log_every: 1
     save_root: outputs/mechanism
     base_traj: null
     extra_traj: null
@@ -68,5 +68,6 @@ trainer:
   max_epochs: 100
   precision: "32-true"
   num_sanity_val_steps: 0
+  log_every_n_steps: 1
 
 seed: 1234
