@@ -27,7 +27,7 @@ for idx in "${!variants[@]}"; do
   nohup python run.py \
     experiment=routing/cvrp100_pomo_mechanism \
     trainer.accelerator=gpu \
-    trainer.devices=1 \
+    +trainer.devices=1 \
     trainer.max_epochs="${epochs}" \
     seed="${seed}" \
     model.mechanism.variant="${variant}" \
