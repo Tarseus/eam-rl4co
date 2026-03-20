@@ -61,6 +61,13 @@ function Build-Args {
         "--log-level", [string]$Cfg.LogLevel
     )
 
+    if ($Cfg.ContainsKey("RemoteOutputRoot")) {
+        $remoteOutputRoot = [string]$Cfg.RemoteOutputRoot
+        if (-not [string]::IsNullOrWhiteSpace($remoteOutputRoot)) {
+            $argList += @("--output-root-override", $remoteOutputRoot)
+        }
+    }
+
     foreach ($item in @($Cfg.SshArgs)) {
         $argList += ("--ssh-arg=" + [string]$item)
     }
