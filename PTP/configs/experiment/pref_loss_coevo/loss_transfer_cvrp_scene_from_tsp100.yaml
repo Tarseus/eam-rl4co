@@ -21,10 +21,7 @@ loss_transfer_seed:
   reset_history: false
 
 stage3_multifidelity:
-  enabled: true
-  rounds:
-    - { name: epoch1_inst100000, hf_epochs: 1, hf_instances_per_epoch: 100000, promote_top_frac: 0.5, promote_if_better_than_incumbent: true, promote_only_if_better_than_baseline: true, always_include_incumbent: true }
-    - { name: epoch2_inst100000, hf_epochs: 2, hf_instances_per_epoch: 100000 }
+  enabled: false
 stage3_early_prune:
   enabled: true
   scenario_name: cvrp50
@@ -76,11 +73,14 @@ budgets:
   generations: 4
   pairing_budget_per_gen: 64
   high_fidelity_top_m: 999999
-  hf_epochs: 1
+  hf_epochs: 10
 
 f1_steps: 200
-hf_epochs: 1
+hf_epochs: 10
 hf_instances_per_epoch: 100000
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
+baseline_epoch_compare_offset: 0
 train_problem_size: 50
 valid_problem_sizes: [50]
 train_batch_size: 64
@@ -115,8 +115,7 @@ weight_decay: 0.000001
 
 baseline:
   mini_eval_paths:
-    epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch1_inst100000.json
-    epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch2_inst100000.json
+    epoch10_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch10_inst100000.json
   checkpoints:
     - baseline/cvrp50_epoch_50.ckpt
   include_scratch: true
@@ -133,8 +132,7 @@ baseline:
         num_loc: 50
       baseline:
         mini_eval_paths:
-          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch1_inst100000.json
-          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch2_inst100000.json
+          epoch10_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch10_inst100000.json
         checkpoints:
           - baseline/cvrp50_epoch_50.ckpt
     - name: cvrp100
@@ -148,8 +146,7 @@ baseline:
         num_loc: 100
       baseline:
         mini_eval_paths:
-          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch1_inst100000.json
-          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch2_inst100000.json
+          epoch10_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch10_inst100000.json
         checkpoints:
           - baseline/cvrp100_epoch_100.ckpt
 
