@@ -287,10 +287,8 @@ class EA():
         
         if self.env_name == "op":
             dist_mat = calculate_distance_matrix(td["locs"].cpu().numpy())
-            pop = self.mutate(pop, td, dist_mat)
-        elif self.env_name == "cvrp" or self.env_name == "pctsp" or self.env_name == "ffsp" or self.env_name == "knapsack":
-            pop = self.mutate(pop, td)
-        # before_update = copy.deepcopy(pop)
+        # Start from the true initial population. Variation should happen in offspring generation,
+        # not by mutating the baseline population before the first fitness evaluation.
         fitness = self.fitness_fn(pop, td, verbose)
         
         initial_first_nodes = init_pop[:, 0].copy()
