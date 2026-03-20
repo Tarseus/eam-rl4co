@@ -118,11 +118,13 @@ def _probe_latest_run(
     *,
     remote_workdir: str,
     config_path: str,
+    output_root_override: str,
     remote_python_bin: str,
     timeout_s: float,
 ) -> dict[str, Any] | None:
     config_path_py = json.dumps(str(config_path), ensure_ascii=False)
     remote_workdir_py = json.dumps(str(remote_workdir), ensure_ascii=False)
+    output_root_override_py = json.dumps(str(output_root_override), ensure_ascii=False)
     remote_py = f"""
 cd {_q(remote_workdir)} && {_q(remote_python_bin)} - <<'PY'
 import json
@@ -130,6 +132,7 @@ import os
 
 config_path = {config_path_py}
 workdir = {remote_workdir_py}
+output_root_override = {output_root_override_py}
 
 out = {{
     "ok": False,
@@ -172,8 +175,10 @@ if yaml is not None and os.path.isfile(cfg_path_abs):
     except Exception:
         cfg = {{}}
 
-output_root = "runs/pref_loss_coevo"
-if isinstance(cfg, dict):
+output_root = str(output_root_override or "").strip()
+if not output_root:
+    output_root = "runs/pref_loss_coevo"
+if isinstance(cfg, dict) and not str(output_root_override or "").strip():
     output_root = str(cfg.get("output_root", output_root) or output_root)
 if not os.path.isabs(output_root):
     output_root = os.path.abspath(os.path.join(workdir, output_root))
@@ -324,6 +329,7 @@ def _attempt_resume(
     reason: str,
     remote_workdir: str,
     config_path: str,
+    output_root_override: str,
     remote_log_dir: str,
     python_bin: str,
     log_tz: str,
@@ -341,6 +347,7 @@ def _attempt_resume(
         client,
         remote_workdir=remote_workdir,
         config_path=config_path,
+        output_root_override=output_root_override,
         remote_python_bin=python_bin,
         timeout_s=cmd_timeout_s,
     )
@@ -447,6 +454,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--python-bin", type=str, default="python")
     p.add_argument("--remote-log-dir", type=str, default="logs")
+    p.add_argument(
+        "--output-root-override",
+        type=str,
+        default="",
+        help="Optional remote run root override. If set, watcher probes this path instead of reading output_root from YAML.",
+    )
     p.add_argument("--log-tz", type=str, default="Asia/Shanghai")
     p.add_argument("--log-level", type=str, default="INFO")
     p.add_argument("--resume-on-start", action=argparse.BooleanOptionalAction, default=True)
@@ -473,7 +486,8 @@ def main() -> int:
     _log(
         "watcher_start "
         + f"host={args.host} poll_s={poll_s:.1f} boot_grace_s={boot_grace_s:.1f} "
-        + f"resume_on_start={bool(args.resume_on_start)} dry_run={bool(args.dry_run)}"
+        + f"resume_on_start={bool(args.resume_on_start)} dry_run={bool(args.dry_run)} "
+        + f"output_root_override={str(args.output_root_override or '').strip() or '<yaml>'}"
     )
     _log(
         "watcher_env "
@@ -514,6 +528,7 @@ def main() -> int:
                             reason="startup",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
+                            output_root_override=args.output_root_override,
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
                             log_tz=args.log_tz,
@@ -529,6 +544,7 @@ def main() -> int:
                             reason="reconnect_boot_id_changed",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
+                            output_root_override=args.output_root_override,
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
                             log_tz=args.log_tz,
@@ -547,6 +563,7 @@ def main() -> int:
                             reason="boot_id_changed",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
+                            output_root_override=args.output_root_override,
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
                             log_tz=args.log_tz,
@@ -565,6 +582,7 @@ def main() -> int:
                                 reason="periodic_online_retry",
                                 remote_workdir=args.remote_workdir,
                                 config_path=args.config,
+                                output_root_override=args.output_root_override,
                                 remote_log_dir=args.remote_log_dir,
                                 python_bin=args.python_bin,
                                 log_tz=args.log_tz,

@@ -237,6 +237,12 @@ def _resolve_training_seed(cfg_yaml: Mapping[str, Any], *, default: int = 1234) 
         return int(default)
 
 
+def _alpha_from_cfg(cfg_yaml: Mapping[str, Any], *, key: str = "alpha") -> float:
+    env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    default_alpha = 0.03 if env_name == "cvrp" else 0.05
+    return float(cfg_yaml.get(key, default_alpha) or default_alpha)
+
+
 def _stage3_multiseed_compare_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     seed0 = _resolve_training_seed(cfg_yaml)
     baseline_cfg = cfg_yaml.get("baseline", {}) or {}
@@ -893,6 +899,8 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         raise ValueError("stage3 requires at least one init source (scratch and/or baseline.checkpoints)")
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
+    # CVRP compares against the native PO objective to stay aligned with the
+    # PO4COPs-style experimental preference modeling used by that baseline.
     baseline_eval_mode = "native_po_loss" if env_name.strip().lower() == "cvrp" else "ref_free_loss"
     policy_name = str(cfg_yaml.get("policy_name") or "")
     policy_kwargs = dict(cfg_yaml.get("policy_kwargs", {}) or {})
@@ -904,7 +912,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     pomo_size_out = int(pomo_size) if pomo_size is not None else None
 
     validation_batch_size = int(cfg_yaml.get("validation_batch_size", 64) or 64)
-    alpha = float(cfg_yaml.get("alpha", 0.05) or 0.05)
+    alpha = _alpha_from_cfg(cfg_yaml)
     lr = float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4)
     wd = float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6)
     size_aggregation = str(cfg_yaml.get("size_aggregation", "mean") or "mean")
@@ -1126,7 +1134,7 @@ def _stage3_pre_minitrain_eval(
         ),
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
-        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        alpha=_alpha_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),
@@ -1461,6 +1469,7 @@ def _normalize_loss_transfer_seed_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, 
 
     return {
         "enabled": bool(raw.get("enabled", False)),
+        "source_loss_path": str(raw.get("source_loss_path", "") or "").strip(),
         "source_run_dir": str(raw.get("source_run_dir", "") or "").strip(),
         "source_checkpoint_path": str(raw.get("source_checkpoint_path", "") or "").strip(),
         "source_pool": str(raw.get("source_pool", "elites") or "elites").strip().lower(),
@@ -1481,6 +1490,104 @@ def _resolve_loss_transfer_seed_checkpoint_path(seed_cfg: Mapping[str, Any]) -> 
         raise ValueError("loss_transfer_seed requires source_checkpoint_path or source_run_dir")
 
     return os.path.join(_abs_from_repo_root(run_dir), "checkpoint.json")
+
+
+def _resolve_loss_transfer_seed_loss_path(seed_cfg: Mapping[str, Any]) -> str:
+    loss_path = str(seed_cfg.get("source_loss_path", "") or "").strip()
+    if not loss_path:
+        raise ValueError("loss_transfer_seed requires source_loss_path")
+    return _abs_from_repo_root(loss_path)
+
+
+def _coerce_numeric_transfer_seed_fitness(value: Any) -> float | None:
+    if isinstance(value, Mapping):
+        for key in ("delta_mean", "score", "final_score", "latest", "mean"):
+            nested = value.get(key)
+            try:
+                return float(nested)
+            except (TypeError, ValueError):
+                continue
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_transfer_seed_entry(
+    raw: Mapping[str, Any],
+    *,
+    index: int,
+    source_ref: str,
+    source_kind: str,
+    source_pool: str,
+    keep_source_fitness: bool,
+    reset_history: bool,
+) -> Dict[str, Any] | None:
+    ir_raw = raw.get("ir")
+    if not isinstance(ir_raw, dict):
+        return None
+
+    try:
+        ir = free_loss_ir_from_json(ir_raw)
+    except Exception:  # noqa: BLE001
+        return None
+
+    sig = str(raw.get("signature") or _sig_free_loss(ir))
+    family = str(raw.get("family") or _loss_family_id(ir))
+    family_signature = str(raw.get("family_signature") or _loss_family_signature(ir))
+    src_id = str(raw.get("id") or sig[:8])
+    new_id = f"fseed_{int(index):03d}_{sig[:8]}"
+
+    hist: List[Dict[str, Any]] = []
+    if (not bool(reset_history)) and isinstance(raw.get("history"), list):
+        hist.extend([dict(item) for item in list(raw.get("history") or []) if isinstance(item, Mapping)])
+    hist.append(
+        {
+            "op": "TRANSFER_SEED",
+            source_kind: os.path.abspath(source_ref),
+            "source_pool": str(source_pool),
+            "source_id": str(src_id),
+        }
+    )
+
+    source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("fitness"))
+    if source_fitness is None:
+        source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("score"))
+    if source_fitness is None:
+        source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("final_score"))
+    if source_fitness is None:
+        source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("score_history_summary"))
+
+    return {
+        "generation": -1,
+        "index": int(index),
+        "id": str(new_id),
+        "signature": str(sig),
+        "family": str(family),
+        "family_signature": str(family_signature),
+        "origin": "TRANSFER_SEED",
+        "origin_base": str(src_id),
+        "op_type": "TRANSFER_SEED",
+        "parents": [str(src_id)],
+        "attempt": 0,
+        "prompt_sha1": None,
+        "prompt_path": None,
+        "llm_seed": None,
+        "history": hist,
+        "novelty": None,
+        "ir": asdict(ir),
+        "static_ok": True,
+        "static_reason": "transfer_seed",
+        "static_trace": {},
+        "compile_ok": True,
+        "compile_reason": "transfer_seed",
+        "fitness": (float(source_fitness) if bool(keep_source_fitness) and source_fitness is not None else 0.0),
+        "descriptor": raw.get("descriptor"),
+        source_kind: os.path.abspath(source_ref),
+        "source_loss_id": str(src_id),
+        "source_fitness": source_fitness,
+    }
 
 
 def _load_loss_transfer_seed_entries(
@@ -1513,9 +1620,10 @@ def _load_loss_transfer_seed_entries(
         ir_raw = raw.get("ir")
         if not isinstance(ir_raw, dict):
             continue
-        try:
-            fit = float(raw.get("fitness", float("inf")))
-        except (TypeError, ValueError):
+        fit = _coerce_numeric_transfer_seed_fitness(raw.get("fitness"))
+        if fit is None:
+            fit = _coerce_numeric_transfer_seed_fitness(raw.get("score"))
+        if fit is None:
             fit = float("inf")
         ranked.append((float(fit), dict(raw)))
 
@@ -1525,17 +1633,18 @@ def _load_loss_transfer_seed_entries(
     family_counter: Dict[str, int] = {}
 
     for _, raw in ranked:
-        ir_raw = raw.get("ir")
-        if not isinstance(ir_raw, dict):
+        entry = _build_transfer_seed_entry(
+            raw,
+            index=len(out),
+            source_ref=checkpoint_path,
+            source_kind="source_checkpoint",
+            source_pool=str(source_pool),
+            keep_source_fitness=keep_source_fitness,
+            reset_history=reset_history,
+        )
+        if entry is None:
             continue
-
-        try:
-            ir = free_loss_ir_from_json(ir_raw)
-        except Exception:  # noqa: BLE001
-            continue
-        sig = str(raw.get("signature") or _sig_free_loss(ir))
-        family = str(raw.get("family") or _loss_family_id(ir))
-        family_signature = str(raw.get("family_signature") or _loss_family_signature(ir))
+        family_signature = str(entry.get("family_signature") or "")
 
         if max_per_family > 0:
             used = int(family_counter.get(family_signature, 0))
@@ -1543,62 +1652,34 @@ def _load_loss_transfer_seed_entries(
                 continue
             family_counter[family_signature] = used + 1
 
-        src_id = str(raw.get("id") or sig[:8])
-        new_id = f"fseed_{len(out):03d}_{sig[:8]}"
-
-        hist: List[Dict[str, Any]] = []
-        if (not bool(reset_history)) and isinstance(raw.get("history"), list):
-            hist.extend([dict(item) for item in list(raw.get("history") or []) if isinstance(item, Mapping)])
-        hist.append(
-            {
-                "op": "TRANSFER_SEED",
-                "source_checkpoint": os.path.abspath(checkpoint_path),
-                "source_pool": str(source_pool),
-                "source_id": str(src_id),
-            }
-        )
-
-        try:
-            source_fitness = float(raw.get("fitness", 0.0))
-        except (TypeError, ValueError):
-            source_fitness = 0.0
-
-        out.append(
-            {
-                "generation": -1,
-                "index": int(len(out)),
-                "id": str(new_id),
-                "signature": str(sig),
-                "family": str(family),
-                "family_signature": str(family_signature),
-                "origin": "TRANSFER_SEED",
-                "origin_base": str(src_id),
-                "op_type": "TRANSFER_SEED",
-                "parents": [str(src_id)],
-                "attempt": 0,
-                "prompt_sha1": None,
-                "prompt_path": None,
-                "llm_seed": None,
-                "history": hist,
-                "novelty": None,
-                "ir": asdict(ir),
-                "static_ok": True,
-                "static_reason": "transfer_seed",
-                "static_trace": {},
-                "compile_ok": True,
-                "compile_reason": "transfer_seed",
-                "fitness": (float(source_fitness) if bool(keep_source_fitness) else 0.0),
-                "descriptor": raw.get("descriptor"),
-                "source_checkpoint": os.path.abspath(checkpoint_path),
-                "source_loss_id": str(src_id),
-                "source_fitness": raw.get("fitness"),
-            }
-        )
+        out.append(entry)
 
         if len(out) >= int(top_k):
             break
 
     return out
+
+
+def _load_loss_transfer_seed_entries_from_loss_path(
+    loss_path: str,
+    *,
+    keep_source_fitness: bool = True,
+    reset_history: bool = False,
+) -> List[Dict[str, Any]]:
+    payload = _load_json(loss_path)
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"Invalid transfer loss artifact: {loss_path}")
+
+    entry = _build_transfer_seed_entry(
+        payload,
+        index=0,
+        source_ref=loss_path,
+        source_kind="source_loss_path",
+        source_pool="artifact",
+        keep_source_fitness=keep_source_fitness,
+        reset_history=reset_history,
+    )
+    return [entry] if entry is not None else []
 
 
 def _hf_scheduler_mode(cfg_yaml: Mapping[str, Any]) -> str:
@@ -9763,15 +9844,24 @@ def run_pref_loss_coevo(
     if resume_state is None:
         loss_transfer_seed_cfg = _normalize_loss_transfer_seed_cfg(cfg_yaml)
         if bool(loss_transfer_seed_cfg.get("enabled", False)) and (not resident_pop_f):
-            transfer_ckpt = _resolve_loss_transfer_seed_checkpoint_path(loss_transfer_seed_cfg)
-            imported_losses = _load_loss_transfer_seed_entries(
-                transfer_ckpt,
-                source_pool=str(loss_transfer_seed_cfg.get("source_pool", "elites")),
-                top_k=min(int(pop_f), int(loss_transfer_seed_cfg.get("top_k", 8) or 8)),
-                max_per_family=int(loss_transfer_seed_cfg.get("max_per_family", 2) or 2),
-                keep_source_fitness=bool(loss_transfer_seed_cfg.get("keep_source_fitness", True)),
-                reset_history=bool(loss_transfer_seed_cfg.get("reset_history", False)),
-            )
+            transfer_loss_path = str(loss_transfer_seed_cfg.get("source_loss_path", "") or "").strip()
+            if transfer_loss_path:
+                resolved_loss_path = _resolve_loss_transfer_seed_loss_path(loss_transfer_seed_cfg)
+                imported_losses = _load_loss_transfer_seed_entries_from_loss_path(
+                    resolved_loss_path,
+                    keep_source_fitness=bool(loss_transfer_seed_cfg.get("keep_source_fitness", True)),
+                    reset_history=bool(loss_transfer_seed_cfg.get("reset_history", False)),
+                )
+            else:
+                transfer_ckpt = _resolve_loss_transfer_seed_checkpoint_path(loss_transfer_seed_cfg)
+                imported_losses = _load_loss_transfer_seed_entries(
+                    transfer_ckpt,
+                    source_pool=str(loss_transfer_seed_cfg.get("source_pool", "elites")),
+                    top_k=min(int(pop_f), int(loss_transfer_seed_cfg.get("top_k", 8) or 8)),
+                    max_per_family=int(loss_transfer_seed_cfg.get("max_per_family", 2) or 2),
+                    keep_source_fitness=bool(loss_transfer_seed_cfg.get("keep_source_fitness", True)),
+                    reset_history=bool(loss_transfer_seed_cfg.get("reset_history", False)),
+                )
             if imported_losses:
                 resident_pop_f = list(imported_losses)
                 elites_f = list(imported_losses[: max(0, int(elite_f))])
@@ -9779,12 +9869,19 @@ def run_pref_loss_coevo(
                     sig = str(item.get("signature") or "").strip()
                     if sig:
                         seen_f.add(sig)
-                LOGGER.info(
-                    "Initialized loss population from transfer seeds: checkpoint=%s pool=%s imported=%d",
-                    str(transfer_ckpt),
-                    str(loss_transfer_seed_cfg.get("source_pool", "elites")),
-                    int(len(imported_losses)),
-                )
+                if transfer_loss_path:
+                    LOGGER.info(
+                        "Initialized loss population from transfer seed artifact: loss=%s imported=%d",
+                        str(resolved_loss_path),
+                        int(len(imported_losses)),
+                    )
+                else:
+                    LOGGER.info(
+                        "Initialized loss population from transfer seeds: checkpoint=%s pool=%s imported=%d",
+                        str(transfer_ckpt),
+                        str(loss_transfer_seed_cfg.get("source_pool", "elites")),
+                        int(len(imported_losses)),
+                    )
     best_so_far: Dict[str, Any] | None = None
     if resume_state and isinstance(resume_state.get("best_so_far"), dict):
         best_so_far = dict(resume_state.get("best_so_far", {}))
@@ -10991,7 +11088,7 @@ def run_pref_loss_coevo(
                         if g_ref_comp is not None and f_ref_comp is not None:
                             micro_steps = int(cfg_yaml.get("micro_unroll_steps", 3) or 3)
                             micro_lr = float(cfg_yaml.get("micro_unroll_lr", 5e-2) or 5e-2)
-                            micro_alpha = float(cfg_yaml.get("micro_unroll_alpha", cfg_yaml.get("alpha", 0.05)) or 0.05)
+                            micro_alpha = _alpha_from_cfg(cfg_yaml, key="micro_unroll_alpha")
                             micro_weight_decay = float(cfg_yaml.get("micro_unroll_weight_decay", 0.0) or 0.0)
                             micro_reuse_pref = bool(cfg_yaml.get("micro_unroll_reuse_pref_batch_when_safe", True))
                             micro_max_pairs = cfg_yaml.get("micro_unroll_max_pairs", None)
@@ -12076,7 +12173,7 @@ def run_pref_loss_coevo(
                 micro_top_k = max(int(default_top_m), min(int(micro_top_k), int(len(mu_candidates))))
                 micro_steps = int(cfg_yaml.get("micro_unroll_steps", 3) or 3)
                 micro_lr = float(cfg_yaml.get("micro_unroll_lr", 5e-2) or 5e-2)
-                micro_alpha = float(cfg_yaml.get("micro_unroll_alpha", cfg_yaml.get("alpha", 0.05)) or 0.05)
+                micro_alpha = _alpha_from_cfg(cfg_yaml, key="micro_unroll_alpha")
                 micro_weight_decay = float(cfg_yaml.get("micro_unroll_weight_decay", 0.0) or 0.0)
                 micro_reuse_pref = bool(cfg_yaml.get("micro_unroll_reuse_pref_batch_when_safe", True))
                 micro_max_pairs = cfg_yaml.get("micro_unroll_max_pairs", None)

@@ -1,7 +1,7 @@
 preset: simple
 search_mode: loss_only
 seed: 1234
-output_root: runs/pref_loss_cvrp_scene_transfer
+output_root: runs/pref_loss_cvrp_from_tsp_elite
 
 metric_mode: minimize
 improve_eps: 0.0
@@ -13,10 +13,10 @@ improve_eps_calibration:
 
 loss_transfer_seed:
   enabled: true
-  source_run_dir: runs/pref_loss_tsp100_discovery/<run_dir>
+  source_checkpoint_path: artifacts/loss_archive/tsp100_best_current/checkpoint.json
   source_pool: elites
   top_k: 8
-  max_per_family: 2
+  max_per_family: 0
   keep_source_fitness: true
   reset_history: false
 
@@ -113,6 +113,8 @@ alpha: 0.03
 learning_rate: 0.0003
 weight_decay: 0.000001
 
+# For CVRP the comparison baseline is native_po_loss, matching the
+# PO4COPs experimental preference modeling used by the original CVRP setup.
 baseline:
   mini_eval_paths:
     epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch1_inst100000.json

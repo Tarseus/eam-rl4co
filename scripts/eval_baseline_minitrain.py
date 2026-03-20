@@ -67,6 +67,12 @@ def _baseline_minitrain_eval_mode(cfg_yaml: Mapping[str, Any]) -> str:
     return "ref_free_loss"
 
 
+def _alpha_from_cfg(cfg_yaml: Mapping[str, Any]) -> float:
+    env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    default_alpha = 0.03 if env_name == "cvrp" else 0.05
+    return float(cfg_yaml.get("alpha", default_alpha) or default_alpha)
+
+
 @torch.no_grad()
 def _pre_minitrain_eval(
     *,
@@ -111,7 +117,7 @@ def _pre_minitrain_eval(
         pomo_size=(int(cfg_yaml.get("pomo_size")) if cfg_yaml.get("pomo_size", None) is not None else None),
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
-        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        alpha=_alpha_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),
@@ -212,7 +218,7 @@ def _build_eval_signature(
     pomo_size_out = int(pomo_size) if pomo_size is not None else None
 
     validation_batch_size = int(cfg_yaml.get("validation_batch_size", 64) or 64)
-    alpha = float(cfg_yaml.get("alpha", 0.05) or 0.05)
+    alpha = _alpha_from_cfg(cfg_yaml)
     lr = float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4)
     wd = float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6)
     size_aggregation = str(cfg_yaml.get("size_aggregation", "mean") or "mean")
@@ -309,7 +315,7 @@ def _evaluate_one_init_native_po_loss(
         pomo_size=(int(cfg_yaml.get("pomo_size")) if cfg_yaml.get("pomo_size", None) is not None else None),
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
-        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        alpha=_alpha_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),
@@ -430,7 +436,7 @@ def _evaluate_one_init(
         pomo_size=(int(cfg_yaml.get("pomo_size")) if cfg_yaml.get("pomo_size", None) is not None else None),
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
-        alpha=float(cfg_yaml.get("alpha", 0.05) or 0.05),
+        alpha=_alpha_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),

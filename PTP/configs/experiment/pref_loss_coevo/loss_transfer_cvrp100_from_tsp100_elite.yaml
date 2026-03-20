@@ -1,7 +1,7 @@
 preset: simple
 search_mode: loss_only
 seed: 1234
-output_root: runs/pref_loss_cvrp_scene_transfer
+output_root: runs/pref_loss_cvrp100_from_tsp100_elite
 
 metric_mode: minimize
 improve_eps: 0.0
@@ -13,10 +13,10 @@ improve_eps_calibration:
 
 loss_transfer_seed:
   enabled: true
-  source_run_dir: runs/pref_loss_tsp100_discovery/<run_dir>
+  source_checkpoint_path: artifacts/loss_archive/tsp100_best_current/checkpoint.json
   source_pool: elites
   top_k: 8
-  max_per_family: 2
+  max_per_family: 0
   keep_source_fitness: true
   reset_history: false
 
@@ -27,7 +27,7 @@ stage3_multifidelity:
     - { name: epoch2_inst100000, hf_epochs: 2, hf_instances_per_epoch: 100000 }
 stage3_early_prune:
   enabled: true
-  scenario_name: cvrp50
+  scenario_name: cvrp100
   max_init_ratio_to_baseline: 2.0
 builder_min_coverage: 0.0
 seed_with_po4cops_default: false
@@ -81,8 +81,8 @@ budgets:
 f1_steps: 200
 hf_epochs: 1
 hf_instances_per_epoch: 100000
-train_problem_size: 50
-valid_problem_sizes: [50]
+train_problem_size: 100
+valid_problem_sizes: [100]
 train_batch_size: 64
 num_validation_episodes: 10000
 validation_batch_size: 64
@@ -93,7 +93,7 @@ scratch_init_seed: 1234
 backend: rl4co
 env_name: cvrp
 generator_params:
-  num_loc: 50
+  num_loc: 100
 policy_name: pomo
 policy_kwargs:
   po4cops_compat: true
@@ -115,28 +115,13 @@ weight_decay: 0.000001
 
 baseline:
   mini_eval_paths:
-    epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch1_inst100000.json
-    epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch2_inst100000.json
+    epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch1_inst100000.json
+    epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch2_inst100000.json
   checkpoints:
-    - baseline/cvrp50_epoch_50.ckpt
+    - baseline/cvrp100_epoch_100.ckpt
   include_scratch: true
   multiseed_compare_enabled: false
   scenarios:
-    - name: cvrp50
-      problem: cvrp
-      env_name: cvrp
-      train_problem_size: 50
-      valid_problem_sizes: [50]
-      policy_kwargs:
-        po4cops_compat: true
-      generator_params:
-        num_loc: 50
-      baseline:
-        mini_eval_paths:
-          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch1_inst100000.json
-          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_cvrp50_epoch2_inst100000.json
-        checkpoints:
-          - baseline/cvrp50_epoch_50.ckpt
     - name: cvrp100
       problem: cvrp
       env_name: cvrp
