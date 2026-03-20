@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${SCRIPT_DIR}"
 
-epochs="${1:-100}"
+epochs="${1:-200}"
 seed="${2:-1234}"
 log_dir="${3:-logs/cvrp100_mechanism_ablation}"
 shift $(( $# >= 3 ? 3 : $# ))
