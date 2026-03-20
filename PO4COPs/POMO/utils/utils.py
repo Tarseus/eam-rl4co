@@ -324,6 +324,12 @@ def copy_all_src(dst_root):
         if hasattr(value, '__file__') and value.__file__:
             src_abspath = os.path.abspath(value.__file__)
 
+            # Some modules may expose a relative __file__ entry that does not
+            # actually resolve to a real source file from the current cwd.
+            # Skip those best-effort copies instead of failing training.
+            if not os.path.isfile(src_abspath):
+                continue
+
             if os.path.commonprefix([home_dir, src_abspath]) == home_dir:
                 dst_filepath = os.path.join(dst_path, os.path.basename(src_abspath))
 
