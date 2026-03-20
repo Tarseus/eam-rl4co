@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WORK_DIR="${ROOT_DIR}/PO4COPs/POMO/CVRP/POMO"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORK_DIR="${ROOT_DIR}/POMO/CVRP/POMO"
 
 MODE="${1:-train}"
 GPU_ID="${2:-5}"
