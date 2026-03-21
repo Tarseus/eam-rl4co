@@ -3,8 +3,8 @@
 $WatchRemoteRebootResumeConfig = @{
     Host                  = "gushengda@g52"
     RemoteWorkdir         = "/data1/gushengda/eam-rl4co"
-    RemoteConfigPath      = "PTP/configs/experiment/pref_loss_coevo/loss_only_aggressive.yaml"
-    RemoteOutputRoot      = "runs/pref_loss_loss_only_aggressive"
+    RemoteConfigPath      = "PTP/configs/experiment/pref_loss_coevo/loss_transfer_cvrp100_from_tsp100_elite.yaml"
+    RemoteOutputRoot      = "runs/pref_loss_cvrp100_from_tsp100_elite"
 
     PollSeconds           = 15
     BootGraceSeconds      = 45

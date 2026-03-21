@@ -1,4 +1,5 @@
 
+import os
 import torch
 import torch.nn.functional as F
 from logging import getLogger
@@ -47,10 +48,17 @@ class CVRPTrainer:
         else:
             device = torch.device('cpu')
             torch.set_default_tensor_type('torch.FloatTensor')
+        self.device = device
 
         # Main Components
         self.model = Model(**self.model_params)
-        self.env = Env(**self.env_params)        
+        self.env = Env(**self.env_params)
+        self.validation_params = self.trainer_params.get('validation', {'enable': False})
+        self.val_env = None
+        self.best_val_score = None
+        self.best_val_aug_score = None
+        if self.validation_params.get('enable', False):
+            self.val_env = Env(**self.env_params)
         self.local_search = None
         if search_params and self.trainer_params.get('local_search', False):
             try:
@@ -75,6 +83,8 @@ class CVRPTrainer:
             self.result_log.set_raw_data(checkpoint['result_log'])
             self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             self.scheduler.last_epoch = model_load['epoch']-1
+            self.best_val_score = checkpoint.get('best_val_score')
+            self.best_val_aug_score = checkpoint.get('best_val_aug_score')
             self.logger.info('Saved Model Loaded !!')
 
         # utility
@@ -93,6 +103,30 @@ class CVRPTrainer:
             self.result_log.append('train_score', epoch, train_score)
             self.result_log.append('train_loss', epoch, train_loss)
 
+            # Validation
+            if self.validation_params.get('enable', False):
+                val_score, val_aug_score = self._validate()
+                self.result_log.append('val_score', epoch, val_score)
+                self.result_log.append('val_no_aug_score', epoch, val_score)
+                self.result_log.append('val_aug_score', epoch, val_aug_score)
+
+                if self.best_val_score is None or val_score < self.best_val_score:
+                    self.best_val_score = val_score
+                if self.best_val_aug_score is None or val_aug_score < self.best_val_aug_score:
+                    self.best_val_aug_score = val_aug_score
+
+                self.logger.info(
+                    'Epoch {:3d}: Validation NO-AUG SCORE: {:.4f}, '
+                    'AUGMENTATION SCORE: {:.4f}, Best NO-AUG: {:.4f}, '
+                    'Best AUG: {:.4f}'.format(
+                        epoch,
+                        val_score,
+                        val_aug_score,
+                        self.best_val_score,
+                        self.best_val_aug_score,
+                    )
+                )
+
             ############################
             # Logs & Checkpoint
             ############################
@@ -110,6 +144,11 @@ class CVRPTrainer:
                 image_prefix = '{}/latest'.format(self.result_folder)
                 util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_1'],
                                     self.result_log, labels=['train_score'])
+                if self.validation_params.get('enable', False):
+                    util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_1'],
+                                        self.result_log, labels=['val_no_aug_score'])
+                    util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_1'],
+                                        self.result_log, labels=['val_aug_score'])
                 util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_2'],
                                     self.result_log, labels=['train_loss'])
 
@@ -121,7 +160,9 @@ class CVRPTrainer:
                     'model_state_dict': self.model.state_dict(),
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'scheduler_state_dict': self.scheduler.state_dict(),
-                    'result_log': self.result_log.get_raw_data()
+                    'result_log': self.result_log.get_raw_data(),
+                    'best_val_score': self.best_val_score,
+                    'best_val_aug_score': self.best_val_aug_score,
                 }
                 torch.save(checkpoint_dict, '{}/checkpoint-{}.pt'.format(self.result_folder, epoch))
 
@@ -130,6 +171,11 @@ class CVRPTrainer:
                 image_prefix = '{}/img/checkpoint-{}'.format(self.result_folder, epoch)
                 util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_1'],
                                     self.result_log, labels=['train_score'])
+                if self.validation_params.get('enable', False):
+                    util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_1'],
+                                        self.result_log, labels=['val_no_aug_score'])
+                    util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_1'],
+                                        self.result_log, labels=['val_aug_score'])
                 util_save_log_image_with_label(image_prefix, self.trainer_params['logging']['log_image_params_2'],
                                     self.result_log, labels=['train_loss'])
 
@@ -216,6 +262,71 @@ class CVRPTrainer:
         loss.backward()
         self.optimizer.step()
         return score_mean.item(), loss.item()
+
+    def _validate(self):
+        validation_filename = self.validation_params.get('filename')
+        if validation_filename is None:
+            raise ValueError("trainer_params['validation']['filename'] must be set when validation is enabled.")
+
+        if not os.path.isfile(validation_filename):
+            raise FileNotFoundError(
+                "Validation dataset not found: {}".format(validation_filename)
+            )
+
+        score_AM = AverageMeter()
+        aug_score_AM = AverageMeter()
+
+        self.val_env.use_saved_problems(validation_filename, self.device)
+
+        val_num_episode = self.validation_params.get('episodes', 10000)
+        val_batch_size = self.validation_params.get('batch_size', 1000)
+        augmentation_enable = self.validation_params.get('augmentation_enable', False)
+        if augmentation_enable:
+            val_batch_size = self.validation_params.get('aug_batch_size', val_batch_size)
+
+        episode = 0
+        while episode < val_num_episode:
+            remaining = val_num_episode - episode
+            batch_size = min(val_batch_size, remaining)
+
+            score, aug_score = self._validate_one_batch(batch_size)
+            score_AM.update(score, batch_size)
+            aug_score_AM.update(aug_score, batch_size)
+
+            episode += batch_size
+
+        return score_AM.avg, aug_score_AM.avg
+
+    def _validate_one_batch(self, batch_size):
+        if self.validation_params.get('augmentation_enable', False):
+            aug_factor = self.validation_params.get('aug_factor', 8)
+        else:
+            aug_factor = 1
+
+        prev_eval_type = self.model.model_params.get('eval_type')
+        self.model.model_params['eval_type'] = self.validation_params.get('eval_type', prev_eval_type)
+
+        self.model.eval()
+        with torch.no_grad():
+            self.val_env.load_problems(batch_size, aug_factor)
+            reset_state, _, _ = self.val_env.reset()
+            self.model.pre_forward(reset_state)
+
+            state, reward, done = self.val_env.pre_step()
+            while not done:
+                selected, _ = self.model(state)
+                state, reward, done = self.val_env.step(selected)
+
+        self.model.model_params['eval_type'] = prev_eval_type
+
+        aug_reward = reward.reshape(aug_factor, batch_size, self.val_env.pomo_size)
+        max_pomo_reward, _ = aug_reward.max(dim=2)
+        no_aug_score = -max_pomo_reward[0, :].float().mean()
+
+        max_aug_pomo_reward, _ = max_pomo_reward.max(dim=0)
+        aug_score = -max_aug_pomo_reward.float().mean()
+
+        return no_aug_score.item(), aug_score.item()
 
     def rl_loss_fn(self, reward, prob_list): # RL
         advantage = reward - reward.float().mean(dim=1, keepdims=True)
