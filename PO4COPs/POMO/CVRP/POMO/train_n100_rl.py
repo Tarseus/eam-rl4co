@@ -77,6 +77,16 @@ trainer_params = {
             'filename': 'style_loss_1.json'
         },
     },
+    'validation': {
+        'enable': True,
+        'filename': '../../data/validation/cvrp/uniform_size_100_seed_12345_cvrp.pt',
+        'episodes': 10*1000,
+        'batch_size': 1000,
+        'eval_type': 'softmax',
+        'augmentation_enable': True,
+        'aug_factor': 8,
+        'aug_batch_size': 250,
+    },
     'local_search': False,
     'model_load': {
         'enable': False,  # enable loading pre-trained model
