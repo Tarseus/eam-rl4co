@@ -22,9 +22,12 @@ class BOPOFJSPModel(L.LightningModule):
         val_data_dir: str = "BOPO/FJSP/benchmarks/validation",
         test_data_dir: str | None = "BOPO/FJSP/benchmarks/LA-e",
         use_cached: bool = True,
+        generate_default_data: bool = False,
+        data_dir: str | None = None,
         batch_size: int = 1,
         val_batch_size: int = 1,
         test_batch_size: int = 1,
+        dataloader_num_workers: int = 0,
         optimizer: str = "Adam",
         optimizer_kwargs: dict | None = None,
         enc_hidden: int = 64,
@@ -39,6 +42,8 @@ class BOPOFJSPModel(L.LightningModule):
         greedy: int = 1,
         init_external_checkpoint_path: str | None = None,
         metrics: dict | None = None,
+        log_on_step: bool = True,
+        **unused_kwargs,
     ):
         super().__init__()
         self.save_hyperparameters(logger=False, ignore=["env"])
@@ -49,18 +54,25 @@ class BOPOFJSPModel(L.LightningModule):
         self.val_data_dir = val_data_dir
         self.test_data_dir = test_data_dir
         self.use_cached = bool(use_cached)
+        self.generate_default_data = bool(generate_default_data)
+        self.data_dir = data_dir
         self.batch_size = int(batch_size)
         self.val_batch_size = int(val_batch_size)
         self.test_batch_size = int(test_batch_size)
+        self.dataloader_num_workers = int(dataloader_num_workers)
         self.B = int(B)
         self.K = int(K)
         self.val_B = int(val_B)
         self.test_B = int(test_B)
         self.use_greedy = bool(greedy)
         self.clf_hidden = int(clf_hidden)
+        self.log_on_step = bool(log_on_step)
         self.train_metrics = (metrics or {}).get("train", ["loss", "reward"])
         self.val_metrics = (metrics or {}).get("val", ["reward", "gap", "makespan"])
         self.test_metrics = (metrics or {}).get("test", self.val_metrics)
+
+        if unused_kwargs:
+            log.warning("Ignoring unused BOPOFJSPModel kwargs: %s", sorted(unused_kwargs.keys()))
 
         context_size = FlexibleJobShopStates.size
         self.encoder = CAMEncoder(15, hidden_size=enc_hidden, embed_size=enc_out)
@@ -115,9 +127,9 @@ class BOPOFJSPModel(L.LightningModule):
         loss = sro_loss(better, worse)
         reward = -torch.tensor(float(min(makespan)), device=self.device)
         if "loss" in self.train_metrics:
-            self.log("train/loss", loss, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True, batch_size=1)
+            self.log("train/loss", loss, on_step=self.log_on_step, on_epoch=not self.log_on_step, prog_bar=True, sync_dist=True, batch_size=1)
         if "reward" in self.train_metrics:
-            self.log("train/reward", reward, on_step=True, on_epoch=False, prog_bar=True, sync_dist=True, batch_size=1)
+            self.log("train/reward", reward, on_step=self.log_on_step, on_epoch=not self.log_on_step, prog_bar=True, sync_dist=True, batch_size=1)
         return loss
 
     def validation_step(self, batch: dict[str, Any], batch_idx: int):
@@ -164,7 +176,7 @@ class BOPOFJSPModel(L.LightningModule):
             self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
-            num_workers=0,
+            num_workers=self.dataloader_num_workers,
             collate_fn=FJSPInstanceDataset.collate_fn,
         )
 
@@ -173,7 +185,7 @@ class BOPOFJSPModel(L.LightningModule):
             self.val_dataset,
             batch_size=self.val_batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=self.dataloader_num_workers,
             collate_fn=FJSPInstanceDataset.collate_fn,
         )
 
@@ -182,6 +194,6 @@ class BOPOFJSPModel(L.LightningModule):
             self.test_dataset,
             batch_size=self.test_batch_size,
             shuffle=False,
-            num_workers=0,
+            num_workers=self.dataloader_num_workers,
             collate_fn=FJSPInstanceDataset.collate_fn,
         )
