@@ -37,6 +37,7 @@ class BOPOFJSPModel(L.LightningModule):
         clf_hidden: int = 128,
         B: int = 256,
         K: int = 16,
+        pair_mode: str = "anchor_best",
         val_B: int = 256,
         test_B: int = 32,
         greedy: int = 1,
@@ -62,6 +63,7 @@ class BOPOFJSPModel(L.LightningModule):
         self.dataloader_num_workers = int(dataloader_num_workers)
         self.B = int(B)
         self.K = int(K)
+        self.pair_mode = str(pair_mode or "anchor_best").strip().lower()
         self.val_B = int(val_B)
         self.test_B = int(test_B)
         self.use_greedy = bool(greedy)
@@ -87,6 +89,10 @@ class BOPOFJSPModel(L.LightningModule):
             raise ValueError("BOPOFJSPModel uses one instance per optimizer step; keep batch_size/val_batch_size/test_batch_size at 1.")
         if self.B % self.K != 0:
             raise ValueError(f"BOPO FJSP requires B % K == 0, got B={self.B}, K={self.K}.")
+        if self.pair_mode not in {"anchor_best", "all_pairs"}:
+            raise ValueError(
+                f"BOPO FJSP requires pair_mode in {{'anchor_best', 'all_pairs'}}, got {self.pair_mode!r}."
+            )
 
         if init_external_checkpoint_path:
             self._load_external_checkpoint(init_external_checkpoint_path)
@@ -122,14 +128,18 @@ class BOPOFJSPModel(L.LightningModule):
             B=self.B,
             K=self.K,
             use_greedy=self.use_greedy,
+            pair_mode=self.pair_mode,
             device=str(self.device),
         )
         loss = sro_loss(better, worse)
         reward = -torch.tensor(float(min(makespan)), device=self.device)
+        pair_count = torch.tensor(float(int(better.mss.numel())), device=self.device)
         if "loss" in self.train_metrics:
             self.log("train/loss", loss, on_step=self.log_on_step, on_epoch=not self.log_on_step, prog_bar=True, sync_dist=True, batch_size=1)
         if "reward" in self.train_metrics:
             self.log("train/reward", reward, on_step=self.log_on_step, on_epoch=not self.log_on_step, prog_bar=True, sync_dist=True, batch_size=1)
+        if "pair_count" in self.train_metrics:
+            self.log("train/pair_count", pair_count, on_step=self.log_on_step, on_epoch=not self.log_on_step, prog_bar=True, sync_dist=True, batch_size=1)
         return loss
 
     def validation_step(self, batch: dict[str, Any], batch_idx: int):

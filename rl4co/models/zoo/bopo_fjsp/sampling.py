@@ -201,6 +201,7 @@ def sample_training_pair(
     B: int = 32,
     K: int = 16,
     use_greedy: bool = True,
+    pair_mode: str = "anchor_best",
     device: str = "cpu",
 ):
     encoder.train()
@@ -216,7 +217,18 @@ def sample_training_pair(
         raise ValueError(f"BOPO FJSP requires B % K == 0, got B={B}, K={K}.")
     all_idx = sorted(range(B), key=lambda idx: makespan[idx])
     selected = all_idx[:: B // K]
-    num_pairs = K - 1
+    pair_mode_norm = str(pair_mode or "anchor_best").strip().lower()
+    if pair_mode_norm not in {"anchor_best", "all_pairs"}:
+        raise ValueError(f"Unsupported BOPO FJSP pair_mode={pair_mode!r}; use 'anchor_best' or 'all_pairs'.")
+
+    selected_pairs: list[tuple[int, int]] = []
+    if pair_mode_norm == "anchor_best":
+        selected_pairs = [(selected[0], worse_idx) for worse_idx in selected[1:]]
+    else:
+        for better_pos in range(len(selected)):
+            for worse_pos in range(better_pos + 1, len(selected)):
+                selected_pairs.append((selected[better_pos], selected[worse_pos]))
+    num_pairs = len(selected_pairs)
 
     trajs_better = -torch.ones((num_pairs, total_ops), dtype=torch.long, device=device)
     logits_better = -torch.ones((num_pairs, total_ops, fjsp.action_dim), dtype=torch.float32, device=device)
@@ -226,10 +238,10 @@ def sample_training_pair(
     ms_worse = torch.ones((num_pairs,), dtype=torch.float32, device=device)
 
     makespan_tensor = torch.tensor(makespan, dtype=torch.float32, device=device)
-    for pair_idx, worse_idx in enumerate(selected[1:]):
-        trajs_better[pair_idx] = trajs[selected[0]]
-        logits_better[pair_idx] = logits_store[selected[0]]
-        ms_better[pair_idx] = makespan_tensor[selected[0]]
+    for pair_idx, (better_idx, worse_idx) in enumerate(selected_pairs):
+        trajs_better[pair_idx] = trajs[better_idx]
+        logits_better[pair_idx] = logits_store[better_idx]
+        ms_better[pair_idx] = makespan_tensor[better_idx]
         trajs_worse[pair_idx] = trajs[worse_idx]
         logits_worse[pair_idx] = logits_store[worse_idx]
         ms_worse[pair_idx] = makespan_tensor[worse_idx]
