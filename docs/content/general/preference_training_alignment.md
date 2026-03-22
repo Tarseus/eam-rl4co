@@ -51,3 +51,10 @@ RL4CO routing environments typically use `reward = -cost`, so higher reward mean
 - Loss helpers: `rl4co/models/rl/reinforce/preference_losses.py`.
 - Optional free-form loss compiler: `rl4co/models/rl/reinforce/free_loss/`.
 - Config: `configs/model/pomo.yaml` (loss_type, alpha, pl_impl, free_loss_ir_json_path, pref_builder_ir_json_path, pref_pair_json_path).
+
+## Scheduling compatibility
+
+- `rl4co.models.MatNet` inherits `POMO`, so FFSP MatNet and FJSP `*-pomo` scheduling experiments can switch to `loss_type=free_loss` without changing the trainer loop.
+- `rl4co.models.StepwisePPO` does not expose `loss_type`, `free_loss_ir_json_path`, or preference-pair construction; current PPO scheduling experiments need algorithm changes before they can train with `free_loss`.
+- FFSP is the cleanest full-pair setting in this repository because `FFSPEnv.get_num_starts()` returns `4! = 24`, giving `24 * 23 / 2 = 276` within-instance pairs for `all_pairs`.
+- FJSP defaults to `get_num_starts() = 100`, so dense all-pairs grows to `100 * 99 / 2 = 4950` pairs per instance. For preference training, use a smaller explicit `num_starts` such as 16 or 24 unless you also cap builder density.
