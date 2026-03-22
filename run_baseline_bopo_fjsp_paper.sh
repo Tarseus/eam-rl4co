@@ -40,9 +40,9 @@ CMD=(
   "callbacks.model_checkpoint.save_last=True"
   "callbacks.model_checkpoint.every_n_epochs=1"
   "trainer.accelerator=gpu"
-  "trainer.devices=[0]"
+  "+trainer.devices=[0]"
   "trainer.max_epochs=${MAX_EPOCHS}"
-  "trainer.enable_progress_bar=false"
+  "+trainer.enable_progress_bar=false"
   "logger=csv"
   "logger.csv.name=bopo_fjsp"
 )
