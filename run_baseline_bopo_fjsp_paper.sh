@@ -27,6 +27,15 @@ RUN_DIR="${ROOT_DIR}/logs/train/runs/bopo_fjsp_${TS}"
 CKPT_DIR="${RUN_DIR}/checkpoints"
 LOG_PATH="${ROOT_DIR}/logs/bopo_fjsp_${TS}.out"
 
+if ! "$PYTHON_BIN" -c "import torch_geometric" >/dev/null 2>&1; then
+  echo "Missing dependency: torch_geometric" >&2
+  echo "Install it first, for example:" >&2
+  echo "  pip install torch_geometric" >&2
+  echo "or from the repo root:" >&2
+  echo "  pip install -e '.[graph]'" >&2
+  exit 1
+fi
+
 CMD=(
   "$PYTHON_BIN" -u run.py
   "experiment=scheduling/bopo-fjsp-paper-10j5m"
