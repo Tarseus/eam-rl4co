@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+PYTHON_BIN="${PYTHON_BIN:-python}"
+
 # Usage:
 #   ./run_full_train_latest_pair.sh [RUNS_ROOT] [EXPERIMENT] [hydra overrides...]
 #   ./run_full_train_latest_pair.sh [RUNS_ROOT] [EXPERIMENT] [RUN_DIR|BEST_PAIR_JSON] [hydra overrides...]
@@ -55,7 +57,7 @@ if [[ $# -gt 0 && "${1:-}" != *=* && "${1:-}" != -* ]]; then
 fi
 
 latest="$(
-  python - "$runs_root" <<'PY'
+  "$PYTHON_BIN" - "$runs_root" <<'PY'
 import os
 import sys
 
@@ -117,7 +119,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 LOG_PATH="${LOG_DIR}/full_train_best_pair_${TS}.out"
 
 CMD=(
-  python -u run.py
+  "$PYTHON_BIN" -u run.py
   "experiment=${experiment}"
   "model.loss_type=free_loss"
   "model.pref_pair_json_path=${best_pair_path}"
