@@ -62,4 +62,22 @@ nohup env CUDA_VISIBLE_DEVICES="${GPU_ID}" "${CMD[@]}" >"${LOG_PATH}" 2>&1 &
 TRAIN_PID=$!
 
 echo "Started PID: ${TRAIN_PID}"
-tail -f "${LOG_PATH}"
+if tail --help 2>/dev/null | grep -q -- "--pid"; then
+  tail --pid="${TRAIN_PID}" -f "${LOG_PATH}"
+else
+  tail -f "${LOG_PATH}" &
+  TAIL_PID=$!
+  wait "${TRAIN_PID}" || true
+  kill "${TAIL_PID}" >/dev/null 2>&1 || true
+fi
+
+METRICS_CSV="$(find "${RUN_DIR}" -path "*/metrics.csv" | head -n 1 || true)"
+if [[ -n "${METRICS_CSV}" && -f "${METRICS_CSV}" ]]; then
+  echo
+  echo "metrics.csv: ${METRICS_CSV}"
+  echo "Last metric rows:"
+  tail -n 10 "${METRICS_CSV}"
+else
+  echo
+  echo "metrics.csv not found under ${RUN_DIR}"
+fi
