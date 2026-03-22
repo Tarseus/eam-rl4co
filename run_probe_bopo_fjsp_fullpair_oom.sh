@@ -31,6 +31,7 @@ CMD=(
   "$PYTHON_BIN" -u run.py
   "experiment=scheduling/bopo-fjsp-paper-10j5m"
   "hydra.run.dir=${RUN_DIR}"
+  "test=false"
   "~callbacks.learning_rate_monitor"
   "~callbacks.rich_progress_bar"
   "~callbacks.model_checkpoint"
@@ -41,6 +42,7 @@ CMD=(
   "++trainer.limit_val_batches=0"
   "++trainer.num_sanity_val_steps=0"
   "++trainer.enable_progress_bar=false"
+  "++trainer.log_every_n_steps=1"
   "logger=csv"
   "logger.csv.name=bopo_fjsp_fullpair_probe"
   "model.K=${K_VALUE}"
