@@ -28,7 +28,7 @@ CMD=(
   "~callbacks.learning_rate_monitor"
   "~callbacks.rich_progress_bar"
   "callbacks.model_checkpoint.dirpath=${CKPT_DIR}"
-  "callbacks.model_checkpoint.filename=epoch_{epoch:03d}"
+  "callbacks.model_checkpoint.filename='epoch_{epoch:03d}'"
   "callbacks.model_checkpoint.auto_insert_metric_name=False"
   "callbacks.model_checkpoint.save_top_k=-1"
   "callbacks.model_checkpoint.save_last=True"
