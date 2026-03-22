@@ -43,9 +43,9 @@ CMD=(
   "+trainer.enable_progress_bar=false"
   "logger=csv"
   "logger.csv.name=bopo_fjsp_fullpair_probe"
-  "+model.K=${K_VALUE}"
-  "+model.pair_mode=all_pairs"
-  "+model.metrics.train=[loss,reward,pair_count]"
+  "model.K=${K_VALUE}"
+  "++model.pair_mode=all_pairs"
+  "model.metrics.train=[loss,reward,pair_count]"
 )
 
 CMD+=("$@")
