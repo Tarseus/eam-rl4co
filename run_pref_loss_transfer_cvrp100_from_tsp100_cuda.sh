@@ -4,6 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+PYTHON_BIN="${PYTHON_BIN:-python}"
+
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <cuda_ids...> [start|resume-latest|resume-dir] [resume_dir] [config_path]" >&2
   echo "Examples:" >&2
@@ -64,7 +66,7 @@ GPU_TAG="${GPU_CSV//,/}"
 LOG_PATH="${LOG_DIR}/pref_loss_cvrp100_from_tsp100_cuda${GPU_TAG}_${TS}.out"
 TMP_CONFIG="${LOG_DIR}/pref_loss_cvrp100_from_tsp100_cuda${GPU_TAG}_${TS}.yaml"
 
-python - "$BASE_CONFIG" "$TMP_CONFIG" "$GPU_COUNT" <<'PY'
+"$PYTHON_BIN" - "$BASE_CONFIG" "$TMP_CONFIG" "$GPU_COUNT" <<'PY'
 import sys
 from pathlib import Path
 
@@ -87,7 +89,7 @@ PY
 
 export CUDA_VISIBLE_DEVICES="${GPU_CSV}"
 
-CMD=(python -u PTP/ptp_discovery/run_pref_loss_coevo.py --config "$TMP_CONFIG")
+CMD=("$PYTHON_BIN" -u PTP/ptp_discovery/run_pref_loss_coevo.py --config "$TMP_CONFIG")
 case "$MODE" in
   start)
     ;;
