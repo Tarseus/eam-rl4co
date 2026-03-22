@@ -6,10 +6,13 @@ cd "$ROOT_DIR"
 
 # Usage:
 #   ./run_full_train_latest_pair.sh [RUNS_ROOT] [EXPERIMENT] [hydra overrides...]
+#   ./run_full_train_latest_pair.sh [RUNS_ROOT] [EXPERIMENT] [RUN_DIR|BEST_PAIR_JSON] [hydra overrides...]
 #
 # Examples:
 #   ./run_full_train_latest_pair.sh
 #   ./run_full_train_latest_pair.sh runs/pref_loss_alternating_simple routing/pomo-po4cops-tsp100-po trainer.devices=[0]
+#   ./run_full_train_latest_pair.sh runs/pref_loss_alternating_simple routing/pomo-po4cops-tsp100-po 20260309-133041 trainer.devices=[0]
+#   ./run_full_train_latest_pair.sh runs/pref_loss_alternating_simple routing/pomo-po4cops-tsp100-po runs/pref_loss_alternating_simple/20260309-133041/best_pair.json trainer.devices=[0]
 #   ./run_full_train_latest_pair.sh ckpt_path=baseline/epoch_409.ckpt trainer.max_epochs=300
 #
 # Notes:
@@ -18,7 +21,7 @@ cd "$ROOT_DIR"
 # - By default the script adds low-variance training overrides unless you explicitly pass your own:
 #   `seed=1234`, `trainer.deterministic=true`, `trainer.devices=[0]`, `matmul_precision=highest`.
 
-RUNS_ROOT_DEFAULT="runs/pref_loss_alternating_simple"
+RUNS_ROOT_DEFAULT="runs/pref_loss_tsp100_discovery"
 EXPERIMENT_DEFAULT="routing/pomo-po4cops-tsp100-po"
 
 runs_root="$RUNS_ROOT_DEFAULT"
@@ -36,6 +39,19 @@ fi
 if [[ ! -d "$runs_root" ]]; then
   echo "ERROR: runs_root does not exist: $runs_root" >&2
   exit 1
+fi
+
+best_pair_path=""
+if [[ $# -gt 0 && "${1:-}" != *=* && "${1:-}" != -* ]]; then
+  # Optional pin: allow specifying a concrete run directory name (under runs_root)
+  # or a direct path to best_pair.json.
+  if [[ -f "$1" && "$(basename "$1")" == "best_pair.json" ]]; then
+    best_pair_path="$1"
+    shift
+  elif [[ -f "${runs_root}/$1/best_pair.json" ]]; then
+    best_pair_path="${runs_root}/$1/best_pair.json"
+    shift
+  fi
 fi
 
 latest="$(
@@ -84,7 +100,9 @@ if [[ -z "${latest:-}" ]]; then
   latest="${sorted[$((${#sorted[@]} - 1))]}"
 fi
 
-best_pair_path="${runs_root}/${latest}/best_pair.json"
+if [[ -z "${best_pair_path:-}" ]]; then
+  best_pair_path="${runs_root}/${latest}/best_pair.json"
+fi
 
 export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
 export LOG_TZ="${LOG_TZ:-Asia/Shanghai}"
@@ -106,7 +124,7 @@ CMD=(
 )
 
 has_seed_override=false
-has_deterministic_override=true
+has_deterministic_override=false
 has_devices_override=false
 has_matmul_precision_override=false
 
