@@ -1,0 +1,109 @@
+{
+  "generation": 0,
+  "pair_index": 3,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_008_106b4e8d",
+    "ir": {
+      "name": "pairwise_margin_bias_expanded_scaled_delta_rank_delta_z_delta_regret_interaction",
+      "intuition": "The original loss failed because it required the key 'cost_gap', which is missing. To fix this, I replaced 'cost_gap' with 'delta_regret', which is a supported quality signal and related to ranking/regret objectives. I recomputed the nonlinear interaction scale using 'delta_rank', 'delta_z', and 'delta_regret' instead of 'cost_gap'. This preserves the intended complex nonlinear scaling while ensuring all required keys are present. I also updated the expects list accordingly. This repair maintains the original loss structure, link function, and pairwise mode, ensuring gates pass and the loss captures nuanced rank and regret interactions.",
+      "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + 1e-6\nabs_delta_z_mean = mean(abs(delta_z)) + 1e-6\nabs_delta_regret_mean = mean(abs(delta_regret)) + 1e-6\nalpha = extra.get('alpha', 1.2)\nbeta = extra.get('beta', 0.07)\ngamma = extra.get('gamma', 1.5)\ndelta = extra.get('delta', 0.1)\ncomplex_scale = (beta * abs_delta_rank_mean + delta) * (beta * abs_delta_z_mean + delta) * (gamma * abs_delta_regret_mean + delta)\nweighted_margin = alpha * margin - beta * delta_rank\nscaled_margin = weighted_margin * complex_scale\nbias_shift = gamma * (ops.sigmoid(scaled_margin) - 0.5)\nadjusted_margin = scaled_margin + bias_shift\nx = ops.clamp(adjusted_margin, -9, 9)\nloss_per_pair = -ops.logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = ops.mean(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "delta_rank_delta_z_delta_regret",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "clipping_with_explicit_normalization"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "add",
+        "sub",
+        "neg",
+        "mean",
+        "abs",
+        "sigmoid"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank",
+          "delta_z",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n    delta_z = batch['delta_z']\n    delta_regret = batch['delta_regret']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.2)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.07)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 1.5)))\n    delta = float(extra.get('delta', extra.get('hyperparams', {}).get('delta', 0.1)))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + 1e-6\n    abs_delta_z_mean = ops.mean(ops.abs(delta_z)) + 1e-6\n    abs_delta_regret_mean = ops.mean(ops.abs(delta_regret)) + 1e-6\n\n    complex_scale = ops.mul(ops.add(ops.mul(beta, abs_delta_rank_mean), delta),\n                            ops.mul(ops.add(ops.mul(beta, abs_delta_z_mean), delta),\n                                    ops.add(ops.mul(gamma, abs_delta_regret_mean), delta)))\n\n    margin = ops.sub(lpw, lpl)\n    weighted_margin = ops.sub(ops.mul(alpha, margin), ops.mul(beta, delta_rank))\n    scaled_margin = ops.mul(weighted_margin, complex_scale)\n\n    bias_shift = ops.mul(gamma, ops.sub(ops.sigmoid(scaled_margin), 0.5))\n    adjusted_margin = ops.add(scaled_margin, bias_shift)\n\n    x = ops.clamp(adjusted_margin, -9.0, 9.0)\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    loss = ops.mean(weighted_loss)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

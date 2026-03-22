@@ -1,0 +1,512 @@
+{
+  "generation": 0,
+  "pair_index": 8,
+  "g_id": "g_ref",
+  "f_id": "f000_007_48a5df6e",
+  "g_ir": {
+    "name": "ref_all_pairs_builder",
+    "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "ref_all_pairs"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+  },
+  "f_ir": {
+    "name": "pairwise_margin_with_bias_and_clip_norm_by_weight_sum_plus_exp_delta_z",
+    "intuition": "This repair introduces an exponential scaling for delta_z in the margin to better separate the signal and avoid similarity to previous losses. Instead of a linear beta*delta_z subtraction, we apply a stable exp scale factor on delta_z and add it to the margin, shifting the normalization to weights summed plus a small constant to prevent division by zero. The bias is now subtracted after clipping rather than added before, creating a distinct computational flow that reduces similarity while stabilizing optimization via normalized weighted loss. Using exp(delta_z) creates a non-linear influence increasing novelty and dynamic range capture of delta_z differences, breaking prior flat scaling patterns.",
+    "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_z_mean = mean(abs(delta_z)) + 1e-6\nscale = extra.get('scale', 0.2)\nmargin_plus_exp = margin + scale * (exp(delta_z) - 1)\nx = clamp(margin_plus_exp, -10, 10)\nbiased_x = x - bias\nloss_per_pair = -logsigmoid(biased_x)\nweighted_loss = loss_per_pair * weight\nnorm = sum(weight) + epsilon\nloss = sum(weighted_loss) / norm",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "delta_z",
+      "link_family": "logsigmoid",
+      "agg_family": "normalized_weighted_sum",
+      "constraint_family": "clipping_with_explicit_normalization"
+    },
+    "operators_used": [
+      "exp",
+      "logsigmoid",
+      "clamp",
+      "mul",
+      "add",
+      "sub",
+      "neg",
+      "sum",
+      "abs",
+      "mean",
+      "div"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "delta_z"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_z = batch['delta_z']\n\n    bias = float(extra.get('bias', 0.5))\n    scale = float(extra.get('scale', 0.2))\n\n    margin = ops.sub(lpw, lpl)\n    exp_delta = ops.sub(ops.exp(delta_z), ops.ones_like(delta_z))\n    margin_plus_exp = ops.add(margin, ops.mul(scale, exp_delta))\n    x = ops.clamp(margin_plus_exp, -10.0, 10.0)\n    biased_x = ops.sub(x, bias)\n    loss_per_pair = ops.neg(ops.logsigmoid(biased_x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    norm = ops.sum(weight) + eps\n    loss = ops.div(ops.sum(weighted_loss), norm)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:0",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "2a986e397fd6c3df",
+  "score": Infinity,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 1.0,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": null,
+  "descriptor": null,
+  "proxy_score": 0.0,
+  "joint_gate_repaired": false,
+  "joint_gate_repair_attempts": 0,
+  "f_id_before_repair": null,
+  "f_id_after_repair": null,
+  "joint_gate_repair_reports": [],
+  "builder_gate_repaired": false,
+  "builder_gate_repair_attempts": 0,
+  "g_id_before_repair": null,
+  "g_id_after_repair": null,
+  "builder_gate_repair_reports": [],
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "sandbox_gate": {
+    "ok": true,
+    "generation": 0,
+    "pair_index": 8,
+    "failure_kind": null,
+    "reason": "ok",
+    "checks": [
+      {
+        "variant": "visible",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      },
+      {
+        "variant": "hidden",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": false,
+        "joint_failure_kind": "joint_preference_violation"
+      }
+    ],
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen000_pair008_g_ref_f000_007_48a5df6/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen000_pair008_g_ref_f000_007_48a5df6/result.json"
+  },
+  "sandbox_gate_ok": true,
+  "sandbox_gate_reason": "ok",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": {
+    "failed_gate": null,
+    "failure_kind": null,
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 1.0,
+      "loss": 0.49428513646125793,
+      "loss_swap": 1.469249963760376,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 0.49428513646125793
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [],
+    "variant": "visible"
+  },
+  "co_enabled": true,
+  "co_ok": true,
+  "co_reason": "ok",
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_ok": true,
+  "co_invariance_ok": true,
+  "co_sensitivity_visible_ok": true,
+  "co_sensitivity_visible_reason": "ok",
+  "co_sensitivity_visible_abs_delta": 0.817157506942749,
+  "co_sensitivity_visible_rel_delta": 0.5592796185144445,
+  "co_sensitivity_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_objective_perturbation",
+    "observed": {
+      "abs_delta": 0.817157506942749,
+      "rel_delta": 0.5592796185144445,
+      "grad_ratio": 0.3392852107285044
+    },
+    "threshold": {
+      "min_abs_delta": 0.001,
+      "min_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": ">=",
+      "rel_delta": ">=",
+      "grad_ratio": "informational"
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "loss_small": 1.1391234397888184,
+        "loss_large": 0.32196593284606934,
+        "log_prob_w": -0.01954960823059082,
+        "log_prob_l": -0.13072967529296875,
+        "delta_z_small": 0.015146100893616676,
+        "delta_z_large": 0.7573050260543823
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_sensitivity_hidden_ok": null,
+  "co_sensitivity_hidden_reason": null,
+  "co_sensitivity_hidden_abs_delta": null,
+  "co_sensitivity_hidden_rel_delta": null,
+  "co_sensitivity_hidden_trace": null,
+  "co_invariance_visible_ok": true,
+  "co_invariance_visible_reason": "ok",
+  "co_invariance_visible_abs_delta": 0.0,
+  "co_invariance_visible_rel_delta": 0.0,
+  "co_invariance_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_affine_transform",
+    "observed": {
+      "abs_delta": 0.0,
+      "rel_delta": 0.0
+    },
+    "threshold": {
+      "max_abs_delta": 0.001,
+      "max_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": "<=",
+      "rel_delta": "<="
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "a": 7.0,
+        "b": 3.0,
+        "loss_raw": 0.9840902090072632,
+        "loss_affine": 0.9840902090072632,
+        "log_prob_w": -1.9451686143875122,
+        "log_prob_l": -3.8238611221313477
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_invariance_hidden_ok": null,
+  "co_invariance_hidden_reason": null,
+  "co_invariance_hidden_abs_delta": null,
+  "co_invariance_hidden_rel_delta": null,
+  "co_invariance_hidden_trace": null,
+  "hf_log_file": "gen000_pair008_cuda_0_g_ref_f000_007_48a5df6e.log",
+  "pair_ok": false,
+  "pair_reason": "stage3_early_pruned",
+  "stage3_early_prune": {
+    "scenario_name": "cvrp100",
+    "init_ratios": {
+      "scratch": 4.053040174342053,
+      "ckpt_100": 1.9058536815378992
+    },
+    "triggered_inits": {
+      "scratch": 4.053040174342053
+    },
+    "mean_ratio": 2.9794469279399762,
+    "max_init_ratio_to_baseline": 2.0,
+    "max_mean_ratio_to_baseline": null
+  },
+  "fitness": {
+    "per_init": {
+      "scratch": {
+        "obj_cand_by_size": {
+          "100": 66.06411350097656
+        },
+        "obj_base_by_size": {
+          "100": 16.299891108703612
+        },
+        "obj_cand": 66.06411350097656,
+        "obj_base": 16.299891108703612,
+        "delta": 49.76422239227295,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": null,
+        "error": null
+      },
+      "ckpt_100": {
+        "obj_cand_by_size": {
+          "100": 30.34515833129883
+        },
+        "obj_base_by_size": {
+          "100": 15.922081860351563
+        },
+        "obj_cand": 30.34515833129883,
+        "obj_base": 15.922081860351563,
+        "delta": 14.423076470947267,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/cvrp100_epoch_100.ckpt",
+        "error": null
+      }
+    },
+    "per_scenario": {
+      "cvrp100": {
+        "scenario_name": "cvrp100",
+        "problem": "cvrp",
+        "env_name": "cvrp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp100_epoch10_inst100000.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_mode": "native_po_loss",
+          "scenario_name": "cvrp100",
+          "env_name": "cvrp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.03,
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_100",
+              "path": "baseline/cvrp100_epoch_100.ckpt",
+              "sha1": "64b0504473634ce48072c951c2cda6ed97091e2f"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 10,
+          "hf_instances_per_epoch": 100000
+        },
+        "K": 200,
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 66.06411350097656
+            },
+            "obj_base_by_size": {
+              "100": 16.299891108703612
+            },
+            "obj_cand": 66.06411350097656,
+            "obj_base": 16.299891108703612,
+            "delta": 49.76422239227295,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null
+          },
+          "ckpt_100": {
+            "obj_cand_by_size": {
+              "100": 30.34515833129883
+            },
+            "obj_base_by_size": {
+              "100": 15.922081860351563
+            },
+            "obj_cand": 30.34515833129883,
+            "obj_base": 15.922081860351563,
+            "delta": 14.423076470947267,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/cvrp100_epoch_100.ckpt",
+            "error": null
+          }
+        },
+        "delta_mean": 32.09364943161011,
+        "delta_worst": 49.76422239227295
+      }
+    },
+    "scenario_names": [
+      "cvrp100"
+    ],
+    "delta_mean": 32.09364943161011,
+    "delta_worst": 49.76422239227295,
+    "all_scenarios_negative": false,
+    "nonnegative_scenario_count": 1,
+    "worst_scenario_delta": 32.09364943161011,
+    "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_cvrp100_epoch10_inst100000.json",
+    "baseline_mini_eval_paths": {
+      "cvrp100": "baseline/mini_eval/baseline_minitrain_cvrp100_epoch10_inst100000.json"
+    },
+    "baseline_multiseed_cache_path": null,
+    "baseline_multiseed_cache_paths": {
+      "cvrp100": null
+    },
+    "baseline_compare_mode": "mini_eval",
+    "baseline_compare_modes": {
+      "cvrp100": "mini_eval"
+    },
+    "eval_signature": {
+      "protocol": "stage3_online_minitrain_v1",
+      "baseline_eval_mode": "native_po_loss",
+      "scenario_name": "cvrp100",
+      "env_name": "cvrp",
+      "policy_name": "pomo",
+      "policy_kwargs": {
+        "po4cops_compat": true,
+        "embed_dim": 128,
+        "num_encoder_layers": 6,
+        "decoder_layer_num": 1,
+        "qkv_dim": 16,
+        "num_heads": 8,
+        "feedforward_hidden": 512,
+        "tanh_clipping": 50,
+        "eval_type": "argmax",
+        "val_decode_type": "greedy",
+        "test_decode_type": "greedy"
+      },
+      "env_kwargs": {},
+      "rollout_strategy": "auto",
+      "objective_sign": "neg_reward",
+      "alpha": 0.03,
+      "K": 200,
+      "train_problem_size": 100,
+      "valid_problem_sizes": [
+        100
+      ],
+      "train_batch_size": 64,
+      "num_validation_episodes": 10000,
+      "validation_batch_size": 64,
+      "pomo_size": null,
+      "learning_rate": 0.0003,
+      "weight_decay": 1e-06,
+      "size_aggregation": "mean",
+      "size_cvar_alpha": 0.2,
+      "scratch_init_seed": 1234,
+      "data": {
+        "mode": "online",
+        "generator_params": {
+          "num_loc": 100
+        }
+      },
+      "include_scratch": true,
+      "checkpoints": [
+        {
+          "name": "ckpt_100",
+          "path": "baseline/cvrp100_epoch_100.ckpt",
+          "sha1": "64b0504473634ce48072c951c2cda6ed97091e2f"
+        }
+      ],
+      "budget_mode": "epochs",
+      "hf_epochs": 10,
+      "hf_instances_per_epoch": 100000
+    },
+    "early_prune": {
+      "scenario_name": "cvrp100",
+      "init_ratios": {
+        "scratch": 4.053040174342053,
+        "ckpt_100": 1.9058536815378992
+      },
+      "triggered_inits": {
+        "scratch": 4.053040174342053
+      },
+      "mean_ratio": 2.9794469279399762,
+      "max_init_ratio_to_baseline": 2.0,
+      "max_mean_ratio_to_baseline": null
+    }
+  },
+  "better_than_baseline_mean": false,
+  "better_than_baseline_strict": false,
+  "better_than_baseline_all_scenarios": false,
+  "stage3_all_scenarios_negative": false,
+  "stage3_nonnegative_scenario_count": 1,
+  "stage3_worst_scenario_delta": 32.09364943161011,
+  "elapsed_s": 8124.600479125977
+}
