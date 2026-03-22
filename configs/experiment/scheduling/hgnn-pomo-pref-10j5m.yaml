@@ -1,0 +1,62 @@
+# @package _global_
+
+defaults:
+  - override /model: pomo.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  - override /logger: wandb.yaml
+  - override /env: fjsp/10j-5m.yaml
+
+logger:
+  wandb:
+    project: "rl4co"
+    log_model: "all"
+    group: "${env.name}-${env.generator_params.num_jobs}-${env.generator_params.num_machines}"
+    tags: ["hgnn-pomo-pref", "${env.name}"]
+    name: "hgnn-pomo-pref-${env.generator_params.num_jobs}j-${env.generator_params.num_machines}m"
+
+trainer:
+  max_epochs: 10
+  precision: 32-true
+
+seed: 12345678
+
+scaling_factor: ${env.generator_params.max_processing_time}
+
+model:
+  _target_: rl4co.models.POMO
+  batch_size: 64
+  train_data_size: 2_000
+  val_data_size: 1_000
+  test_data_size: 100
+  optimizer_kwargs:
+    lr: 2e-4
+    weight_decay: 1e-6
+  lr_scheduler: "ExponentialLR"
+  lr_scheduler_kwargs:
+    gamma: 0.95
+  policy:
+    _target_: rl4co.models.L2DPolicy
+    env_name: ${env.name}
+    embed_dim: 256
+    num_encoder_layers: 3
+    stepwise_encoding: False
+    scaling_factor: ${scaling_factor}
+    het_emb: True
+    normalization: instance
+  num_starts: 16
+  num_augment: 0
+  baseline: "shared"
+  loss_type: rl_loss
+  alpha: 1.0
+  pl_impl: stable
+  loss_kwargs: {}
+  free_loss_ir_json_path: null
+  pref_builder_ir_json_path: null
+  pref_pair_json_path: null
+  pref_builder_kwargs: {}
+  free_loss_observables: [seq_len, log_prob_mean, advantage]
+  metrics:
+    train: ["loss", "reward", "max_reward", "free_loss", "free_loss_pair_count", "po_loss", "pl_loss", "po_pref_rate"]
+    val: ["reward", "max_reward"]
+    test: ${model.metrics.val}
