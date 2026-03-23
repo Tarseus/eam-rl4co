@@ -695,6 +695,10 @@ class EAM(REINFORCE):
             return max(1, int(override))
         return max(1, int(self._ga_num_generations or 1))
 
+    def _get_local_search_iters(self, override: Optional[int]) -> int:
+        base_iters = self._get_improve_iters(override)
+        return max(1, (base_iters + 2) // 3)
+
     def _apply_random_2opt(
         self, actions: torch.Tensor, td: TensorDict, num_iters: int
     ) -> Optional[torch.Tensor]:
@@ -921,6 +925,16 @@ class EAM(REINFORCE):
             def sample_resample_policy(extra_traj: int):
                 return run_original_policy(extra_traj)
 
+            def score_actions(action_tensor: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
+                if action_tensor is None:
+                    return None
+                score_td = init_td
+                n_traj = infer_num_traj(action_tensor, batch_size)
+                if n_traj > 1:
+                    score_td = batchify(score_td, n_traj)
+                reward = self.env.get_reward(score_td, action_tensor)
+                return self.mechanism_probe.adapter.reward_to_score(reward)
+
             def run_ga(actions: torch.Tensor, budget: Optional[int]):
                 nonlocal t_ga
                 t0 = time.perf_counter()
@@ -950,7 +964,7 @@ class EAM(REINFORCE):
             def run_ls_only(actions: torch.Tensor, budget: int):
                 nonlocal t_ga
                 t0 = time.perf_counter()
-                max_iters = self._get_improve_iters(
+                max_iters = self._get_local_search_iters(
                     self.local_search_max_iterations
                     if self.local_search_max_iterations is not None
                     else budget
@@ -1011,16 +1025,14 @@ class EAM(REINFORCE):
             ga_applied_gain_rel = None
             mechanism_stats = None
             if ga_candidate:
-                score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
+                score0 = score_actions(mechanism_pack.get("tau0", original_out.get("actions", None)))
             if ga_used:
                 raw_pair_count = (
                     mechanism_pack.get("pair_count")
                     if mechanism_pack is not None
                     else infer_num_traj(raw_improved_out.get("actions", None), batch_size)
                 )
-                raw_scorek = self.mechanism_probe.adapter.reward_to_score(
-                    raw_improved_out["reward"]
-                )
+                raw_scorek = score_actions(mechanism_pack.get("tauk", raw_improved_out.get("actions", None)))
                 score0_trimmed = take_first_trajectories(score0, batch_size, raw_pair_count)
                 raw_scorek_trimmed = take_first_trajectories(
                     raw_scorek, batch_size, raw_pair_count
@@ -1062,9 +1074,7 @@ class EAM(REINFORCE):
                     if mechanism_pack is not None
                     else infer_num_traj(improved_out.get("actions", None), batch_size)
                 )
-                accepted_scorek = self.mechanism_probe.adapter.reward_to_score(
-                    improved_out["reward"]
-                )
+                accepted_scorek = score_actions(improved_out.get("actions", None))
                 score0_trimmed = take_first_trajectories(
                     score0, batch_size, accepted_pair_count
                 )
@@ -1237,7 +1247,7 @@ class EAM(REINFORCE):
                             original_actions, policy_root_td, num_iters
                         )
                     elif val_improve_mode == "ls_only":
-                        max_iters = self._get_improve_iters(
+                        max_iters = self._get_local_search_iters(
                             self.val_local_search_max_iterations
                             if self.val_local_search_max_iterations is not None
                             else self.local_search_max_iterations
