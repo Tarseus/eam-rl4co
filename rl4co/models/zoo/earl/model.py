@@ -969,36 +969,36 @@ class EAM(REINFORCE):
                     if improved_out is not None and mechanism_pack.get("tauk", None) is not None:
                         mechanism_pack["tauk"] = improved_out.get("actions", mechanism_pack["tauk"])
 
-            ga_used = improved_out is not None
+            ga_used = raw_improved_out is not None
+            ga_applied = improved_out is not None
             ga_cost_gain = None
             ga_cost_gain_rel = None
+            ga_applied_gain = None
+            ga_applied_gain_rel = None
             mechanism_stats = None
             if ga_candidate:
                 score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
             if ga_used:
-                pair_count = (
+                raw_pair_count = (
                     mechanism_pack.get("pair_count")
                     if mechanism_pack is not None
-                    else infer_num_traj(improved_out.get("actions", None), batch_size)
+                    else infer_num_traj(raw_improved_out.get("actions", None), batch_size)
                 )
-                accepted_scorek = self.mechanism_probe.adapter.reward_to_score(
-                    improved_out["reward"]
+                raw_scorek = self.mechanism_probe.adapter.reward_to_score(
+                    raw_improved_out["reward"]
                 )
-                score0_trimmed = take_first_trajectories(score0, batch_size, pair_count)
-                scorek_trimmed = take_first_trajectories(
-                    accepted_scorek, batch_size, pair_count
+                score0_trimmed = take_first_trajectories(score0, batch_size, raw_pair_count)
+                raw_scorek_trimmed = take_first_trajectories(
+                    raw_scorek, batch_size, raw_pair_count
                 )
                 pair_gain = self.mechanism_probe.adapter.pair_gain(
-                    score0_trimmed, scorek_trimmed
+                    score0_trimmed, raw_scorek_trimmed
                 )
                 ga_cost_gain = pair_gain.mean()
                 ga_cost_gain_rel = ga_cost_gain / (score0_trimmed.abs().mean() + 1e-8)
                 ga_improved = bool(ga_cost_gain.item() > 1e-12)
 
                 if self.mechanism_cfg.enabled:
-                    raw_scorek = self.mechanism_probe.adapter.reward_to_score(
-                        raw_improved_out["reward"]
-                    )
                     t0 = time.perf_counter()
                     with torch.no_grad():
                         mechanism_stats = self.mechanism_probe.compute(
@@ -1006,7 +1006,7 @@ class EAM(REINFORCE):
                             batch_size=batch_size,
                             tau0=original_out.get("actions", None),
                             tauk=raw_improved_out.get("actions", None),
-                            pair_count=pair_count,
+                            pair_count=raw_pair_count,
                             score0=score0,
                             scorek=raw_scorek,
                             log_likelihood0=original_out.get("log_likelihood", None),
@@ -1022,9 +1022,28 @@ class EAM(REINFORCE):
                         )
                         self.mechanism_probe.dump(mechanism_stats)
                     t_diag += time.perf_counter() - t0
-            elif ga_candidate:
-                ga_cost_gain = torch.tensor(0.0, device=td.device)
-                ga_cost_gain_rel = torch.tensor(0.0, device=td.device)
+            if ga_applied:
+                accepted_pair_count = (
+                    mechanism_pack.get("pair_count")
+                    if mechanism_pack is not None
+                    else infer_num_traj(improved_out.get("actions", None), batch_size)
+                )
+                accepted_scorek = self.mechanism_probe.adapter.reward_to_score(
+                    improved_out["reward"]
+                )
+                score0_trimmed = take_first_trajectories(
+                    score0, batch_size, accepted_pair_count
+                )
+                accepted_scorek_trimmed = take_first_trajectories(
+                    accepted_scorek, batch_size, accepted_pair_count
+                )
+                accepted_pair_gain = self.mechanism_probe.adapter.pair_gain(
+                    score0_trimmed, accepted_scorek_trimmed
+                )
+                ga_applied_gain = accepted_pair_gain.mean()
+                ga_applied_gain_rel = ga_applied_gain / (
+                    score0_trimmed.abs().mean() + 1e-8
+                )
 
             if self.baseline_str == "rollout":
                 # using am as baseline
@@ -1086,10 +1105,12 @@ class EAM(REINFORCE):
                     "t_diag": torch.tensor(t_diag, device=td.device),
                     "ga_triggered": torch.tensor(float(ga_triggered), device=td.device),
                     "ga_candidate": torch.tensor(float(ga_candidate), device=td.device),
-                    "ga_applied": torch.tensor(float(ga_used), device=td.device),
+                    "ga_applied": torch.tensor(float(ga_applied), device=td.device),
                     "ga_improved": torch.tensor(float(ga_improved), device=td.device),
                     "ga_cost_gain": torch.tensor(0.0, device=td.device),
                     "ga_cost_gain_rel": torch.tensor(0.0, device=td.device),
+                    "ga_applied_gain": torch.tensor(0.0, device=td.device),
+                    "ga_applied_gain_rel": torch.tensor(0.0, device=td.device),
                     "mechanism_gain": torch.tensor(0.0, device=td.device),
                     "mechanism_delta_nll": torch.tensor(0.0, device=td.device),
                     "mechanism_diversity": torch.tensor(0.0, device=td.device),
@@ -1102,6 +1123,13 @@ class EAM(REINFORCE):
                         "ga_cost_gain": ga_cost_gain.detach(),
                         "ga_cost_gain_rel": ga_cost_gain_rel.detach(),
                         "mechanism_gain": ga_cost_gain.detach(),
+                    }
+                )
+            if ga_applied and ga_applied_gain is not None:
+                out.update(
+                    {
+                        "ga_applied_gain": ga_applied_gain.detach(),
+                        "ga_applied_gain_rel": ga_applied_gain_rel.detach(),
                     }
                 )
             if mechanism_stats is not None:
@@ -1352,6 +1380,8 @@ class EAM(REINFORCE):
                                                    "ga_cost_gain",
                                                    "mechanism_gain",
                                                    "ga_cost_gain_rel",
+                                                   "ga_applied_gain",
+                                                   "ga_applied_gain_rel",
                                                    "t_decode",
                                                    "t_ga",
                                                    "t_diag"])
