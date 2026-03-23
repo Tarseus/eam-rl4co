@@ -11,7 +11,7 @@ shift $(( $# >= 3 ? 3 : $# ))
 extra_overrides=("$@")
 
 variants=(resample random_only ls_only eam)
-gpus=(0 1 2 3)
+gpus=(4 5 6 7)
 
 mkdir -p "${log_dir}"
 
