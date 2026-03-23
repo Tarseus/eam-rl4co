@@ -165,7 +165,7 @@ if [[ "$has_seed_override" == "false" ]]; then
   CMD+=("seed=1234")
 fi
 if [[ "$has_deterministic_override" == "false" ]]; then
-  CMD+=("trainer.deterministic=true")
+  CMD+=("trainer.deterministic=false")
 fi
 if [[ "$has_devices_override" == "false" ]]; then
   CMD+=("trainer.devices=[0]")
