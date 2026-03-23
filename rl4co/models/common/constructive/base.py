@@ -250,28 +250,13 @@ class ConstructivePolicy(nn.Module):
                 if step < actions.size(-1):
                     provided_action = actions[..., step]
                 else:
-                    if mask is None or mask.numel() == 0:
-                        raise ValueError(
-                            "Provided `actions` sequence is shorter than required to finish decoding, "
-                            "and no action mask is available to derive a fallback action."
-                        )
-                    if not mask.any(dim=1).all():
-                        raise ValueError(
-                            "Provided `actions` sequence is shorter than required to finish decoding, "
-                            "and at least one state has no feasible fallback action."
-                        )
-                    fallback_action = (
-                        torch.zeros(mask.size(0), dtype=torch.long, device=mask.device)
-                        if mask[:, 0].all()
-                        else mask.to(dtype=torch.long).argmax(dim=1)
+                    raise ValueError(
+                        "Provided `actions` sequence is shorter than required to finish decoding: "
+                        f"decode_type={decode_type!r}, actions.shape={tuple(actions.shape)}, "
+                        f"needed_step_index={step} (0-based). "
+                        "This indicates the supplied solution is non-canonical or inconsistent with the "
+                        "current environment state."
                     )
-                    log.warning(
-                        "Provided `actions` sequence was exhausted at decoding step %s for decode_type=%r; "
-                        "using feasible fallback actions to terminate decoding.",
-                        step,
-                        decode_type,
-                    )
-                    provided_action = fallback_action
 
             if provided_action is not None and mask is not None:
                 action_dim = mask.size(-1)
@@ -279,23 +264,13 @@ class ConstructivePolicy(nn.Module):
                 safe_action = provided_action.clamp(min=0, max=action_dim - 1)
                 feasible = in_range & mask.gather(1, safe_action.unsqueeze(-1)).squeeze(-1)
                 if not feasible.all():
-                    if not mask.any(dim=1).all():
-                        raise ValueError(
-                            "Provided actions contain infeasible entries and no feasible fallback action exists."
-                        )
-                    fallback_action = (
-                        torch.zeros(mask.size(0), dtype=torch.long, device=mask.device)
-                        if mask[:, 0].all()
-                        else mask.to(dtype=torch.long).argmax(dim=1)
-                    )
                     invalid_count = int((~feasible).sum().item())
-                    log.warning(
-                        "Provided actions contained %s infeasible entries at decoding step %s; "
-                        "replacing them with feasible fallback actions.",
-                        invalid_count,
-                        step,
+                    raise ValueError(
+                        "Provided actions contain infeasible entries during fixed-action decoding: "
+                        f"decode_type={decode_type!r}, step={step}, invalid_count={invalid_count}, "
+                        f"actions.shape={tuple(actions.shape) if actions is not None else None}. "
+                        "This indicates the candidate solution is illegal for the current state."
                     )
-                    provided_action = torch.where(feasible, safe_action, fallback_action)
             td = decode_strategy.step(
                 logits,
                 mask,

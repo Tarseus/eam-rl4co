@@ -192,6 +192,12 @@ class OPEnv(RL4COEnvBase):
             | (sorted_actions[:, 1:] > sorted_actions[:, :-1])
         ).all(), "Duplicates"
 
+        zero_mask = actions == 0
+        zero_seen = zero_mask.cumsum(dim=1) > 0
+        assert (
+            (~zero_seen) | zero_mask
+        ).all(), "Nodes visited after returning to depot"
+
         # Gather locations in order of tour and get the length of tours
         locs_ordered = gather_by_index(td["locs"], actions)
         length = get_tour_length(locs_ordered)
