@@ -583,6 +583,32 @@ def _validate_actions_or_revert(
 ) -> torch.Tensor:
     if candidate_actions is None:
         return original_actions
+
+    def _is_stepwise_feasible(row_td: TensorDict, row_actions: torch.Tensor) -> bool:
+        state = row_td.clone()
+        seq_len = row_actions.shape[-1]
+        for step in range(seq_len):
+            action = int(row_actions[step].item())
+            action_mask = state["action_mask"]
+            if action_mask.dim() > 2:
+                action_mask = action_mask.reshape(action_mask.shape[0], -1)
+            if action < 0 or action >= action_mask.shape[-1]:
+                return False
+            if not bool(action_mask[0, action].item()):
+                return False
+            state = state.clone()
+            state.set(
+                "action",
+                torch.tensor([action], dtype=torch.long, device=state.device),
+            )
+            state = env.step(state)["next"]
+            done = state["done"]
+            if bool(done.reshape(-1)[0].item()):
+                if step + 1 < seq_len and (row_actions[step + 1 :] != 0).any():
+                    return False
+                return True
+        return True
+
     validated = candidate_actions.detach().cpu().clone()
     original_cpu = original_actions.detach().cpu()
     td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
@@ -592,11 +618,19 @@ def _validate_actions_or_revert(
     ):
         n_traj = candidate_actions.shape[0] // td_cpu.batch_size[0]
         td_cpu = batchify(td_cpu, n_traj)
+
     for batch_idx in range(candidate_actions.shape[0]):
         try:
-            env.check_solution_validity(
-                td_cpu[batch_idx : batch_idx + 1], validated[batch_idx : batch_idx + 1]
-            )
+            if env.name == "op":
+                valid = _is_stepwise_feasible(
+                    td_cpu[batch_idx : batch_idx + 1], validated[batch_idx]
+                )
+                if not valid:
+                    raise ValueError("stepwise infeasible OP route")
+            else:
+                env.check_solution_validity(
+                    td_cpu[batch_idx : batch_idx + 1], validated[batch_idx : batch_idx + 1]
+                )
         except Exception:
             validated[batch_idx] = original_cpu[batch_idx]
     return validated.to(device=original_actions.device, dtype=original_actions.dtype)
