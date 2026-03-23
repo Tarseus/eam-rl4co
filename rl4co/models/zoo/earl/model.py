@@ -687,6 +687,7 @@ class EAM(REINFORCE):
             n_aug = 0
         elif n_aug > 1:
             td = self.augment(td)
+        policy_root_td = td.clone()
         
         # Evaluate policy
         if phase == "train":
@@ -707,13 +708,14 @@ class EAM(REINFORCE):
             def run_original_policy(num_starts_override=None):
                 nonlocal t_decode
                 t0 = time.perf_counter()
+                policy_td = policy_root_td.clone()
                 if self.baseline_str == "rollout":
                     result = self.policy(
-                        td, self.env, phase=phase, num_starts=1, return_entropy=True
+                        policy_td, self.env, phase=phase, num_starts=1, return_entropy=True
                     )
                 else:
                     result = self.policy(
-                        td,
+                        policy_td,
                         self.env,
                         phase=phase,
                         num_starts=num_starts_override or base_n_start,
@@ -727,10 +729,11 @@ class EAM(REINFORCE):
                 device = next(self.policy.parameters()).device
                 eval_actions = actions.to(device=device)
                 eval_actions = self._align_improved_actions(eval_actions, original_out["actions"])
+                eval_td = policy_td.clone()
                 t0 = time.perf_counter()
                 if self.baseline_str == "rollout":
                     result = self.policy(
-                        policy_td,
+                        eval_td,
                         self.env,
                         phase=phase,
                         num_starts=1,
@@ -740,7 +743,7 @@ class EAM(REINFORCE):
                 else:
                     eval_n_start = infer_num_traj(eval_actions, batch_size)
                     result = self.policy(
-                        policy_td,
+                        eval_td,
                         self.env,
                         phase=phase,
                         num_starts=eval_n_start,
@@ -985,9 +988,9 @@ class EAM(REINFORCE):
         else:
             if self.baseline_str == "rollout":
                 # using am as baseline
-                out = self.policy(td, self.env, phase=phase, num_starts=1)
+                out = self.policy(policy_root_td.clone(), self.env, phase=phase, num_starts=1)
             else:
-                out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+                out = self.policy(policy_root_td.clone(), self.env, phase=phase, num_starts=n_start)
             if phase == "val":
                 raw_val_reward = out.get("reward", None)
                 improved_out = None
@@ -1012,7 +1015,7 @@ class EAM(REINFORCE):
                             try:
                                 improved_actions, _ = evolution_worker(
                                     original_actions,
-                                    td,
+                                    policy_root_td,
                                     self.ea,
                                     self.env,
                                 )
@@ -1022,11 +1025,11 @@ class EAM(REINFORCE):
                     elif val_improve_mode == "resample":
                         if self.baseline_str == "rollout":
                             improved_out = self.policy(
-                                td, self.env, phase=phase, num_starts=1
+                                policy_root_td.clone(), self.env, phase=phase, num_starts=1
                             )
                         else:
                             improved_out = self.policy(
-                                td, self.env, phase=phase, num_starts=n_start
+                                policy_root_td.clone(), self.env, phase=phase, num_starts=n_start
                             )
                     elif val_improve_mode == "random_only":
                         num_iters = self._get_improve_iters(
@@ -1035,7 +1038,7 @@ class EAM(REINFORCE):
                             else self.random_2opt_iters
                         )
                         improved_actions = self._apply_random_2opt(
-                            original_actions, td, num_iters
+                            original_actions, policy_root_td, num_iters
                         )
                     elif val_improve_mode == "ls_only":
                         max_iters = self._get_improve_iters(
@@ -1044,7 +1047,7 @@ class EAM(REINFORCE):
                             else self.local_search_max_iterations
                         )
                         improved_actions = self._apply_local_search(
-                            original_actions, td, max_iters
+                            original_actions, policy_root_td, max_iters
                         )
                     else:
                         raise ValueError(f"Unknown improve_mode: {val_improve_mode}")
@@ -1056,7 +1059,7 @@ class EAM(REINFORCE):
                         )
                         if self.baseline_str == "rollout":
                             improved_out = self.policy(
-                                td,
+                                policy_root_td.clone(),
                                 self.env,
                                 phase=phase,
                                 num_starts=1,
@@ -1065,7 +1068,7 @@ class EAM(REINFORCE):
                             improved_out.update({"actions": improved_actions})
                         else:
                             improved_out = self.policy(
-                                td,
+                                policy_root_td.clone(),
                                 self.env,
                                 phase=phase,
                                 num_starts=n_start,
@@ -1375,7 +1378,7 @@ class SymEAM(REINFORCE):
             def run_original_policy():
                 nonlocal t_decode
                 t0 = time.perf_counter()
-                result = self.policy(td,
+                result = self.policy(policy_root_td.clone(),
                                      self.env,
                                      phase=phase,
                                      num_starts=n_start,
@@ -1385,7 +1388,7 @@ class SymEAM(REINFORCE):
             
             def run_improved_policy(original_actions):
                 nonlocal t_decode, t_ga
-                td = init_td
+                td = policy_root_td.clone()
                 
                 if np.random.random() > self.improve_prob:
                     return None
@@ -1586,7 +1589,7 @@ class SymEAM(REINFORCE):
                     }
                 )
         else:
-            out = self.policy(td, self.env, phase=phase, num_starts=n_start)
+            out = self.policy(policy_root_td.clone(), self.env, phase=phase, num_starts=n_start)
             
             reward = unbatchify(out["reward"], (n_start, n_aug))
             
