@@ -586,6 +586,12 @@ def _validate_actions_or_revert(
     validated = candidate_actions.detach().cpu().clone()
     original_cpu = original_actions.detach().cpu()
     td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
+    if (
+        candidate_actions.shape[0] != td_cpu.batch_size[0]
+        and candidate_actions.shape[0] % td_cpu.batch_size[0] == 0
+    ):
+        n_traj = candidate_actions.shape[0] // td_cpu.batch_size[0]
+        td_cpu = batchify(td_cpu, n_traj)
     for batch_idx in range(candidate_actions.shape[0]):
         try:
             env.check_solution_validity(
@@ -593,7 +599,7 @@ def _validate_actions_or_revert(
             )
         except Exception:
             validated[batch_idx] = original_cpu[batch_idx]
-    return validated.to(device=original_actions.device)
+    return validated.to(device=original_actions.device, dtype=original_actions.dtype)
 
 
 def _iterative_accept_improvement(
@@ -754,7 +760,8 @@ class EAM(REINFORCE):
         if self.env.name == "cvrp":
             return _random_route_2opt_cvrp(actions, num_iters)
         if self.env.name == "op":
-            return _random_op_perturb(actions, td, num_iters)
+            candidate = _random_op_perturb(actions, td, num_iters)
+            return _validate_actions_or_revert(self.env, td, actions, candidate)
         candidate = _random_2opt(actions, num_iters, keep_first=True)
         return _validate_actions_or_revert(self.env, td, actions, candidate)
 
@@ -793,7 +800,8 @@ class EAM(REINFORCE):
             improved = _iterative_accept_improvement(
                 self.env, td_cpu, actions_cpu, max_iterations
             )
-        return improved.to(device=actions.device)
+        improved = _validate_actions_or_revert(self.env, td_cpu, actions_cpu, improved)
+        return improved.to(device=actions.device, dtype=actions.dtype)
 
     def _align_improved_actions(
         self, improved_actions: Optional[torch.Tensor], original_actions: Optional[torch.Tensor]
@@ -941,6 +949,12 @@ class EAM(REINFORCE):
                 device = next(self.policy.parameters()).device
                 eval_actions = actions.to(device=device)
                 eval_actions = self._align_improved_actions(eval_actions, original_out["actions"])
+                eval_actions = _validate_actions_or_revert(
+                    self.env,
+                    policy_td,
+                    original_out["actions"],
+                    eval_actions,
+                )
                 eval_td = policy_td.clone()
                 t0 = time.perf_counter()
                 if self.baseline_str == "rollout":
@@ -1320,6 +1334,12 @@ class EAM(REINFORCE):
                         improved_actions = improved_actions.to(device=device)
                         improved_actions = self._align_improved_actions(
                             improved_actions, original_actions
+                        )
+                        improved_actions = _validate_actions_or_revert(
+                            self.env,
+                            policy_root_td,
+                            original_actions,
+                            improved_actions,
                         )
                         if self.baseline_str == "rollout":
                             improved_out = self.policy(
