@@ -49,6 +49,15 @@ def sigmoid_schedule(epoch, max_epoch, initial_prob, final_prob):
 def step_schedule(epoch, ea_prob, ea_epoch):
     return ea_prob if (epoch <= ea_epoch or ea_epoch < 0)else 0.0
 
+
+def _stabilize_gain(value: Optional[torch.Tensor], atol: float = 1e-6) -> Optional[torch.Tensor]:
+    if value is None:
+        return None
+    if value.numel() == 1 and abs(float(value.detach().cpu().item())) < atol:
+        return torch.zeros_like(value)
+    return value
+
+
 DEPOT_ENVS = {
     "cvrp",
     "cvrptw",
@@ -933,16 +942,6 @@ class EAM(REINFORCE):
             def sample_resample_policy(extra_traj: int):
                 return run_original_policy(extra_traj)
 
-            def score_actions(action_tensor: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
-                if action_tensor is None:
-                    return None
-                score_td = init_td
-                n_traj = infer_num_traj(action_tensor, batch_size)
-                if n_traj > 1:
-                    score_td = batchify(score_td, n_traj)
-                reward = self.env.get_reward(score_td, action_tensor)
-                return self.mechanism_probe.adapter.reward_to_score(reward)
-
             def run_ga(actions: torch.Tensor, budget: Optional[int]):
                 nonlocal t_ga
                 t0 = time.perf_counter()
@@ -1038,14 +1037,16 @@ class EAM(REINFORCE):
             ga_applied_gain_rel = None
             mechanism_stats = None
             if ga_candidate:
-                score0 = score_actions(mechanism_pack.get("tau0", original_out.get("actions", None)))
+                score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
             if ga_used:
                 raw_pair_count = (
                     mechanism_pack.get("pair_count")
                     if mechanism_pack is not None
                     else infer_num_traj(raw_improved_out.get("actions", None), batch_size)
                 )
-                raw_scorek = score_actions(mechanism_pack.get("tauk", raw_improved_out.get("actions", None)))
+                raw_scorek = self.mechanism_probe.adapter.reward_to_score(
+                    raw_improved_out["reward"]
+                )
                 score0_trimmed = take_first_trajectories(score0, batch_size, raw_pair_count)
                 raw_scorek_trimmed = take_first_trajectories(
                     raw_scorek, batch_size, raw_pair_count
@@ -1053,7 +1054,7 @@ class EAM(REINFORCE):
                 pair_gain = self.mechanism_probe.adapter.pair_gain(
                     score0_trimmed, raw_scorek_trimmed
                 )
-                ga_cost_gain = pair_gain.mean()
+                ga_cost_gain = _stabilize_gain(pair_gain.mean())
                 ga_cost_gain_rel = ga_cost_gain / (score0_trimmed.abs().mean() + 1e-8)
                 ga_improved = bool(ga_cost_gain.item() > 1e-12)
 
@@ -1087,7 +1088,9 @@ class EAM(REINFORCE):
                     if mechanism_pack is not None
                     else infer_num_traj(improved_out.get("actions", None), batch_size)
                 )
-                accepted_scorek = score_actions(improved_out.get("actions", None))
+                accepted_scorek = self.mechanism_probe.adapter.reward_to_score(
+                    improved_out["reward"]
+                )
                 score0_trimmed = take_first_trajectories(
                     score0, batch_size, accepted_pair_count
                 )
@@ -1097,7 +1100,7 @@ class EAM(REINFORCE):
                 accepted_pair_gain = self.mechanism_probe.adapter.pair_gain(
                     score0_trimmed, accepted_scorek_trimmed
                 )
-                ga_applied_gain = accepted_pair_gain.mean()
+                ga_applied_gain = _stabilize_gain(accepted_pair_gain.mean())
                 ga_applied_gain_rel = ga_applied_gain / (
                     score0_trimmed.abs().mean() + 1e-8
                 )

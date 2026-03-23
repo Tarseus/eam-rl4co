@@ -144,6 +144,44 @@ def _try_best_insertions(
     return route
 
 
+def _try_single_best_insertion(
+    route: list[int],
+    distance: np.ndarray,
+    prize: np.ndarray,
+    max_arrival: np.ndarray,
+    num_nodes: int,
+    max_route_len: int,
+) -> list[int]:
+    route = list(route)
+    if len(route) >= max_route_len:
+        return route
+
+    available = [node for node in range(1, num_nodes) if node not in set(route)]
+    if not available:
+        return route
+
+    _, current_length = _simulate_route(route, distance, max_arrival)
+    start_pos = 1 if route else 0
+    best = None
+
+    for node in available:
+        for pos in range(start_pos, len(route) + 1):
+            candidate = route[:pos] + [node] + route[pos:]
+            feasible, new_length = _simulate_route(candidate, distance, max_arrival)
+            if not feasible:
+                continue
+            gain = float(prize[node])
+            delta = max(new_length - current_length, 1e-6)
+            efficiency = gain / delta
+            key = (efficiency, gain, -delta, -pos)
+            if best is None or key > best[0]:
+                best = (key, candidate)
+
+    if best is None:
+        return route
+    return best[1]
+
+
 def _mutate_route(
     route: list[int],
     num_nodes: int,
@@ -209,35 +247,30 @@ def _improve_single(
     num_nodes: int,
     max_route_len: int,
     max_iterations: int,
-    num_candidates: int,
     rng: np.random.Generator,
 ) -> list[int]:
     current = _repair_route(route, distance, max_arrival, max_route_len)
-    current = _try_best_insertions(current, distance, prize, max_arrival, num_nodes, max_route_len)
+    current = _try_single_best_insertion(
+        current, distance, prize, max_arrival, num_nodes, max_route_len
+    )
     current = _canonicalize_route(current, distance, max_arrival, max_route_len)
     current_reward, current_length = _score_route(current, prize, distance)
 
     for _ in range(max_iterations):
-        best_candidate = None
-        best_reward = current_reward
-        best_length = current_length
-
-        for _ in range(num_candidates):
-            mutated = _mutate_route(current, num_nodes, max_route_len, rng)
-            repaired = _repair_route(mutated, distance, max_arrival, max_route_len)
-            candidate = _try_best_insertions(repaired, distance, prize, max_arrival, num_nodes, max_route_len)
-            candidate = _canonicalize_route(candidate, distance, max_arrival, max_route_len)
-            reward, length = _score_route(candidate, prize, distance)
-            if reward > best_reward + 1e-6 or (abs(reward - best_reward) <= 1e-6 and length + 1e-6 < best_length):
-                best_candidate = candidate
-                best_reward = reward
-                best_length = length
-
-        if best_candidate is None:
+        mutated = _mutate_route(current, num_nodes, max_route_len, rng)
+        candidate = _repair_route(mutated, distance, max_arrival, max_route_len)
+        candidate = _try_single_best_insertion(
+            candidate, distance, prize, max_arrival, num_nodes, max_route_len
+        )
+        candidate = _canonicalize_route(candidate, distance, max_arrival, max_route_len)
+        reward, length = _score_route(candidate, prize, distance)
+        if reward < current_reward + 1e-6 and not (
+            abs(reward - current_reward) <= 1e-6 and length + 1e-6 < current_length
+        ):
             continue
-        current = best_candidate
-        current_reward = best_reward
-        current_length = best_length
+        current = candidate
+        current_reward = reward
+        current_length = length
 
     return current
 
@@ -267,7 +300,6 @@ def local_search(
     num_nodes = distances.shape[1]
     max_route_len = max(seq_len - 1, 0)
     max_iterations = max(1, int(max_iterations))
-    num_candidates = max(1, int(num_candidates))
 
     improved = np.zeros_like(actions_np)
     for batch_idx in range(actions_np.shape[0]):
@@ -280,7 +312,6 @@ def local_search(
             num_nodes=num_nodes,
             max_route_len=max_route_len,
             max_iterations=max_iterations,
-            num_candidates=num_candidates,
             rng=rng,
         )
         improved[batch_idx] = _encode_route(improved_route, seq_len)
