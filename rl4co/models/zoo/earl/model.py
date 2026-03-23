@@ -377,6 +377,100 @@ def _random_route_2opt_cvrp(actions: torch.Tensor, num_iters: int) -> torch.Tens
     return torch.from_numpy(actions_np).to(device=actions.device)
 
 
+def _op_route_distance(route: list[int], distance: np.ndarray) -> float:
+    if not route:
+        return 0.0
+    total = float(distance[0, route[0]])
+    for left, right in zip(route[:-1], route[1:]):
+        total += float(distance[left, right])
+    total += float(distance[route[-1], 0])
+    return total
+
+
+def _repair_op_route(
+    route: list[int],
+    distance: np.ndarray,
+    limit: float,
+) -> list[int]:
+    cleaned: list[int] = []
+    seen: set[int] = set()
+    current_length = 0.0
+
+    for node in route:
+        node = int(node)
+        if node <= 0 or node in seen:
+            continue
+        if not cleaned:
+            candidate_length = float(distance[0, node] + distance[node, 0])
+        else:
+            prev = cleaned[-1]
+            candidate_length = (
+                current_length
+                - float(distance[prev, 0])
+                + float(distance[prev, node] + distance[node, 0])
+            )
+        if candidate_length <= limit + 1e-6:
+            cleaned.append(node)
+            seen.add(node)
+            current_length = candidate_length
+    return cleaned
+
+
+def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) -> torch.Tensor:
+    if actions is None or actions.dim() != 2 or num_iters <= 0:
+        return actions
+
+    actions_np = actions.detach().cpu().numpy().copy()
+    td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
+    distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
+    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32) + 1e-6
+    num_nodes = distances.shape[-1]
+    rng = np.random.default_rng()
+
+    for batch_idx in range(actions_np.shape[0]):
+        route = [int(node) for node in actions_np[batch_idx].tolist() if int(node) > 0]
+        route = _repair_op_route(route, distances[batch_idx], float(limits[batch_idx]))
+
+        for _ in range(num_iters):
+            if not route:
+                break
+
+            op_candidates = ["remove"]
+            if len(route) > 1:
+                op_candidates.append("swap_positions")
+            unvisited = [node for node in range(1, num_nodes) if node not in set(route)]
+            if unvisited:
+                op_candidates.append("replace")
+                if len(route) < actions_np.shape[1]:
+                    op_candidates.append("insert")
+
+            op = op_candidates[int(rng.integers(0, len(op_candidates)))]
+            candidate = list(route)
+
+            if op == "remove":
+                low = 1 if len(candidate) > 1 else 0
+                remove_idx = int(rng.integers(low, len(candidate)))
+                candidate.pop(remove_idx)
+            elif op == "swap_positions":
+                left = int(rng.integers(1, len(candidate)))
+                right = int(rng.integers(1, len(candidate)))
+                candidate[left], candidate[right] = candidate[right], candidate[left]
+            elif op == "replace":
+                replace_idx = int(rng.integers(1, len(candidate))) if len(candidate) > 1 else 0
+                candidate[replace_idx] = unvisited[int(rng.integers(0, len(unvisited)))]
+            elif op == "insert":
+                insert_idx = int(rng.integers(1, len(candidate) + 1)) if candidate else 0
+                candidate.insert(insert_idx, unvisited[int(rng.integers(0, len(unvisited)))])
+
+            route = _repair_op_route(candidate, distances[batch_idx], float(limits[batch_idx]))
+
+        actions_np[batch_idx] = 0
+        if route:
+            actions_np[batch_idx, : len(route)] = np.asarray(route, dtype=np.int64)
+
+    return torch.from_numpy(actions_np).to(device=actions.device, dtype=actions.dtype)
+
+
 def _validate_actions_or_revert(
     env: RL4COEnvBase,
     td: TensorDict,
@@ -549,6 +643,8 @@ class EAM(REINFORCE):
             return _random_2opt(actions, num_iters, keep_first=True)
         if self.env.name == "cvrp":
             return _random_route_2opt_cvrp(actions, num_iters)
+        if self.env.name == "op":
+            return _random_op_perturb(actions, td, num_iters)
         candidate = _random_2opt(actions, num_iters, keep_first=True)
         return _validate_actions_or_revert(self.env, td, actions, candidate)
 
