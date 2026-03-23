@@ -395,6 +395,7 @@ def _repair_op_route(
     cleaned: list[int] = []
     seen: set[int] = set()
     current_length = 0.0
+    safety_margin = 1e-5
 
     for node in route:
         node = int(node)
@@ -409,7 +410,7 @@ def _repair_op_route(
                 - float(distance[prev, 0])
                 + float(distance[prev, node] + distance[node, 0])
             )
-        if candidate_length <= limit + 1e-6:
+        if candidate_length <= limit - safety_margin:
             cleaned.append(node)
             seen.add(node)
             current_length = candidate_length
@@ -423,7 +424,7 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
     actions_np = actions.detach().cpu().numpy().copy()
     td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
     distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
-    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32) + 1e-6
+    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32)
     num_nodes = distances.shape[-1]
     rng = np.random.default_rng()
 

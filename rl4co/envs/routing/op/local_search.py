@@ -47,6 +47,7 @@ def _removal_saving(route: list[int], idx: int, distance: np.ndarray) -> float:
 def _repair_route(route: list[int], distance: np.ndarray, prize: np.ndarray, limit: float) -> list[int]:
     cleaned: list[int] = []
     seen: set[int] = set()
+    safety_margin = 1e-5
     for node in route:
         node = int(node)
         if node <= 0 or node in seen:
@@ -54,7 +55,7 @@ def _repair_route(route: list[int], distance: np.ndarray, prize: np.ndarray, lim
         cleaned.append(node)
         seen.add(node)
 
-    while cleaned and _route_length(cleaned, distance) > limit + 1e-6:
+    while cleaned and _route_length(cleaned, distance) > limit - safety_margin:
         removable_indices = range(1, len(cleaned)) if len(cleaned) > 1 else range(len(cleaned))
         best_idx = None
         best_score = None
@@ -93,7 +94,7 @@ def _try_best_insertions(
                 next_node = 0 if pos == len(route) else route[pos]
                 delta = float(distance[prev_node, node] + distance[node, next_node] - distance[prev_node, next_node])
                 new_length = current_length + delta
-                if new_length > limit + 1e-6:
+                if new_length > limit - safety_margin:
                     continue
                 gain = float(prize[node])
                 efficiency = gain / max(delta, 1e-6)
@@ -221,7 +222,7 @@ def local_search(
 
     distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
     prizes = td_cpu["prize"].numpy().astype(np.float32)
-    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32) + 1e-6
+    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32)
     actions_np = actions_cpu.numpy().astype(np.int64)
 
     rng = np.random.default_rng()
