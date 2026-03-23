@@ -20,6 +20,67 @@ from rl4co.utils.pylogger import get_pylogger
 log = get_pylogger(__name__)
 
 
+def _preview_tensor_row(value: Tensor, limit: int = 12):
+    value = value.detach().cpu()
+    if value.numel() == 1:
+        return value.item()
+    flat = value.reshape(-1)
+    preview = flat[:limit].tolist()
+    if flat.numel() > limit:
+        preview.append("...")
+    return preview
+
+
+def _format_fixed_action_diagnostic(
+    td: TensorDict,
+    mask: Tensor,
+    provided_action: Tensor,
+    actions: Optional[Tensor],
+    step: int,
+    decode_type: str,
+    invalid_idx: int,
+) -> str:
+    sample_action = int(provided_action[invalid_idx].detach().cpu().item())
+    action_dim = int(mask.size(-1))
+    safe_action = min(max(sample_action, 0), action_dim - 1)
+    feasible_actions = (
+        torch.nonzero(mask[invalid_idx].detach().cpu(), as_tuple=False)
+        .squeeze(-1)
+        .tolist()
+    )
+    diag_parts = [
+        f"decode_type={decode_type!r}",
+        f"step={step}",
+        f"sample_index={invalid_idx}",
+        f"provided_action={sample_action}",
+        f"safe_action={safe_action}",
+        f"action_dim={action_dim}",
+        f"done={bool(td['done'][invalid_idx].detach().cpu().item()) if 'done' in td.keys() else 'n/a'}",
+        f"feasible_action_count={len(feasible_actions)}",
+        f"feasible_actions_preview={feasible_actions[:12]}",
+    ]
+
+    for key in ("current_node", "tour_length", "i", "reward"):
+        if key in td.keys():
+            diag_parts.append(f"{key}={_preview_tensor_row(td[key][invalid_idx])}")
+
+    if "max_length" in td.keys():
+        max_length_row = td["max_length"][invalid_idx]
+        diag_parts.append(f"max_length_preview={_preview_tensor_row(max_length_row)}")
+        if max_length_row.numel() > 1 and 0 <= safe_action < max_length_row.shape[-1]:
+            diag_parts.append(
+                f"max_length_at_action={max_length_row.detach().cpu().reshape(-1)[safe_action].item()}"
+            )
+
+    if actions is not None:
+        prefix_end = min(actions.size(-1), step + 4)
+        diag_parts.append(
+            f"action_prefix={actions[invalid_idx, :prefix_end].detach().cpu().tolist()}"
+        )
+
+    return ", ".join(diag_parts)
+
+
 class ConstructiveEncoder(nn.Module, metaclass=abc.ABCMeta):
     """Base class for the encoder of constructive models"""
 
@@ -265,11 +326,26 @@ class ConstructivePolicy(nn.Module):
                 feasible = in_range & mask.gather(1, safe_action.unsqueeze(-1)).squeeze(-1)
                 if not feasible.all():
                     invalid_count = int((~feasible).sum().item())
+                    first_bad = int(torch.nonzero(~feasible, as_tuple=False)[0].item())
+                    diagnostic = _format_fixed_action_diagnostic(
+                        td=td,
+                        mask=mask,
+                        provided_action=provided_action,
+                        actions=actions,
+                        step=step,
+                        decode_type=str(decode_type),
+                        invalid_idx=first_bad,
+                    )
+                    log.error(
+                        "Fixed-action decoding infeasibility detected: %s",
+                        diagnostic,
+                    )
                     raise ValueError(
                         "Provided actions contain infeasible entries during fixed-action decoding: "
                         f"decode_type={decode_type!r}, step={step}, invalid_count={invalid_count}, "
                         f"actions.shape={tuple(actions.shape) if actions is not None else None}. "
-                        "This indicates the candidate solution is illegal for the current state."
+                        "This indicates the candidate solution is illegal for the current state. "
+                        f"First invalid sample diagnostics: {diagnostic}"
                     )
             td = decode_strategy.step(
                 logits,

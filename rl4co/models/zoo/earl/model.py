@@ -387,6 +387,9 @@ def _op_route_distance(route: list[int], distance: np.ndarray) -> float:
     return total
 
 
+OP_FEAS_MARGIN = 1e-4
+
+
 def _extract_op_route(sequence: np.ndarray) -> list[int]:
     route: list[int] = []
     seen: set[int] = set()
@@ -422,7 +425,7 @@ def _repair_op_route(
         else:
             prev = cleaned[-1]
             arrival_length = np.float32(current_length + distance[prev, node])
-        if arrival_length <= max_arrival[node]:
+        if arrival_length <= np.float32(max_arrival[node] - OP_FEAS_MARGIN):
             cleaned.append(node)
             seen.add(node)
             current_length = arrival_length
@@ -435,8 +438,8 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
 
     actions_np = actions.detach().cpu().numpy().copy()
     td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
-    distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
-    max_arrival = td_cpu["max_length"].numpy().astype(np.float32)
+    distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float64)
+    max_arrival = td_cpu["max_length"].numpy().astype(np.float64)
     num_nodes = distances.shape[-1]
     max_route_len = max(actions_np.shape[1] - 1, 0)
     rng = np.random.default_rng()

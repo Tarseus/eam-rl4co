@@ -5,6 +5,8 @@ import torch
 
 from tensordict.tensordict import TensorDict
 
+OP_FEAS_MARGIN = 1e-4
+
 
 def _extract_route(sequence: np.ndarray) -> list[int]:
     route: list[int] = []
@@ -47,14 +49,14 @@ def _removal_saving(route: list[int], idx: int, distance: np.ndarray) -> float:
 def _simulate_route(route: list[int], distance: np.ndarray, max_arrival: np.ndarray) -> tuple[bool, float]:
     if not route:
         return True, 0.0
-    current_length = np.float32(0.0)
+    current_length = np.float64(0.0)
     prev_node = 0
     for node in route:
-        current_length = np.float32(current_length + distance[prev_node, node])
-        if current_length > max_arrival[node]:
+        current_length = np.float64(current_length + distance[prev_node, node])
+        if current_length > float(max_arrival[node] - OP_FEAS_MARGIN):
             return False, float(current_length)
         prev_node = node
-    total_length = np.float32(current_length + distance[prev_node, 0])
+    total_length = np.float64(current_length + distance[prev_node, 0])
     return True, float(total_length)
 
 
@@ -226,9 +228,9 @@ def local_search(
     td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
     actions_cpu = actions.detach().cpu()
 
-    distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
-    prizes = td_cpu["prize"].numpy().astype(np.float32)
-    max_arrival = td_cpu["max_length"].numpy().astype(np.float32)
+    distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float64)
+    prizes = td_cpu["prize"].numpy().astype(np.float64)
+    max_arrival = td_cpu["max_length"].numpy().astype(np.float64)
     actions_np = actions_cpu.numpy().astype(np.int64)
 
     rng = np.random.default_rng()
