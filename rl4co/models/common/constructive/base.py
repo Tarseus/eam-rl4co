@@ -204,11 +204,18 @@ class ConstructivePolicy(nn.Module):
         decode_type = decoding_kwargs.pop("decode_type", None)
         if decode_type is None:
             decode_type = getattr(self, f"{phase}_decode_type")
+        requested_num_starts = decoding_kwargs.get("num_starts", None)
         if actions is not None:
-            # Preserve multistart behavior when evaluating fixed action sequences. This matches
-            # how multistart decoding performs an initial environment step in `pre_decoder_hook`.
+            # Preserve multistart behavior when evaluating fixed action sequences. In some call
+            # sites the phase decode type may not explicitly contain "multistart", but the caller
+            # still passes `num_starts > 1` together with multistart-generated action sequences.
+            # In that case we must still run the multistart pre-hook so the first action is
+            # consumed before the main decoding loop.
+            is_multistart_eval = "multistart" in str(decode_type) or (
+                requested_num_starts is not None and int(requested_num_starts) > 1
+            )
             decode_type = (
-                "multistart_evaluate" if "multistart" in str(decode_type) else "evaluate"
+                "multistart_evaluate" if is_multistart_eval else "evaluate"
             )
 
         # Setup decoding strategy

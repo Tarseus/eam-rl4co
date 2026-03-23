@@ -25,6 +25,7 @@ nb.set_num_threads(NUMBA_NUM_THREADS)
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
+
 def evolution_worker(actions, _td, ea, env, return_population: bool = False):
     """
     Normal evolution worker without any multi-process or multi-thread
@@ -1123,242 +1124,132 @@ def elitism_selection(pop, fitness, selection_rate):
     elite_idx = idx[-num_elites:]
     return pop[elite_idx], fitness[elite_idx]
 
+
+@nb.njit(nb.int64(nb.int64[:]), nogil=True)
+def _op_prefix_len(route):
+    route_len = 0
+    for idx in range(route.shape[0]):
+        if route[idx] == 0:
+            break
+        route_len += 1
+    return route_len
+
+
+@nb.njit(nb.float32(nb.int64[:], nb.int64, nb.float32[:,:]), nogil=True)
+def _op_route_distance(route, route_len, dist_matrix):
+    if route_len <= 0:
+        return np.float32(0.0)
+
+    total = dist_matrix[0, route[0]]
+    for idx in range(1, route_len):
+        total += dist_matrix[route[idx - 1], route[idx]]
+    total += dist_matrix[route[route_len - 1], 0]
+    return total
+
+
+@nb.njit(nb.int64[:](nb.int64[:], nb.float32[:,:], nb.float32), nogil=True)
+def _repair_op_chromosome(chrom, dist_matrix, max_distance):
+    chrom_length = chrom.shape[0]
+    num_nodes = dist_matrix.shape[0]
+    repaired = np.zeros(chrom_length, dtype=np.int64)
+    used = np.zeros(num_nodes, dtype=np.bool_)
+    route_len = 0
+    route_distance = np.float32(0.0)
+    eps = np.float32(1e-5)
+
+    for idx in range(chrom_length):
+        node = chrom[idx]
+        if node <= 0 or node >= num_nodes:
+            continue
+        if used[node]:
+            continue
+
+        if route_len == 0:
+            candidate_distance = dist_matrix[0, node] + dist_matrix[node, 0]
+        else:
+            prev = repaired[route_len - 1]
+            candidate_distance = (
+                route_distance
+                - dist_matrix[prev, 0]
+                + dist_matrix[prev, node]
+                + dist_matrix[node, 0]
+            )
+
+        if candidate_distance <= max_distance - eps:
+            repaired[route_len] = node
+            used[node] = True
+            route_len += 1
+            route_distance = candidate_distance
+
+    return repaired
+
+
+@nb.njit(nb.int64[:](nb.int64[:], nb.int64[:], nb.int64, nb.float32[:,:], nb.float32), nogil=True)
+def _build_op_child(prefix_parent, order_parent, prefix_len, dist_matrix, max_distance):
+    chrom_length = prefix_parent.shape[0]
+    raw = np.zeros(chrom_length, dtype=np.int64)
+    write_pos = 0
+
+    limit = prefix_len
+    parent_prefix_len = _op_prefix_len(prefix_parent)
+    if limit > parent_prefix_len:
+        limit = parent_prefix_len
+
+    for idx in range(limit):
+        raw[write_pos] = prefix_parent[idx]
+        write_pos += 1
+
+    for idx in range(_op_prefix_len(order_parent)):
+        if write_pos >= chrom_length:
+            break
+        raw[write_pos] = order_parent[idx]
+        write_pos += 1
+
+    return _repair_op_chromosome(raw, dist_matrix, max_distance)
+
 @nb.njit(nb.int64[:,:](nb.int64[:,:], nb.float64, nb.float32[:], nb.float32[:,:], nb.float32[:]), parallel=True, nogil=True)
 def order_crossover_op(parents, crossover_rate, prize, dist_matrix, max_distances):
     pop_size, chrom_length = parents.shape
-    
-    num_nodes = len(prize)
-    
     if pop_size % 2 != 0:
         pop_size -= 1
-        
-    offspring = np.zeros((pop_size, chrom_length), dtype=nb.int64)
+
+    offspring = np.zeros((pop_size, chrom_length), dtype=np.int64)
     num_pairs = pop_size // 2
-    
-    global_max_dist = max_distances[0]
-    
-    safe_max_dist = global_max_dist - 0.1
-    
+
+    max_distance = np.float32(max_distances[0])
     adjusted_rate = crossover_rate
     if num_pairs > 1:
         adjusted_rate = max(0.0, min(1.0, (num_pairs * crossover_rate - 1.0) / (num_pairs - 1)))
-    
+
     cross_rand = np.random.random(num_pairs)
-    
     if num_pairs > 0:
         cross_rand[0] = 0.0
-        
+
     for pair_idx in range(num_pairs):
         p1_idx = pair_idx * 2
         p2_idx = pair_idx * 2 + 1
-        
-        parent1 = parents[p1_idx].copy()
-        parent2 = parents[p2_idx].copy()
-        
+
+        parent1 = _repair_op_chromosome(parents[p1_idx], dist_matrix, max_distance)
+        parent2 = _repair_op_chromosome(parents[p2_idx], dist_matrix, max_distance)
         current_rate = crossover_rate if pair_idx == 0 else adjusted_rate
-        
-        if cross_rand[pair_idx] < current_rate:
-            p1_valid_end = len(parent1)
-            for j in range(len(parent1)-1, 0, -1):
-                if parent1[j] != 0:
-                    p1_valid_end = j + 1
-                    break
-                    
-            p2_valid_end = len(parent2)
-            for j in range(len(parent2)-1, 0, -1):
-                if parent2[j] != 0:
-                    p2_valid_end = j + 1
-                    break
-            
-            if p1_valid_end == 0 or p2_valid_end == 0 or parent1[p1_valid_end-1] != 0 or parent2[p2_valid_end-1] != 0:
-                offspring[p1_idx] = parent1
-                offspring[p2_idx] = parent2
-                continue
-                
-            p1_end_node = 0
-            p2_end_node = 0
-            
-            max_cross_point = min(p1_valid_end-1, p2_valid_end-1, chrom_length-1)
-            if max_cross_point <= 1:
-                offspring[p1_idx] = parent1
-                offspring[p2_idx] = parent2
-                continue
-                
-            end = np.random.randint(1, max_cross_point)
-            
-            o1 = np.full(chrom_length*2, -1, dtype=nb.int64)
-            o2 = np.full(chrom_length*2, -1, dtype=nb.int64)
-            
-            for j in range(0, end):
-                o1[j] = parent1[j]
-                o2[j] = parent2[j]
-            
-            used1 = np.zeros(num_nodes, dtype=nb.boolean)
-            used2 = np.zeros(num_nodes, dtype=nb.boolean)
-            
-            for j in range(end):
-                if o1[j] != 0:
-                    used1[o1[j]] = True
-                if o2[j] != 0:
-                    used2[o2[j]] = True
-            
-            pos1 = end
-            pos2 = end
-            
-            o1_current_dist = 0.0
-            o2_current_dist = 0.0
-            
-            for j in range(1, end):
-                o1_current_dist += dist_matrix[o1[j-1], o1[j]]
-                o2_current_dist += dist_matrix[o2[j-1], o2[j]]
-            o1_current_dist += dist_matrix[0, o1[0]]
-            o2_current_dist += dist_matrix[0, o2[0]]
-            
-            remaining_nodes1 = np.zeros(chrom_length, dtype=nb.int64)
-            remaining_nodes2 = np.zeros(chrom_length, dtype=nb.int64)
-            count1 = 0
-            count2 = 0
-            
-            for i in range(1, chrom_length+1):
-                if not used1[i]:
-                    remaining_nodes1[count1] = i
-                    count1 += 1
-                if not used2[i]:
-                    remaining_nodes2[count2] = i
-                    count2 += 1
-            
-            for j in range(count1):
-                best_node1 = remaining_nodes1[j]
-                
-                next_dist1 = dist_matrix[o1[pos1-1], best_node1]
-                dist_to_end1 = dist_matrix[best_node1, 0]
-                
-                if o1_current_dist + next_dist1 + dist_to_end1 <= safe_max_dist:
-                    o1[pos1] = best_node1
-                    o1_current_dist += next_dist1
-                    used1[best_node1] = True
-                    pos1 += 1
-                    
-                if pos1 >= chrom_length*2 - 2:
-                    break
-            
-            for j in range(count2):
-                best_node2 = remaining_nodes2[j]
-                
-                next_dist2 = dist_matrix[o2[pos2-1], best_node2]
-                dist_to_end2 = dist_matrix[best_node2, 0]
-                
-                if o2_current_dist + next_dist2 + dist_to_end2 <= safe_max_dist:
-                    o2[pos2] = best_node2
-                    o2_current_dist += next_dist2
-                    used2[best_node2] = True
-                    pos2 += 1
-                
-                if pos2 >= chrom_length*2 - 2:
-                    break
-            
-            o1[pos1] = 0
-            o2[pos2] = 0
-            pos1 += 1
-            pos2 += 1
-            
-            valid_indices1 = np.where(o1 != -1)[0]
-            if len(valid_indices1) > 0:
-                o1_last_valid_idx = np.max(valid_indices1)
-                
-                if o1_last_valid_idx < chrom_length:
-                    temp_o1 = np.zeros(chrom_length, dtype=nb.int64)
-                    for i in range(chrom_length):
-                        temp_o1[i] = o1[i] if i <= o1_last_valid_idx and o1[i] != -1 else 0
-                    
-                    total_distance = 0.0
-                    has_duplicate = False
-                    visited = np.zeros(num_nodes, dtype=nb.boolean)
-                    
-                    valid_end_temp = chrom_length
-                    for j in range(chrom_length-1, 0, -1):
-                        if temp_o1[j] != 0:
-                            valid_end_temp = j + 1
-                            break
-                    
-                    if temp_o1[valid_end_temp-1] != 0:
-                        if valid_end_temp < chrom_length:
-                            temp_o1[valid_end_temp] = 0
-                            valid_end_temp += 1
-                        else:
-                            temp_o1[valid_end_temp-1] = 0
-                    
-                    total_distance = 0.0
-                    for j in range(1, valid_end_temp):
-                        total_distance += dist_matrix[temp_o1[j-1], temp_o1[j]]
-                        
-                        if temp_o1[j] != 0:
-                            if visited[temp_o1[j]]:
-                                has_duplicate = True
-                                break
-                            visited[temp_o1[j]] = True
-                    
-                    distance_ok = total_distance <= global_max_dist - 1e-5
-                    
-                    if distance_ok and not has_duplicate:
-                        offspring[p1_idx] = temp_o1
-                    else:
-                        offspring[p1_idx] = parent1
-                else:
-                    offspring[p1_idx] = parent1
-            else:
-                offspring[p1_idx] = parent1
-            
-            valid_indices2 = np.where(o2 != -1)[0]
-            if len(valid_indices2) > 0:
-                o2_last_valid_idx = np.max(valid_indices2)
-                
-                if o2_last_valid_idx < chrom_length:
-                    temp_o2 = np.zeros(chrom_length, dtype=nb.int64)
-                    for i in range(chrom_length):
-                        temp_o2[i] = o2[i] if i <= o2_last_valid_idx and o2[i] != -1 else 0
-                    
-                    total_distance = 0.0
-                    has_duplicate = False
-                    visited = np.zeros(num_nodes, dtype=nb.boolean)
-                    
-                    valid_end_temp = chrom_length
-                    for j in range(chrom_length-1, 0, -1):
-                        if temp_o2[j] != 0:
-                            valid_end_temp = j + 1
-                            break
-                    
-                    if temp_o2[valid_end_temp-1] != 0:
-                        if valid_end_temp < chrom_length:
-                            temp_o2[valid_end_temp] = 0
-                            valid_end_temp += 1
-                        else:
-                            temp_o2[valid_end_temp-1] = 0
-                    
-                    total_distance = 0.0
-                    for j in range(1, valid_end_temp):
-                        total_distance += dist_matrix[temp_o2[j-1], temp_o2[j]]
-                        
-                        if temp_o2[j] != 0:
-                            if visited[temp_o2[j]]:
-                                has_duplicate = True
-                                break
-                            visited[temp_o2[j]] = True
-                    
-                    distance_ok = total_distance <= global_max_dist - 1e-5
-                    
-                    if distance_ok and not has_duplicate:
-                        offspring[p2_idx] = temp_o2
-                    else:
-                        offspring[p2_idx] = parent2
-                else:
-                    offspring[p2_idx] = parent2
-            else:
-                offspring[p2_idx] = parent2
-        else:
+
+        if cross_rand[pair_idx] >= current_rate:
             offspring[p1_idx] = parent1
             offspring[p2_idx] = parent2
-                
+            continue
+
+        p1_len = _op_prefix_len(parent1)
+        p2_len = _op_prefix_len(parent2)
+        max_cross_point = min(p1_len, p2_len)
+        if max_cross_point <= 1:
+            offspring[p1_idx] = parent1
+            offspring[p2_idx] = parent2
+            continue
+
+        cut = np.random.randint(1, max_cross_point)
+        offspring[p1_idx] = _build_op_child(parent1, parent2, cut, dist_matrix, max_distance)
+        offspring[p2_idx] = _build_op_child(parent2, parent1, cut, dist_matrix, max_distance)
+
     return offspring
 
 @nb.njit(nb.int64[:,:](nb.int64[:,:], nb.float64, nb.float32[:], nb.float32[:,:], nb.float32[:]), parallel=True, nogil=True)
@@ -1485,106 +1376,32 @@ def node_replacement_mutate_op(pop, mutation_rate, prize, dist_matrix, max_dista
 def inverse_mutate_op(pop, mutation_rate, prize, dist_matrix, max_distances):
     pop_size, chrom_length = pop.shape
     mutated_pop = pop.copy()
-    num_nodes = len(prize)
-    
-    global_max_dist = max_distances[0]
-    
-    safe_max_dist = global_max_dist - 1e-5
-    
+    max_distance = np.float32(max_distances[0])
     random_vals = np.random.random(pop_size)
-    
+
     for i in range(pop_size):
-        if random_vals[i] < mutation_rate:
-            valid_end = chrom_length
-            for j in range(chrom_length-1, 0, -1):
-                if pop[i, j] != 0:
-                    valid_end = j + 1
-                    break
-            
-            if valid_end <= 3:
-                continue
-                
-            if pop[i, valid_end-1] != 0:
-                if valid_end < chrom_length:
-                    mutated_pop[i, valid_end] = 0
-                    valid_end += 1
-                else:
-                    mutated_pop[i, valid_end-1] = 0
-            
-            current_distance = dist_matrix[0, mutated_pop[i, 0]]
-            
-            for j in range(1, valid_end):
-                current_distance += dist_matrix[mutated_pop[i, j-1], mutated_pop[i, j]]
-            
-            max_attempts = 1
-            success = False
-            
-            for attempt in range(max_attempts):
-                start_idx = np.random.randint(1, valid_end-2) if valid_end > 3 else 1
-                end_idx = np.random.randint(start_idx+1, valid_end-1)
-                
-                if start_idx >= end_idx:
-                    continue
-                
-                old_sub_distance = 0.0
-                for j in range(start_idx, end_idx):
-                    old_sub_distance += dist_matrix[mutated_pop[i, j], mutated_pop[i, j+1]]
-                
-                old_connection_distance = 0.0
-                if start_idx > 0:
-                    old_connection_distance += dist_matrix[mutated_pop[i, start_idx-1], mutated_pop[i, start_idx]]
-                if end_idx < valid_end-1:
-                    old_connection_distance += dist_matrix[mutated_pop[i, end_idx], mutated_pop[i, end_idx+1]]
-                
-                temp_solution = mutated_pop[i].copy()
-                
-                segment = np.zeros(end_idx-start_idx+1, dtype=nb.int64)
-                for j in range(end_idx-start_idx+1):
-                    segment[j] = temp_solution[start_idx+j]
-                
-                for j in range(end_idx-start_idx+1):
-                    temp_solution[start_idx+j] = segment[end_idx-start_idx-j]
-                
-                new_sub_distance = 0.0
-                for j in range(start_idx, end_idx):
-                    new_sub_distance += dist_matrix[temp_solution[j], temp_solution[j+1]]
-                
-                new_connection_distance = 0.0
-                if start_idx > 0:
-                    new_connection_distance += dist_matrix[temp_solution[start_idx-1], temp_solution[start_idx]]
-                if end_idx < valid_end-1:
-                    new_connection_distance += dist_matrix[temp_solution[end_idx], temp_solution[end_idx+1]]
-                
-                distance_change = (new_sub_distance + new_connection_distance) - (old_sub_distance + old_connection_distance)
-                new_total_distance = current_distance + distance_change
-                
-                if new_total_distance <= safe_max_dist:
-                    has_duplicate = False
-                    visited = np.zeros(num_nodes, dtype=nb.boolean)
-                    
-                    for j in range(valid_end):
-                        if temp_solution[j] != 0:
-                            if visited[temp_solution[j]]:
-                                has_duplicate = True
-                                break
-                            visited[temp_solution[j]] = True
-                    
-                    total_distance = dist_matrix[0, temp_solution[0]]
-                    for j in range(1, valid_end):
-                        total_distance += dist_matrix[temp_solution[j-1], temp_solution[j]]
-                    
-                    distance_ok = total_distance <= safe_max_dist
-                    
-                    if distance_ok and not has_duplicate:
-                        for j in range(start_idx, end_idx+1):
-                            mutated_pop[i, j] = temp_solution[j]
-                        success = True
-                        break
-            
-            if not success:
-                for j in range(chrom_length):
-                    mutated_pop[i, j] = pop[i, j]
-            
+        base = _repair_op_chromosome(pop[i], dist_matrix, max_distance)
+        route_len = _op_prefix_len(base)
+        if random_vals[i] >= mutation_rate or route_len <= 2:
+            mutated_pop[i] = base
+            continue
+
+        temp_solution = np.zeros(chrom_length, dtype=np.int64)
+        for j in range(route_len):
+            temp_solution[j] = base[j]
+
+        start_idx = np.random.randint(1, route_len - 1)
+        end_idx = np.random.randint(start_idx + 1, route_len)
+
+        while start_idx < end_idx:
+            tmp = temp_solution[start_idx]
+            temp_solution[start_idx] = temp_solution[end_idx]
+            temp_solution[end_idx] = tmp
+            start_idx += 1
+            end_idx -= 1
+
+        mutated_pop[i] = _repair_op_chromosome(temp_solution, dist_matrix, max_distance)
+
     return mutated_pop
 
 @nb.njit(nb.int64[:,:](nb.int64[:], nb.int64, nb.int64, nb.float64, nb.boolean), parallel=True, nogil=True)
