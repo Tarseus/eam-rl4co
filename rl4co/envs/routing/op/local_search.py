@@ -82,6 +82,33 @@ def _repair_route(
     return cleaned
 
 
+def _canonicalize_route(
+    route: list[int],
+    distance: np.ndarray,
+    max_arrival: np.ndarray,
+    max_route_len: int,
+) -> list[int]:
+    canonical: list[int] = []
+    seen: set[int] = set()
+    current_length = np.float64(0.0)
+    for node in route:
+        if len(canonical) >= max_route_len:
+            break
+        node = int(node)
+        if node <= 0 or node in seen:
+            break
+        if not canonical:
+            arrival_length = np.float64(distance[0, node])
+        else:
+            arrival_length = np.float64(current_length + distance[canonical[-1], node])
+        if arrival_length > float(max_arrival[node] - OP_FEAS_MARGIN):
+            break
+        canonical.append(node)
+        seen.add(node)
+        current_length = arrival_length
+    return canonical
+
+
 def _try_best_insertions(
     route: list[int],
     distance: np.ndarray,
@@ -187,6 +214,7 @@ def _improve_single(
 ) -> list[int]:
     current = _repair_route(route, distance, max_arrival, max_route_len)
     current = _try_best_insertions(current, distance, prize, max_arrival, num_nodes, max_route_len)
+    current = _canonicalize_route(current, distance, max_arrival, max_route_len)
     current_reward, current_length = _score_route(current, prize, distance)
 
     for _ in range(max_iterations):
@@ -198,6 +226,7 @@ def _improve_single(
             mutated = _mutate_route(current, num_nodes, max_route_len, rng)
             repaired = _repair_route(mutated, distance, max_arrival, max_route_len)
             candidate = _try_best_insertions(repaired, distance, prize, max_arrival, num_nodes, max_route_len)
+            candidate = _canonicalize_route(candidate, distance, max_arrival, max_route_len)
             reward, length = _score_route(candidate, prize, distance)
             if reward > best_reward + 1e-6 or (abs(reward - best_reward) <= 1e-6 and length + 1e-6 < best_length):
                 best_candidate = candidate

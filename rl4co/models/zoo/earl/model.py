@@ -432,6 +432,34 @@ def _repair_op_route(
     return cleaned
 
 
+def _canonicalize_op_route(
+    route: list[int],
+    distance: np.ndarray,
+    max_arrival: np.ndarray,
+    max_route_len: Optional[int] = None,
+) -> list[int]:
+    canonical: list[int] = []
+    seen: set[int] = set()
+    current_length = np.float64(0.0)
+
+    for node in route:
+        if max_route_len is not None and len(canonical) >= max_route_len:
+            break
+        node = int(node)
+        if node <= 0 or node in seen:
+            break
+        if not canonical:
+            arrival_length = np.float64(distance[0, node])
+        else:
+            arrival_length = np.float64(current_length + distance[canonical[-1], node])
+        if arrival_length > np.float64(max_arrival[node] - OP_FEAS_MARGIN):
+            break
+        canonical.append(node)
+        seen.add(node)
+        current_length = arrival_length
+    return canonical
+
+
 def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) -> torch.Tensor:
     if actions is None or actions.dim() != 2 or num_iters <= 0:
         return actions
@@ -490,6 +518,12 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
                 max_arrival[batch_idx],
                 max_route_len=max_route_len,
             )
+        route = _canonicalize_op_route(
+            route,
+            distances[batch_idx],
+            max_arrival[batch_idx],
+            max_route_len=max_route_len,
+        )
 
         actions_np[batch_idx] = 0
         if route:
