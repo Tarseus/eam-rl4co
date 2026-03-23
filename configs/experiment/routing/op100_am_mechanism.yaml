@@ -33,25 +33,25 @@ model:
     milestones: [80, 95]
     gamma: 0.1
   ea_kwargs:
-    num_generations: 1
+    num_generations: 3
     mutation_rate: 0.1
     crossover_rate: 0.6
     selection_rate: 0.2
-    ea_prob: 1.0
-    ea_epoch: -1
+    ea_prob: 0.01
+    ea_epoch: 700
     improve_mode: eam
     val_improve_mode: eam
     val_improve: true
     val_improve_prob: 1.0
-    val_num_generations: 1
+    val_num_generations: 0
   mechanism:
     enabled: true
     variant: eam
     log_every: 1
     save_root: outputs/mechanism
-    base_traj: 1
-    extra_traj: 1
-    refine_budget: 1
+    base_traj: null
+    extra_traj: null
+    refine_budget: 3
     trigger_every: 1
     trigger_mode: periodic
     diversity_metric: node_jaccard
