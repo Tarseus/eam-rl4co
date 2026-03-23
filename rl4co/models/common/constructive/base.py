@@ -202,10 +202,14 @@ class ConstructivePolicy(nn.Module):
 
         # Get decode type depending on phase and whether actions are passed for evaluation
         decode_type = decoding_kwargs.pop("decode_type", None)
-        if actions is not None:
-            decode_type = "evaluate"
-        elif decode_type is None:
+        if decode_type is None:
             decode_type = getattr(self, f"{phase}_decode_type")
+        if actions is not None:
+            # Preserve multistart behavior when evaluating fixed action sequences. This matches
+            # how multistart decoding performs an initial environment step in `pre_decoder_hook`.
+            decode_type = (
+                "multistart_evaluate" if "multistart" in str(decode_type) else "evaluate"
+            )
 
         # Setup decoding strategy
         # we pop arguments that are not part of the decoding strategy
@@ -219,21 +223,27 @@ class ConstructivePolicy(nn.Module):
         )
 
         # Pre-decoding hook: used for the initial step(s) of the decoding strategy
-        start_action = None
-        if actions is not None and decode_strategy.multistart:
-            # Use the provided first action to align multistart evaluation.
-            start_action = actions[..., 0]
-            actions = actions[..., 1:]
-        td, env, num_starts = decode_strategy.pre_decoder_hook(
-            td, env, action=start_action
+        pre_action = (
+            actions[..., 0]
+            if actions is not None and "multistart" in str(decode_type)
+            else None
         )
+        td, env, num_starts = decode_strategy.pre_decoder_hook(td, env, action=pre_action)
 
         # Additionally call a decoder hook if needed before main decoding
         td, env, hidden = self.decoder.pre_decoder_hook(td, env, hidden, num_starts)
 
         # Main decoding: loop until all sequences are done
-        step = 0
+        step = len(getattr(decode_strategy, "actions", [])) if actions is not None else 0
         while not td["done"].all():
+            if actions is not None and step >= actions.size(-1):
+                raise ValueError(
+                    "Provided `actions` sequence is shorter than required to finish decoding: "
+                    f"decode_type={decode_type!r}, actions.shape={tuple(actions.shape)}, "
+                    f"needed_step_index={step} (0-based). "
+                    "This typically indicates `td` does not match the environment state used to generate `actions` "
+                    "(e.g., missing multistart pre-step, different problem instance, or already-done initial state)."
+                )
             logits, mask = self.decoder(td, hidden, num_starts)
             td = decode_strategy.step(
                 logits,
