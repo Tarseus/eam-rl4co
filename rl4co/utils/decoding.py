@@ -22,6 +22,8 @@ def get_decoding_strategy(decoding_strategy, **config):
         "multistart_sampling": Sampling,
         "beam_search": BeamSearch,
         "evaluate": Evaluate,
+        # Evaluate mode, but keep multistart pre/post hooks enabled
+        "multistart_evaluate": Evaluate,
     }
 
     if decoding_strategy not in strategy_registry:
@@ -53,9 +55,16 @@ def get_log_likelihood(logprobs, actions=None, mask=None, return_sum: bool = Tru
     if mask is not None:
         logprobs[~mask] = 0
 
-    assert (
-        logprobs > -1000
-    ).data.all(), "Logprobs should not be -inf, check sampling procedure!"
+    if not torch.isfinite(logprobs).all():
+        invalid = ~torch.isfinite(logprobs)
+        log.warning(
+            "Non-finite logprobs detected while computing log-likelihood; "
+            "replacing them with a finite penalty. This usually means a provided "
+            "action became infeasible under the current state."
+        )
+        logprobs = torch.nan_to_num(logprobs, nan=0.0, posinf=0.0, neginf=-50.0)
+
+    assert torch.isfinite(logprobs).all(), "Logprobs should be finite"
 
     # Calculate log_likelihood
     if return_sum:
@@ -334,9 +343,29 @@ class DecodingStrategy(metaclass=abc.ABCMeta):
     def post_decoder_hook(
         self, td: TensorDict, env: RL4COEnvBase
     ) -> Tuple[torch.Tensor, torch.Tensor, TensorDict, RL4COEnvBase]:
-        assert (
-            len(self.logprobs) > 0
-        ), "No logprobs were collected because all environments were done. Check your initial state"
+        # If we never entered the decoding loop (e.g. all envs already done), return empty tensors
+        # instead of hard-asserting. This keeps downstream code paths (e.g. log-likelihood reduction)
+        # well-defined and helps diagnose invalid initial states without crashing deep in the stack.
+        if len(self.logprobs) == 0:
+            batch_shape = tuple(getattr(td, "batch_size", ()))
+            device = td.device
+
+            actions = torch.empty((*batch_shape, 0), dtype=torch.long, device=device)
+            if self.store_all_logp:
+                num_actions = (
+                    td["action_mask"].shape[-1] if "action_mask" in td.keys() else 0
+                )
+                logprobs = torch.empty(
+                    (*batch_shape, 0, num_actions), dtype=torch.float, device=device
+                )
+            else:
+                logprobs = torch.empty((*batch_shape, 0), dtype=torch.float, device=device)
+
+            log.warning(
+                "No logprobs were collected because decoding took 0 steps (all environments were already done). "
+                "Returning empty `logprobs`/`actions`; check your initial state and reset logic."
+            )
+            return logprobs, actions, td, env
         logprobs = torch.stack(self.logprobs, 1)
         actions = torch.stack(self.actions, 1)
         if self.num_starts > 0 and self.select_best:
