@@ -668,11 +668,13 @@ class EAM(REINFORCE):
         self.random_2opt_iters = ea_kwargs.get("random_2opt_iters")
         self.local_search_max_iterations = ea_kwargs.get("local_search_max_iterations")
         self.local_search_num_threads = ea_kwargs.get("local_search_num_threads")
+        self.local_search_num_candidates = ea_kwargs.get("local_search_num_candidates", 1)
         self.val_improve = ea_kwargs.get("val_improve", True)
         self.val_improve_prob = ea_kwargs.get("val_improve_prob", 1.0)
         self.val_num_generations = ea_kwargs.get("val_num_generations")
         self.val_random_2opt_iters = ea_kwargs.get("val_random_2opt_iters")
         self.val_local_search_max_iterations = ea_kwargs.get("val_local_search_max_iterations")
+        self.val_local_search_num_candidates = ea_kwargs.get("val_local_search_num_candidates")
         self._ga_num_generations = ea_kwargs.get("num_generations", 1)
         self._local_search_warned = False
         self.mechanism_cfg = build_mechanism_config(
@@ -714,7 +716,11 @@ class EAM(REINFORCE):
         return _validate_actions_or_revert(self.env, td, actions, candidate)
 
     def _apply_local_search(
-        self, actions: torch.Tensor, td: TensorDict, max_iterations: int
+        self,
+        actions: torch.Tensor,
+        td: TensorDict,
+        max_iterations: int,
+        num_candidates: Optional[int] = None,
     ) -> Optional[torch.Tensor]:
         if actions is None:
             return None
@@ -724,6 +730,8 @@ class EAM(REINFORCE):
         if n_traj > 1:
             td_cpu = batchify(td_cpu, n_traj)
         kwargs = {"max_iterations": max_iterations}
+        if num_candidates is not None:
+            kwargs["num_candidates"] = max(1, int(num_candidates))
         if self.local_search_num_threads is not None:
             kwargs["num_threads"] = self.local_search_num_threads
         try:
@@ -969,7 +977,12 @@ class EAM(REINFORCE):
                     if self.local_search_max_iterations is not None
                     else budget
                 )
-                result = self._apply_local_search(actions, init_td, max_iters)
+                result = self._apply_local_search(
+                    actions,
+                    init_td,
+                    max_iters,
+                    num_candidates=self.local_search_num_candidates,
+                )
                 t_ga += time.perf_counter() - t0
                 return result
 
@@ -1252,8 +1265,16 @@ class EAM(REINFORCE):
                             if self.val_local_search_max_iterations is not None
                             else self.local_search_max_iterations
                         )
+                        val_num_candidates = (
+                            self.val_local_search_num_candidates
+                            if self.val_local_search_num_candidates is not None
+                            else self.local_search_num_candidates
+                        )
                         improved_actions = self._apply_local_search(
-                            original_actions, policy_root_td, max_iters
+                            original_actions,
+                            policy_root_td,
+                            max_iters,
+                            num_candidates=val_num_candidates,
                         )
                     else:
                         raise ValueError(f"Unknown improve_mode: {val_improve_mode}")
