@@ -44,32 +44,39 @@ def _removal_saving(route: list[int], idx: int, distance: np.ndarray) -> float:
     return float(distance[prev_node, node] + distance[node, next_node] - distance[prev_node, next_node])
 
 
-def _repair_route(route: list[int], distance: np.ndarray, prize: np.ndarray, limit: float) -> list[int]:
+def _simulate_route(route: list[int], distance: np.ndarray, max_arrival: np.ndarray) -> tuple[bool, float]:
+    if not route:
+        return True, 0.0
+    current_length = np.float32(0.0)
+    prev_node = 0
+    for node in route:
+        current_length = np.float32(current_length + distance[prev_node, node])
+        if current_length > max_arrival[node]:
+            return False, float(current_length)
+        prev_node = node
+    total_length = np.float32(current_length + distance[prev_node, 0])
+    return True, float(total_length)
+
+
+def _repair_route(
+    route: list[int],
+    distance: np.ndarray,
+    max_arrival: np.ndarray,
+    max_route_len: int,
+) -> list[int]:
     cleaned: list[int] = []
     seen: set[int] = set()
-    safety_margin = 1e-5
     for node in route:
+        if len(cleaned) >= max_route_len:
+            break
         node = int(node)
         if node <= 0 or node in seen:
             continue
-        cleaned.append(node)
-        seen.add(node)
-
-    while cleaned and _route_length(cleaned, distance) > limit - safety_margin:
-        removable_indices = range(1, len(cleaned)) if len(cleaned) > 1 else range(len(cleaned))
-        best_idx = None
-        best_score = None
-        for idx in removable_indices:
-            node = cleaned[idx]
-            saving = max(_removal_saving(cleaned, idx, distance), 1e-6)
-            score = float(prize[node]) / saving
-            key = (score, float(prize[node]), -saving, idx)
-            if best_score is None or key < best_score:
-                best_score = key
-                best_idx = idx
-        if best_idx is None:
-            break
-        cleaned.pop(best_idx)
+        candidate = cleaned + [node]
+        feasible, _ = _simulate_route(candidate, distance, max_arrival)
+        if feasible:
+            cleaned.append(node)
+            seen.add(node)
     return cleaned
 
 
@@ -77,26 +84,25 @@ def _try_best_insertions(
     route: list[int],
     distance: np.ndarray,
     prize: np.ndarray,
-    limit: float,
+    max_arrival: np.ndarray,
     num_nodes: int,
     max_route_len: int,
 ) -> list[int]:
     route = list(route)
     available = [node for node in range(1, num_nodes) if node not in set(route)]
-    current_length = _route_length(route, distance)
+    _, current_length = _simulate_route(route, distance, max_arrival)
 
     while available and len(route) < max_route_len:
         start_pos = 1 if route else 0
         best = None
         for node in available:
             for pos in range(start_pos, len(route) + 1):
-                prev_node = 0 if pos == 0 else route[pos - 1]
-                next_node = 0 if pos == len(route) else route[pos]
-                delta = float(distance[prev_node, node] + distance[node, next_node] - distance[prev_node, next_node])
-                new_length = current_length + delta
-                if new_length > limit - safety_margin:
+                candidate = route[:pos] + [node] + route[pos:]
+                feasible, new_length = _simulate_route(candidate, distance, max_arrival)
+                if not feasible:
                     continue
                 gain = float(prize[node])
+                delta = max(new_length - current_length, 1e-6)
                 efficiency = gain / max(delta, 1e-6)
                 key = (efficiency, gain, -delta, -pos)
                 if best is None or key > best[0]:
@@ -170,15 +176,15 @@ def _improve_single(
     route: list[int],
     distance: np.ndarray,
     prize: np.ndarray,
-    limit: float,
+    max_arrival: np.ndarray,
     num_nodes: int,
     max_route_len: int,
     max_iterations: int,
     num_candidates: int,
     rng: np.random.Generator,
 ) -> list[int]:
-    current = _repair_route(route, distance, prize, limit)[:max_route_len]
-    current = _try_best_insertions(current, distance, prize, limit, num_nodes, max_route_len)
+    current = _repair_route(route, distance, max_arrival, max_route_len)
+    current = _try_best_insertions(current, distance, prize, max_arrival, num_nodes, max_route_len)
     current_reward, current_length = _score_route(current, prize, distance)
 
     for _ in range(max_iterations):
@@ -188,8 +194,8 @@ def _improve_single(
 
         for _ in range(num_candidates):
             mutated = _mutate_route(current, num_nodes, max_route_len, rng)
-            repaired = _repair_route(mutated, distance, prize, limit)
-            candidate = _try_best_insertions(repaired[:max_route_len], distance, prize, limit, num_nodes, max_route_len)
+            repaired = _repair_route(mutated, distance, max_arrival, max_route_len)
+            candidate = _try_best_insertions(repaired, distance, prize, max_arrival, num_nodes, max_route_len)
             reward, length = _score_route(candidate, prize, distance)
             if reward > best_reward + 1e-6 or (abs(reward - best_reward) <= 1e-6 and length + 1e-6 < best_length):
                 best_candidate = candidate
@@ -222,7 +228,7 @@ def local_search(
 
     distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
     prizes = td_cpu["prize"].numpy().astype(np.float32)
-    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32)
+    max_arrival = td_cpu["max_length"].numpy().astype(np.float32)
     actions_np = actions_cpu.numpy().astype(np.int64)
 
     rng = np.random.default_rng()
@@ -239,7 +245,7 @@ def local_search(
             route=route,
             distance=distances[batch_idx],
             prize=prizes[batch_idx],
-            limit=float(limits[batch_idx]),
+            max_arrival=max_arrival[batch_idx],
             num_nodes=num_nodes,
             max_route_len=max_route_len,
             max_iterations=max_iterations,

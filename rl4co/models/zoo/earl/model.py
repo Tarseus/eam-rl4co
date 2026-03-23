@@ -387,33 +387,45 @@ def _op_route_distance(route: list[int], distance: np.ndarray) -> float:
     return total
 
 
+def _extract_op_route(sequence: np.ndarray) -> list[int]:
+    route: list[int] = []
+    seen: set[int] = set()
+    for node in sequence.tolist():
+        node = int(node)
+        if node == 0:
+            break
+        if node <= 0 or node in seen:
+            continue
+        route.append(node)
+        seen.add(node)
+    return route
+
+
 def _repair_op_route(
     route: list[int],
     distance: np.ndarray,
-    limit: float,
+    max_arrival: np.ndarray,
+    max_route_len: Optional[int] = None,
 ) -> list[int]:
     cleaned: list[int] = []
     seen: set[int] = set()
-    current_length = 0.0
-    safety_margin = 1e-5
+    current_length = np.float32(0.0)
 
     for node in route:
+        if max_route_len is not None and len(cleaned) >= max_route_len:
+            break
         node = int(node)
         if node <= 0 or node in seen:
             continue
         if not cleaned:
-            candidate_length = float(distance[0, node] + distance[node, 0])
+            arrival_length = np.float32(distance[0, node])
         else:
             prev = cleaned[-1]
-            candidate_length = (
-                current_length
-                - float(distance[prev, 0])
-                + float(distance[prev, node] + distance[node, 0])
-            )
-        if candidate_length <= limit - safety_margin:
+            arrival_length = np.float32(current_length + distance[prev, node])
+        if arrival_length <= max_arrival[node]:
             cleaned.append(node)
             seen.add(node)
-            current_length = candidate_length
+            current_length = arrival_length
     return cleaned
 
 
@@ -424,13 +436,19 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
     actions_np = actions.detach().cpu().numpy().copy()
     td_cpu = td.detach().cpu() if hasattr(td, "detach") else td.cpu()
     distances = torch.cdist(td_cpu["locs"], td_cpu["locs"]).numpy().astype(np.float32)
-    limits = td_cpu["max_length"][..., 0].numpy().astype(np.float32)
+    max_arrival = td_cpu["max_length"].numpy().astype(np.float32)
     num_nodes = distances.shape[-1]
+    max_route_len = max(actions_np.shape[1] - 1, 0)
     rng = np.random.default_rng()
 
     for batch_idx in range(actions_np.shape[0]):
-        route = [int(node) for node in actions_np[batch_idx].tolist() if int(node) > 0]
-        route = _repair_op_route(route, distances[batch_idx], float(limits[batch_idx]))
+        route = _extract_op_route(actions_np[batch_idx])
+        route = _repair_op_route(
+            route,
+            distances[batch_idx],
+            max_arrival[batch_idx],
+            max_route_len=max_route_len,
+        )
 
         for _ in range(num_iters):
             if not route:
@@ -442,7 +460,7 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
             unvisited = [node for node in range(1, num_nodes) if node not in set(route)]
             if unvisited:
                 op_candidates.append("replace")
-                if len(route) < actions_np.shape[1]:
+                if len(route) < max_route_len:
                     op_candidates.append("insert")
 
             op = op_candidates[int(rng.integers(0, len(op_candidates)))]
@@ -463,7 +481,12 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
                 insert_idx = int(rng.integers(1, len(candidate) + 1)) if candidate else 0
                 candidate.insert(insert_idx, unvisited[int(rng.integers(0, len(unvisited)))])
 
-            route = _repair_op_route(candidate, distances[batch_idx], float(limits[batch_idx]))
+            route = _repair_op_route(
+                candidate,
+                distances[batch_idx],
+                max_arrival[batch_idx],
+                max_route_len=max_route_len,
+            )
 
         actions_np[batch_idx] = 0
         if route:
@@ -943,20 +966,25 @@ class EAM(REINFORCE):
                     if improved_out is not None and mechanism_pack.get("tauk", None) is not None:
                         mechanism_pack["tauk"] = improved_out.get("actions", mechanism_pack["tauk"])
 
-            ga_used = raw_improved_out is not None
+            ga_used = improved_out is not None
             ga_cost_gain = None
             ga_cost_gain_rel = None
             mechanism_stats = None
+            if ga_candidate:
+                score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
             if ga_used:
                 pair_count = (
                     mechanism_pack.get("pair_count")
                     if mechanism_pack is not None
-                    else infer_num_traj(raw_improved_out.get("actions", None), batch_size)
+                    else infer_num_traj(improved_out.get("actions", None), batch_size)
                 )
-                score0 = self.mechanism_probe.adapter.reward_to_score(original_out["reward"])
-                scorek = self.mechanism_probe.adapter.reward_to_score(raw_improved_out["reward"])
+                accepted_scorek = self.mechanism_probe.adapter.reward_to_score(
+                    improved_out["reward"]
+                )
                 score0_trimmed = take_first_trajectories(score0, batch_size, pair_count)
-                scorek_trimmed = take_first_trajectories(scorek, batch_size, pair_count)
+                scorek_trimmed = take_first_trajectories(
+                    accepted_scorek, batch_size, pair_count
+                )
                 pair_gain = self.mechanism_probe.adapter.pair_gain(
                     score0_trimmed, scorek_trimmed
                 )
@@ -965,6 +993,9 @@ class EAM(REINFORCE):
                 ga_improved = bool(ga_cost_gain.item() > 1e-12)
 
                 if self.mechanism_cfg.enabled:
+                    raw_scorek = self.mechanism_probe.adapter.reward_to_score(
+                        raw_improved_out["reward"]
+                    )
                     t0 = time.perf_counter()
                     with torch.no_grad():
                         mechanism_stats = self.mechanism_probe.compute(
@@ -974,7 +1005,7 @@ class EAM(REINFORCE):
                             tauk=raw_improved_out.get("actions", None),
                             pair_count=pair_count,
                             score0=score0,
-                            scorek=scorek,
+                            scorek=raw_scorek,
                             log_likelihood0=original_out.get("log_likelihood", None),
                             log_likelihoodk=raw_improved_out.get("log_likelihood", None),
                             population_actions=(
@@ -988,6 +1019,9 @@ class EAM(REINFORCE):
                         )
                         self.mechanism_probe.dump(mechanism_stats)
                     t_diag += time.perf_counter() - t0
+            elif ga_candidate:
+                ga_cost_gain = torch.tensor(0.0, device=td.device)
+                ga_cost_gain_rel = torch.tensor(0.0, device=td.device)
 
             if self.baseline_str == "rollout":
                 # using am as baseline
