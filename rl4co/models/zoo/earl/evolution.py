@@ -70,7 +70,16 @@ def evolution_worker(actions, _td, ea, env, return_population: bool = False):
                 
             if np.any(np.all(actions == 0, axis=2)):
                 print("Warning: actions contains rows with all zeros.")
-            actions = generate_batch_population(actions, env_code, ea.mutation_rate)
+            if ea.env_name == "op":
+                locs_np = td["locs"].cpu().numpy().astype(np.float32)
+                diff = locs_np[:, :, None, :] - locs_np[:, None, :, :]
+                dist_mats = np.sqrt(np.sum(diff ** 2, axis=-1)).astype(np.float32)
+                max_distances = td["max_length"].cpu().numpy().astype(np.float32)
+                actions = generate_batch_population_op(
+                    actions, dist_mats, max_distances, ea.mutation_rate
+                )
+            else:
+                actions = generate_batch_population(actions, env_code, ea.mutation_rate)
         else:
             # use original actions
             actions = unbatchify(actions, n_start).cpu().numpy().astype(np.int64)
@@ -1455,6 +1464,173 @@ def generate_batch_population(batch_routes, env_code, mutate_rate):
         pop = generate_population(route, pop_size, env_code, 0.0, verbose)
         population[b] = pop
     
+    return population
+
+
+@nb.njit(nb.int64[:](nb.int64[:], nb.int64, nb.int64), nogil=True)
+def _op_remove_at(route, route_len, remove_idx):
+    chrom_length = route.shape[0]
+    out = np.zeros(chrom_length, dtype=np.int64)
+    pos = 0
+    for i in range(route_len):
+        if i == remove_idx:
+            continue
+        out[pos] = route[i]
+        pos += 1
+    return out
+
+
+@nb.njit(nb.int64[:](nb.int64[:], nb.int64, nb.int64, nb.int64), nogil=True)
+def _op_reverse_segment(route, route_len, start_idx, end_idx):
+    chrom_length = route.shape[0]
+    out = np.zeros(chrom_length, dtype=np.int64)
+    for i in range(route_len):
+        out[i] = route[i]
+    left = start_idx
+    right = end_idx
+    while left < right:
+        tmp = out[left]
+        out[left] = out[right]
+        out[right] = tmp
+        left += 1
+        right -= 1
+    return out
+
+
+@nb.njit(nb.int64[:](nb.int64[:], nb.int64, nb.int64, nb.int64, nb.int64), nogil=True)
+def _op_insert_node(route, route_len, insert_pos, node, chrom_length):
+    out = np.zeros(chrom_length, dtype=np.int64)
+    pos = 0
+    inserted = False
+    for i in range(route_len):
+        if not inserted and pos == insert_pos:
+            out[pos] = node
+            pos += 1
+            inserted = True
+        out[pos] = route[i]
+        pos += 1
+    if not inserted and pos < chrom_length:
+        out[pos] = node
+    return out
+
+
+@nb.njit(nb.int64[:](nb.int64[:], nb.int64, nb.int64, nb.int64), nogil=True)
+def _op_replace_node(route, route_len, replace_idx, node):
+    chrom_length = route.shape[0]
+    out = np.zeros(chrom_length, dtype=np.int64)
+    for i in range(route_len):
+        out[i] = route[i]
+    out[replace_idx] = node
+    return out
+
+
+@nb.njit(nb.int64(nb.int64[:], nb.int64, nb.int64), nogil=True)
+def _op_pick_unvisited(route, route_len, num_nodes):
+    used = np.zeros(num_nodes, dtype=np.bool_)
+    for i in range(route_len):
+        node = route[i]
+        if node > 0 and node < num_nodes:
+            used[node] = True
+    available_count = 0
+    for node in range(1, num_nodes):
+        if not used[node]:
+            available_count += 1
+    if available_count == 0:
+        return -1
+    pick = np.random.randint(0, available_count)
+    cur = 0
+    for node in range(1, num_nodes):
+        if not used[node]:
+            if cur == pick:
+                return node
+            cur += 1
+    return -1
+
+
+@nb.njit(nb.boolean(nb.int64[:], nb.int64[:]), nogil=True)
+def _same_route_prefix(route_a, route_b):
+    if route_a.shape[0] != route_b.shape[0]:
+        return False
+    for i in range(route_a.shape[0]):
+        if route_a[i] != route_b[i]:
+            return False
+    return True
+
+
+@nb.njit(nb.int64[:,:](nb.int64[:], nb.int64, nb.float32[:,:], nb.float32), nogil=True)
+def _generate_op_population(route, pop_size, dist_matrix, max_distance):
+    chrom_length = route.shape[0]
+    num_nodes = dist_matrix.shape[0]
+    pop = np.zeros((pop_size, chrom_length), dtype=np.int64)
+
+    base = _repair_op_chromosome(route, dist_matrix, max_distance)
+    pop[0] = base
+    base_len = _op_prefix_len(base)
+
+    for i in range(1, pop_size):
+        candidate = base.copy()
+        route_len = base_len
+        if route_len == 0:
+            pop[i] = candidate
+            continue
+
+        mode = (i - 1) % 4
+
+        if mode == 0 and route_len > 1:
+            remove_idx = 1 + ((i - 1) % (route_len - 1))
+            candidate = _op_remove_at(candidate, route_len, remove_idx)
+        elif mode == 1 and route_len > 2:
+            start_idx = 1 + ((i - 1) % (route_len - 1))
+            end_span = route_len - start_idx
+            if end_span > 0:
+                end_idx = start_idx + (i % end_span)
+                if end_idx > start_idx:
+                    candidate = _op_reverse_segment(candidate, route_len, start_idx, end_idx)
+        elif mode == 2:
+            replacement = _op_pick_unvisited(candidate, route_len, num_nodes)
+            if replacement != -1:
+                replace_idx = 1 + ((i - 1) % max(route_len - 1, 1)) if route_len > 1 else 0
+                candidate = _op_replace_node(candidate, route_len, replace_idx, replacement)
+        else:
+            if route_len < chrom_length - 1:
+                inserted = _op_pick_unvisited(candidate, route_len, num_nodes)
+                if inserted != -1:
+                    insert_pos = 1 + ((i - 1) % route_len) if route_len > 0 else 0
+                    candidate = _op_insert_node(candidate, route_len, insert_pos, inserted, chrom_length)
+
+        candidate = _repair_op_chromosome(candidate, dist_matrix, max_distance)
+
+        if _same_route_prefix(candidate, base) and route_len > 1:
+            remove_idx = 1 + ((i - 1) % (route_len - 1))
+            candidate = _repair_op_chromosome(
+                _op_remove_at(base, route_len, remove_idx), dist_matrix, max_distance
+            )
+
+        pop[i] = candidate
+
+    return pop
+
+
+@nb.njit(
+    nb.int64[:,:,:](nb.int64[:,:,:], nb.float32[:,:,:], nb.float32[:,:], nb.float64),
+    parallel=True,
+    nogil=True,
+)
+def generate_batch_population_op(batch_routes, batch_dist_mats, max_distances, mutate_rate):
+    batch_size, _, seq_len = batch_routes.shape
+    pop_size = nb.int64(50)
+    population = np.zeros((batch_size, pop_size, seq_len), dtype=nb.int64)
+
+    for b in prange(batch_size):
+        route = batch_routes[b, 0, :]
+        max_distance = np.float32(max_distances[b, 0])
+        population[b] = _generate_op_population(
+            route,
+            pop_size,
+            batch_dist_mats[b],
+            max_distance,
+        )
+
     return population
 
 @nb.njit(nb.int64[:](nb.int64[:], nb.float32[:], nb.float64), nogil=True)
