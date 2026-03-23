@@ -29,6 +29,33 @@ def _encode_route(route: list[int], seq_len: int) -> np.ndarray:
     return encoded
 
 
+def _truncate_encoded_route_to_feasible_prefix(
+    encoded: np.ndarray,
+    distance: np.ndarray,
+    max_arrival: np.ndarray,
+) -> np.ndarray:
+    route: list[int] = []
+    seen: set[int] = set()
+    current_node = 0
+    current_length = np.float64(0.0)
+
+    for node in encoded.tolist():
+        node = int(node)
+        if node == 0:
+            break
+        if node <= 0 or node in seen:
+            break
+        arrival_length = np.float64(current_length + distance[current_node, node])
+        if arrival_length > float(max_arrival[node]):
+            break
+        route.append(node)
+        seen.add(node)
+        current_node = node
+        current_length = arrival_length
+
+    return _encode_route(route, int(encoded.shape[0]))
+
+
 def _route_length(route: list[int], distance: np.ndarray) -> float:
     if not route:
         return 0.0
@@ -314,6 +341,10 @@ def local_search(
             max_iterations=max_iterations,
             rng=rng,
         )
-        improved[batch_idx] = _encode_route(improved_route, seq_len)
+        improved[batch_idx] = _truncate_encoded_route_to_feasible_prefix(
+            _encode_route(improved_route, seq_len),
+            distances[batch_idx],
+            max_arrival[batch_idx],
+        )
 
     return torch.from_numpy(improved).to(device=actions.device, dtype=actions.dtype)

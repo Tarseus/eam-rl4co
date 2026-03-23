@@ -469,6 +469,36 @@ def _canonicalize_op_route(
     return canonical
 
 
+def _truncate_op_encoded_route_to_feasible_prefix(
+    encoded: np.ndarray,
+    distance: np.ndarray,
+    max_arrival: np.ndarray,
+) -> np.ndarray:
+    route: list[int] = []
+    seen: set[int] = set()
+    current_node = 0
+    current_length = np.float64(0.0)
+
+    for node in encoded.tolist():
+        node = int(node)
+        if node == 0:
+            break
+        if node <= 0 or node in seen:
+            break
+        arrival_length = np.float64(current_length + distance[current_node, node])
+        if arrival_length > float(max_arrival[node]):
+            break
+        route.append(node)
+        seen.add(node)
+        current_node = node
+        current_length = arrival_length
+
+    truncated = np.zeros_like(encoded)
+    if route:
+        truncated[: len(route)] = np.asarray(route, dtype=encoded.dtype)
+    return truncated
+
+
 def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) -> torch.Tensor:
     if actions is None or actions.dim() != 2 or num_iters <= 0:
         return actions
@@ -533,10 +563,14 @@ def _random_op_perturb(actions: torch.Tensor, td: TensorDict, num_iters: int) ->
             max_arrival[batch_idx],
             max_route_len=max_route_len,
         )
-
-        actions_np[batch_idx] = 0
+        encoded = np.zeros_like(actions_np[batch_idx])
         if route:
-            actions_np[batch_idx, : len(route)] = np.asarray(route, dtype=np.int64)
+            encoded[: len(route)] = np.asarray(route, dtype=np.int64)
+        actions_np[batch_idx] = _truncate_op_encoded_route_to_feasible_prefix(
+            encoded,
+            distances[batch_idx],
+            max_arrival[batch_idx],
+        )
 
     return torch.from_numpy(actions_np).to(device=actions.device, dtype=actions.dtype)
 
