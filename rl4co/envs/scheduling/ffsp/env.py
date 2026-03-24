@@ -397,7 +397,7 @@ class FFSPEnv(RL4COEnvBase):
             shape=(1,),
             dtype=torch.int64,
             low=0,
-            high=generator.num_machine_total,
+            high=generator.num_job,
         )
         self.reward_spec = Unbounded(shape=(1,))
         self.done_spec = Unbounded(shape=(1,), dtype=torch.bool)

@@ -159,3 +159,9 @@ def test_scheduling_dataloader():
         read_env = FJSPEnv(generator_params={"file_path": tmpdirname})
         td = read_env.reset(batch_size=2)
     assert td.size(0) == 2
+
+
+def test_ffsp_action_spec_matches_job_action_space():
+    env = FFSPEnv(generator_params={"num_stage": 3, "num_machine": 4, "num_job": 20})
+    assert int(env.action_spec.space.low.item()) == 0
+    assert int(env.action_spec.space.high.item()) == env.num_job

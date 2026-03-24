@@ -49,6 +49,7 @@ model:
     train: ["loss", "reward", "max_reward", "po_loss", "po_pref_rate"]
     val: ["reward", "max_reward"]
     test: ${model.metrics.val}
+    log_on_step: false
   policy_params:
     embed_dim: 256
     num_encoder_layers: 3

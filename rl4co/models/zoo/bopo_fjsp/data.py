@@ -7,6 +7,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+_CACHE_VERSION = 2
+
 
 def standardize(input: torch.Tensor, dim: int = 0, eps: float = 1e-6) -> torch.Tensor:
     means = input.mean(dim=dim, keepdim=True)
@@ -45,7 +47,9 @@ def _read_basic(fpath: str):
 
     for job in process_times:
         if len(job) < max_num_ops:
-            job += [[0] + [-1 for _ in range(num_machines - 1)] for _ in range(max_num_ops - len(job))]
+            # Pad missing operations as fully invalid so they do not become zero-cost
+            # executable operations on machine 0.
+            job += [[-1 for _ in range(num_machines)] for _ in range(max_num_ops - len(job))]
     process_times = np.array(process_times, dtype=np.int32)
     makespan = int(lines[num_jobs + 1]) if len(lines) > num_jobs + 1 else None
 
@@ -59,6 +63,11 @@ def _read_basic(fpath: str):
 def _cluster_edges(data: np.ndarray, device: str = "cpu"):
     num_jobs, num_ops, num_machines = data.shape
     node_count = -1
+
+    def _edge_tensor(edges: list[tuple[int, int]]) -> torch.Tensor:
+        if not edges:
+            return torch.empty((2, 0), dtype=torch.long, device=device)
+        return torch.tensor(edges, dtype=torch.long, device=device).t().contiguous()
 
     def count() -> int:
         nonlocal node_count
@@ -107,9 +116,9 @@ def _cluster_edges(data: np.ndarray, device: str = "cpu"):
                 assigned.append(curr)
 
     return (
-        torch.tensor(edges_job, dtype=torch.long, device=device).t().contiguous(),
-        torch.tensor(edges_ops, dtype=torch.long, device=device).t().contiguous(),
-        torch.tensor(edges_machine, dtype=torch.long, device=device).t().contiguous(),
+        _edge_tensor(edges_job),
+        _edge_tensor(edges_ops),
+        _edge_tensor(edges_machine),
     )
 
 
@@ -119,6 +128,7 @@ def _extract_features(data: np.ndarray, device: str = "cpu") -> torch.Tensor:
     quantiles = np.array([0.25, 0.5, 0.75])
     max_cost = data.max()
     data = data / max_cost
+    valid_mask = data >= 0
 
     feat_job_q = np.zeros((num_valid_ops, 3), dtype=np.float32)
     feat_job_d = np.zeros((num_valid_ops, 3), dtype=np.float32)
@@ -146,12 +156,19 @@ def _extract_features(data: np.ndarray, device: str = "cpu") -> torch.Tensor:
         feat_machine_d[count] = data[job_idx, op_idx, machine_idx] - machine_q[machine_idx]
         count += 1
 
-    costs = data[data >= 0]
-    avg_cost = np.mean(data, axis=2, where=data >= 0)
+    costs = data[valid_mask]
+    valid_count = valid_mask.sum(axis=2)
+    valid_sum = np.where(valid_mask, data, 0.0).sum(axis=2)
+    avg_cost = np.divide(valid_sum, np.maximum(valid_count, 1), dtype=np.float32)
+    avg_cost = np.where(valid_count > 0, avg_cost, 0.0)
     avg_sum = np.sum(avg_cost, axis=1, keepdims=True)
     avg_cumsum = np.cumsum(avg_cost, axis=1)
-    avg_completion = avg_cumsum / avg_sum
-    avg_remain = (avg_sum - avg_cumsum + avg_cost) / avg_sum
+    avg_completion = np.divide(avg_cumsum, np.maximum(avg_sum, 1e-8), dtype=np.float32)
+    avg_remain = np.divide(
+        avg_sum - avg_cumsum + avg_cost,
+        np.maximum(avg_sum, 1e-8),
+        dtype=np.float32,
+    )
 
     feat_ops = np.zeros((num_valid_ops, 3), dtype=np.float32)
     for idx, (job_idx, op_idx, _machine_idx) in enumerate(zip(*np.where(data >= 0))):
@@ -200,14 +217,21 @@ def load_dataset(data_dir: str, use_cached: bool = True, device: str = "cpu") ->
     data_path = Path(data_dir)
     cache_path = data_path / "cached.pt"
     if use_cached and cache_path.exists():
-        return torch.load(cache_path, map_location=device, weights_only=False)
+        cached = torch.load(cache_path, map_location=device, weights_only=False)
+        if isinstance(cached, dict) and cached.get("cache_version") == _CACHE_VERSION:
+            return cached["instances"]
+        if isinstance(cached, list):
+            # Legacy cache from older builds; rebuild to avoid stale preprocessing bugs.
+            pass
+        else:
+            raise ValueError(f"Unexpected cache payload in {cache_path}")
 
     instances = []
     for file in sorted(data_path.iterdir()):
         if file.name.startswith(".") or file.suffix.lower() != ".fjs":
             continue
         instances.append(load_instance(str(file), device=device))
-    torch.save(instances, cache_path)
+    torch.save({"cache_version": _CACHE_VERSION, "instances": instances}, cache_path)
     return instances
 
 

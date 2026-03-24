@@ -3831,3 +3831,84 @@ FileNotFoundError: [Errno 2] No such file or directory: '/data1/gushengda/eam-rl
 [2026-03-24 00:06:39,966][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/cvrp100_baseline_20260322-062025
 [2026-03-24 00:06:39,966][rl4co.utils.utils][INFO] - Closing loggers...
 [2026-03-24 00:06:40,391][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
+[2026-03-24 15:49:45,536][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-03-24 15:49:45,536][rl4co.utils.rich_utils][WARNING] - Field 'callbacks' not found in config. Skipping 'callbacks' config printing...
+[2026-03-24 15:49:45,617][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.FFSPEnv>
+[2026-03-24 15:49:45,983][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.MatNet>
+[2026-03-24 15:49:46,140][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-03-24 15:49:46,142][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-03-24 15:49:46,144][rl4co.models.nn.attention][INFO] - Using default scaled_dot_product_attention for PointerAttention
+[2026-03-24 15:49:46,234][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-03-24 15:49:46,235][rl4co.utils.instantiators][WARNING] - No callback configs found! Skipping..
+[2026-03-24 15:49:46,235][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-03-24 15:49:46,235][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-03-24 15:49:46,237][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-03-24 15:49:46,241][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-03-24 15:49:46,254][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-03-24 15:49:46,257][rl4co.tasks.train][INFO] - Starting training!
+[2026-03-24 15:49:46,334][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-03-24 15:49:46,334][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-03-24 15:49:46,339][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp20_val_seed4321.npz
+[2026-03-24 15:49:46,348][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp50_val_seed4321.npz
+[2026-03-24 15:49:46,365][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp100_val_seed4321.npz
+[2026-03-24 15:49:46,377][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp20_val_seed4321.npz
+[2026-03-24 15:49:46,392][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp50_val_seed4321.npz
+[2026-03-24 15:49:46,424][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp100_val_seed4321.npz
+[2026-03-24 15:49:46,442][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp20_val_seed4321.npz
+[2026-03-24 15:49:46,468][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp50_val_seed4321.npz
+[2026-03-24 15:49:46,517][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp100_val_seed4321.npz
+[2026-03-24 15:49:46,539][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const20_val_seed4321.npz
+[2026-03-24 15:49:46,552][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const50_val_seed4321.npz
+[2026-03-24 15:49:46,573][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const100_val_seed4321.npz
+[2026-03-24 15:49:46,588][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif20_val_seed4321.npz
+[2026-03-24 15:49:46,603][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif50_val_seed4321.npz
+[2026-03-24 15:49:46,641][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif100_val_seed4321.npz
+[2026-03-24 15:49:46,676][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist20_val_seed4321.npz
+[2026-03-24 15:49:46,711][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist50_val_seed4321.npz
+[2026-03-24 15:49:46,783][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist100_val_seed4321.npz
+[2026-03-24 15:49:46,802][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp20_val_seed4321.npz
+[2026-03-24 15:49:46,814][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp50_val_seed4321.npz
+[2026-03-24 15:49:46,834][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp100_val_seed4321.npz
+[2026-03-24 15:49:47,326][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp20_val_seed4321.npz
+[2026-03-24 15:49:53,294][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp50_val_seed4321.npz
+[2026-03-24 15:50:35,741][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp100_val_seed4321.npz
+[2026-03-24 15:50:36,030][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp20_test_seed1234.npz
+[2026-03-24 15:50:36,047][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp50_test_seed1234.npz
+[2026-03-24 15:50:36,064][rl4co.data.generate_data][INFO] - Saving tsp dataset to data/tsp\tsp100_test_seed1234.npz
+[2026-03-24 15:50:36,078][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp20_test_seed1234.npz
+[2026-03-24 15:50:36,095][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp50_test_seed1234.npz
+[2026-03-24 15:50:36,132][rl4co.data.generate_data][INFO] - Saving vrp dataset to data/vrp\vrp100_test_seed1234.npz
+[2026-03-24 15:50:36,150][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp20_test_seed1234.npz
+[2026-03-24 15:50:36,183][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp50_test_seed1234.npz
+[2026-03-24 15:50:36,235][rl4co.data.generate_data][INFO] - Saving pctsp dataset to data/pctsp\pctsp100_test_seed1234.npz
+[2026-03-24 15:50:36,256][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const20_test_seed1234.npz
+[2026-03-24 15:50:36,268][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const50_test_seed1234.npz
+[2026-03-24 15:50:36,291][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_const100_test_seed1234.npz
+[2026-03-24 15:50:36,305][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif20_test_seed1234.npz
+[2026-03-24 15:50:36,319][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif50_test_seed1234.npz
+[2026-03-24 15:50:36,347][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_unif100_test_seed1234.npz
+[2026-03-24 15:50:36,367][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist20_test_seed1234.npz
+[2026-03-24 15:50:36,393][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist50_test_seed1234.npz
+[2026-03-24 15:50:36,439][rl4co.data.generate_data][INFO] - Saving op dataset to data/op\op_dist100_test_seed1234.npz
+[2026-03-24 15:50:36,461][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp20_test_seed1234.npz
+[2026-03-24 15:50:36,469][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp50_test_seed1234.npz
+[2026-03-24 15:50:36,488][rl4co.data.generate_data][INFO] - Saving pdp dataset to data/pdp\pdp100_test_seed1234.npz
+[2026-03-24 15:50:36,930][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp20_test_seed1234.npz
+[2026-03-24 15:50:42,560][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp50_test_seed1234.npz
+[2026-03-24 15:51:25,365][rl4co.data.generate_data][INFO] - Saving atsp dataset to data/atsp\atsp100_test_seed1234.npz
+[2026-03-24 15:51:25,678][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-03-24 15:51:25,678][rl4co.envs.common.base][WARNING] - val_file not set. Generating dataset instead
+[2026-03-24 15:51:25,686][rl4co.envs.common.base][WARNING] - test_file not set. Generating dataset instead
+[2026-03-24 15:51:25,693][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-03-24 15:51:25,694][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-03-24 15:51:59,631][rl4co.tasks.train][INFO] - Starting testing!
+[2026-03-24 15:51:59,631][rl4co.tasks.train][WARNING] - Best ckpt not found! Using current weights for testing...
+[2026-03-24 15:51:59,739][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-03-24 15:51:59,739][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-03-24 15:51:59,754][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-03-24 15:51:59,754][rl4co.envs.common.base][WARNING] - val_file not set. Generating dataset instead
+[2026-03-24 15:51:59,756][rl4co.envs.common.base][WARNING] - test_file not set. Generating dataset instead
+[2026-03-24 15:52:02,506][rl4co.tasks.train][INFO] - Best ckpt path: None
+[2026-03-24 15:52:02,507][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\2026-03-24_15-49-45
+[2026-03-24 15:52:02,507][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-03-24 15:52:03,586][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
