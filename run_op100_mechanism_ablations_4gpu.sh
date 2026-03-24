@@ -24,14 +24,18 @@ for idx in "${!variants[@]}"; do
   timestamp="$(date +%Y%m%d_%H%M%S)"
   stdout_log="${log_dir}/op100_${variant}_seed${seed}_${timestamp}.log"
   exit_log="${stdout_log%.log}.exitcode"
+  hydra_run_dir="logs/train/runs/op100_${variant}_seed${seed}_${timestamp}"
 
   echo "Starting OP100 ${variant} on cuda:${gpu}"
   echo "  stdout: ${stdout_log}"
   echo "  exit  : ${exit_log}"
+  echo "  hydra : ${hydra_run_dir}"
 
   (
-    cleanup() {
-      status=$?
+    run_status=0
+
+    log_exit() {
+      status="${1:-0}"
       {
         echo "[run] variant=${variant}"
         echo "[run] gpu=${gpu}"
@@ -41,14 +45,22 @@ for idx in "${!variants[@]}"; do
       printf "%s\n" "${status}" > "${exit_log}"
     }
 
-    trap cleanup EXIT
-    trap 'echo "[run] variant='"${variant}"' received_signal=INT at $(date '\''+%Y-%m-%d %H:%M:%S'\'')" | tee -a "'"${stdout_log}"'"' INT
-    trap 'echo "[run] variant='"${variant}"' received_signal=TERM at $(date '\''+%Y-%m-%d %H:%M:%S'\'')" | tee -a "'"${stdout_log}"'"' TERM
+    on_signal() {
+      signal_name="$1"
+      signal_status="$2"
+      echo "[run] variant=${variant} received_signal=${signal_name} at $(date '+%Y-%m-%d %H:%M:%S')" | tee -a "${stdout_log}"
+      log_exit "${signal_status}"
+      exit "${signal_status}"
+    }
+
+    trap 'on_signal INT 130' INT
+    trap 'on_signal TERM 143' TERM
 
     CUDA_VISIBLE_DEVICES="${gpu}" \
     PYTHONUNBUFFERED=1 \
     python run.py \
       experiment=routing/op100_am_mechanism \
+      "hydra.run.dir=${hydra_run_dir}" \
       trainer.accelerator=gpu \
       ++trainer.devices=1 \
       trainer.max_epochs="${epochs}" \
@@ -57,7 +69,10 @@ for idx in "${!variants[@]}"; do
       model.mechanism.variant="${variant}" \
       model.ea_kwargs.improve_mode="${variant}" \
       model.ea_kwargs.val_improve_mode="${variant}" \
-      "${extra_overrides[@]}" 2>&1 | tee "${stdout_log}"
+      "${extra_overrides[@]}" 2>&1 | tee "${stdout_log}" || run_status=$?
+
+    log_exit "${run_status}"
+    exit "${run_status}"
   ) &
 
   pids+=("$!")
