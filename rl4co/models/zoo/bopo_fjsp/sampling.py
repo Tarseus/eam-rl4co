@@ -12,6 +12,11 @@ class Solutions:
     trajs: torch.Tensor
 
 
+def _count_real_operations(ins: dict) -> int:
+    data = np.asarray(ins["data"])
+    return int(np.any(data >= 0, axis=2).sum())
+
+
 def sro_loss(info_better: Solutions, info_worse: Solutions) -> torch.Tensor:
     logits_better = info_better.logits
     targets_better = info_better.trajs
@@ -158,8 +163,7 @@ class FlexibleJobShopStates:
 
 
 def solve_problem(ins, batch_size, device, encoder, decoder, use_greedy=False):
-    num_jobs, num_ops = ins["j"], ins["o"]
-    total_ops = num_jobs * num_ops
+    total_ops = _count_real_operations(ins)
     fjsp = FlexibleJobShopStates(device)
     state, mask = fjsp.init_state(ins, batch_size)
 
@@ -207,8 +211,7 @@ def sample_training_pair(
     encoder.train()
     decoder.train()
 
-    num_jobs, num_ops = ins["j"], ins["o"]
-    total_ops = num_jobs * num_ops
+    total_ops = _count_real_operations(ins)
     trajs, logits_store, makespan, fjsp = solve_problem(
         ins, B, device, encoder, decoder, use_greedy=use_greedy
     )
