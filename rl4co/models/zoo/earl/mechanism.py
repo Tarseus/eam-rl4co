@@ -329,7 +329,7 @@ def build_mechanism_config(
         seed=int(mechanism.get("seed", 0) or 0),
         backbone=mechanism.get("backbone", infer_backbone_name(baseline)),
     )
-    if config.variant in {"random_only", "ls_only"} and config.refine_budget is None:
+    if config.variant in {"random_only", "ls_only"}:
         config.refine_budget = 1
     return config
 
