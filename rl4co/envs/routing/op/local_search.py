@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import torch
+import concurrent.futures
 
 from tensordict.tensordict import TensorDict
 
@@ -302,6 +303,23 @@ def _improve_single(
     return current
 
 
+def _improve_single_worker(args):
+    """Worker function for parallel processing"""
+    batch_idx, route, distance, prize, max_arrival, num_nodes, max_route_len, max_iterations, seed = args
+    rng = np.random.default_rng(seed)
+    improved_route = _improve_single(
+        route=route,
+        distance=distance,
+        prize=prize,
+        max_arrival=max_arrival,
+        num_nodes=num_nodes,
+        max_route_len=max_route_len,
+        max_iterations=max_iterations,
+        rng=rng,
+    )
+    return batch_idx, improved_route
+
+
 def local_search(
     td: TensorDict,
     actions: torch.Tensor,
@@ -309,7 +327,6 @@ def local_search(
     num_threads: int = None,
     num_candidates: int = 4,
 ) -> torch.Tensor:
-    del num_threads
 
     if actions is None or actions.dim() != 2 or actions.size(0) == 0:
         return actions
@@ -322,29 +339,41 @@ def local_search(
     max_arrival = td_cpu["max_length"].numpy().astype(np.float64)
     actions_np = actions_cpu.numpy().astype(np.int64)
 
-    rng = np.random.default_rng()
     seq_len = actions_np.shape[1]
     num_nodes = distances.shape[1]
     max_route_len = max(seq_len - 1, 0)
     max_iterations = max(1, int(max_iterations))
+    batch_size = actions_np.shape[0]
 
-    improved = np.zeros_like(actions_np)
-    for batch_idx in range(actions_np.shape[0]):
+    # Prepare arguments for parallel processing
+    base_seed = np.random.SeedSequence().generate_state(1)[0]
+    worker_args = []
+    for batch_idx in range(batch_size):
         route = _extract_route(actions_np[batch_idx])
-        improved_route = _improve_single(
-            route=route,
-            distance=distances[batch_idx],
-            prize=prizes[batch_idx],
-            max_arrival=max_arrival[batch_idx],
-            num_nodes=num_nodes,
-            max_route_len=max_route_len,
-            max_iterations=max_iterations,
-            rng=rng,
-        )
-        improved[batch_idx] = _truncate_encoded_route_to_feasible_prefix(
-            _encode_route(improved_route, seq_len),
+        worker_args.append((
+            batch_idx,
+            route,
             distances[batch_idx],
+            prizes[batch_idx],
             max_arrival[batch_idx],
-        )
+            num_nodes,
+            max_route_len,
+            max_iterations,
+            base_seed + batch_idx,
+        ))
+
+    # Use ThreadPoolExecutor for parallel processing
+    improved = np.zeros_like(actions_np)
+    max_workers = num_threads if num_threads is not None else min(32, batch_size)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_improve_single_worker, args) for args in worker_args]
+        for future in concurrent.futures.as_completed(futures):
+            batch_idx, improved_route = future.result()
+            improved[batch_idx] = _truncate_encoded_route_to_feasible_prefix(
+                _encode_route(improved_route, seq_len),
+                distances[batch_idx],
+                max_arrival[batch_idx],
+            )
 
     return torch.from_numpy(improved).to(device=actions.device, dtype=actions.dtype)
