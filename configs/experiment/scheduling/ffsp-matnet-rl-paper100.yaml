@@ -11,9 +11,9 @@ logger:
   wandb:
     project: "rl4co"
     log_model: "all"
-    group: "po-ffsp-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
-    tags: ["po-ffsp-paper", "${env.name}"]
-    name: "po-ffsp-paper-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
+    group: "rl-ffsp-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
+    tags: ["rl-ffsp-paper", "${env.name}"]
+    name: "rl-ffsp-paper-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
 
 env:
   generator_params:
@@ -31,11 +31,10 @@ seed: 12345678
 
 model:
   _target_: rl4co.models.MatNet
-  loss_type: po_loss
-  alpha: 0.05
+  loss_type: rl_loss
   num_starts: 24
   batch_size: 50
-  train_data_size: 1_000
+  train_data_size: 10_000
   val_data_size: 1_000
   test_data_size: 1_000
   optimizer_kwargs:
@@ -46,13 +45,13 @@ model:
     milestones: [101, 151]
     gamma: 0.1
   metrics:
-    train: ["loss", "reward", "max_reward", "po_loss", "po_pref_rate"]
+    train: ["loss", "reward", "max_reward"]
     val: ["reward", "max_reward"]
     test: ${model.metrics.val}
     log_on_step: false
   policy_params:
     embed_dim: 256
-    num_encoder_layers: 3
+    num_encoder_layers: 5
     num_heads: 16
     normalization: instance
     use_graph_context: false
