@@ -32,7 +32,9 @@ seed: 12345678
 model:
   _target_: rl4co.models.MatNet
   loss_type: po_loss
-  alpha: 0.05
+  # PO4COPs Table 9: FFSP100 uses the Exponential preference function with alpha=1.0.
+  po_impl: exponential
+  alpha: 1.0
   num_starts: 24
   batch_size: 50
   train_data_size: 1_000

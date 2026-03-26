@@ -27,7 +27,8 @@ RL4CO routing environments typically use `reward = -cost`, so higher reward mean
 - Inputs: `reward [B,P]`, `log_likelihood [B,P]`.
 - Preference matrix: `preference[i,j] = 1 if reward_i > reward_j else 0`.
 - Logit difference: `logp_pair = alpha * (logp_i - logp_j)`.
-- Loss: `-mean(logsigmoid(logp_pair) * preference)` over full `[B,P,P]`.
+- `po_impl=bt`: `-mean(logsigmoid(logp_pair) * preference)` over full `[B,P,P]`.
+- `po_impl=exponential`: `-mean(logp_pair * preference)` over full `[B,P,P]`.
 - Diagnostics: `po_pref_rate = mean(preference)`.
 
 ### `pl_loss` (listwise / ranking)

@@ -11,6 +11,12 @@ def _ptp_po_loss(reward: torch.Tensor, log_likelihood: torch.Tensor, alpha: floa
     return -(pf_log * preference).mean()
 
 
+def _exp_po_loss(reward: torch.Tensor, log_likelihood: torch.Tensor, alpha: float):
+    preference = (reward[:, :, None] > reward[:, None, :]).float()
+    logp_pair = alpha * (log_likelihood[:, :, None] - log_likelihood[:, None, :])
+    return -(logp_pair * preference).mean()
+
+
 def _ptp_pl_loss(reward: torch.Tensor, log_likelihood: torch.Tensor, alpha: float):
     sorted_idx = reward.sort(dim=1, descending=True).indices
     logp = alpha * log_likelihood
@@ -30,6 +36,20 @@ def test_po_loss_matches_ptp_formula():
     alpha = 1.2
     ref = _ptp_po_loss(reward, log_likelihood, alpha)
     loss, pref_rate = po_loss(reward, log_likelihood, alpha=alpha)
+    assert torch.isfinite(loss)
+    assert torch.isfinite(pref_rate)
+    assert torch.allclose(loss, ref, atol=1e-6)
+
+
+def test_po_loss_matches_exponential_formula():
+    torch.manual_seed(0)
+    reward = torch.randn(4, 6)
+    log_likelihood = torch.randn(4, 6)
+    alpha = 1.2
+    ref = _exp_po_loss(reward, log_likelihood, alpha)
+    loss, pref_rate = po_loss(
+        reward, log_likelihood, alpha=alpha, impl="exponential"
+    )
     assert torch.isfinite(loss)
     assert torch.isfinite(pref_rate)
     assert torch.allclose(loss, ref, atol=1e-6)
