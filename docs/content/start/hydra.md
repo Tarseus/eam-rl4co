@@ -24,8 +24,9 @@ Here you may change the environment, e.g. with `env=cvrp` by command line or by 
 
 POMO can swap the training loss to preference-based variants that compare multi-start rollouts within the same instance. Configure via:
 
-- `model.loss_type`: `rl_loss` (default), `po_loss` (pairwise BT), `pl_loss` (listwise PL), or `free_loss` (IR-defined).
+- `model.loss_type`: `rl_loss` (default), `po_loss` (pairwise preference), `pl_loss` (listwise PL), or `free_loss` (IR-defined).
 - `model.alpha`: scales log-likelihood (acts like a preference temperature).
+- `model.po_impl`: `bt` (default Bradley-Terry / `logsigmoid`) or `exponential` (PO4COPs FFSP setting).
 - `model.pl_impl`: `stable` (default, O(B*P)) or `ptp` (legacy one-hot; formulation name only).
 - `model.free_loss_ir_json_path`: required if `loss_type=free_loss`.
 - `model.pref_builder_ir_json_path`: optional preference-builder artifact used to choose training pairs before applying `free_loss`.
@@ -34,6 +35,7 @@ POMO can swap the training loss to preference-based variants that compare multi-
 Examples:
 ```bash
 python run.py experiment=routing/pomo model.loss_type=po_loss model.alpha=1.0
+python run.py experiment=scheduling/ffsp-matnet-po-paper100 model.loss_type=po_loss model.po_impl=exponential model.alpha=1.0
 python run.py experiment=routing/pomo model.loss_type=pl_loss model.pl_impl=stable
 python run.py experiment=routing/pomo model.loss_type=free_loss model.free_loss_ir_json_path=examples/free_loss_minimal.json
 python run.py experiment=routing/pomo model.loss_type=free_loss model.pref_pair_json_path=runs/pref_loss_alternating_simple/<run>/best_pair.json

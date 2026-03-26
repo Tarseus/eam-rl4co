@@ -62,6 +62,7 @@ class POMO(REINFORCE):
         num_starts: Number of starts for multi-start. If None, use the number of available actions
         loss_type: Loss type to use. One of {"rl_loss", "po_loss", "pl_loss", "free_loss"}.
         alpha: Scaling factor for log-likelihood in preference losses.
+        po_impl: Implementation choice for pairwise preference loss, {"bt", "exponential"}.
         loss_kwargs: Optional keyword args reserved for preference losses.
         pl_impl: Implementation choice for listwise loss, {"ptp", "stable"}.
         free_loss_ir_json_path: Path to JSON IR for free_loss (required if loss_type="free_loss").
@@ -85,6 +86,7 @@ class POMO(REINFORCE):
         num_starts: int = None,
         loss_type: str = "rl_loss",
         alpha: float = 1.0,
+        po_impl: str = "bt",
         loss_kwargs: dict | None = None,
         pl_impl: str = "stable",
         free_loss_ir_json_path: str | None = None,
@@ -153,6 +155,7 @@ class POMO(REINFORCE):
 
         self.loss_type = loss_type
         self.alpha = float(alpha)
+        self.po_impl = po_impl
         self.loss_kwargs = {} if loss_kwargs is None else dict(loss_kwargs)
         self.pl_impl = pl_impl
         self.free_loss_ir_json_path = free_loss_ir_json_path
@@ -286,7 +289,12 @@ class POMO(REINFORCE):
         if self.loss_type == "rl_loss":
             return super().calculate_loss(td, batch, policy_out, reward, log_likelihood)
         if self.loss_type == "po_loss":
-            loss, pref_rate = po_loss(reward, log_likelihood, alpha=self.alpha)
+            loss, pref_rate = po_loss(
+                reward,
+                log_likelihood,
+                alpha=self.alpha,
+                impl=self.po_impl,
+            )
             policy_out.update(
                 {
                     "loss": loss,

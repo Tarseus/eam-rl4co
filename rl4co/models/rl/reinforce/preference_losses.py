@@ -7,23 +7,36 @@ import torch.nn.functional as F
 
 
 def po_loss(
-    reward: torch.Tensor, log_likelihood: torch.Tensor, alpha: float = 1.0
+    reward: torch.Tensor,
+    log_likelihood: torch.Tensor,
+    alpha: float = 1.0,
+    impl: Literal["bt", "exponential"] = "bt",
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Pairwise BT-style preference loss used in PTP POMO.
+    """Pairwise preference loss used in PO-style POMO training.
 
     Args:
         reward: Tensor of shape [batch, pomo], higher is better.
         log_likelihood: Tensor of shape [batch, pomo], sum log-prob per trajectory.
         alpha: Scale applied to log-likelihood.
+        impl: Pairwise preference function.
+            - "bt": Bradley-Terry / logistic preference, using ``logsigmoid``.
+            - "exponential": Exponential preference from the PO4COPs paper,
+              using the raw scaled log-prob gap.
 
     Returns:
         loss: Scalar tensor.
         pref_rate: Mean of preference matrix, useful for diagnostics.
     """
+    if impl not in {"bt", "exponential"}:
+        raise ValueError(f"Unknown po_loss impl: {impl}")
+
     preference = (reward[:, :, None] > reward[:, None, :]).float()
     logp = alpha * log_likelihood
     logp_pair = logp[:, :, None] - logp[:, None, :]
-    pf_log = F.logsigmoid(logp_pair)
+    if impl == "bt":
+        pf_log = F.logsigmoid(logp_pair)
+    else:
+        pf_log = logp_pair
     loss = -(pf_log * preference).mean()
     pref_rate = preference.mean()
     return loss, pref_rate
