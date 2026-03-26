@@ -10,7 +10,7 @@ import torch.nn as nn
 from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
-from rl4co.models.rl.reinforce.preference_losses import pl_loss, po_loss
+from rl4co.models.rl.reinforce.preference_losses import pl_loss, po_loss, bopo_loss, sll_loss
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.zoo.pomo.po4cops_cvrp_policy import PO4COPsCVRPPolicy
@@ -60,11 +60,17 @@ class POMO(REINFORCE):
         first_aug_identity: Whether to include the identity augmentation in the first position
         feats: List of features to augment
         num_starts: Number of starts for multi-start. If None, use the number of available actions
-        loss_type: Loss type to use. One of {"rl_loss", "po_loss", "pl_loss", "free_loss"}.
+        loss_type: Loss type to use. One of {"rl_loss", "po_loss", "pl_loss", "bopo_loss", "sll_loss", "free_loss"}.
         alpha: Scaling factor for log-likelihood in preference losses.
         po_impl: Implementation choice for pairwise preference loss, {"bt", "exponential"}.
         loss_kwargs: Optional keyword args reserved for preference losses.
         pl_impl: Implementation choice for listwise loss, {"ptp", "stable"}.
+        bopo_pair_mode: Pairing mode for BOPO loss, {"anchor_best", "all_pairs"}.
+        bopo_select_strategy: Selection strategy for BOPO loss, {"top_k", "quantile"}.
+        bopo_select_k: Number of top solutions to select for BOPO loss.
+        bopo_select_quantile: Quantile threshold for BOPO loss.
+        sll_impl: Implementation variant for SLL/SLIM loss, {"sll", "slim", "listnet"}.
+        sll_temperature: Temperature for SLL/SLIM loss softmax.
         free_loss_ir_json_path: Path to JSON IR for free_loss (required if loss_type="free_loss").
         pref_builder_ir_json_path: Optional path to a preference-builder JSON artifact.
         pref_pair_json_path: Optional path to a co-evolution `best_pair.json`; when set, the model
@@ -89,6 +95,12 @@ class POMO(REINFORCE):
         po_impl: str = "bt",
         loss_kwargs: dict | None = None,
         pl_impl: str = "stable",
+        bopo_pair_mode: str = "anchor_best",
+        bopo_select_strategy: str = "top_k",
+        bopo_select_k: int | None = None,
+        bopo_select_quantile: float = 0.5,
+        sll_impl: str = "sll",
+        sll_temperature: float = 1.0,
         free_loss_ir_json_path: str | None = None,
         pref_builder_ir_json_path: str | None = None,
         pref_pair_json_path: str | None = None,
@@ -158,6 +170,12 @@ class POMO(REINFORCE):
         self.po_impl = po_impl
         self.loss_kwargs = {} if loss_kwargs is None else dict(loss_kwargs)
         self.pl_impl = pl_impl
+        self.bopo_pair_mode = bopo_pair_mode
+        self.bopo_select_strategy = bopo_select_strategy
+        self.bopo_select_k = bopo_select_k
+        self.bopo_select_quantile = float(bopo_select_quantile)
+        self.sll_impl = sll_impl
+        self.sll_temperature = float(sll_temperature)
         self.free_loss_ir_json_path = free_loss_ir_json_path
         self.pref_builder_ir_json_path = pref_builder_ir_json_path
         self.pref_pair_json_path = pref_pair_json_path
@@ -311,6 +329,34 @@ class POMO(REINFORCE):
                 impl=self.pl_impl,
             )
             policy_out.update({"loss": loss, "pl_loss": loss.detach()})
+            return policy_out
+        if self.loss_type == "bopo_loss":
+            loss, pair_count = bopo_loss(
+                reward,
+                log_likelihood,
+                alpha=self.alpha,
+                pair_mode=self.bopo_pair_mode,
+                select_strategy=self.bopo_select_strategy,
+                select_k=self.bopo_select_k,
+                select_quantile=self.bopo_select_quantile,
+            )
+            policy_out.update(
+                {
+                    "loss": loss,
+                    "bopo_loss": loss.detach(),
+                    "bopo_pair_count": pair_count.detach() if isinstance(pair_count, torch.Tensor) else pair_count,
+                }
+            )
+            return policy_out
+        if self.loss_type == "sll_loss":
+            loss = sll_loss(
+                reward,
+                log_likelihood,
+                alpha=self.alpha,
+                impl=self.sll_impl,
+                temperature=self.sll_temperature,
+            )
+            policy_out.update({"loss": loss, "sll_loss": loss.detach()})
             return policy_out
         if self.loss_type == "free_loss":
             loss, pair_count = self._free_loss_loss_fn(reward, log_likelihood, policy_out)
