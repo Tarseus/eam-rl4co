@@ -237,7 +237,11 @@ class RolloutBaseline(REINFORCEBaseline):
                 batch = env.reset(batch.to(device))
                 return policy(batch, env, decode_type="greedy")["reward"]
 
-        dl = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn)
+        if hasattr(dataset, "get_batch_sampler"):
+            batch_sampler = dataset.get_batch_sampler(batch_size=batch_size, shuffle=False)
+            dl = DataLoader(dataset, batch_sampler=batch_sampler, collate_fn=dataset.collate_fn)
+        else:
+            dl = DataLoader(dataset, batch_size=batch_size, collate_fn=dataset.collate_fn)
 
         rewards = torch.cat([eval_policy(batch) for batch in dl], 0)
         return rewards

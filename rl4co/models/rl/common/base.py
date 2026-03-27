@@ -324,6 +324,15 @@ class RL4COLitModule(LightningModule, metaclass=abc.ABCMeta):
         """The dataloader used by the trainer. This is a wrapper around the dataset with a custom collate_fn
         to efficiently handle TensorDicts.
         """
+        if hasattr(dataset, "get_batch_sampler"):
+            batch_sampler = dataset.get_batch_sampler(batch_size=batch_size, shuffle=shuffle)
+            if batch_sampler is not None:
+                return DataLoader(
+                    dataset,
+                    batch_sampler=batch_sampler,
+                    num_workers=self.dataloader_num_workers,
+                    collate_fn=dataset.collate_fn,
+                )
         return DataLoader(
             dataset,
             batch_size=batch_size,

@@ -39,8 +39,8 @@ class JSSPGenerator(Generator):
 
     def __init__(
         self,
-        num_jobs: int = 6,
-        num_machines: int = 6,
+        num_jobs: int = 10,
+        num_machines: int = 10,
         min_ops_per_job: int = None,
         max_ops_per_job: int = None,
         min_processing_time: int = 1,
@@ -158,11 +158,18 @@ class JSSPFileGenerator(Generator):
 
     """
 
-    def __init__(self, file_path: str, n_ops_max: int = None, **unused_kwargs):
+    def __init__(
+        self,
+        file_path: str,
+        n_ops_max: int = None,
+        supported_shapes: tuple[tuple[int, int], ...] = ((10, 10), (15, 15), (20, 20)),
+        **unused_kwargs,
+    ):
         self.files = (
             [file_path] if os.path.isfile(file_path) else self.list_files(file_path)
         )
         self.num_samples = len(self.files)
+        self.supported_shapes = tuple(tuple(s) for s in supported_shapes)
 
         if len(unused_kwargs) > 0:
             log.error(f"Found {len(unused_kwargs)} unused kwargs: {unused_kwargs}")
@@ -173,7 +180,26 @@ class JSSPFileGenerator(Generator):
         ret = map(partial(read, max_ops=n_ops_max), self.files)
 
         td_list, num_jobs, num_machines, max_ops_per_job = list(zip(*list(ret)))
+        if len(set(num_jobs)) != 1 or len(set(num_machines)) != 1:
+            raise ValueError("Mixed-shape files are not supported by JSSPFileGenerator")
+
         num_jobs, num_machines = map(lambda x: x[0], (num_jobs, num_machines))
+        if (num_jobs, num_machines) not in self.supported_shapes:
+            raise ValueError(
+                f"Unsupported JSSP shape {num_jobs}x{num_machines}. Supported: {self.supported_shapes}"
+            )
+
+        ref_td = td_list[0]
+        for td in td_list[1:]:
+            if td["proc_times"].shape != ref_td["proc_times"].shape:
+                raise ValueError(
+                    "Mixed-shape files are not supported by JSSPFileGenerator"
+                )
+            for key in ("start_op_per_job", "end_op_per_job", "pad_mask"):
+                if td[key].shape != ref_td[key].shape or not torch.equal(td[key], ref_td[key]):
+                    raise ValueError(
+                        "Mixed-shape files are not supported by JSSPFileGenerator"
+                    )
         max_ops_per_job = max(max_ops_per_job)
 
         self.td = torch.cat(td_list, dim=0)

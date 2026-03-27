@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+import math
+
 import torch
 
 from einops import einsum, reduce
@@ -7,6 +11,7 @@ from torch._tensor import Tensor
 from rl4co.envs.scheduling.fjsp.env import FJSPEnv
 from rl4co.utils.ops import gather_by_index
 
+from .dataset import JSSPBucketedDataset
 from .generator import JSSPFileGenerator, JSSPGenerator
 
 
@@ -53,21 +58,110 @@ class JSSPEnv(FJSPEnv):
     """
 
     name = "jssp"
+    DEFAULT_SUPPORTED_SHAPES = ((10, 10), (15, 15), (20, 20))
 
     def __init__(
         self,
         generator: JSSPGenerator = None,
         generator_params: dict = {},
         mask_no_ops: bool = True,
+        bucketed_training: bool = False,
+        shape_buckets: list[list[int]] | None = None,
         **kwargs,
     ):
+        self.bucketed_training = bucketed_training
+        self.supported_shapes = tuple(
+            tuple(shape)
+            for shape in (shape_buckets if shape_buckets is not None else self.DEFAULT_SUPPORTED_SHAPES)
+        )
+        if len(self.supported_shapes) == 0:
+            raise ValueError("shape_buckets must contain at least one shape")
+        if len(set(self.supported_shapes)) != len(self.supported_shapes):
+            raise ValueError(f"Duplicate shapes in shape_buckets: {self.supported_shapes}")
+
+        self._generator_params = dict(generator_params)
         if generator is None:
             if generator_params.get("file_path", None) is not None:
-                generator = JSSPFileGenerator(**generator_params)
+                generator = JSSPFileGenerator(
+                    supported_shapes=self.supported_shapes, **generator_params
+                )
             else:
                 generator = JSSPGenerator(**generator_params)
+        if (generator.num_jobs, generator.num_mas) not in self.supported_shapes:
+            raise ValueError(
+                f"Unsupported JSSP shape {generator.num_jobs}x{generator.num_mas}. "
+                f"Supported shapes: {self.supported_shapes}"
+            )
 
         super().__init__(generator, generator_params, mask_no_ops, **kwargs)
+
+    def _shape_counts(self, total_size: int) -> dict[tuple[int, int], int]:
+        """Split dataset size approximately uniformly over configured shape buckets."""
+        bucket_list = list(self.supported_shapes)
+        n_buckets = len(bucket_list)
+        base = total_size // n_buckets
+        remainder = total_size % n_buckets
+        counts = {}
+        for idx, shape in enumerate(bucket_list):
+            counts[shape] = base + (1 if idx < remainder else 0)
+        return counts
+
+    @staticmethod
+    def _to_dataset_size(batch_size) -> int:
+        if isinstance(batch_size, int):
+            return int(batch_size)
+        if isinstance(batch_size, (list, tuple)):
+            if len(batch_size) == 0:
+                return 0
+            return int(math.prod(batch_size))
+        raise TypeError(f"Unsupported batch_size type: {type(batch_size)}")
+
+    def _build_bucketed_generated_dataset(self, size: int):
+        if size <= 0:
+            return JSSPBucketedDataset(samples=[], bucket_ids=[])
+
+        samples: list[dict[str, torch.Tensor]] = []
+        bucket_ids: list[str] = []
+        counts = self._shape_counts(size)
+
+        base_params = {
+            k: v
+            for k, v in self._generator_params.items()
+            if k not in {"num_jobs", "num_machines", "file_path"}
+        }
+        for (num_jobs, num_machines), count in counts.items():
+            if count <= 0:
+                continue
+            gen = JSSPGenerator(
+                num_jobs=num_jobs,
+                num_machines=num_machines,
+                **base_params,
+            )
+            td = gen([count])
+            bucket_id = f"{num_jobs}x{num_machines}"
+            for i in range(count):
+                sample = {k: v[i] for k, v in td.items()}
+                sample["bucket_num_jobs"] = torch.tensor(num_jobs, dtype=torch.int64)
+                sample["bucket_num_machines"] = torch.tensor(
+                    num_machines, dtype=torch.int64
+                )
+                samples.append(sample)
+                bucket_ids.append(bucket_id)
+
+        return JSSPBucketedDataset(samples=samples, bucket_ids=bucket_ids)
+
+    def dataset(self, batch_size=[], phase="train", filename=None):
+        if not self.bucketed_training:
+            return super().dataset(batch_size=batch_size, phase=phase, filename=filename)
+
+        # Bucketed training currently supports generated data only.
+        f = getattr(self, f"{phase}_file") if filename is None else filename
+        if f is not None:
+            raise NotImplementedError(
+                "JSSP bucketed training currently supports generated data only (no file-based mixed-shape dataset)"
+            )
+        size = self._to_dataset_size(batch_size)
+        return self._build_bucketed_generated_dataset(size)
 
     def _get_features(self, td):
         td = super()._get_features(td)
@@ -114,7 +208,13 @@ class JSSPEnv(FJSPEnv):
         job = td["action"]
         op = gather_by_index(td["next_op"], job, dim=1)
         # get the machine that corresponds to the selected operation
-        ma = gather_by_index(td["ops_ma_adj"], op.unsqueeze(1), dim=2).nonzero()[:, 1]
+        # td["ops_ma_adj"] shape: (bs, num_mas, n_ops_max)
+        # op shape: (bs,)
+        # For each batch element, we want: ops_ma_adj[batch_idx, :, op[batch_idx]]
+        bs = td.size(0)
+        batch_idx = torch.arange(bs, device=td.device)
+        ma_adj = td["ops_ma_adj"][batch_idx, :, op]  # shape: (bs, num_mas)
+        ma = ma_adj.argmax(dim=1)  # shape: (bs,)
         return job, op, ma
 
     @staticmethod

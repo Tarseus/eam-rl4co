@@ -155,6 +155,39 @@ class FJSPEnv(EnvBase):
         return td, n_ops_max
 
     def _reset(self, td: TensorDict = None, batch_size=None) -> TensorDict:
+        # Same-shape batching checks for JSSP.
+        if self.name == "jssp" and td is not None and td.batch_size[0] > 1:
+            # Check that each operation has exactly one machine (JSSP constraint)
+            num_machines_per_op = (td["proc_times"] > 0).sum(dim=1)
+            # All operations across all batches should have exactly one machine (excluding padding)
+            if not bool(((num_machines_per_op == 1) | td["pad_mask"]).all()):
+                raise ValueError(
+                    "JSSP requires exactly one machine per operation (excluding padding)"
+                )
+
+            num_jobs = td["start_op_per_job"].shape[1]
+            num_mas = td["proc_times"].shape[1]
+            n_ops_max = td["proc_times"].shape[2]
+            supported = getattr(
+                self,
+                "supported_shapes",
+                ((10, 10), (15, 15), (20, 20)),
+            )
+            expected_n_ops = num_jobs * num_mas
+            if (num_jobs, num_mas) not in supported or n_ops_max != expected_n_ops:
+                raise ValueError(
+                    f"Unsupported JSSP shape {num_jobs}x{num_mas} ({n_ops_max} ops). "
+                    f"Supported shapes: {supported}"
+                )
+
+            # Same-shape in one batch: structural tensors must match across instances.
+            for key in ("start_op_per_job", "end_op_per_job", "pad_mask"):
+                ref = td[key][0].unsqueeze(0).expand_as(td[key])
+                if not torch.equal(td[key], ref):
+                    raise ValueError(
+                        "Mixed-shape instances are not allowed in the same batch for JSSP"
+                    )
+
         self.set_instance_params(td)
 
         td_reset = td.clone()

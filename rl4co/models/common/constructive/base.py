@@ -193,6 +193,7 @@ class ConstructivePolicy(nn.Module):
 
         # Encoder: get encoder output and initial embeddings from initial state
         hidden, init_embeds = self.encoder(td)
+        base_batch_size = int(td.batch_size[0]) if len(td.batch_size) > 0 else 1
 
         # Instantiate environment if needed
         if isinstance(env, str) or env is None:
@@ -261,6 +262,8 @@ class ConstructivePolicy(nn.Module):
             "log_likelihood": get_log_likelihood(
                 logprobs, actions, td.get("mask", None), return_sum_log_likelihood
             ),
+            "batch_size": base_batch_size,
+            "num_starts": num_starts,
         }
 
         if return_actions:

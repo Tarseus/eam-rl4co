@@ -2,6 +2,7 @@ from typing import IO, Any, Optional, cast
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from lightning.fabric.utilities.types import _MAP_LOCATION_TYPE, _PATH
 from lightning.pytorch.core.saving import _load_from_checkpoint
@@ -13,6 +14,7 @@ from rl4co.models.rl.common.base import RL4COLitModule
 from rl4co.models.rl.common.utils import RewardScaler
 from rl4co.models.rl.reinforce.baselines import REINFORCEBaseline, get_reinforce_baseline
 from rl4co.utils.lightning import get_lightning_device
+from rl4co.utils.ops import unbatchify
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
@@ -37,6 +39,7 @@ class REINFORCE(RL4COLitModule):
         baseline: REINFORCEBaseline | str = "rollout",
         baseline_kwargs: dict = {},
         reward_scale: str = None,
+        loss_mode: str = "rl",
         **kwargs,
     ):
         super().__init__(env, policy, **kwargs)
@@ -55,11 +58,101 @@ class REINFORCE(RL4COLitModule):
                 log.warning("baseline_kwargs is ignored when baseline is not a string")
         self.baseline = baseline
         self.advantage_scaler = RewardScaler(reward_scale)
+        self.loss_mode = loss_mode.lower()
+        if self.loss_mode not in {"rl", "po", "bopo"}:
+            raise ValueError(
+                f"Unknown loss_mode='{loss_mode}'. Supported modes are: rl, po, bopo"
+            )
+
+    @staticmethod
+    def _reshape_instance_rollouts(
+        tensor: torch.Tensor, batch_size: int, num_starts: int
+    ) -> torch.Tensor:
+        """Reshape rollout tensor into [D, B, ...] without crossing instance boundaries."""
+        if tensor.dim() >= 2 and tensor.size(0) == batch_size and tensor.size(1) == num_starts:
+            return tensor
+        if tensor.size(0) != batch_size * num_starts:
+            raise ValueError(
+                f"Expected rollout tensor first dim to be D*B={batch_size * num_starts}, got {tensor.size(0)}"
+            )
+        return unbatchify(tensor, num_starts)
+
+    @staticmethod
+    def _po_instance_loss(reward_db: torch.Tensor, ll_db: torch.Tensor) -> torch.Tensor:
+        """PO full pair builder within each instance (no cross-instance pairs)."""
+        d, b = reward_db.shape
+        tri_mask = torch.triu(
+            torch.ones(b, b, dtype=torch.bool, device=reward_db.device), diagonal=1
+        )
+        per_instance_losses = []
+        for i in range(d):
+            r = reward_db[i]
+            ll = ll_db[i]
+            r_diff = r.unsqueeze(1) - r.unsqueeze(0)
+            ll_diff = ll.unsqueeze(1) - ll.unsqueeze(0)
+            pref = torch.sign(r_diff[tri_mask])
+            # Skip ties in reward as they do not induce a strict preference pair.
+            valid = pref != 0
+            if valid.any():
+                pair_loss = -F.logsigmoid(pref[valid] * ll_diff[tri_mask][valid])
+                per_instance_losses.append(pair_loss.mean())
+            else:
+                per_instance_losses.append(torch.zeros((), device=reward_db.device))
+        return torch.stack(per_instance_losses, dim=0).mean()
+
+    @staticmethod
+    def _bopo_instance_loss(reward_db: torch.Tensor, ll_db: torch.Tensor) -> torch.Tensor:
+        """BOPO anchored pairing within each instance (no cross-instance pairs)."""
+        d, b = reward_db.shape
+        per_instance_losses = []
+        arange_b = torch.arange(b, device=reward_db.device)
+        for i in range(d):
+            r = reward_db[i]
+            ll = ll_db[i]
+            anchor_idx = torch.argmax(r)
+            mask = arange_b != anchor_idx
+            other_r = r[mask]
+            other_ll = ll[mask]
+            if other_r.numel() == 0:
+                per_instance_losses.append(torch.zeros((), device=reward_db.device))
+                continue
+
+            # BOPO filtering remains strictly instance-local.
+            pref = torch.sign(r[anchor_idx] - other_r)
+            valid = pref != 0
+            if valid.any():
+                loss_i = -F.logsigmoid(pref[valid] * (ll[anchor_idx] - other_ll[valid]))
+                per_instance_losses.append(loss_i.mean())
+            else:
+                per_instance_losses.append(torch.zeros((), device=reward_db.device))
+        return torch.stack(per_instance_losses, dim=0).mean()
 
     def shared_step(
         self, batch: Any, batch_idx: int, phase: str, dataloader_idx: int = None
     ):
         td = self.env.reset(batch)
+        # Useful for bucketed JSSP training: log current batch shape metadata.
+        if "start_op_per_job" in td.keys() and "proc_times" in td.keys():
+            num_jobs = float(td["start_op_per_job"].shape[-1])
+            num_machines = float(td["proc_times"].shape[-2])
+            self.log(
+                f"{phase}/batch_num_jobs",
+                num_jobs,
+                on_step=phase == "train",
+                on_epoch=phase != "train",
+                prog_bar=False,
+                sync_dist=True,
+                add_dataloader_idx=False,
+            )
+            self.log(
+                f"{phase}/batch_num_machines",
+                num_machines,
+                on_step=phase == "train",
+                on_epoch=phase != "train",
+                prog_bar=False,
+                sync_dist=True,
+                add_dataloader_idx=False,
+            )
         # Perform forward pass (i.e., constructing solution and computing log-likelihoods)
         out = self.policy(td, self.env, phase=phase, select_best=phase != "train")
 
@@ -102,7 +195,40 @@ class REINFORCE(RL4COLitModule):
         # Main loss function
         advantage = reward - bl_val  # advantage = reward - baseline
         advantage = self.advantage_scaler(advantage)
-        reinforce_loss = -(advantage * log_likelihood).mean()
+        reinforce_term = advantage * log_likelihood
+        num_starts = policy_out.get("num_starts", 0)
+        base_batch_size = policy_out.get("batch_size", None)
+
+        # For batched multi-rollout RL/PO/BOPO (D instances x B rollouts), keep
+        # candidate pools instance-local: [D, B, ...].
+        if isinstance(num_starts, int) and num_starts > 1 and isinstance(base_batch_size, int):
+            reward_db = self._reshape_instance_rollouts(reward, base_batch_size, num_starts)
+            ll_db = self._reshape_instance_rollouts(
+                log_likelihood, base_batch_size, num_starts
+            )
+            term_db = self._reshape_instance_rollouts(
+                reinforce_term, base_batch_size, num_starts
+            )
+
+            # TODO: PO/BOPO for >2 rollout dims (e.g., augmentation dimensions) is not
+            # safely batchized yet. Keep current stage restricted to [D, B].
+            if reward_db.dim() != 2 or ll_db.dim() != 2 or term_db.dim() != 2:
+                raise NotImplementedError(
+                    "PO/BOPO same-shape batching currently supports 2D [D, B] rollout tensors only"
+                )
+
+            if self.loss_mode == "rl":
+                reinforce_loss = -term_db.mean(dim=1).mean()
+            elif self.loss_mode == "po":
+                reinforce_loss = self._po_instance_loss(reward_db, ll_db)
+            else:  # bopo
+                reinforce_loss = self._bopo_instance_loss(reward_db, ll_db)
+        else:
+            if self.loss_mode != "rl":
+                raise NotImplementedError(
+                    "PO/BOPO requires num_starts > 1 to form per-instance candidate pools"
+                )
+            reinforce_loss = -reinforce_term.mean()
         loss = reinforce_loss + bl_loss
         policy_out.update(
             {
