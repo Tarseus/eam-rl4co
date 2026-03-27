@@ -386,39 +386,58 @@ class MGLJSSPModel(L.LightningModule):
         aux_metric = torch.tensor(float(quality), dtype=torch.float32, device=self.device)
         return loss, reward, aux_metric, None
 
-    def validation_step(self, batch: dict[str, Any], batch_idx: int):
+    def validation_step(self, batch: list[dict[str, Any]] | dict[str, Any], batch_idx: int):
         return self._eval_step(batch, phase="val", sample_size=self.val_B)
 
-    def test_step(self, batch: dict[str, Any], batch_idx: int):
+    def test_step(self, batch: list[dict[str, Any]] | dict[str, Any], batch_idx: int):
         return self._eval_step(batch, phase="test", sample_size=self.test_B)
 
     def _eval_step(self, batch: list[dict[str, Any]] | dict[str, Any], phase: str, sample_size: int):
-        # Phase 2: eval still uses batch_size=1
-        if isinstance(batch, list):
-            assert len(batch) == 1, "Eval batch_size must be 1 in Phase 2"
-            batch = batch[0]
+        # Phase 7: eval supports multi-batch (same-shape only)
+        instances = batch if isinstance(batch, list) else [batch]
+        num_instances = len(instances)
+        actual_batch_size = num_instances
 
-        # Wrap single instance in list for sampling
+        # Sample for all instances (each instance independently)
+        # sampling() accepts list, returns (N*B,)
         makespans, entropies, _ = sampling(
-            [batch],
+            instances,
             self.encoder,
             self.decoder,
             bs=sample_size,
             use_greedy=self.use_greedy,
             device=str(self.device),
         )
-        best_makespan = makespans.min()
-        reward = -best_makespan
+
+        # Reshape to (num_instances, sample_size)
+        makespans_reshaped = makespans.view(num_instances, sample_size)
+        # entropies is (N*B, num_steps), take mean across all dims
+        mean_entropy = entropies.mean()
+
+        # Compute per-instance best makespan
+        best_makespans = makespans_reshaped.min(dim=1)[0]
+
+        # Aggregate: average reward, min makespan across batch
+        mean_reward = (-best_makespans).mean()
+        min_makespan = best_makespans.min()
+
+        # Compute gaps if reference makespans are available
+        gaps = []
+        for i, instance in enumerate(instances):
+            ref_makespan = instance.get("makespan", None)
+            if ref_makespan is not None:
+                ref = float(ref_makespan.item()) if isinstance(ref_makespan, torch.Tensor) else float(ref_makespan)
+                if ref > 0:
+                    gap_val = (best_makespans[i] / ref - 1.0) * 100.0
+                    gaps.append(gap_val)
+
         metrics = {
-            "reward": reward,
-            "makespan": best_makespan,
-            "entropy": entropies.mean(),
+            "reward": mean_reward,
+            "makespan": min_makespan,
+            "entropy": mean_entropy,
         }
-        ref_makespan = batch.get("makespan", None)
-        if ref_makespan is not None:
-            ref = float(ref_makespan.item()) if isinstance(ref_makespan, torch.Tensor) else float(ref_makespan)
-            if ref > 0:
-                metrics["gap"] = (best_makespan / ref - 1.0) * 100.0
+        if gaps:
+            metrics["gap"] = torch.tensor(gaps, device=self.device).mean()
 
         metric_names = self.val_metrics if phase == "val" else self.test_metrics
         for name, value in metrics.items():
@@ -430,7 +449,7 @@ class MGLJSSPModel(L.LightningModule):
                     on_epoch=True,
                     prog_bar=name in {"reward", "gap", "makespan"},
                     sync_dist=True,
-                    batch_size=1,
+                    batch_size=actual_batch_size,
                 )
         return metrics
 
@@ -461,19 +480,51 @@ class MGLJSSPModel(L.LightningModule):
             )
 
     def val_dataloader(self):
-        return DataLoader(
-            self.val_dataset,
-            batch_size=self.val_batch_size,
-            shuffle=False,
-            num_workers=self.dataloader_num_workers,
-            collate_fn=JSSPInstanceDataset.collate_fn,
-        )
+        if self.use_shape_buckets:
+            # Phase 7: Use shape bucket sampler for val too
+            sampler = JSSPShapeBucketSampler(
+                self.val_dataset,
+                batch_size=self.val_batch_size,
+                shuffle=False,
+                drop_last=False,
+                allowed_shapes=self.allowed_shapes,
+            )
+            return DataLoader(
+                self.val_dataset,
+                batch_sampler=sampler,
+                num_workers=self.dataloader_num_workers,
+                collate_fn=JSSPInstanceDataset.collate_fn,
+            )
+        else:
+            return DataLoader(
+                self.val_dataset,
+                batch_size=self.val_batch_size,
+                shuffle=False,
+                num_workers=self.dataloader_num_workers,
+                collate_fn=JSSPInstanceDataset.collate_fn,
+            )
 
     def test_dataloader(self):
-        return DataLoader(
-            self.test_dataset,
-            batch_size=self.test_batch_size,
-            shuffle=False,
-            num_workers=self.dataloader_num_workers,
-            collate_fn=JSSPInstanceDataset.collate_fn,
-        )
+        if self.use_shape_buckets:
+            # Phase 7: Use shape bucket sampler for test too
+            sampler = JSSPShapeBucketSampler(
+                self.test_dataset,
+                batch_size=self.test_batch_size,
+                shuffle=False,
+                drop_last=False,
+                allowed_shapes=self.allowed_shapes,
+            )
+            return DataLoader(
+                self.test_dataset,
+                batch_sampler=sampler,
+                num_workers=self.dataloader_num_workers,
+                collate_fn=JSSPInstanceDataset.collate_fn,
+            )
+        else:
+            return DataLoader(
+                self.test_dataset,
+                batch_size=self.test_batch_size,
+                shuffle=False,
+                num_workers=self.dataloader_num_workers,
+                collate_fn=JSSPInstanceDataset.collate_fn,
+            )
