@@ -65,13 +65,13 @@ budgets:
   generations: 10
   pairing_budget_per_gen: 128
   high_fidelity_top_m: 999999
-  hf_epochs: 10
+  hf_epochs: 20
 
 f1_steps: 200
-hf_epochs: 10
+hf_epochs: 20
 hf_instances_per_epoch: 1000
-scratch_hf_epochs: 5
-warmstart_hf_epochs: 5
+scratch_hf_epochs: 10
+warmstart_hf_epochs: 10
 baseline_epoch_compare_offset: 0
 baseline_epoch_violation_weight: 1.0
 baseline_epoch_tail_frac: 1.0
@@ -114,6 +114,10 @@ baseline:
   # metrics_csv: baseline/ffsp100_metrics.csv
   # checkpoint: baseline/ffsp100_epoch_200.ckpt
   # checkpoint_epoch: 200
+  checkpoint: baseline/ffsp_matnet_po_paper100_epoch_100.ckpt
+  checkpoint_epoch: 100
+  checkpoints:
+    - baseline/ffsp_matnet_po_paper100_epoch_100.ckpt
   include_scratch: true
   multiseed_compare_enabled: false
   scenarios:
@@ -126,6 +130,9 @@ baseline:
         num_stage: 3
         num_machine: 4
         num_job: 100
+      baseline:
+        checkpoints:
+          - baseline/ffsp_matnet_po_paper100_epoch_100.ckpt
 
 builder_pair_budget:
   per_instance: 8192
