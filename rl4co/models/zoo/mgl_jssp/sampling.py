@@ -1,0 +1,282 @@
+from dataclasses import dataclass
+
+import torch
+import torch.nn.functional as F
+
+from rl4co.models.rl.reinforce.preference_losses import po_loss as pairwise_po_loss
+
+
+@dataclass
+class Solutions:
+    mss: torch.Tensor
+    logits: torch.Tensor
+    trajs: torch.Tensor
+
+
+def trajectory_log_probs(logits: torch.Tensor, trajs: torch.Tensor) -> torch.Tensor:
+    batch_size, num_steps, action_dim = logits.shape
+    flat_logits = logits.view(-1, action_dim)
+    flat_trajs = trajs.view(-1)
+    log_probs = F.log_softmax(flat_logits, dim=-1)
+    chosen = log_probs[
+        torch.arange(batch_size * num_steps, device=logits.device), flat_trajs
+    ]
+    return chosen.view(batch_size, num_steps).sum(dim=-1)
+
+
+def solution_ratio(makespans: torch.Tensor) -> float:
+    best = makespans.min().clamp_min(1e-8)
+    worst = makespans.max().clamp_min(1e-8)
+    return float((worst / best).item())
+
+
+def sro_loss(info_better: Solutions, info_worse: Solutions) -> tuple[torch.Tensor, float]:
+    logits_better = info_better.logits
+    trajs_better = info_better.trajs
+    makespan_better = info_better.mss
+    logits_worse = info_worse.logits
+    trajs_worse = info_worse.trajs
+    makespan_worse = info_worse.mss
+
+    batch_size, num_steps, action_dim = logits_better.shape
+    better_flat = F.log_softmax(logits_better.view(-1, action_dim), dim=-1)
+    worse_flat = F.log_softmax(logits_worse.view(-1, action_dim), dim=-1)
+    better_gathered = better_flat[
+        torch.arange(batch_size * num_steps, device=logits_better.device),
+        trajs_better.view(-1),
+    ].view(batch_size, num_steps).mean(dim=-1)
+    worse_gathered = worse_flat[
+        torch.arange(batch_size * num_steps, device=logits_worse.device),
+        trajs_worse.view(-1),
+    ].view(batch_size, num_steps).mean(dim=-1)
+    makespan_factor = makespan_worse / makespan_better.clamp_min(1e-8)
+    loss = -torch.log(torch.sigmoid(makespan_factor * (better_gathered - worse_gathered))).mean()
+    return loss, float(makespan_factor.max().item())
+
+
+def rl_loss(samples: Solutions) -> tuple[torch.Tensor, float]:
+    log_probs = trajectory_log_probs(samples.logits, samples.trajs)
+    rewards = -samples.mss
+    advantage = rewards - rewards.mean()
+    advantage = advantage / (advantage.std(unbiased=False) + 1e-8)
+    loss = -(advantage.detach() * log_probs).mean()
+    return loss, solution_ratio(samples.mss)
+
+
+def po_loss(samples: Solutions, impl: str = "bt") -> tuple[torch.Tensor, float]:
+    log_probs = trajectory_log_probs(samples.logits, samples.trajs).unsqueeze(0)
+    reward = (-samples.mss).unsqueeze(0)
+    loss, pref_rate = pairwise_po_loss(reward, log_probs, alpha=1.0, impl=impl)
+    return loss, float(pref_rate.item())
+
+
+class JobShopStates:
+    size = 11
+
+    def __init__(self, device: str = "cpu", eps: float = 1e-5):
+        self.dev = device
+        self._eps = eps
+        self._q = torch.tensor([0.25, 0.5, 0.75], device=device)
+
+    def init_state(self, ins: dict, batch_size: int = 1):
+        self.num_j, self.num_m = ins["j"], ins["m"]
+        self.machines = ins["machines"].view(-1).to(self.dev)
+        self._factor = ins["costs"].max()
+        self.costs = ins["costs"].view(-1).to(self.dev) / self._factor.clamp_min(1.0)
+        self.bs = batch_size
+        self.batch_idx = torch.arange(batch_size, device=self.dev)
+        self.job_start = torch.arange(0, self.num_j * self.num_m, self.num_m, device=self.dev)
+        self.job_ptr = torch.zeros((batch_size, self.num_j), dtype=torch.int32, device=self.dev)
+        self.job_ct = torch.zeros((batch_size, self.num_j), dtype=torch.float32, device=self.dev)
+        self.mac_ct = torch.zeros((batch_size, self.num_m), dtype=torch.float32, device=self.dev)
+        states = torch.zeros(
+            (batch_size, self.num_j, self.size), dtype=torch.float32, device=self.dev
+        )
+        return states, self.mask.to(torch.float32)
+
+    @property
+    def mask(self) -> torch.Tensor:
+        return self.job_ptr < self.num_m
+
+    @property
+    def ops(self) -> torch.Tensor:
+        return self.job_start + (self.job_ptr % self.num_m)
+
+    @property
+    def makespan(self) -> torch.Tensor:
+        return self.mac_ct.max(-1)[0] * self._factor
+
+    def _schedule(self, jobs: torch.Tensor) -> None:
+        ops = self.ops[self.batch_idx, jobs]
+        machines = self.machines[ops]
+        completion = torch.maximum(
+            self.mac_ct[self.batch_idx, machines], self.job_ct[self.batch_idx, jobs]
+        )
+        completion = completion + self.costs[ops]
+        self.mac_ct[self.batch_idx, machines] = completion
+        self.job_ct[self.batch_idx, jobs] = completion
+        self.job_ptr[self.batch_idx, jobs] += 1
+
+    def update(self, jobs: torch.Tensor):
+        self._schedule(jobs)
+        machines = self.machines[self.ops]
+        mac_ct = self.mac_ct.gather(1, machines)
+        current_makespan = self.job_ct.max(-1, keepdim=True)[0] + self._eps
+        next_states = -torch.ones((self.bs, self.num_j, self.size), device=self.dev)
+        next_states[..., 0] = self.job_ct - mac_ct
+        q_job = torch.quantile(self.job_ct, self._q, -1).T
+        next_states[..., 1:4] = self.job_ct.unsqueeze(-1) - q_job.unsqueeze(1)
+        next_states[..., 4] = self.job_ct - self.job_ct.mean(-1, keepdim=True)
+        next_states[..., 5] = self.job_ct / current_makespan
+        q_machine = torch.quantile(self.mac_ct, self._q, -1).T
+        next_states[..., 6:9] = mac_ct.unsqueeze(-1) - q_machine.unsqueeze(1)
+        next_states[..., 9] = mac_ct - self.mac_ct.mean(-1, keepdim=True)
+        next_states[..., 10] = mac_ct / current_makespan
+        return next_states, self.mask.to(torch.float32)
+
+    def __call__(self, jobs: torch.Tensor, states: torch.Tensor) -> torch.Tensor:
+        self._schedule(jobs)
+        machines = self.machines[self.ops]
+        mac_ct = self.mac_ct.gather(1, machines)
+        current_makespan = self.job_ct.max(-1, keepdim=True)[0] + self._eps
+        states[..., 0] = self.job_ct - mac_ct
+        q_job = torch.quantile(self.job_ct, self._q, -1).T
+        states[..., 1:4] = self.job_ct.unsqueeze(-1) - q_job.unsqueeze(1)
+        states[..., 4] = self.job_ct - self.job_ct.mean(-1, keepdim=True)
+        states[..., 5] = self.job_ct / current_makespan
+        q_machine = torch.quantile(self.mac_ct, self._q, -1).T
+        states[..., 6:9] = mac_ct.unsqueeze(-1) - q_machine.unsqueeze(1)
+        states[..., 9] = mac_ct - self.mac_ct.mean(-1, keepdim=True)
+        states[..., 10] = mac_ct / current_makespan
+        return self.mask.to(torch.float32)
+
+
+def solve_jsp(
+    ins: dict,
+    batch_size: int,
+    device: str,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    use_greedy: bool = False,
+):
+    num_jobs, num_machines = ins["j"], ins["m"]
+    num_steps = num_jobs * num_machines - 1
+    trajs = -torch.ones((batch_size, num_steps), dtype=torch.long, device=device)
+    logits_store = -torch.ones(
+        (batch_size, num_steps, num_jobs), dtype=torch.float32, device=device
+    )
+    entropies = torch.zeros((batch_size, num_steps), dtype=torch.float32, device=device)
+
+    jsp = JobShopStates(device)
+    state, mask = jsp.init_state(ins, batch_size)
+    embed = encoder(
+        ins["x"].to(device),
+        job_edges=ins["job_edges"].to(device),
+        mac_edges=ins["mac_edges"].to(device),
+    )
+
+    last_ops = h = c = None
+    zeros = torch.zeros((batch_size, 1, encoder.out_size), dtype=torch.float32, device=device)
+    for step_idx in range(num_steps):
+        ops = jsp.ops
+        if last_ops is None:
+            logits, (h, c) = decoder(embed[ops], state, zeros, h, c)
+        else:
+            logits, (h, c) = decoder(embed[ops], state, embed[last_ops], h, c)
+        logits = logits + mask.log()
+        dist = torch.distributions.Categorical(logits=logits)
+        jobs = dist.sample()
+        if use_greedy and batch_size > 0:
+            jobs[0] = logits[0].argmax()
+        trajs[:, step_idx] = jobs
+        logits_store[:, step_idx] = logits
+        entropies[:, step_idx] = dist.entropy()
+        last_ops = jsp.ops.gather(1, jobs.unsqueeze(-1))
+        state, mask = jsp.update(jobs)
+
+    jsp(mask.float().argmax(-1), state)
+    return trajs, logits_store, jsp.makespan, entropies
+
+
+def sample_training_pair(
+    ins: dict,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    B: int = 128,
+    K: int = 16,
+    use_greedy: bool = False,
+    pair_mode: str = "anchor_best",
+    device: str = "cpu",
+) -> tuple[Solutions, Solutions, torch.Tensor]:
+    encoder.train()
+    decoder.train()
+    trajs, logits_store, makespans, _ = solve_jsp(
+        ins,
+        batch_size=B,
+        device=device,
+        encoder=encoder,
+        decoder=decoder,
+        use_greedy=use_greedy,
+    )
+
+    if B % K != 0:
+        raise ValueError(f"MGL JSSP requires B % K == 0, got B={B}, K={K}.")
+    sorted_idx = sorted(range(B), key=lambda idx: makespans[idx].item())
+    selected = sorted_idx[:: B // K]
+    pair_mode = str(pair_mode or "anchor_best").strip().lower()
+    if pair_mode not in {"anchor_best", "all_pairs"}:
+        raise ValueError(f"Unsupported pair_mode={pair_mode!r}")
+
+    selected_pairs: list[tuple[int, int]] = []
+    if pair_mode == "anchor_best":
+        selected_pairs = [(selected[0], worse_idx) for worse_idx in selected[1:]]
+    else:
+        for better_idx in range(len(selected)):
+            for worse_idx in range(better_idx + 1, len(selected)):
+                selected_pairs.append((selected[better_idx], selected[worse_idx]))
+
+    num_pairs = len(selected_pairs)
+    num_steps = trajs.size(1)
+    trajs_better = -torch.ones((num_pairs, num_steps), dtype=torch.long, device=device)
+    logits_better = -torch.ones((num_pairs, num_steps, ins["j"]), dtype=torch.float32, device=device)
+    makespan_better = torch.ones((num_pairs,), dtype=torch.float32, device=device)
+    trajs_worse = -torch.ones((num_pairs, num_steps), dtype=torch.long, device=device)
+    logits_worse = -torch.ones((num_pairs, num_steps, ins["j"]), dtype=torch.float32, device=device)
+    makespan_worse = torch.ones((num_pairs,), dtype=torch.float32, device=device)
+
+    for pair_idx, (better_idx, worse_idx) in enumerate(selected_pairs):
+        trajs_better[pair_idx] = trajs[better_idx]
+        logits_better[pair_idx] = logits_store[better_idx]
+        makespan_better[pair_idx] = makespans[better_idx]
+        trajs_worse[pair_idx] = trajs[worse_idx]
+        logits_worse[pair_idx] = logits_store[worse_idx]
+        makespan_worse[pair_idx] = makespans[worse_idx]
+
+    return (
+        Solutions(mss=makespan_better, logits=logits_better, trajs=trajs_better),
+        Solutions(mss=makespan_worse, logits=logits_worse, trajs=trajs_worse),
+        makespans.min(),
+    )
+
+
+@torch.no_grad()
+def sampling(
+    ins: dict,
+    encoder: torch.nn.Module,
+    decoder: torch.nn.Module,
+    bs: int = 128,
+    use_greedy: bool = False,
+    device: str = "cpu",
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    encoder.eval()
+    decoder.eval()
+    trajs, logits_store, makespans, entropies = solve_jsp(
+        ins,
+        batch_size=bs,
+        device=device,
+        encoder=encoder,
+        decoder=decoder,
+        use_greedy=use_greedy,
+    )
+    log_probs = trajectory_log_probs(logits_store, trajs)
+    return makespans, entropies, log_probs
