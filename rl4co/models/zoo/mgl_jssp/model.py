@@ -480,51 +480,21 @@ class MGLJSSPModel(L.LightningModule):
             )
 
     def val_dataloader(self):
-        if self.use_shape_buckets:
-            # Phase 7: Use shape bucket sampler for val too
-            sampler = JSSPShapeBucketSampler(
-                self.val_dataset,
-                batch_size=self.val_batch_size,
-                shuffle=False,
-                drop_last=False,
-                allowed_shapes=self.allowed_shapes,
-            )
-            return DataLoader(
-                self.val_dataset,
-                batch_sampler=sampler,
-                num_workers=self.dataloader_num_workers,
-                collate_fn=JSSPInstanceDataset.collate_fn,
-            )
-        else:
-            return DataLoader(
-                self.val_dataset,
-                batch_size=self.val_batch_size,
-                shuffle=False,
-                num_workers=self.dataloader_num_workers,
-                collate_fn=JSSPInstanceDataset.collate_fn,
-            )
+        # Val/test: always use simple DataLoader (no need for bucketing during evaluation)
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.val_batch_size,
+            shuffle=False,
+            num_workers=self.dataloader_num_workers,
+            collate_fn=JSSPInstanceDataset.collate_fn,
+        )
 
     def test_dataloader(self):
-        if self.use_shape_buckets:
-            # Phase 7: Use shape bucket sampler for test too
-            sampler = JSSPShapeBucketSampler(
-                self.test_dataset,
-                batch_size=self.test_batch_size,
-                shuffle=False,
-                drop_last=False,
-                allowed_shapes=self.allowed_shapes,
-            )
-            return DataLoader(
-                self.test_dataset,
-                batch_sampler=sampler,
-                num_workers=self.dataloader_num_workers,
-                collate_fn=JSSPInstanceDataset.collate_fn,
-            )
-        else:
-            return DataLoader(
-                self.test_dataset,
-                batch_size=self.test_batch_size,
-                shuffle=False,
-                num_workers=self.dataloader_num_workers,
-                collate_fn=JSSPInstanceDataset.collate_fn,
-            )
+        # Val/test: always use simple DataLoader (no need for bucketing during evaluation)
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.test_batch_size,
+            shuffle=False,
+            num_workers=self.dataloader_num_workers,
+            collate_fn=JSSPInstanceDataset.collate_fn,
+        )
