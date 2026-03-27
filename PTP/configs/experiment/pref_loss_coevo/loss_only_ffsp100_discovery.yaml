@@ -93,6 +93,7 @@ generator_params:
   num_stage: 3
   num_machine: 4
   num_job: 100
+  flatten_stages: false
 policy_name: matnet
 policy_kwargs:
   embed_dim: 256
@@ -130,6 +131,7 @@ baseline:
         num_stage: 3
         num_machine: 4
         num_job: 100
+        flatten_stages: false
       baseline:
         checkpoints:
           - baseline/ffsp_matnet_po_paper100_epoch_100.ckpt
