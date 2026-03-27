@@ -5,7 +5,11 @@ import lightning as L
 import torch
 from torch.utils.data import DataLoader
 
-from rl4co.models.zoo.mgl_jssp.data import JSSPInstanceDataset, load_dataset
+from rl4co.models.zoo.mgl_jssp.data import (
+    JSSPInstanceDataset,
+    JSSPShapeBucketSampler,
+    load_dataset,
+)
 from rl4co.models.zoo.mgl_jssp.net import CAMEncoder3, LSTMDecoder2
 from rl4co.models.zoo.mgl_jssp.sampling import (
     Solutions,
@@ -53,6 +57,10 @@ class MGLJSSPModel(L.LightningModule):
         init_external_checkpoint_path: str | None = None,
         metrics: dict | None = None,
         log_on_step: bool = False,
+        # Phase 4: Bucket-by-shape options
+        use_shape_buckets: bool = True,
+        bucket_drop_last: bool = False,
+        allowed_shapes: list[list[int]] | None = None,
         **unused_kwargs,
     ):
         super().__init__()
@@ -82,14 +90,21 @@ class MGLJSSPModel(L.LightningModule):
         self.train_metrics = (metrics or {}).get("train", ["loss", "reward"])
         self.val_metrics = (metrics or {}).get("val", ["reward", "gap", "makespan"])
         self.test_metrics = (metrics or {}).get("test", self.val_metrics)
+        # Phase 4: Bucket-by-shape options
+        self.use_shape_buckets = bool(use_shape_buckets)
+        self.bucket_drop_last = bool(bucket_drop_last)
+        # Parse allowed_shapes: [[10,10], [15,15], [20,20]] -> [(10,10), (15,15), (20,20)]
+        if allowed_shapes is None:
+            self.allowed_shapes = None
+        else:
+            self.allowed_shapes = [tuple(s) for s in allowed_shapes]
 
         if unused_kwargs:
             log.warning("Ignoring unused MGLJSSPModel kwargs: %s", sorted(unused_kwargs.keys()))
 
         if self.baseline not in {"bopo", "rl", "po"}:
             raise ValueError(f"Unsupported MGL JSSP baseline: {self.baseline!r}")
-        if self.batch_size != 1 or self.val_batch_size != 1 or self.test_batch_size != 1:
-            raise ValueError("MGLJSSPModel uses one instance per optimizer step; keep batch sizes at 1.")
+        # Phase 3: All RL/PO/BOPO support batch_size > 1 for 10x10
         if self.B <= 0 or self.val_B <= 0 or self.test_B <= 0:
             raise ValueError("B / val_B / test_B must be positive.")
         if self.D <= 0:
@@ -134,14 +149,60 @@ class MGLJSSPModel(L.LightningModule):
         else:
             self.test_dataset = self.val_dataset
 
+        # Phase 4: Log bucket stats if using shape buckets
+        if self.use_shape_buckets and stage == "fit":
+            sampler = JSSPShapeBucketSampler(
+                self.train_dataset,
+                batch_size=self.batch_size,
+                shuffle=False,
+                drop_last=self.bucket_drop_last,
+                allowed_shapes=self.allowed_shapes,
+            )
+            bucket_stats = sampler.get_bucket_stats()
+            log.info("=== JSSP Shape Bucket Stats ===")
+            total_instances = 0
+            total_batches = 0
+            for shape, (n_inst, n_batches) in sorted(bucket_stats.items()):
+                log.info(f"  Shape {shape[0]}x{shape[1]}: {n_inst} instances, {n_batches} batches")
+                total_instances += n_inst
+                total_batches += n_batches
+            log.info(f"  TOTAL: {total_instances} instances, {total_batches} batches")
+            log.info("===============================")
+
     def configure_optimizers(self):
         return create_optimizer(self.parameters(), self.optimizer_name, **self.optimizer_kwargs)
 
-    def training_step(self, batch: dict[str, Any], batch_idx: int):
+    def training_step(self, batch: list[dict[str, Any]] | dict[str, Any], batch_idx: int):
         loss_total = None
         reward_total = None
         aux_total = None
         pair_count_total = None
+
+        # Get actual batch size (number of instances)
+        actual_batch_size = len(batch) if isinstance(batch, list) else 1
+
+        # Phase 4: Log current batch shape
+        if self.log_on_step:
+            first_instance = batch[0] if isinstance(batch, list) else batch
+            current_shape = (first_instance["j"], first_instance["m"])
+            self.log(
+                "train/shape_j",
+                float(current_shape[0]),
+                on_step=True,
+                on_epoch=False,
+                prog_bar=False,
+                sync_dist=True,
+                batch_size=actual_batch_size,
+            )
+            self.log(
+                "train/shape_m",
+                float(current_shape[1]),
+                on_step=True,
+                on_epoch=False,
+                prog_bar=False,
+                sync_dist=True,
+                batch_size=actual_batch_size,
+            )
 
         for _ in range(self.D):
             loss, reward, aux_metric, pair_count = self._training_rollout(batch)
@@ -165,7 +226,7 @@ class MGLJSSPModel(L.LightningModule):
                 on_epoch=not self.log_on_step,
                 prog_bar=True,
                 sync_dist=True,
-                batch_size=1,
+                batch_size=actual_batch_size,
             )
         if "reward" in self.train_metrics:
             self.log(
@@ -175,7 +236,7 @@ class MGLJSSPModel(L.LightningModule):
                 on_epoch=not self.log_on_step,
                 prog_bar=True,
                 sync_dist=True,
-                batch_size=1,
+                batch_size=actual_batch_size,
             )
         if "quality" in self.train_metrics:
             self.log(
@@ -185,7 +246,7 @@ class MGLJSSPModel(L.LightningModule):
                 on_epoch=not self.log_on_step,
                 prog_bar=False,
                 sync_dist=True,
-                batch_size=1,
+                batch_size=actual_batch_size,
             )
         if pair_count_total is not None and "pair_count" in self.train_metrics:
             self.log(
@@ -195,7 +256,7 @@ class MGLJSSPModel(L.LightningModule):
                 on_epoch=not self.log_on_step,
                 prog_bar=False,
                 sync_dist=True,
-                batch_size=1,
+                batch_size=actual_batch_size,
             )
         if self.baseline == "po" and "pref_rate" in self.train_metrics:
             self.log(
@@ -205,17 +266,29 @@ class MGLJSSPModel(L.LightningModule):
                 on_epoch=not self.log_on_step,
                 prog_bar=False,
                 sync_dist=True,
-                batch_size=1,
+                batch_size=actual_batch_size,
             )
         return loss_total
 
     def _training_rollout(
-        self, batch: dict[str, Any]
+        self, batch: list[dict[str, Any]] | dict[str, Any]
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor | None]:
         device = str(self.device)
+
+        # Phase 4: All RL/PO/BOPO support batch as list[dict]
+        instances = batch if isinstance(batch, list) else [batch]
+        num_instances = len(instances)
+
+        # Verify all instances have the same shape
+        first_shape = (instances[0]["j"], instances[0]["m"])
+        for i, ins in enumerate(instances):
+            shape = (ins["j"], ins["m"])
+            if shape != first_shape:
+                raise ValueError(f"All instances must have same shape: instance 0 is {first_shape[0]}x{first_shape[1]}, instance {i} is {shape[0]}x{shape[1]}")
+
         if self.baseline == "bopo":
-            better, worse, best_makespan = sample_training_pair(
-                batch,
+            better, worse, best_makespan, total_num_pairs = sample_training_pair(
+                instances,
                 self.encoder,
                 self.decoder,
                 B=self.B,
@@ -225,25 +298,91 @@ class MGLJSSPModel(L.LightningModule):
                 device=device,
             )
             loss, quality = sro_loss(better, worse)
-            pair_count = torch.tensor(float(int(better.mss.numel())), device=self.device)
+            pair_count = torch.tensor(float(total_num_pairs), device=self.device)
             reward = -best_makespan.to(self.device)
             aux_metric = torch.tensor(float(quality), dtype=torch.float32, device=self.device)
             return loss, reward, aux_metric, pair_count
 
+        if self.baseline == "po":
+            # Solve for all instances
+            trajs, logits, makespans, _ = solve_jsp(
+                instances,
+                batch_size_per_instance=self.B,
+                device=device,
+                encoder=self.encoder,
+                decoder=self.decoder,
+                use_greedy=self.use_greedy,
+            )
+
+            # Reshape to (num_instances, B, ...) for per-instance loss aggregation
+            num_steps = trajs.size(1)
+            num_jobs = instances[0]["j"]
+            trajs_reshaped = trajs.view(num_instances, self.B, num_steps)
+            logits_reshaped = logits.view(num_instances, self.B, num_steps, num_jobs)
+            makespans_reshaped = makespans.view(num_instances, self.B)
+
+            # Compute PO loss per-instance (strictly within-instance pairs), then average
+            total_loss = 0.0
+            total_pref_rate = 0.0
+            best_makespan_list = []
+
+            for i in range(num_instances):
+                samples_i = Solutions(
+                    trajs=trajs_reshaped[i],
+                    logits=logits_reshaped[i],
+                    mss=makespans_reshaped[i]
+                )
+                loss_i, pref_rate_i = po_loss(samples_i, impl=self.po_impl)
+                total_loss = total_loss + loss_i
+                total_pref_rate = total_pref_rate + pref_rate_i
+                best_makespan_list.append(makespans_reshaped[i].min())
+
+            loss = total_loss / num_instances
+            quality = total_pref_rate / num_instances
+            best_makespan = torch.stack(best_makespan_list).min()
+
+            reward = -best_makespan.to(self.device)
+            aux_metric = torch.tensor(float(quality), dtype=torch.float32, device=self.device)
+            return loss, reward, aux_metric, None
+
+        # RL baseline: supports batch_size > 1 (list of instances)
         trajs, logits, makespans, _ = solve_jsp(
-            batch,
-            batch_size=self.B,
+            instances,
+            batch_size_per_instance=self.B,
             device=device,
             encoder=self.encoder,
             decoder=self.decoder,
             use_greedy=self.use_greedy,
         )
-        samples = Solutions(trajs=trajs, logits=logits, mss=makespans)
-        if self.baseline == "rl":
-            loss, quality = rl_loss(samples)
-        else:
-            loss, quality = po_loss(samples, impl=self.po_impl)
-        reward = -makespans.min().to(self.device)
+
+        # Reshape to (num_instances, B, ...) for per-instance loss aggregation
+        num_steps = trajs.size(1)
+        num_jobs = instances[0]["j"]
+        trajs_reshaped = trajs.view(num_instances, self.B, num_steps)
+        logits_reshaped = logits.view(num_instances, self.B, num_steps, num_jobs)
+        makespans_reshaped = makespans.view(num_instances, self.B)
+
+        # Compute loss per-instance, then average
+        total_loss = 0.0
+        total_quality = 0.0
+        best_makespan_list = []
+
+        for i in range(num_instances):
+            samples_i = Solutions(
+                trajs=trajs_reshaped[i],
+                logits=logits_reshaped[i],
+                mss=makespans_reshaped[i]
+            )
+            loss_i, quality_i = rl_loss(samples_i)
+            total_loss = total_loss + loss_i
+            total_quality = total_quality + quality_i
+            best_makespan_list.append(makespans_reshaped[i].min())
+
+        loss = total_loss / num_instances
+        quality = total_quality / num_instances
+        best_makespan = torch.stack(best_makespan_list).min()
+
+        reward = -best_makespan.to(self.device)
         aux_metric = torch.tensor(float(quality), dtype=torch.float32, device=self.device)
         return loss, reward, aux_metric, None
 
@@ -253,9 +392,15 @@ class MGLJSSPModel(L.LightningModule):
     def test_step(self, batch: dict[str, Any], batch_idx: int):
         return self._eval_step(batch, phase="test", sample_size=self.test_B)
 
-    def _eval_step(self, batch: dict[str, Any], phase: str, sample_size: int):
+    def _eval_step(self, batch: list[dict[str, Any]] | dict[str, Any], phase: str, sample_size: int):
+        # Phase 2: eval still uses batch_size=1
+        if isinstance(batch, list):
+            assert len(batch) == 1, "Eval batch_size must be 1 in Phase 2"
+            batch = batch[0]
+
+        # Wrap single instance in list for sampling
         makespans, entropies, _ = sampling(
-            batch,
+            [batch],
             self.encoder,
             self.decoder,
             bs=sample_size,
@@ -290,13 +435,30 @@ class MGLJSSPModel(L.LightningModule):
         return metrics
 
     def train_dataloader(self):
-        return DataLoader(
-            self.train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.dataloader_num_workers,
-            collate_fn=JSSPInstanceDataset.collate_fn,
-        )
+        if self.use_shape_buckets:
+            # Phase 4: Use shape bucket sampler
+            sampler = JSSPShapeBucketSampler(
+                self.train_dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                drop_last=self.bucket_drop_last,
+                allowed_shapes=self.allowed_shapes,
+            )
+            return DataLoader(
+                self.train_dataset,
+                batch_sampler=sampler,
+                num_workers=self.dataloader_num_workers,
+                collate_fn=JSSPInstanceDataset.collate_fn,
+            )
+        else:
+            # Original: single-shape only
+            return DataLoader(
+                self.train_dataset,
+                batch_size=self.batch_size,
+                shuffle=True,
+                num_workers=self.dataloader_num_workers,
+                collate_fn=JSSPInstanceDataset.collate_fn,
+            )
 
     def val_dataloader(self):
         return DataLoader(
