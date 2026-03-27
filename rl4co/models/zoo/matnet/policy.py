@@ -158,6 +158,8 @@ class MultiStageFFSPPolicy(nn.Module):
         phase="train",
         num_starts=1,
         return_actions: bool = True,
+        return_entropy: bool = False,
+        return_sum_log_likelihood: bool = True,
         **decoder_kwargs,
     ):
         assert not env.flatten_stages, "Multistage model only supports unflattened env"
@@ -200,10 +202,16 @@ class MultiStageFFSPPolicy(nn.Module):
 
         out = {
             "reward": td["reward"],
-            "log_likelihood": logp_list.sum(1),
+            "log_likelihood": logp_list.sum(1)
+            if return_sum_log_likelihood
+            else logp_list,
         }
 
         if return_actions:
             out["actions"] = torch.stack(action_list, 1)
+
+        if return_entropy:
+            # Entropy is not currently tracked in the multistage FFSP decoder path.
+            out["entropy"] = None
 
         return out

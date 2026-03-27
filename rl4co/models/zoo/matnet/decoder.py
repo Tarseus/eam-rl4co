@@ -148,13 +148,16 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         num_starts: int = 1,
         **decoding_kwargs,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
-
+        process_logits_kwargs = {}
+        for key in ("temperature", "top_p", "top_k", "mask_logits"):
+            if key in decoding_kwargs:
+                process_logits_kwargs[key] = decoding_kwargs[key]
         logits, mask = super().forward(td, self.cached_embs, num_starts)
         logprobs = process_logits(
             logits,
             mask,
             tanh_clipping=self.tanh_clipping,
-            **decoding_kwargs,
+            **process_logits_kwargs,
         )
         job_selected = decode_logprobs(logprobs, mask, decode_type)
         job_prob = gather_by_index(logprobs, job_selected, dim=1)
