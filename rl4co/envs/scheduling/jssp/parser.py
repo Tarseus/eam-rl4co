@@ -36,7 +36,8 @@ def parse_job_line(line: Tuple[int]) -> Tuple[ProcessingData]:
 
 def get_n_ops_of_instance(file):
     lines = file2lines(file)
-    jobs = [parse_job_line(line) for line in lines[1:]]
+    num_jobs = int(lines[0][0])
+    jobs = [parse_job_line(line) for line in lines[1 : 1 + num_jobs]]
     n_ope_per_job = torch.Tensor([len(x) for x in jobs]).unsqueeze(0)
     total_ops = int(n_ope_per_job.sum())
     return total_ops
@@ -62,9 +63,11 @@ def read(loc: Path, max_ops=None):
     # First line contains metadata.
     num_jobs, num_machines = lines[0][0], lines[0][1]
 
-    # The remaining lines contain the job-operation data, where each line
-    # represents a job and its operations.
-    jobs = [parse_job_line(line) for line in lines[1:]]
+    # Some benchmark files append the best-known makespan and extra metadata
+    # after the job rows. Only the next `num_jobs` lines describe operations.
+    job_lines = lines[1 : 1 + num_jobs]
+    jobs = [parse_job_line(line) for line in job_lines]
+    ref_makespan = _parse_reference_makespan(lines, num_jobs=num_jobs)
     n_ope_per_job = torch.Tensor([len(x) for x in jobs]).unsqueeze(0)
     total_ops = int(n_ope_per_job.sum())
     if max_ops is not None:
@@ -79,11 +82,11 @@ def read(loc: Path, max_ops=None):
     pad_mask = pad_mask.ge(total_ops).unsqueeze(0)
 
     proc_times = torch.zeros((num_machines, max_ops))
+    machine_offset = _detect_machine_index_offset(jobs, num_machines)
     op_cnt = 0
     for job in jobs:
         for ma, dur in job:
-            # subtract one to let indices start from zero
-            proc_times[ma - 1, op_cnt] = dur
+            proc_times[ma - machine_offset, op_cnt] = dur
             op_cnt += 1
     proc_times = proc_times.unsqueeze(0)
 
@@ -93,6 +96,7 @@ def read(loc: Path, max_ops=None):
             "end_op_per_job": end_op_per_job,
             "proc_times": proc_times,
             "pad_mask": pad_mask,
+            "ref_makespan": torch.tensor([float(ref_makespan)], dtype=torch.float32),
         },
         batch_size=[1],
     )
@@ -101,10 +105,36 @@ def read(loc: Path, max_ops=None):
 
 
 def file2lines(loc: Path | str) -> list[list[int]]:
-    with open(loc, "r") as fh:
+    with open(loc, "r", encoding="utf-8") as fh:
         lines = [line for line in fh.readlines() if line.strip()]
 
     def parse_num(word: str):
         return int(word) if "." not in word else int(float(word))
 
     return [[parse_num(x) for x in line.split()] for line in lines]
+
+
+def _detect_machine_index_offset(
+    jobs: list[ProcessingData], num_machines: int
+) -> int:
+    machine_ids = [machine for job in jobs for machine, _ in job]
+    if not machine_ids:
+        return 0
+    min_machine = min(machine_ids)
+    max_machine = max(machine_ids)
+    if min_machine == 0 and max_machine <= num_machines - 1:
+        return 0
+    if min_machine >= 1 and max_machine <= num_machines:
+        return 1
+    raise ValueError(
+        f"Unsupported machine indexing range [{min_machine}, {max_machine}] for {num_machines} machines."
+    )
+
+
+def _parse_reference_makespan(lines: list[list[int]], num_jobs: int) -> float:
+    if len(lines) <= num_jobs + 1:
+        return 0.0
+    candidate = lines[1 + num_jobs]
+    if len(candidate) == 1:
+        return float(candidate[0])
+    return 0.0

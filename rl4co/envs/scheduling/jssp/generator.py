@@ -183,11 +183,7 @@ class JSSPFileGenerator(Generator):
         self.start_idx = 0
 
     def _generate(self, batch_size: list[int]) -> TensorDict:
-        batch_size = np.prod(batch_size)
-        if batch_size > self.num_samples:
-            log.warning(
-                f"Only found {self.num_samples} instance files, but specified dataset size is {batch_size}"
-            )
+        batch_size = min(int(np.prod(batch_size)), int(self.num_samples))
         end_idx = self.start_idx + batch_size
         td = self.td[self.start_idx : end_idx]
         self.start_idx += batch_size
@@ -200,7 +196,7 @@ class JSSPFileGenerator(Generator):
         files = [
             os.path.join(path, f)
             for f in os.listdir(path)
-            if os.path.isfile(os.path.join(path, f))
+            if os.path.isfile(os.path.join(path, f)) and f.lower().endswith(".jsp")
         ]
         assert len(files) > 0, "No files found in the specified path"
         return files
