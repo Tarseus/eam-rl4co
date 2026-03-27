@@ -5540,3 +5540,75 @@ torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 h
 [2026-03-26 07:45:42,402][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-03-26 07:51:35,321][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-03-26 07:57:00,066][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-03-27 23:03:40,243][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-03-27 23:03:40,247][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-03-27 23:03:40,277][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-03-27 23:03:43,065][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-03-27 23:03:43,336][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-03-27 23:03:43,370][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-03-27 23:03:43,370][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-03-27 23:03:43,375][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-03-27 23:03:43,375][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-03-27 23:03:43,375][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-03-27 23:03:43,377][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-03-27 23:03:43,377][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-03-27 23:03:43,377][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-03-27 23:03:43,378][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-03-27 23:03:43,380][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-03-27 23:03:43,443][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-03-27 23:03:43,450][rl4co.tasks.train][INFO] - Starting training!
+[2026-03-27 23:06:47,458][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-03-27 23:06:47,459][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 2500 batches
+[2026-03-27 23:06:47,459][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 5000 instances, 2500 batches
+[2026-03-27 23:06:47,459][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-03-27 23:06:48,712][rl4co.utils.utils][INFO] - Output dir: /home/gsd/eam-rl4co/logs/train/runs/2026-03-27_23-03-40
+[2026-03-27 23:06:48,712][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-03-27 23:06:49,429][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
+[2026-03-27 23:07:24,253][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-03-27 23:07:24,256][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-03-27 23:07:24,284][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-03-27 23:07:27,180][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-03-27 23:07:27,496][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-03-27 23:07:27,538][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-03-27 23:07:27,539][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-03-27 23:07:27,540][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-03-27 23:07:27,541][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-03-27 23:07:27,541][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-03-27 23:07:27,541][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-03-27 23:07:27,542][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-03-27 23:07:27,542][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-03-27 23:07:27,543][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-03-27 23:07:27,545][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-03-27 23:07:27,629][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-03-27 23:07:27,636][rl4co.tasks.train][INFO] - Starting training!
+[2026-03-27 23:07:35,456][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-03-27 23:07:35,456][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 2500 batches
+[2026-03-27 23:07:35,456][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 5000 instances, 2500 batches
+[2026-03-27 23:07:35,456][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-03-27 23:07:39,944][rl4co.utils.utils][INFO] - Output dir: /home/gsd/eam-rl4co/logs/train/runs/2026-03-27_23-07-24
+[2026-03-27 23:07:39,945][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-03-27 23:07:40,518][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
+[2026-03-27 23:08:57,328][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-03-27 23:08:57,330][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-03-27 23:08:57,358][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-03-27 23:09:00,072][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-03-27 23:09:00,375][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-03-27 23:09:00,417][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-03-27 23:09:00,418][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-03-27 23:09:00,419][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-03-27 23:09:00,420][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-03-27 23:09:00,420][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-03-27 23:09:00,421][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-03-27 23:09:00,421][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-03-27 23:09:00,421][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-03-27 23:09:00,422][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-03-27 23:09:00,424][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-03-27 23:09:00,528][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-03-27 23:09:00,536][rl4co.tasks.train][INFO] - Starting training!
+[2026-03-27 23:09:09,642][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-03-27 23:09:09,643][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 2500 batches
+[2026-03-27 23:09:09,643][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 5000 instances, 2500 batches
+[2026-03-27 23:09:09,643][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-03-27 23:09:13,084][rl4co.utils.utils][INFO] - Output dir: /home/gsd/eam-rl4co/logs/train/runs/2026-03-27_23-08-57
+[2026-03-27 23:09:13,084][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-03-27 23:09:13,958][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
