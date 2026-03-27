@@ -104,7 +104,7 @@ start_baseline() {
   local baseline="$1"
   local gpu_id="$2"
   local log_path="${ROOT_DIR}/logs/jssp_${baseline}_${TS}.out"
-  local experiment="scheduling/mgl-jssp-${baseline}-paper"
+  local experiment="scheduling/mgl-jssp-${baseline}-bucketed-multishape"
   local run_dir="${ROOT_DIR}/logs/train/runs/mgl-jssp-${baseline}_${TS}"
   local ckpt_dir="${run_dir}/checkpoints"
   local cmd=(
