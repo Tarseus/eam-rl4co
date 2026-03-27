@@ -59,6 +59,11 @@ class MatNetFFSPDecoder(AttentionModelDecoder):
         use_graph_context: bool = False,
         **kwargs,
     ):
+        # Backward compatibility: older call sites used `out_bias` for pointer attention.
+        legacy_out_bias = kwargs.pop("out_bias", None)
+        if legacy_out_bias is not None:
+            out_bias_pointer_attn = bool(legacy_out_bias)
+
         context_embedding = FFSPContext(embed_dim)
 
         super().__init__(
