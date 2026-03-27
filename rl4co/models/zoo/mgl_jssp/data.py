@@ -180,8 +180,107 @@ class JSSPInstanceDataset(Dataset):
     def __getitem__(self, idx: int) -> dict:
         return self.instances[idx]
 
+    def get_shape(self, idx: int) -> tuple[int, int]:
+        """Return (num_jobs, num_machines) shape of instance at idx."""
+        ins = self.instances[idx]
+        return (ins["j"], ins["m"])
+
     @staticmethod
-    def collate_fn(items: list[dict]) -> dict:
-        if len(items) != 1:
-            raise ValueError("MGLJSSPModel expects dataloader batch_size=1 to stay protocol-faithful.")
-        return items[0]
+    def collate_fn(items: list[dict]) -> list[dict]:
+        # Phase 4: Same-shape only (bucketed), no mixed-shape
+        if not items:
+            raise ValueError("Empty batch received.")
+        # Check all instances have same shape
+        first_shape = (items[0]["j"], items[0]["m"])
+        for i, item in enumerate(items):
+            shape = (item["j"], item["m"])
+            if shape != first_shape:
+                raise ValueError(f"Mixed-shape batch not allowed: item 0 is {first_shape[0]}x{first_shape[1]}, item {i} is {shape[0]}x{shape[1]}.")
+        return items
+
+
+class JSSPShapeBucketSampler(torch.utils.data.Sampler):
+    """
+    Phase 4: Sampler that groups instances by shape (num_jobs, num_machines) into buckets.
+    Each batch contains only instances of the same shape.
+    """
+
+    def __init__(
+        self,
+        dataset: JSSPInstanceDataset,
+        batch_size: int = 1,
+        shuffle: bool = True,
+        drop_last: bool = False,
+        allowed_shapes: list[tuple[int, int]] | None = None,
+    ):
+        """
+        Args:
+            dataset: JSSPInstanceDataset
+            batch_size: batch size per shape bucket
+            shuffle: whether to shuffle within buckets and shuffle bucket order
+            drop_last: whether to drop last incomplete batch in each bucket
+            allowed_shapes: if specified, only instances of these shapes are used
+        """
+        self.dataset = dataset
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.drop_last = drop_last
+        self.allowed_shapes = allowed_shapes
+
+        # Group indices by shape
+        self.shape_to_indices: dict[tuple[int, int], list[int]] = {}
+        for idx in range(len(dataset)):
+            shape = dataset.get_shape(idx)
+            if allowed_shapes is not None and shape not in allowed_shapes:
+                continue
+            if shape not in self.shape_to_indices:
+                self.shape_to_indices[shape] = []
+            self.shape_to_indices[shape].append(idx)
+
+        # Precompute batches
+        self.batches: list[list[int]] = []
+        self._create_batches()
+
+    def _create_batches(self) -> None:
+        """Create batches from shape buckets."""
+        self.batches = []
+        shapes = list(self.shape_to_indices.keys())
+
+        if self.shuffle:
+            # Shuffle shape order
+            idx_perm = torch.randperm(len(shapes)).tolist()
+            shapes = [shapes[i] for i in idx_perm]
+
+        for shape in shapes:
+            indices = self.shape_to_indices[shape].copy()
+            if self.shuffle:
+                idx_perm = torch.randperm(len(indices)).tolist()
+                indices = [indices[i] for i in idx_perm]
+
+            # Split into batches
+            for start in range(0, len(indices), self.batch_size):
+                end = start + self.batch_size
+                batch = indices[start:end]
+                if len(batch) < self.batch_size and self.drop_last:
+                    continue
+                self.batches.append(batch)
+
+    def __iter__(self):
+        if self.shuffle:
+            self._create_batches()
+        yield from self.batches
+
+    def __len__(self) -> int:
+        return len(self.batches)
+
+    def get_bucket_stats(self) -> dict[tuple[int, int], tuple[int, int]]:
+        """Return {shape: (num_instances, num_batches)}."""
+        stats = {}
+        for shape, indices in self.shape_to_indices.items():
+            n = len(indices)
+            if self.drop_last:
+                num_batches = n // self.batch_size
+            else:
+                num_batches = (n + self.batch_size - 1) // self.batch_size
+            stats[shape] = (n, num_batches)
+        return stats
