@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from contextlib import nullcontext
 from dataclasses import dataclass, asdict, field
 import math
 import os
@@ -28,6 +29,37 @@ logger = logging.getLogger(__name__)
 
 
 _OFFLINE_TENSORDICT_CACHE: dict[str, Any] = {}
+
+
+def _normalize_precision_mode(value: str | None) -> str:
+    mode = str(value or "32-true").strip().lower()
+    if mode in {"16", "16-mixed", "fp16", "fp16-mixed"}:
+        return "16-mixed"
+    if mode in {"bf16", "bf16-mixed"}:
+        return "bf16-mixed"
+    return "32-true"
+
+
+def _autocast_context(device: torch.device, precision: str):
+    mode = _normalize_precision_mode(precision)
+    if device.type != "cuda":
+        return nullcontext()
+    if mode == "16-mixed":
+        return torch.autocast(device_type="cuda", dtype=torch.float16)
+    if mode == "bf16-mixed":
+        return torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+    return nullcontext()
+
+
+def _make_grad_scaler(device: torch.device, precision: str):
+    enabled = device.type == "cuda" and _normalize_precision_mode(precision) == "16-mixed"
+    try:
+        return torch.amp.GradScaler("cuda", enabled=enabled)
+    except Exception:  # noqa: BLE001
+        try:
+            return torch.cuda.amp.GradScaler(enabled=enabled)
+        except Exception:  # noqa: BLE001
+            return None
 
 
 def _abs_path(path: str) -> str:
@@ -811,6 +843,7 @@ def _rl4co_rollout_full(
     phase: str,
     rollout_strategy: str,
     device: torch.device,
+    precision: str = "32-true",
     return_actions: bool = False,
     return_entropy: bool = False,
     return_step_logp: bool = False,
@@ -830,28 +863,29 @@ def _rl4co_rollout_full(
     batch = batch.to(device)
     td = env.reset(batch)
 
-    if rollout_strategy == "policy_multistart":
-        out = policy(
-            td,
-            env,
-            phase=phase,
-            num_starts=num_rollouts,
-            return_actions=return_actions,
-            return_entropy=return_entropy,
-            return_sum_log_likelihood=not return_step_logp,
-        )
-        reward = unbatchify(out["reward"], num_rollouts)
-    else:
-        td_rep = batchify(td, num_rollouts) if num_rollouts > 1 else td
-        out = policy(
-            td_rep,
-            env,
-            phase=phase,
-            return_actions=return_actions,
-            return_entropy=return_entropy,
-            return_sum_log_likelihood=not return_step_logp,
-        )
-        reward = unbatchify(out["reward"], num_rollouts)
+    with _autocast_context(device, precision):
+        if rollout_strategy == "policy_multistart":
+            out = policy(
+                td,
+                env,
+                phase=phase,
+                num_starts=num_rollouts,
+                return_actions=return_actions,
+                return_entropy=return_entropy,
+                return_sum_log_likelihood=not return_step_logp,
+            )
+            reward = unbatchify(out["reward"], num_rollouts)
+        else:
+            td_rep = batchify(td, num_rollouts) if num_rollouts > 1 else td
+            out = policy(
+                td_rep,
+                env,
+                phase=phase,
+                return_actions=return_actions,
+                return_entropy=return_entropy,
+                return_sum_log_likelihood=not return_step_logp,
+            )
+            reward = unbatchify(out["reward"], num_rollouts)
 
     raw_log_likelihood = out["log_likelihood"]
     log_likelihood_step = None
@@ -894,6 +928,7 @@ def _rl4co_rollout(
     phase: str,
     rollout_strategy: str,
     device: torch.device,
+    precision: str = "32-true",
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     out = _rl4co_rollout_full(
         env,
@@ -903,6 +938,7 @@ def _rl4co_rollout(
         phase=phase,
         rollout_strategy=rollout_strategy,
         device=device,
+        precision=precision,
         return_actions=False,
         return_entropy=False,
         return_step_logp=False,
@@ -918,6 +954,7 @@ def _train_one_batch_with_free_loss_rl4co(
     hf_cfg: HighFidelityConfig,
     rollout_strategy: str,
     device: torch.device,
+    scaler=None,
     *,
     pref_builder: PrefBuilder | None = None,
 ) -> Tuple[float, float, int]:
@@ -937,12 +974,13 @@ def _train_one_batch_with_free_loss_rl4co(
         phase="train",
         rollout_strategy=rollout_strategy,
         device=device,
+        precision=str(getattr(hf_cfg, "precision", "32-true") or "32-true"),
         return_actions=want_seq_len or want_step_logp,
         return_entropy=want_entropy,
         return_step_logp=want_step_logp,
     )
-    reward = rollout["reward"]
-    log_likelihood = rollout["log_likelihood"]
+    reward = rollout["reward"].float()
+    log_likelihood = rollout["log_likelihood"].float()
 
     objective = _rl4co_objective_from_reward(reward, hf_cfg)
     log_prob = log_likelihood
@@ -997,8 +1035,13 @@ def _train_one_batch_with_free_loss_rl4co(
     optimizer.zero_grad()
     if not torch.isfinite(loss).all():
         raise RuntimeError("Non-finite loss encountered during mini-train")
-    loss.backward()
-    optimizer.step()
+    if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        loss.backward()
+        optimizer.step()
 
     return score_mean.item(), float(loss.item()), pair_count
 
@@ -1034,6 +1077,7 @@ def _evaluate_rl4co_model(
             phase="test",
             rollout_strategy=rollout_strategy,
             device=device,
+            precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
         )
         max_reward, _ = reward.max(dim=1)
         score = _rl4co_objective_from_reward(max_reward, cfg).float().mean().item()
@@ -1087,6 +1131,7 @@ def _evaluate_free_loss_candidate_rl4co(
         if cfg.init_checkpoint_path:
             _load_policy_weights_from_checkpoint(policy, str(cfg.init_checkpoint_path))
         policy = policy.to(device)
+        scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.hf.learning_rate),
@@ -1136,6 +1181,7 @@ def _evaluate_free_loss_candidate_rl4co(
                 hf_cfg=cfg.hf,
                 rollout_strategy=rollout_strategy,
                 device=device,
+                scaler=scaler,
                 pref_builder=pref_builder,
             )
             score_meter.update(score)
@@ -1237,6 +1283,7 @@ def _evaluate_free_loss_candidate_rl4co(
         if init_ckpt:
             _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
         policy = policy.to(device)
+        scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.hf.learning_rate),
@@ -1308,6 +1355,7 @@ def _evaluate_free_loss_candidate_rl4co(
                 hf_cfg=cfg.hf,
                 rollout_strategy=rollout_strategy,
                 device=device,
+                scaler=scaler,
                 pref_builder=pref_builder,
             )
             score_meter.update(score)
@@ -1846,6 +1894,7 @@ def evaluate_po_baseline_rl4co(
     env = env.to(device)
     policy, rollout_strategy = _rl4co_build_policy(cfg, env)
     policy = policy.to(device)
+    scaler = _make_grad_scaler(device, str(getattr(cfg, "precision", "32-true") or "32-true"))
     optimizer = Adam(
         policy.parameters(),
         lr=float(cfg.learning_rate),
@@ -1876,7 +1925,10 @@ def evaluate_po_baseline_rl4co(
             phase="train",
             rollout_strategy=rollout_strategy,
             device=device,
+            precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
         )
+        reward = reward.float()
+        log_likelihood = log_likelihood.float()
         preference = reward[:, :, None] > reward[:, None, :]
         log_prob_pair = log_likelihood[:, :, None] - log_likelihood[:, None, :]
         alpha = float(cfg.alpha)
@@ -1887,8 +1939,13 @@ def evaluate_po_baseline_rl4co(
         score = _rl4co_objective_from_reward(max_reward, cfg).float().mean()
 
         optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            loss.backward()
+            optimizer.step()
 
         score_meter.update(score.item())
         loss_meter.update(float(loss.item()))

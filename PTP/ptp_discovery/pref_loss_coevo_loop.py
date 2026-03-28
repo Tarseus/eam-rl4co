@@ -5056,6 +5056,7 @@ def _build_hf_cfg(cfg: Mapping[str, Any], *, seed: int, device_str: str) -> High
         learning_rate=float(cfg.get("learning_rate", 3e-4)),
         weight_decay=float(cfg.get("weight_decay", 1e-6)),
         alpha=float(cfg.get("alpha", 0.05)),
+        precision=str(cfg.get("precision", "32-true") or "32-true"),
         device=str(device_str),
         seed=int(seed),
         num_validation_episodes=int(cfg.get("num_validation_episodes", 128)),
