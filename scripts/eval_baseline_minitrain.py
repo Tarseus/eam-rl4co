@@ -62,7 +62,7 @@ def _objective_to_reward(obj: float, *, objective_sign: str) -> float:
 
 def _baseline_minitrain_eval_mode(cfg_yaml: Mapping[str, Any]) -> str:
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
-    if env_name == "cvrp":
+    if env_name in {"cvrp", "ffsp"}:
         return "native_po_loss"
     return "ref_free_loss"
 
@@ -71,6 +71,13 @@ def _alpha_from_cfg(cfg_yaml: Mapping[str, Any]) -> float:
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
     default_alpha = 0.03 if env_name == "cvrp" else 0.05
     return float(cfg_yaml.get("alpha", default_alpha) or default_alpha)
+
+
+def _po_impl_from_cfg(cfg_yaml: Mapping[str, Any], *, default: str = "bt") -> str:
+    raw = str(cfg_yaml.get("po_impl", default) or default).strip().lower()
+    if raw not in {"bt", "exponential"}:
+        return str(default)
+    return raw
 
 
 @torch.no_grad()
@@ -118,6 +125,7 @@ def _pre_minitrain_eval(
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
         alpha=_alpha_from_cfg(cfg_yaml),
+        po_impl=_po_impl_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),
@@ -244,6 +252,7 @@ def _build_eval_signature(
         "rollout_strategy": rollout_strategy,
         "objective_sign": objective_sign,
         "alpha": alpha,
+        "po_impl": _po_impl_from_cfg(cfg_yaml),
         "K": int(K),
         "train_problem_size": int(train_problem_size),
         "valid_problem_sizes": [int(x) for x in valid_problem_sizes],
@@ -316,6 +325,7 @@ def _evaluate_one_init_native_po_loss(
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
         alpha=_alpha_from_cfg(cfg_yaml),
+        po_impl=_po_impl_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),
@@ -356,7 +366,12 @@ def _evaluate_one_init_native_po_loss(
             rollout_strategy=str(rollout_strategy),
             device=device,
         )
-        loss, _ = po_loss(reward, log_likelihood, alpha=float(hf_cfg.alpha))
+        loss, _ = po_loss(
+            reward,
+            log_likelihood,
+            alpha=float(hf_cfg.alpha),
+            impl=str(getattr(hf_cfg, "po_impl", "bt")),
+        )
         if not torch.isfinite(loss).all():
             raise RuntimeError("Non-finite po_loss encountered during CVRP baseline mini-train")
         optimizer.zero_grad()
@@ -437,6 +452,7 @@ def _evaluate_one_init(
         learning_rate=float(cfg_yaml.get("learning_rate", 3e-4) or 3e-4),
         weight_decay=float(cfg_yaml.get("weight_decay", 1e-6) or 1e-6),
         alpha=_alpha_from_cfg(cfg_yaml),
+        po_impl=_po_impl_from_cfg(cfg_yaml),
         device=str(cfg_yaml.get("device", "cuda") or "cuda"),
         seed=int(scratch_init_seed),
         num_validation_episodes=int(num_validation_episodes),

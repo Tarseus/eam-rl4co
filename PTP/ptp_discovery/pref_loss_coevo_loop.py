@@ -243,6 +243,13 @@ def _alpha_from_cfg(cfg_yaml: Mapping[str, Any], *, key: str = "alpha") -> float
     return float(cfg_yaml.get(key, default_alpha) or default_alpha)
 
 
+def _po_impl_from_cfg(cfg_yaml: Mapping[str, Any], *, default: str = "bt") -> str:
+    raw = str(cfg_yaml.get("po_impl", default) or default).strip().lower()
+    if raw not in {"bt", "exponential"}:
+        return str(default)
+    return raw
+
+
 def _stage3_multiseed_compare_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
     seed0 = _resolve_training_seed(cfg_yaml)
     baseline_cfg = cfg_yaml.get("baseline", {}) or {}
@@ -899,9 +906,11 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         raise ValueError("stage3 requires at least one init source (scratch and/or baseline.checkpoints)")
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
-    # CVRP compares against the native PO objective to stay aligned with the
-    # PO4COPs-style experimental preference modeling used by that baseline.
-    baseline_eval_mode = "native_po_loss" if env_name.strip().lower() == "cvrp" else "ref_free_loss"
+    # CVRP and FFSP compare against the native PO objective so the stage3 baseline
+    # matches the paper training loss rather than the reference free-loss surrogate.
+    baseline_eval_mode = (
+        "native_po_loss" if env_name.strip().lower() in {"cvrp", "ffsp"} else "ref_free_loss"
+    )
     policy_name = str(cfg_yaml.get("policy_name") or "")
     policy_kwargs = dict(cfg_yaml.get("policy_kwargs", {}) or {})
     env_kwargs = dict(cfg_yaml.get("env_kwargs", {}) or {})
@@ -965,6 +974,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         "rollout_strategy": rollout_strategy,
         "objective_sign": objective_sign,
         "alpha": alpha,
+        "po_impl": _po_impl_from_cfg(cfg_yaml),
         "K": int(K),
         "train_problem_size": int(train_problem_size),
         "valid_problem_sizes": [int(x) for x in valid_problem_sizes],
@@ -5056,6 +5066,7 @@ def _build_hf_cfg(cfg: Mapping[str, Any], *, seed: int, device_str: str) -> High
         learning_rate=float(cfg.get("learning_rate", 3e-4)),
         weight_decay=float(cfg.get("weight_decay", 1e-6)),
         alpha=float(cfg.get("alpha", 0.05)),
+        po_impl=_po_impl_from_cfg(cfg),
         precision=str(cfg.get("precision", "32-true") or "32-true"),
         device=str(device_str),
         seed=int(seed),

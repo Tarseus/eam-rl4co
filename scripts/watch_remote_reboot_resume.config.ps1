@@ -1,10 +1,11 @@
 ﻿$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 $WatchRemoteRebootResumeConfig = @{
-    Host                  = "gushengda@g52"
+    Host                  = "gushengda@g53"
+    WatchMode             = "pref_loss"
     RemoteWorkdir         = "/data1/gushengda/eam-rl4co"
-    RemoteConfigPath      = "PTP/configs/experiment/pref_loss_coevo/loss_transfer_cvrp100_from_tsp100_elite.yaml"
-    RemoteOutputRoot      = "runs/pref_loss_cvrp100_from_tsp100_elite"
+    RemoteConfigPath      = "PTP/configs/experiment/pref_loss_coevo/loss_only_ffsp100_discovery.yaml"
+    RemoteOutputRoot      = ""
 
     PollSeconds           = 15
     BootGraceSeconds      = 45

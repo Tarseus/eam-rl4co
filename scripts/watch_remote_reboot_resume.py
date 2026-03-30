@@ -11,6 +11,10 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+WATCH_MODE_PREF_LOSS = "pref_loss"
+WATCH_MODE_FREE_LOSS = "free_loss"
+WATCH_MODE_CHOICES = (WATCH_MODE_PREF_LOSS, WATCH_MODE_FREE_LOSS)
+
 
 @dataclass
 class RemoteResult:
@@ -85,6 +89,41 @@ def _q(v: str) -> str:
     return shlex.quote(str(v))
 
 
+def _normalize_watch_mode(mode: str) -> str:
+    value = str(mode or WATCH_MODE_PREF_LOSS).strip().lower()
+    if value not in WATCH_MODE_CHOICES:
+        raise ValueError(f"Unsupported watch mode: {mode}")
+    return value
+
+
+def _watch_mode_defaults(mode: str) -> dict[str, str]:
+    mode_norm = _normalize_watch_mode(mode)
+    if mode_norm == WATCH_MODE_FREE_LOSS:
+        return {
+            "default_output_root": "runs/free_loss_discovery",
+            "process_needle": "run_free_loss_discovery_rl4co.py",
+            "resume_label": "free_loss",
+        }
+    return {
+        "default_output_root": "runs/pref_loss_coevo",
+        "process_needle": "run_pref_loss_coevo.py",
+        "resume_label": "pref_loss",
+    }
+
+
+def _build_resume_command(*, watch_mode: str, python_bin: str, config_path: str) -> str:
+    mode_norm = _normalize_watch_mode(watch_mode)
+    if mode_norm == WATCH_MODE_FREE_LOSS:
+        return (
+            f"{_q(python_bin)} -u scripts/run_free_loss_discovery_rl4co.py "
+            + f"--config {_q(config_path)} --resume-latest"
+        )
+    return (
+        f"{_q(python_bin)} -u PTP/ptp_discovery/run_pref_loss_coevo.py "
+        + f"--config {_q(config_path)} --resume-latest"
+    )
+
+
 def _safe_json_loads(text: str) -> dict[str, Any] | None:
     raw = str(text or "").strip()
     if not raw:
@@ -116,20 +155,24 @@ def _read_remote_boot_id(client: RemoteSSH, *, timeout_s: float) -> tuple[str | 
 def _probe_latest_run(
     client: RemoteSSH,
     *,
+    watch_mode: str,
     remote_workdir: str,
     config_path: str,
     output_root_override: str,
     remote_python_bin: str,
     timeout_s: float,
 ) -> dict[str, Any] | None:
+    watch_mode_norm = _normalize_watch_mode(watch_mode)
     config_path_py = json.dumps(str(config_path), ensure_ascii=False)
     remote_workdir_py = json.dumps(str(remote_workdir), ensure_ascii=False)
     output_root_override_py = json.dumps(str(output_root_override), ensure_ascii=False)
+    watch_mode_py = json.dumps(watch_mode_norm, ensure_ascii=False)
     remote_py = f"""
 cd {_q(remote_workdir)} && {_q(remote_python_bin)} - <<'PY'
 import json
 import os
 
+watch_mode = {watch_mode_py}
 config_path = {config_path_py}
 workdir = {remote_workdir_py}
 output_root_override = {output_root_override_py}
@@ -177,7 +220,7 @@ if yaml is not None and os.path.isfile(cfg_path_abs):
 
 output_root = str(output_root_override or "").strip()
 if not output_root:
-    output_root = "runs/pref_loss_coevo"
+    output_root = "runs/free_loss_discovery" if watch_mode == "free_loss" else "runs/pref_loss_coevo"
 if isinstance(cfg, dict) and not str(output_root_override or "").strip():
     output_root = str(cfg.get("output_root", output_root) or output_root)
 if not os.path.isabs(output_root):
@@ -212,9 +255,12 @@ summary = _safe_read_json(os.path.join(latest, "summary.json")) or {{}}
 next_generation = _to_int(ckpt.get("next_generation"))
 target_generations = None
 if isinstance(cfg, dict):
-    budgets = cfg.get("budgets")
-    if isinstance(budgets, dict):
-        target_generations = _to_int(budgets.get("generations"))
+    if watch_mode == "free_loss":
+        target_generations = _to_int(cfg.get("generations"))
+    else:
+        budgets = cfg.get("budgets")
+        if isinstance(budgets, dict):
+            target_generations = _to_int(budgets.get("generations"))
 
 status = str(runtime.get("status", "")).strip().lower()
 reason = str(runtime.get("reason", "")).strip().lower()
@@ -262,8 +308,13 @@ PY
     }
 
 
-def _remote_pref_loss_running(client: RemoteSSH, *, timeout_s: float) -> tuple[list[str] | None, str | None]:
-    rs = client.run("pgrep -af run_pref_loss_coevo.py || true", timeout_s=timeout_s)
+def _remote_process_running(
+    client: RemoteSSH,
+    *,
+    process_needle: str,
+    timeout_s: float,
+) -> tuple[list[str] | None, str | None]:
+    rs = client.run(f"pgrep -af {_q(process_needle)} || true", timeout_s=timeout_s)
     if rs.returncode != 0:
         err = str(rs.stderr or "").strip().replace("\n", " ")
         if len(err) > 200:
@@ -274,7 +325,7 @@ def _remote_pref_loss_running(client: RemoteSSH, *, timeout_s: float) -> tuple[l
         s = ln.strip()
         if not s:
             continue
-        if "pgrep -af run_pref_loss_coevo.py" in s:
+        if process_needle in s and "pgrep -af" in s:
             continue
         lines.append(s)
     return lines, None
@@ -283,6 +334,7 @@ def _remote_pref_loss_running(client: RemoteSSH, *, timeout_s: float) -> tuple[l
 def _launch_resume(
     client: RemoteSSH,
     *,
+    watch_mode: str,
     remote_workdir: str,
     config_path: str,
     remote_log_dir: str,
@@ -291,11 +343,17 @@ def _launch_resume(
     log_level: str,
     timeout_s: float,
 ) -> tuple[int | None, str | None]:
+    defaults = _watch_mode_defaults(watch_mode)
     ts = time.strftime("%Y%m%d-%H%M%S", time.localtime())
     remote_log_dir_norm = str(remote_log_dir).replace("\\", "/").rstrip("/")
     if not remote_log_dir_norm:
         remote_log_dir_norm = "logs"
-    log_file = f"{remote_log_dir_norm}/auto_resume_pref_loss_{ts}.out"
+    log_file = f"{remote_log_dir_norm}/auto_resume_{defaults['resume_label']}_{ts}.out"
+    resume_cmd = _build_resume_command(
+        watch_mode=watch_mode,
+        python_bin=python_bin,
+        config_path=config_path,
+    )
     cmd = " && ".join(
         [
             f"cd {_q(remote_workdir)}",
@@ -303,12 +361,7 @@ def _launch_resume(
             f"export PYTHONPATH={_q(remote_workdir)}:{_q(os.path.join(remote_workdir, 'PTP'))}:${{PYTHONPATH:-}}",
             f"export LOG_TZ={_q(log_tz)}",
             f"export LOG_LEVEL={_q(log_level)}",
-            (
-                "nohup "
-                + f"{_q(python_bin)} -u PTP/ptp_discovery/run_pref_loss_coevo.py "
-                + f"--config {_q(config_path)} --resume-latest "
-                + f"> {_q(log_file)} 2>&1 < /dev/null & echo $!"
-            ),
+            ("nohup " + resume_cmd + f" > {_q(log_file)} 2>&1 < /dev/null & echo $!"),
         ]
     )
     rs = client.run(cmd, timeout_s=timeout_s, use_bash_lc=True)
@@ -326,6 +379,7 @@ def _launch_resume(
 def _attempt_resume(
     client: RemoteSSH,
     *,
+    watch_mode: str,
     reason: str,
     remote_workdir: str,
     config_path: str,
@@ -338,6 +392,7 @@ def _attempt_resume(
     boot_grace_s: float,
     dry_run: bool,
 ) -> bool:
+    defaults = _watch_mode_defaults(watch_mode)
     _log(f"resume_check reason={reason}")
     if boot_grace_s > 0:
         _log(f"waiting_boot_grace_s={boot_grace_s:.1f}")
@@ -345,6 +400,7 @@ def _attempt_resume(
 
     latest = _probe_latest_run(
         client,
+        watch_mode=watch_mode,
         remote_workdir=remote_workdir,
         config_path=config_path,
         output_root_override=output_root_override,
@@ -385,25 +441,31 @@ def _attempt_resume(
 
     # Keep the process probe aligned with the standalone PowerShell SSH test:
     # use the configured command timeout and a direct remote command.
-    running, running_err = _remote_pref_loss_running(client, timeout_s=cmd_timeout_s)
+    running, running_err = _remote_process_running(
+        client,
+        process_needle=defaults["process_needle"],
+        timeout_s=cmd_timeout_s,
+    )
     if running is None:
-        _log(f"pref_proc_query_degraded: reason={running_err}; defer_resume_check_to_online_retry")
+        _log(f"proc_query_degraded: reason={running_err}; defer_resume_check_to_online_retry")
         return False
     elif running:
-        _log("resume_check_noop: pref_loss_process_already_running")
+        _log(f"resume_check_noop: {defaults['resume_label']}_process_already_running")
         for ln in running[:3]:
             _log(f"running_proc: {ln}")
         return False
 
     if dry_run:
-        _log(
-            "dry_run_resume: "
-            + f"python -u PTP/ptp_discovery/run_pref_loss_coevo.py --config {config_path} --resume-latest"
-        )
+        _log("dry_run_resume: " + _build_resume_command(
+            watch_mode=watch_mode,
+            python_bin=python_bin,
+            config_path=config_path,
+        ))
         return True
 
     pid, log_file = _launch_resume(
         client,
+        watch_mode=watch_mode,
         remote_workdir=remote_workdir,
         config_path=config_path,
         remote_log_dir=remote_log_dir,
@@ -424,10 +486,17 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=(
             "Continuously watch a remote server via SSH and auto-resume the latest "
-            "incomplete pref_loss run after reboot/reconnect."
+            "incomplete remote run after reboot/reconnect."
         )
     )
     p.add_argument("--host", type=str, required=True, help="SSH target, e.g. user@server")
+    p.add_argument(
+        "--watch-mode",
+        type=str,
+        choices=list(WATCH_MODE_CHOICES),
+        default=WATCH_MODE_PREF_LOSS,
+        help="Which remote workflow to monitor and auto-resume.",
+    )
     p.add_argument("--remote-workdir", type=str, default="/data1/gushengda/eam-rl4co")
     p.add_argument(
         "--config",
@@ -486,7 +555,7 @@ def main() -> int:
     _log(
         "watcher_start "
         + f"host={args.host} poll_s={poll_s:.1f} boot_grace_s={boot_grace_s:.1f} "
-        + f"resume_on_start={bool(args.resume_on_start)} dry_run={bool(args.dry_run)} "
+        + f"watch_mode={args.watch_mode} resume_on_start={bool(args.resume_on_start)} dry_run={bool(args.dry_run)} "
         + f"output_root_override={str(args.output_root_override or '').strip() or '<yaml>'}"
     )
     _log(
@@ -525,6 +594,7 @@ def main() -> int:
                     if (not startup_checked) and bool(args.resume_on_start):
                         _attempt_resume(
                             client,
+                            watch_mode=args.watch_mode,
                             reason="startup",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
@@ -541,6 +611,7 @@ def main() -> int:
                     elif last_boot_id and boot_id != last_boot_id:
                         _attempt_resume(
                             client,
+                            watch_mode=args.watch_mode,
                             reason="reconnect_boot_id_changed",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
@@ -560,6 +631,7 @@ def main() -> int:
                         _log(f"boot_id_changed old={last_boot_id} new={boot_id}")
                         _attempt_resume(
                             client,
+                            watch_mode=args.watch_mode,
                             reason="boot_id_changed",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
@@ -579,6 +651,7 @@ def main() -> int:
                         if now >= next_online_retry_epoch_s:
                             _attempt_resume(
                                 client,
+                                watch_mode=args.watch_mode,
                                 reason="periodic_online_retry",
                                 remote_workdir=args.remote_workdir,
                                 config_path=args.config,
