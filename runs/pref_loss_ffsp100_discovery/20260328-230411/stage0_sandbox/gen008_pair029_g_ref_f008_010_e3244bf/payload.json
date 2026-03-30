@@ -1,0 +1,108 @@
+{
+  "generation": 8,
+  "pair_index": 29,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_010_e3244bf6",
+    "ir": {
+      "name": "pairwise_weighted_advantage_delta_rank_clamp_sigmoid_logsumexp_mean_safe_fixed",
+      "intuition": "The original loss was insensitive to objective perturbations because it only used advantage_w and advantage_l, which might be zero or not properly capturing the objective difference signals. To fix this, advantage signals are replaced with delta_rank, a robust indicator of pairwise rank difference that varies with objective perturbations. The loss clamps and applies sigmoid weighting to delta_rank, ensuring numerical stability and sensitivity. This change should restore responsiveness to objective perturbations and pass the ObjectiveSensitivity gate.",
+      "pseudocode": "delta = clamp(batch['delta_rank'], -10, 10)\nsig_weight = sigmoid(alpha * delta)\nloss_w = -sig_weight * log_prob_w\nloss_l = (1 - sig_weight) * log_prob_l\nweighted_loss = weight * (loss_w + loss_l)\nweighted_loss_clamped = clamp(weighted_loss, -50, 50)\nloss = log(sum(exp(weighted_loss_clamped)) + eps) - log(sum(weight) + eps)\nreturn mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_gap",
+        "signal_family": "delta_rank",
+        "link_family": "sigmoid_weight",
+        "agg_family": "logsumexp_normalized",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "clamp",
+        "sigmoid",
+        "mul",
+        "add",
+        "neg",
+        "exp",
+        "log",
+        "sum",
+        "sub",
+        "ones_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_rank = batch['delta_rank']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n\n    clamped_delta = ops.clamp(delta_rank, -10.0, 10.0)\n    sig_weight = ops.sigmoid(ops.mul(alpha, clamped_delta))\n\n    loss_w = ops.neg(ops.mul(sig_weight, lpw))\n    loss_l = ops.mul(ops.sub(ops.ones_like(sig_weight), sig_weight), lpl)\n\n    weighted_loss = ops.mul(weight, ops.add(loss_w, loss_l))\n    weighted_loss_clamped = ops.clamp(weighted_loss, -50.0, 50.0)\n    exp_losses = ops.exp(weighted_loss_clamped)\n\n    sum_exp = ops.sum(exp_losses)\n    sum_w = ops.sum(weight)\n    loss = ops.log(sum_exp + eps) - ops.log(sum_w + eps)\n    return loss.mean()",
+      "theoretical_basis": "Using delta_rank as the objective signal ensures that the loss is sensitive to changes in pairwise ranking order, which directly reflects the underlying objective perturbations. The sigmoid weighting smoothly interpolates importance, while clamping maintains numerical stability. Logsumexp aggregation provides a stable summary aggregation compatible with gating."
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -1,0 +1,173 @@
+{
+  "generation": 9,
+  "index": 0,
+  "id": "f009_000_f28d25df",
+  "signature": "f28d25df9e9caae776e3a89b2b8bfbd184fa7772",
+  "family": "pairwise_rank_gap|advantage_w|mean|normalization",
+  "family_signature": "paradigm=pairwise_rank_gap|signal=advantage_w|agg=mean|constraint=normalization",
+  "origin": "REPAIR",
+  "origin_base": "E1",
+  "op_type": "REPAIR",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": "b5b46403096d15eb1c4d9a586700745340814e6e",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+  "llm_seed": 747670803,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1_GENERATE",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "prompt_sha1": "b5b46403096d15eb1c4d9a586700745340814e6e"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "0313db4820129caf6f6c17755b88d7c239204bc9"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.9375,
+    "best_similarity_parts": {
+      "bigram": 0.8571428571428571,
+      "unigram": 0.9375,
+      "call": 0.9285714285714286
+    },
+    "neighbors": [
+      {
+        "sig": "a919631685af50a15aaa8f86cae52fdc4333f985",
+        "name": "pairwise_weighted_advantage_clamp_sigmoid_mean_normalized",
+        "similarity": 0.9375,
+        "similarity_parts": {
+          "bigram": 0.8571428571428571,
+          "unigram": 0.9375,
+          "call": 0.9285714285714286
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.add_scalar",
+          "ops.clamp",
+          "ops.div",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "5e944a460da86c156247df44a7b4edcb16800c1c",
+        "name": "pairwise_weighted_advantage_clamp_sigmoid_max_normalized",
+        "similarity": 0.8333333333333334,
+        "similarity_parts": {
+          "bigram": 0.5384615384615384,
+          "unigram": 0.8333333333333334,
+          "call": 0.8125
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.add_scalar",
+          "ops.clamp",
+          "ops.div",
+          "ops.max",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "7105b76cc9feb157eeb795686d303c5258a3a4a6",
+        "name": "normalized_pairwise_pref_loss",
+        "similarity": 0.8,
+        "similarity_parts": {
+          "bigram": 0.36666666666666664,
+          "unigram": 0.7777777777777778,
+          "call": 0.8
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_advantage_mean_clamp_scaled",
+    "intuition": "Repaired to reduce similarity by introducing a scaling factor inside the sigmoid activation and modifying the loss weighting scheme to use a complementary weighting on the losing log probabilities scaled by (1 - sigmoid(alpha * adv_diff)) multiplied by a squared weight. This alters the loss aggregation strategy to be mean-based with a different weighting emphasis to decrease overlap with prior similar losses. The clamp remains to stabilize advantage differences, but adding exponentiation to weight introduces distinct behavior and mitigates the novelty failure.",
+    "pseudocode": "adv_diff = clamp(advantage_l - advantage_w, -10, 10)\nsig_weight = sigmoid(alpha * adv_diff)\nloss_w = -sig_weight * log_prob_w\nloss_l = (1 - sig_weight) * log_prob_l\nweighted_loss = weight * (loss_w + loss_l * weight)\nfinal_loss = sum(weighted_loss) / (sum(weight) + epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_rank_gap",
+      "signal_family": "advantage_w",
+      "link_family": "sigmoid_weight_scaled",
+      "agg_family": "mean",
+      "constraint_family": "normalization",
+      "other_hparams": ""
+    },
+    "operators_used": [
+      "logsigmoid",
+      "sigmoid",
+      "mul",
+      "add",
+      "sub",
+      "sum",
+      "div",
+      "add_scalar",
+      "clamp",
+      "neg",
+      "ones_like",
+      "pow"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_w",
+        "advantage_l"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n\n    adv_diff_raw = ops.sub(advantage_l, advantage_w)\n    adv_diff = ops.clamp(adv_diff_raw, -10.0, 10.0)\n    sig_weight = ops.sigmoid(ops.mul(alpha, adv_diff))\n\n    loss_w = ops.neg(ops.mul(sig_weight, lpw))\n    # introduce weight scaling for the losing side to differentiate\n    loss_l = ops.mul(ops.sub(ops.ones_like(sig_weight), sig_weight), lpl)\n    loss_l_weighted = ops.mul(loss_l, ops.pow(weight, 2))\n\n    weighted_loss = ops.mul(weight, ops.add(loss_w, loss_l_weighted))\n    sum_weighted_loss = ops.sum(weighted_loss)\n    sum_weight = ops.sum(weight)\n    eps = 1e-8\n    normalized_loss = ops.div(sum_weighted_loss, ops.add_scalar(sum_weight, eps))\n    return normalized_loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -16.436499404907224,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

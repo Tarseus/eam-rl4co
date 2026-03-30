@@ -1,0 +1,106 @@
+{
+  "generation": 8,
+  "pair_index": 26,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_008_6f8671e0",
+    "ir": {
+      "name": "normalized_shifted_scaled_tanh_advantage_with_bias_repaired_v2",
+      "intuition": "The original candidate failed due to missing 'cost_gap' key used as quality signal. This repaired version replaces 'cost_gap' by using 'delta_regret', which is a valid pairwise quality signal present in the allowed keys. The loss preserves the shifted, scaled tanh formulation to stabilize gradients and uses sigmoid scaling for smoothness. This fix ensures necessary quality signals are present and the loss passes static, dynamic, and preference gates, while maintaining the vectorized pairwise implementation and expected keys.",
+      "pseudocode": "adv_diff = delta_regret  # substitute cost_gap with delta_regret\nshifted = adv_diff * alpha + bias\nscaled = tanh(shifted) * sigmoid(gamma)\nloss_w = -scaled * log_prob_w * weight\nloss_l = scaled * log_prob_l * weight\nweighted_loss = loss_w + loss_l\nloss = sum(weighted_loss) / max(sum(weight), 1e-12)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_delta_regret",
+        "signal_family": "delta_regret",
+        "link_family": "shifted_scaled_tanh_sigmoid_weight",
+        "agg_family": "mean_normalized",
+        "constraint_family": "normalization"
+      },
+      "operators_used": [
+        "tanh",
+        "sigmoid",
+        "mul",
+        "add",
+        "neg",
+        "sum",
+        "div",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-12\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    w = batch.get('weight', ops.ones_like(lpw))\n    adv_diff = batch['delta_regret']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.3)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 2.0)))\n\n    shifted = ops.add(ops.mul(alpha, adv_diff), bias)\n    tanh_val = ops.tanh(shifted)\n    scale = ops.sigmoid(lpw.new_full(tanh_val.shape, gamma))\n    scaled_adv = ops.mul(tanh_val, scale)\n\n    loss_w = ops.mul(ops.neg(ops.mul(scaled_adv, lpw)), w)\n    loss_l = ops.mul(scaled_adv, ops.mul(lpl, w))\n    weighted_loss = ops.add(loss_w, loss_l)\n\n    total_weight = ops.sum(w)\n    denom = ops.clamp(total_weight, min=eps)\n    loss = ops.div(ops.sum(weighted_loss), denom)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

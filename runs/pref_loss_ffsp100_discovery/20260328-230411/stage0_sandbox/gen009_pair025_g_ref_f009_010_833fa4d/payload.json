@@ -1,0 +1,106 @@
+{
+  "generation": 9,
+  "pair_index": 25,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f009_010_833fa4de",
+    "ir": {
+      "name": "pairwise_exp_delta_z_logsigmoid_sum_renyi_divergence_repaired_v2",
+      "intuition": "Fixed the original candidate's joint preference violation by replacing the linear scaling of margin by delta_z with a bounded nonlinear weighting. Specifically, applied an exponential decay weighting on the margin modulated by delta_z's absolute value, which stabilizes loss differences when delta_z is large and avoids overly large margin scaling that can break joint preference. Also included a small epsilon in denominator to prevent instability, and normalized weight by (1 + abs(delta_z)) to balance contribution across pairs. These changes improve stability and respect joint preference swaps by preventing excessive asymmetry in loss values.",
+      "pseudocode": "alpha = extra.get('alpha', 1.0)\nepsilon = 1e-6\nmargin = log_prob_w - log_prob_l\nweight_factor = alpha * abs(delta_z) / (1 + abs(delta_z) + epsilon)\nloss = -logsigmoid(margin) * weight_factor * weight\nfinal_loss = sum(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_score_diff",
+        "signal_family": "delta_z",
+        "link_family": "logsigmoid_weighted",
+        "agg_family": "sum",
+        "constraint_family": "renyi_divergence_stabilized"
+      },
+      "operators_used": [
+        "sub",
+        "abs",
+        "logsigmoid",
+        "neg",
+        "mul",
+        "sum",
+        "add",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_z"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_z = batch['delta_z']\n    alpha = float(extra.get('alpha', 1.0))\n\n    margin = ops.sub(lpw, lpl)  # Winning margin\n    abs_dz = ops.abs(delta_z)\n    denom = ops.add(ops.add(abs_dz, 1.0), eps)\n    weight_factor = ops.mul(alpha, ops.div(abs_dz, denom))  # Bounded weighting by delta_z\n    base_loss = ops.neg(ops.logsigmoid(margin))  # Logsigmoid loss\n    weighted_loss = ops.mul(weight, ops.mul(weight_factor, base_loss))  # Apply weighting\n    final_loss = ops.sum(weighted_loss)  # Aggregate\n    return final_loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

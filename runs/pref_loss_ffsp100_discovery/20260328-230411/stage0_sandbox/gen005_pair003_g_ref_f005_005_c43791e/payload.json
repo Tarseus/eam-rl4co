@@ -1,0 +1,109 @@
+{
+  "generation": 5,
+  "pair_index": 3,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f005_005_c43791e4",
+    "ir": {
+      "name": "pairwise_weighted_advantage_clamp_sigmoid_normalized_repaired_v2",
+      "intuition": "The original candidate failed because 'advantage_gap' was missing, causing a missing_key error. To fix this, I switched to using 'delta_rank', a supported quality signal that is commonly available and meaningful for pairwise ranking tasks. I clamp and normalize 'delta_rank' similarly to the original design to stabilize the signal and then apply a sigmoid weighting. This approach maintains the weighted advantage concept while ensuring all required keys exist in the batch, thus passing the ObjectiveSensitivity gate.",
+      "pseudocode": "delta = batch['delta_rank']\ndelta_clamped = clamp(delta, -10, 10)\nvariance = mean(delta_clamped * delta_clamped)\nstd_delta = sqrt(variance)\nstd_safe = clamp(std_delta, min=epsilon)\nnormed_delta = delta_clamped / std_safe\nsig_weight = sigmoid(alpha * normed_delta)\nloss_w = -sig_weight * batch['log_prob_w']\nloss_l = (1 - sig_weight) * batch['log_prob_l']\nloss = mean(weight * (loss_w + loss_l))",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_gap",
+        "signal_family": "delta_rank",
+        "link_family": "sigmoid_weight_norm",
+        "agg_family": "mean",
+        "constraint_family": "clamp_stabilized_norm",
+        "alpha": 1.0,
+        "epsilon": 1e-06
+      },
+      "operators_used": [
+        "clamp",
+        "sigmoid",
+        "mul",
+        "add",
+        "neg",
+        "mean",
+        "div",
+        "sqrt",
+        "ones_like",
+        "sub"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    epsilon = float(extra.get('epsilon', extra.get('hyperparams', {}).get('epsilon', eps)))\n\n    delta_clamped = ops.clamp(delta_rank, -10.0, 10.0)\n    variance = ops.mean(ops.mul(delta_clamped, delta_clamped))\n    std_delta = ops.sqrt(ops.clamp(variance, min=epsilon))\n    std_safe = ops.clamp(std_delta, min=epsilon)\n    normed_delta = ops.div(delta_clamped, std_safe)\n\n    sig_weight = ops.sigmoid(ops.mul(alpha, normed_delta))\n\n    loss_w = ops.neg(ops.mul(sig_weight, lpw))\n    loss_l = ops.mul(ops.sub(ops.ones_like(sig_weight), sig_weight), lpl)\n\n    total_loss = ops.add(loss_w, loss_l)\n    return ops.mean(ops.mul(weight, total_loss))",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
