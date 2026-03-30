@@ -1889,6 +1889,17 @@ def evaluate_po_baseline_rl4co(
     cfg: HighFidelityConfig,
     *,
     early_eval_steps: int | None = None,
+    baseline_early_valid: float | None = None,
+    baseline_epoch_objectives: Sequence[float] | None = None,
+    init_checkpoint_path: str | None = None,
+    init_checkpoint_epoch: int | None = None,
+    scratch_hf_epochs: int = 0,
+    warmstart_hf_epochs: int = 0,
+    baseline_epoch_compare_offset: int = 0,
+    baseline_epoch_violation_weight: float = 1.0,
+    baseline_epoch_tail_frac: float = 1.0,
+    baseline_epoch_window_k: int = 10,
+    baseline_epoch_window_violation_weight: float = 1.0,
 ) -> Dict[str, Any]:
     from rl4co.models.rl.reinforce.preference_losses import po_loss
 
@@ -1898,119 +1909,317 @@ def evaluate_po_baseline_rl4co(
     if device_str == "cuda" and not torch.cuda.is_available():
         device_str = "cpu"
     device = torch.device(device_str)
-
-    env = _rl4co_build_env(cfg, cfg.train_problem_size)
-    env = env.to(device)
-    policy, rollout_strategy = _rl4co_build_policy(cfg, env)
-    policy = policy.to(device)
-    scaler = _make_grad_scaler(device, str(getattr(cfg, "precision", "32-true") or "32-true"))
-    optimizer = Adam(
-        policy.parameters(),
-        lr=float(cfg.learning_rate),
-        weight_decay=float(cfg.weight_decay),
-    )
-
-    score_meter = AverageMeter()
-    loss_meter = AverageMeter()
-    total_steps = get_total_hf_train_steps(cfg)
-    steps_per_epoch, epochs_total = get_hf_epoch_plan(cfg)
-    epoch_validation_objectives: List[float] = []
-
-    if early_eval_steps is None:
-        early_eval_steps = min(100, total_steps)
-    else:
-        early_eval_steps = min(max(int(early_eval_steps), 0), total_steps)
-    early_validation_objective: float | None = None
-
-    log_interval = max(total_steps // 20, 1)
     po_impl = _normalize_po_impl(getattr(cfg, "po_impl", "bt"))
-
-    for step in range(total_steps):
-        num_rollouts = resolve_pomo_size(cfg.pomo_size, cfg.train_problem_size)
-        reward, log_likelihood = _rl4co_rollout(
-            env,
-            policy,
-            cfg.train_batch_size,
-            num_rollouts,
-            phase="train",
-            rollout_strategy=rollout_strategy,
-            device=device,
-            precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
-        )
-        reward = reward.float()
-        log_likelihood = log_likelihood.float()
-        loss, _ = po_loss(
-            reward,
-            log_likelihood,
-            alpha=float(cfg.alpha),
-            impl=str(po_impl),
+    steps_per_epoch, epochs_total_cfg = get_hf_epoch_plan(cfg)
+    scratch_epochs = max(int(scratch_hf_epochs or 0), 0)
+    warm_epochs = max(int(warmstart_hf_epochs or 0), 0)
+    split_enabled = bool(scratch_epochs or warm_epochs)
+    if steps_per_epoch <= 0 or epochs_total_cfg <= 0:
+        split_enabled = False
+    elif cfg.hf_epochs > 0 and (scratch_epochs + warm_epochs) != int(cfg.hf_epochs):
+        logger.warning(
+            "PO baseline split epochs do not sum to hf_epochs (%d + %d != %d); continuing anyway.",
+            scratch_epochs,
+            warm_epochs,
+            int(cfg.hf_epochs),
         )
 
-        max_reward, _ = reward.max(dim=1)
-        score = _rl4co_objective_from_reward(max_reward, cfg).float().mean()
+    def _run_phase(
+        *,
+        phase: str,
+        total_steps: int,
+        phase_epochs: int,
+        init_ckpt: str | None,
+        use_early_stop: bool,
+        early_eval_steps_phase: int,
+        baseline_early_valid_phase: float | None,
+    ) -> Dict[str, Any]:
+        _set_seed(cfg.seed)
+        env = _rl4co_build_env(cfg, cfg.train_problem_size)
+        env = env.to(device)
+        policy, rollout_strategy = _rl4co_build_policy(cfg, env)
+        if init_ckpt:
+            _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
+        policy = policy.to(device)
+        scaler = _make_grad_scaler(device, str(getattr(cfg, "precision", "32-true") or "32-true"))
+        optimizer = Adam(
+            policy.parameters(),
+            lr=float(cfg.learning_rate),
+            weight_decay=float(cfg.weight_decay),
+        )
 
-        optimizer.zero_grad()
-        if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
-            scaler.scale(loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+        score_meter = AverageMeter()
+        loss_meter = AverageMeter()
+        epoch_objectives: List[float] = []
+        early_validation_objective: float | None = None
+        early_stopped = False
+
+        if early_eval_steps_phase is None:
+            early_eval_steps_phase = min(100, total_steps)
         else:
-            loss.backward()
-            optimizer.step()
+            early_eval_steps_phase = min(max(int(early_eval_steps_phase), 0), total_steps)
+        log_interval = max(total_steps // 20, 1) if total_steps > 0 else 1
 
-        score_meter.update(score.item())
-        loss_meter.update(float(loss.item()))
+        logger.info(
+            "RL4CO baseline PO phase=%s: epochs=%d total_steps=%d (ckpt=%s, device=%s, env=%s)",
+            phase,
+            int(phase_epochs),
+            int(total_steps),
+            str(init_ckpt) if init_ckpt else "none",
+            str(device),
+            _rl4co_env_name(cfg),
+        )
 
-        if (step + 1) % log_interval == 0 or step == 0:
-            logger.info(
-                "RL4CO baseline PO step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f)",
-                step + 1,
-                total_steps,
-                score.item(),
-                float(score_meter.avg),
-                float(loss.item()),
-                float(loss_meter.avg),
-            )
-
-        if steps_per_epoch > 0 and (step + 1) % steps_per_epoch == 0:
-            epoch_idx = (step + 1) // steps_per_epoch
-            epoch_valid_obj = _evaluate_rl4co_model(
-                policy=policy,
-                cfg=cfg,
-                problem_size=cfg.train_problem_size,
-                device=device,
-                num_episodes=cfg.num_validation_episodes,
-                batch_size=cfg.validation_batch_size,
+        num_rollouts = resolve_pomo_size(cfg.pomo_size, cfg.train_problem_size)
+        for step in range(int(total_steps)):
+            reward, log_likelihood = _rl4co_rollout(
+                env,
+                policy,
+                cfg.train_batch_size,
+                num_rollouts,
+                phase="train",
                 rollout_strategy=rollout_strategy,
-            )
-            epoch_validation_objectives.append(epoch_valid_obj)
-            logger.info(
-                "RL4CO baseline PO epoch %d/%d: validation_objective=%.6f",
-                epoch_idx,
-                epochs_total,
-                epoch_valid_obj,
-            )
-
-        if (step + 1) == early_eval_steps:
-            early_validation_objective = _evaluate_rl4co_model(
-                policy=policy,
-                cfg=cfg,
-                problem_size=cfg.train_problem_size,
                 device=device,
-                num_episodes=cfg.num_validation_episodes,
-                batch_size=cfg.validation_batch_size,
-                rollout_strategy=rollout_strategy,
+                precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
+            )
+            reward = reward.float()
+            log_likelihood = log_likelihood.float()
+            loss, _ = po_loss(
+                reward,
+                log_likelihood,
+                alpha=float(cfg.alpha),
+                impl=str(po_impl),
             )
 
-    main_valid_obj = _evaluate_rl4co_model(
-        policy=policy,
-        cfg=cfg,
-        problem_size=cfg.train_problem_size,
-        device=device,
-        num_episodes=cfg.num_validation_episodes,
-        batch_size=cfg.validation_batch_size,
-        rollout_strategy=rollout_strategy,
-    )
+            max_reward, _ = reward.max(dim=1)
+            score = _rl4co_objective_from_reward(max_reward, cfg).float().mean()
+
+            optimizer.zero_grad()
+            if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
+
+            score_meter.update(score.item())
+            loss_meter.update(float(loss.item()))
+
+            if (step + 1) % log_interval == 0 or step == 0:
+                logger.info(
+                    "RL4CO baseline PO[%s] step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f)",
+                    phase,
+                    step + 1,
+                    total_steps,
+                    score.item(),
+                    float(score_meter.avg),
+                    float(loss.item()),
+                    float(loss_meter.avg),
+                )
+
+            if steps_per_epoch > 0 and phase_epochs > 0 and (step + 1) % steps_per_epoch == 0:
+                epoch_idx = (step + 1) // steps_per_epoch
+                if epoch_idx <= int(phase_epochs):
+                    epoch_valid_obj = _evaluate_rl4co_model(
+                        policy=policy,
+                        cfg=cfg,
+                        problem_size=cfg.train_problem_size,
+                        device=device,
+                        num_episodes=cfg.num_validation_episodes,
+                        batch_size=cfg.validation_batch_size,
+                        rollout_strategy=rollout_strategy,
+                    )
+                    epoch_objectives.append(epoch_valid_obj)
+                    logger.info(
+                        "RL4CO baseline PO[%s] epoch %d/%d: validation_objective=%.6f",
+                        phase,
+                        epoch_idx,
+                        int(phase_epochs),
+                        epoch_valid_obj,
+                    )
+
+            if use_early_stop and early_eval_steps_phase > 0 and (step + 1) == early_eval_steps_phase:
+                early_validation_objective = _evaluate_rl4co_model(
+                    policy=policy,
+                    cfg=cfg,
+                    problem_size=cfg.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.num_validation_episodes,
+                    batch_size=cfg.validation_batch_size,
+                    rollout_strategy=rollout_strategy,
+                )
+                if (
+                    baseline_early_valid_phase is not None
+                    and early_validation_objective > baseline_early_valid_phase
+                ):
+                    early_stopped = True
+                    logger.info(
+                        "RL4CO baseline PO early stop[%s] at step %d: candidate early_valid=%.6f baseline_early=%.6f",
+                        phase,
+                        step + 1,
+                        early_validation_objective,
+                        baseline_early_valid_phase,
+                    )
+                    break
+
+        if early_stopped and early_validation_objective is not None:
+            final_valid_obj = float(early_validation_objective)
+        else:
+            final_valid_obj = float(
+                _evaluate_rl4co_model(
+                    policy=policy,
+                    cfg=cfg,
+                    problem_size=cfg.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.num_validation_episodes,
+                    batch_size=cfg.validation_batch_size,
+                    rollout_strategy=rollout_strategy,
+                )
+            )
+
+        try:
+            env = None
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except Exception:  # noqa: BLE001
+            pass
+
+        return {
+            "phase": phase,
+            "policy": policy,
+            "rollout_strategy": rollout_strategy,
+            "steps": int(total_steps),
+            "epochs_total": int(phase_epochs),
+            "epoch_objectives": list(epoch_objectives),
+            "final_validation_objective": float(final_valid_obj),
+            "early_eval": {
+                "enabled": bool(early_eval_steps_phase),
+                "steps": int(early_eval_steps_phase),
+                "baseline_validation_objective": baseline_early_valid_phase,
+                "candidate_validation_objective": early_validation_objective,
+                "early_stopped": early_stopped,
+            },
+            "train_score_mean": float(score_meter.avg) if total_steps > 0 else None,
+            "train_loss_mean": float(loss_meter.avg) if total_steps > 0 else None,
+        }
+
+    if split_enabled:
+        scratch_res: Dict[str, Any] | None = None
+        warm_res: Dict[str, Any] | None = None
+        has_init_ckpt = bool(init_checkpoint_path)
+
+        if has_init_ckpt:
+            if warm_epochs > 0:
+                warm_res = _run_phase(
+                    phase="warmstart",
+                    total_steps=int(warm_epochs) * int(steps_per_epoch),
+                    phase_epochs=int(warm_epochs),
+                    init_ckpt=init_checkpoint_path,
+                    use_early_stop=True,
+                    early_eval_steps_phase=int(early_eval_steps or 0),
+                    baseline_early_valid_phase=baseline_early_valid,
+                )
+            elif scratch_epochs > 0:
+                logger.info(
+                    "warmstart_hf_epochs=0 for checkpoint-backed PO baseline init; falling back to scratch phase."
+                )
+                scratch_res = _run_phase(
+                    phase="scratch",
+                    total_steps=int(scratch_epochs) * int(steps_per_epoch),
+                    phase_epochs=int(scratch_epochs),
+                    init_ckpt=None,
+                    use_early_stop=False,
+                    early_eval_steps_phase=0,
+                    baseline_early_valid_phase=None,
+                )
+        else:
+            if scratch_epochs > 0:
+                scratch_res = _run_phase(
+                    phase="scratch",
+                    total_steps=int(scratch_epochs) * int(steps_per_epoch),
+                    phase_epochs=int(scratch_epochs),
+                    init_ckpt=None,
+                    use_early_stop=False,
+                    early_eval_steps_phase=0,
+                    baseline_early_valid_phase=None,
+                )
+            elif warm_epochs > 0:
+                logger.warning(
+                    "warmstart_hf_epochs=%d but init_checkpoint_path is not set; skipping warm-start PO phase.",
+                    warm_epochs,
+                )
+
+        primary_res = warm_res if warm_res is not None else scratch_res
+        if primary_res is None:
+            raise RuntimeError("PO baseline split evaluation enabled but no phase was executed.")
+
+        if scratch_res is not None and warm_res is not None:
+            primary_phase = "scratch+warmstart"
+            primary_epochs_total = int(scratch_epochs + warm_epochs)
+            epoch_validation_objectives = list(scratch_res["epoch_objectives"]) + list(
+                warm_res["epoch_objectives"]
+            )
+            early_eval = dict(warm_res.get("early_eval") or {})
+        else:
+            primary_phase = str(primary_res.get("phase") or "single")
+            primary_epochs_total = int(primary_res.get("epochs_total") or 0)
+            epoch_validation_objectives = list(primary_res.get("epoch_objectives") or [])
+            early_eval = dict(primary_res.get("early_eval") or {})
+
+        policy = primary_res["policy"]
+        rollout_strategy = primary_res["rollout_strategy"]
+        main_valid_obj = float(primary_res["final_validation_objective"])
+        train_score_mean = primary_res.get("train_score_mean")
+        train_loss_mean = primary_res.get("train_loss_mean")
+        scratch_epoch_eval = (
+            {
+                "phase": "scratch",
+                "epochs_total": int(scratch_res["epochs_total"]),
+                "objectives": list(scratch_res["epoch_objectives"]),
+                "final_validation_objective": scratch_res["final_validation_objective"],
+            }
+            if scratch_res is not None and scratch_epochs > 0
+            else None
+        )
+        warmstart_epoch_eval = (
+            {
+                "phase": "warmstart",
+                "epochs_total": int(warm_res["epochs_total"]),
+                "objectives": list(warm_res["epoch_objectives"]),
+                "final_validation_objective": warm_res["final_validation_objective"],
+                "init_checkpoint_path": init_checkpoint_path,
+                "init_checkpoint_epoch": init_checkpoint_epoch,
+            }
+            if warm_res is not None and warm_epochs > 0
+            else None
+        )
+        effective_early_steps = int(early_eval.get("steps") or 0)
+        early_validation_objective = early_eval.get("candidate_validation_objective")
+    else:
+        total_steps = get_total_hf_train_steps(cfg)
+        warm_res = _run_phase(
+            phase="single",
+            total_steps=int(total_steps),
+            phase_epochs=int(epochs_total_cfg),
+            init_ckpt=init_checkpoint_path,
+            use_early_stop=True,
+            early_eval_steps_phase=int(early_eval_steps or 0) if early_eval_steps is not None else None,
+            baseline_early_valid_phase=baseline_early_valid,
+        )
+        primary_phase = "single"
+        primary_epochs_total = int(epochs_total_cfg)
+        epoch_validation_objectives = list(warm_res["epoch_objectives"])
+        early_eval = dict(warm_res.get("early_eval") or {})
+        policy = warm_res["policy"]
+        rollout_strategy = warm_res["rollout_strategy"]
+        main_valid_obj = float(warm_res["final_validation_objective"])
+        train_score_mean = warm_res.get("train_score_mean")
+        train_loss_mean = warm_res.get("train_loss_mean")
+        scratch_epoch_eval = None
+        warmstart_epoch_eval = None
+        effective_early_steps = int(early_eval.get("steps") or 0)
+        early_validation_objective = early_eval.get("candidate_validation_objective")
 
     gen_objectives: Dict[int, float] = {}
     for size in cfg.valid_problem_sizes:
@@ -2038,6 +2247,47 @@ def evaluate_po_baseline_rl4co(
             sum(epoch_validation_objectives) / len(epoch_validation_objectives)
         )
 
+    epoch_baseline_violations: int | None = None
+    epoch_better_than_baseline: bool | None = None
+    epoch_tail_baseline_violations: int | None = None
+    epoch_tail_better_than_baseline: bool | None = None
+    epoch_baseline_margins: List[float] | None = None
+    if baseline_epoch_objectives:
+        offset = max(int(baseline_epoch_compare_offset or 0), 0)
+        baseline_list_full = [float(v) for v in baseline_epoch_objectives]
+        baseline_list = baseline_list_full[offset : offset + int(primary_epochs_total)]
+        compare_len = min(len(epoch_validation_objectives), len(baseline_list))
+        epoch_baseline_margins = []
+        for i in range(compare_len):
+            margin = float(epoch_validation_objectives[i]) - baseline_list[i]
+            epoch_baseline_margins.append(margin)
+        violations = sum(1 for m in epoch_baseline_margins if m > 0.0)
+        epoch_baseline_violations = int(violations)
+        epoch_better_than_baseline = (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and epoch_baseline_violations == 0
+        )
+
+        try:
+            tail_frac = float(baseline_epoch_tail_frac or 1.0)
+        except (TypeError, ValueError):
+            tail_frac = 1.0
+        tail_frac = min(max(tail_frac, 0.0), 1.0)
+        if (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and compare_len > 0
+            and tail_frac > 0.0
+        ):
+            tail_count = int(math.ceil(tail_frac * float(compare_len)))
+            tail_count = max(1, min(tail_count, compare_len))
+            tail_start = compare_len - tail_count
+            tail_margins = epoch_baseline_margins[tail_start:]
+            tail_violations = sum(1 for m in tail_margins if m > 0.0)
+            epoch_tail_baseline_violations = int(tail_violations)
+            epoch_tail_better_than_baseline = epoch_tail_baseline_violations == 0
+
     agg_method = str(getattr(cfg, "size_aggregation", "legacy") or "legacy").strip().lower()
     base_objective = epoch_objective_mean if epoch_objective_mean is not None else float(main_valid_obj)
     if agg_method == "legacy":
@@ -2050,8 +2300,10 @@ def evaluate_po_baseline_rl4co(
             cvar_alpha=float(getattr(cfg, "size_cvar_alpha", 0.2)),
         )
         fitness_score = float(hf_score)
+    if epoch_baseline_violations is not None:
+        fitness_score += float(baseline_epoch_violation_weight) * float(epoch_baseline_violations)
 
-    win_k = 10
+    win_k = int(baseline_epoch_window_k or 10)
     early_mean, late_mean = _epoch_window_means(epoch_validation_objectives, k=win_k)
     epoch_window_eval: Dict[str, Any] = {
         "k": int(win_k),
@@ -2059,6 +2311,32 @@ def evaluate_po_baseline_rl4co(
         "late_mean": late_mean,
         "objectives": list(epoch_validation_objectives),
     }
+    base_early_mean: float | None = None
+    base_late_mean: float | None = None
+    if baseline_epoch_objectives:
+        offset = max(int(baseline_epoch_compare_offset or 0), 0)
+        baseline_slice = list(baseline_epoch_objectives)[offset : offset + int(primary_epochs_total)]
+        base_early_mean, base_late_mean = _epoch_window_means(baseline_slice, k=win_k)
+    baseline_epoch_window_eval: Dict[str, Any] = {
+        "early_mean": base_early_mean,
+        "late_mean": base_late_mean,
+    }
+    epoch_window_margins: Dict[str, float] | None = None
+    epoch_window_violations: int | None = None
+    epoch_window_better_than_baseline: bool | None = None
+    if (
+        early_mean is not None
+        and late_mean is not None
+        and base_early_mean is not None
+        and base_late_mean is not None
+    ):
+        early_margin = float(early_mean) - float(base_early_mean)
+        late_margin = float(late_mean) - float(base_late_mean)
+        epoch_window_margins = {"early": early_margin, "late": late_margin}
+        epoch_window_violations = int(sum(1 for m in (early_margin, late_margin) if m > 0.0))
+        epoch_window_better_than_baseline = epoch_window_violations == 0
+    if epoch_window_violations is not None:
+        fitness_score += float(baseline_epoch_window_violation_weight) * float(epoch_window_violations)
 
     return {
         "hf_score": hf_score,
@@ -2069,21 +2347,64 @@ def evaluate_po_baseline_rl4co(
         "size_objectives": size_objectives,
         "size_aggregation": agg_method,
         "size_cvar_alpha": float(getattr(cfg, "size_cvar_alpha", 0.2)),
-        "train_score_mean": float(score_meter.avg),
-        "train_loss_mean": float(loss_meter.avg),
+        "epoch_objective_mean": epoch_objective_mean,
+        "epoch_baseline_violations": epoch_baseline_violations,
+        "epoch_better_than_baseline": epoch_better_than_baseline,
+        "epoch_tail_baseline_violations": epoch_tail_baseline_violations,
+        "epoch_tail_better_than_baseline": epoch_tail_better_than_baseline,
+        "baseline_epoch_window_eval": baseline_epoch_window_eval,
+        "epoch_window_margins": epoch_window_margins,
+        "epoch_window_violations": epoch_window_violations,
+        "epoch_window_better_than_baseline": epoch_window_better_than_baseline,
+        "scratch_epoch_eval": scratch_epoch_eval,
+        "warmstart_epoch_eval": warmstart_epoch_eval,
+        "train_score_mean": float(train_score_mean) if train_score_mean is not None else None,
+        "train_loss_mean": float(train_loss_mean) if train_loss_mean is not None else None,
         "early_validation_objective": early_validation_objective,
-        "early_eval_steps": early_eval_steps,
+        "early_eval_steps": effective_early_steps,
         "epoch_window_eval": epoch_window_eval,
         "epoch_eval": {
             "enabled": bool(steps_per_epoch),
             "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
-            "epochs_total": int(epochs_total),
+            "epochs_total": int(primary_epochs_total),
             "objectives": epoch_validation_objectives,
             "objective_mean": epoch_objective_mean,
+            "baseline_margins": epoch_baseline_margins,
+            "baseline_violations": epoch_baseline_violations,
+            "better_than_baseline": epoch_better_than_baseline,
+            "phase": primary_phase,
+            "baseline_compare_offset": int(baseline_epoch_compare_offset or 0),
+            "tail_frac": float(baseline_epoch_tail_frac or 1.0),
+            "tail_baseline_violations": epoch_tail_baseline_violations,
+            "tail_better_than_baseline": epoch_tail_better_than_baseline,
+        },
+        "early_eval": {
+            "enabled": bool(early_eval.get("enabled")),
+            "steps": int(early_eval.get("steps") or 0),
+            "baseline_validation_objective": early_eval.get("baseline_validation_objective"),
+            "candidate_validation_objective": early_eval.get("candidate_validation_objective"),
+            "early_stopped": bool(early_eval.get("early_stopped")),
         },
         "config": {
-            "hf": cfg.__dict__,
+            "hf": asdict(cfg),
             "baseline_type": "po_loss",
+            "init_checkpoint_path": init_checkpoint_path,
+            "init_checkpoint_epoch": (
+                int(init_checkpoint_epoch)
+                if init_checkpoint_epoch is not None
+                else _infer_epoch_from_checkpoint_path(str(init_checkpoint_path))
+                if init_checkpoint_path
+                else None
+            ),
+            "scratch_hf_epochs": int(scratch_hf_epochs or 0),
+            "warmstart_hf_epochs": int(warmstart_hf_epochs or 0),
+            "baseline_epoch_compare_offset": int(baseline_epoch_compare_offset or 0),
+            "baseline_epoch_violation_weight": float(baseline_epoch_violation_weight),
+            "baseline_epoch_tail_frac": float(baseline_epoch_tail_frac or 1.0),
+            "baseline_epoch_window_k": int(baseline_epoch_window_k or 10),
+            "baseline_epoch_window_violation_weight": float(
+                baseline_epoch_window_violation_weight
+            ),
         },
     }
 

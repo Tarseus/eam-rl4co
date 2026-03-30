@@ -33,6 +33,7 @@ from fitness.free_loss_fidelity import (
     baseline_epoch_objectives_from_metrics_csv,
     extract_feature_cache,
     evaluate_free_loss_candidate,
+    evaluate_po_baseline_rl4co,
 )
 from fitness.ptp_high_fidelity import (
     HighFidelityConfig,
@@ -533,26 +534,11 @@ def _ensure_stage3_baseline_multiseed_cache(
     missing_seeds = [int(s) for s in required_seeds if str(int(s)) not in per_seed]
 
     if missing_seeds:
-        try:
-            ref_builder = compile_preference_builder(
-                _ref_builder_ir(),
-                operator_whitelist=list(operator_whitelist),
-            )
-            ref_loss_ir = _ref_loss_ir()
-            static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
-            if not static_ref.ok:
-                raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
-            ref_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
-        except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("stage3 multiseed baseline skipped: failed to compile reference pair: %s", str(exc))
-            return None
-
         valid_sizes = [int(v) for v in cfg_yaml.get("valid_problem_sizes", [100])]
         if not valid_sizes:
             valid_sizes = [int(cfg_yaml.get("train_problem_size", 20) or 20)]
         valid_sizes = list(dict.fromkeys([int(v) for v in valid_sizes]))
 
-        adapter = _CompiledBuilderAdapter(ref_builder)
         LOGGER.info(
             "Stage3 multiseed baseline cache miss fidelity=%s missing_seeds=%d path=%s",
             _stage3_fidelity_key(cfg_yaml),
@@ -564,46 +550,14 @@ def _ensure_stage3_baseline_multiseed_cache(
             seed_per_init: Dict[str, Any] = {}
             for init_name, init_ckpt in init_specs:
                 try:
-                    free_cfg = FreeLossFidelityConfig(
-                        hf=hf_cfg,
-                        f1_steps=int(cfg_yaml.get("f1_steps", 32) or 32),
-                        f2_steps=0,
-                        f3_enabled=False,
-                        init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
-                        init_checkpoint_epoch=None,
-                        scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
-                        warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
-                        baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
-                        baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
-                        baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
-                        baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
-                        baseline_epoch_window_violation_weight=float(
-                            cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
-                        ),
+                    fit = _evaluate_stage3_reference_baseline(
+                        cfg_yaml=cfg_yaml,
+                        hf_cfg=hf_cfg,
+                        operator_whitelist=operator_whitelist,
+                        init_ckpt=init_ckpt,
                     )
-                    fit = evaluate_free_loss_candidate(ref_loss, free_cfg, pref_builder=adapter)
-                    size_objectives_raw = fit.get("size_objectives", {})
-                    size_objectives: Dict[int, float] = {}
-                    if isinstance(size_objectives_raw, dict):
-                        for k, v in size_objectives_raw.items():
-                            try:
-                                size_objectives[int(k)] = float(v)
-                            except Exception:  # noqa: BLE001
-                                continue
-                    cand_by_size = {
-                        str(int(sz)): float(size_objectives[int(sz)])
-                        for sz in valid_sizes
-                        if int(sz) in size_objectives
-                    }
-                    if len(cand_by_size) != len(valid_sizes):
-                        missing_sizes = [
-                            int(sz) for sz in valid_sizes if str(int(sz)) not in cand_by_size
-                        ]
-                        raise RuntimeError(f"Missing size_objectives for sizes={missing_sizes}")
-                    cand_agg = float(
-                        sum(float(cand_by_size[str(int(sz))]) for sz in valid_sizes)
-                        / float(len(valid_sizes))
-                    )
+                    by_size, cand_agg = _extract_stage3_size_objectives(fit, valid_sizes=valid_sizes)
+                    cand_by_size = {str(int(sz)): float(by_size[int(sz)]) for sz in valid_sizes}
                     if not math.isfinite(cand_agg):
                         raise RuntimeError("Non-finite reference aggregated objective")
                     seed_per_init[str(init_name)] = {
@@ -906,11 +860,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         raise ValueError("stage3 requires at least one init source (scratch and/or baseline.checkpoints)")
 
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp")
-    # CVRP and FFSP compare against the native PO objective so the stage3 baseline
-    # matches the paper training loss rather than the reference free-loss surrogate.
-    baseline_eval_mode = (
-        "native_po_loss" if env_name.strip().lower() in {"cvrp", "ffsp"} else "ref_free_loss"
-    )
+    baseline_eval_mode = _stage3_baseline_eval_mode(cfg_yaml)
     policy_name = str(cfg_yaml.get("policy_name") or "")
     policy_kwargs = dict(cfg_yaml.get("policy_kwargs", {}) or {})
     env_kwargs = dict(cfg_yaml.get("env_kwargs", {}) or {})
@@ -965,6 +915,7 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
 
     sig = {
         "protocol": str(protocol),
+        "baseline_eval_impl_version": 2,
         "baseline_eval_mode": str(baseline_eval_mode),
         "scenario_name": str(_stage3_scenario_name_from_cfg(cfg_yaml)),
         "env_name": env_name,
@@ -1004,6 +955,92 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
         sig["hf_epochs"] = int(hf_epochs)
         sig["hf_instances_per_epoch"] = int(hf_instances_per_epoch)
     return sig
+
+
+def _stage3_baseline_eval_mode(cfg_yaml: Mapping[str, Any]) -> str:
+    env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    # CVRP and FFSP compare against the native PO objective so the stage3 baseline
+    # matches the paper training loss rather than the reference free-loss surrogate.
+    return "native_po_loss" if env_name in {"cvrp", "ffsp"} else "ref_free_loss"
+
+
+def _extract_stage3_size_objectives(
+    fitness: Mapping[str, Any],
+    *,
+    valid_sizes: Sequence[int],
+) -> Tuple[Dict[int, float], float]:
+    size_objectives_raw = fitness.get("size_objectives", {})
+    size_objectives: Dict[int, float] = {}
+    if isinstance(size_objectives_raw, Mapping):
+        for k, v in size_objectives_raw.items():
+            try:
+                size_objectives[int(k)] = float(v)
+            except Exception:  # noqa: BLE001
+                continue
+
+    by_size: Dict[int, float] = {}
+    for sz in valid_sizes:
+        if int(sz) not in size_objectives:
+            raise RuntimeError(f"Missing size_objectives[{int(sz)}] while generating stage3 baseline cache")
+        by_size[int(sz)] = float(size_objectives[int(sz)])
+    agg = float(sum(by_size[int(sz)] for sz in valid_sizes) / max(len(valid_sizes), 1))
+    return by_size, float(agg)
+
+
+def _evaluate_stage3_reference_baseline(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    hf_cfg: HighFidelityConfig,
+    operator_whitelist: Sequence[str],
+    init_ckpt: str | None,
+) -> Dict[str, Any]:
+    eval_mode = _stage3_baseline_eval_mode(cfg_yaml)
+    init_ckpt_abs = _abs_from_repo_root(str(init_ckpt)) if init_ckpt else None
+
+    if str(eval_mode) == "native_po_loss":
+        return evaluate_po_baseline_rl4co(
+            hf_cfg,
+            init_checkpoint_path=init_ckpt_abs,
+            init_checkpoint_epoch=None,
+            scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+            warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+            baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+            baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
+            baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+            baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+            baseline_epoch_window_violation_weight=float(
+                cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+            ),
+        )
+
+    compiled_builder = compile_preference_builder(
+        _ref_builder_ir(),
+        operator_whitelist=list(operator_whitelist),
+    )
+    ref_loss_ir = _ref_loss_ir()
+    static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+    if not static_ref.ok:
+        raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
+    compiled_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
+    adapter = _CompiledBuilderAdapter(compiled_builder)
+    free_cfg = FreeLossFidelityConfig(
+        hf=hf_cfg,
+        f1_steps=int(cfg_yaml.get("f1_steps", 32) or 32),
+        f2_steps=0,
+        f3_enabled=False,
+        init_checkpoint_path=init_ckpt_abs,
+        init_checkpoint_epoch=None,
+        scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+        warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+        baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+        baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
+        baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+        baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+        baseline_epoch_window_violation_weight=float(
+            cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+        ),
+    )
+    return evaluate_free_loss_candidate(compiled_loss, free_cfg, pref_builder=adapter)
 
 
 def _stage3_fidelity_key(cfg_yaml: Mapping[str, Any]) -> str:
@@ -1247,17 +1284,6 @@ def _ensure_stage3_baseline_mini_eval(
                 raise ValueError(f"Missing offline_val_paths[{int(sz)}] for stage3 baseline auto-cache")
             offline_val_by_size[int(sz)] = str(p)
 
-    compiled_builder = compile_preference_builder(
-        _ref_builder_ir(),
-        operator_whitelist=list(operator_whitelist),
-    )
-    ref_loss_ir = _ref_loss_ir()
-    static_ref = run_static_gates(ref_loss_ir, operator_whitelist=list(operator_whitelist))
-    if not static_ref.ok:
-        raise RuntimeError(f"Reference loss failed static gates: {static_ref.reason}")
-    compiled_loss = compile_free_loss(ref_loss_ir, operator_whitelist=list(operator_whitelist))
-    adapter = _CompiledBuilderAdapter(compiled_builder)
-
     cfg_hf = dict(cfg_yaml)
     cfg_hf["f1_steps"] = int(K)
     if not (
@@ -1282,42 +1308,13 @@ def _ensure_stage3_baseline_mini_eval(
             offline_train=(str(offline_train) if offline_train else None),
             offline_val_by_size=offline_val_by_size,
         )
-
-        free_cfg = FreeLossFidelityConfig(
-            hf=hf_cfg,
-            f1_steps=int(K),
-            f2_steps=0,
-            f3_enabled=False,
-            init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
-            init_checkpoint_epoch=None,
-            scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
-            warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
-            baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
-            baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
-            baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
-            baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
-            baseline_epoch_window_violation_weight=float(
-                cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
-            ),
+        fitness = _evaluate_stage3_reference_baseline(
+            cfg_yaml=cfg_yaml,
+            hf_cfg=hf_cfg,
+            operator_whitelist=operator_whitelist,
+            init_ckpt=init_ckpt,
         )
-        fitness = evaluate_free_loss_candidate(compiled_loss, free_cfg, pref_builder=adapter)
-        size_objectives_raw = fitness.get("size_objectives", {})
-        size_objectives: Dict[int, float] = {}
-        if isinstance(size_objectives_raw, dict):
-            for k, v in size_objectives_raw.items():
-                try:
-                    size_objectives[int(k)] = float(v)
-                except Exception:  # noqa: BLE001
-                    continue
-
-        by_size: Dict[int, float] = {}
-        for sz in valid_problem_sizes:
-            if int(sz) not in size_objectives:
-                raise RuntimeError(
-                    f"Missing size_objectives[{int(sz)}] while generating stage3 baseline cache"
-                )
-            by_size[int(sz)] = float(size_objectives[int(sz)])
-        agg = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
+        by_size, agg = _extract_stage3_size_objectives(fitness, valid_sizes=valid_problem_sizes)
 
         per_init[str(init_name)] = {
             "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
