@@ -40,6 +40,13 @@ def _normalize_precision_mode(value: str | None) -> str:
     return "32-true"
 
 
+def _normalize_po_impl(value: str | None) -> str:
+    impl = str(value or "bt").strip().lower()
+    if impl not in {"bt", "exponential"}:
+        return "bt"
+    return impl
+
+
 def _autocast_context(device: torch.device, precision: str):
     mode = _normalize_precision_mode(precision)
     if device.type != "cuda":
@@ -1883,6 +1890,8 @@ def evaluate_po_baseline_rl4co(
     *,
     early_eval_steps: int | None = None,
 ) -> Dict[str, Any]:
+    from rl4co.models.rl.reinforce.preference_losses import po_loss
+
     _set_seed(cfg.seed)
 
     device_str = cfg.device
@@ -1914,6 +1923,7 @@ def evaluate_po_baseline_rl4co(
     early_validation_objective: float | None = None
 
     log_interval = max(total_steps // 20, 1)
+    po_impl = _normalize_po_impl(getattr(cfg, "po_impl", "bt"))
 
     for step in range(total_steps):
         num_rollouts = resolve_pomo_size(cfg.pomo_size, cfg.train_problem_size)
@@ -1929,11 +1939,12 @@ def evaluate_po_baseline_rl4co(
         )
         reward = reward.float()
         log_likelihood = log_likelihood.float()
-        preference = reward[:, :, None] > reward[:, None, :]
-        log_prob_pair = log_likelihood[:, :, None] - log_likelihood[:, None, :]
-        alpha = float(cfg.alpha)
-        pf_log = torch.log(torch.sigmoid(alpha * log_prob_pair))
-        loss = -torch.mean(pf_log * preference)
+        loss, _ = po_loss(
+            reward,
+            log_likelihood,
+            alpha=float(cfg.alpha),
+            impl=str(po_impl),
+        )
 
         max_reward, _ = reward.max(dim=1)
         score = _rl4co_objective_from_reward(max_reward, cfg).float().mean()

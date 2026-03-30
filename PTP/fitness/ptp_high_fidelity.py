@@ -54,6 +54,7 @@ class HighFidelityConfig:
     learning_rate: float = 3e-4
     weight_decay: float = 1e-6
     alpha: float = 0.05  # preference sharpness
+    po_impl: str = "bt"  # bt | exponential
     precision: str = "32-true"  # 32-true | 16-mixed | bf16-mixed
     device: str = "cuda"
     seed: int = 0

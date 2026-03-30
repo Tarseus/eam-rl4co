@@ -61,6 +61,13 @@ function Build-Args {
         "--log-level", [string]$Cfg.LogLevel
     )
 
+    if ($Cfg.ContainsKey("WatchMode")) {
+        $watchMode = [string]$Cfg.WatchMode
+        if (-not [string]::IsNullOrWhiteSpace($watchMode)) {
+            $argList += @("--watch-mode", $watchMode)
+        }
+    }
+
     if ($Cfg.ContainsKey("RemoteOutputRoot")) {
         $remoteOutputRoot = [string]$Cfg.RemoteOutputRoot
         if (-not [string]::IsNullOrWhiteSpace($remoteOutputRoot)) {
@@ -238,6 +245,19 @@ function Invoke-ExternalWithTimeout {
     }
 }
 
+function Get-RemoteProcessNeedle {
+    param([hashtable]$Cfg)
+
+    $watchMode = ""
+    if ($Cfg.ContainsKey("WatchMode")) {
+        $watchMode = [string]$Cfg.WatchMode
+    }
+    switch ($watchMode.ToLowerInvariant()) {
+        "free_loss" { return "run_free_loss_discovery_rl4co.py" }
+        default { return "run_pref_loss_coevo.py" }
+    }
+}
+
 function Test-WatcherSsh {
     param([hashtable]$Cfg, [int]$Attempts = 8)
 
@@ -265,9 +285,11 @@ function Test-WatcherSsh {
     $sshCommon += ("ConnectTimeout=" + $connectTimeout)
     $sshCommon += [string]$Cfg.Host
 
+    $processNeedle = Get-RemoteProcessNeedle -Cfg $Cfg
+
     $remoteCmds = @(
         @{ name = "boot_id"; cmd = "cat /proc/sys/kernel/random/boot_id" },
-        @{ name = "pgrep"; cmd = "pgrep -af run_pref_loss_coevo.py" },
+        @{ name = "pgrep"; cmd = ("pgrep -af " + $processNeedle) },
         @{ name = "remote_py"; cmd = ("cd " + [string]$Cfg.RemoteWorkdir + " && " + [string]$Cfg.RemotePythonBin + " -V") }
     )
 
