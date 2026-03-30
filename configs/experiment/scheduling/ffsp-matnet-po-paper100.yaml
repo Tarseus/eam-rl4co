@@ -4,16 +4,8 @@ defaults:
   - override /model: matnet.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
-  - override /logger: wandb.yaml
+  - override /logger: csv.yaml
   - override /env: ffsp.yaml
-
-logger:
-  wandb:
-    project: "rl4co"
-    log_model: "all"
-    group: "po-ffsp-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
-    tags: ["po-ffsp-paper", "${env.name}"]
-    name: "po-ffsp-paper-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
 
 env:
   generator_params:
