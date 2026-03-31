@@ -1,0 +1,105 @@
+{
+  "generation": 8,
+  "pair_index": 24,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_005_c69e55b3",
+    "ir": {
+      "name": "loss_regret_weighted_diff_exp_normalized",
+      "intuition": "This loss shifts the paradigm from ranking and logistic preference to a regret-based exponential decay loss that emphasizes the relative regret difference between pairs. It normalizes the log-probability differences and weighs the loss by a nonlinear transform of delta_regret, encouraging the model to focus learning on pairs with significant regret differences, thus capturing nuanced performance gaps.",
+      "pseudocode": "regret_gap = delta_regret; diff = log_prob_w - log_prob_l; norm_diff = diff / (abs(diff) + epsilon); weight_factor = sigmoid(regret_gap); loss_per_pair = weight * exp(- norm_diff * weight_factor); return mean(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "regret_weighted_exp",
+        "signal_family": "delta_regret",
+        "link_family": "exponential_decay",
+        "agg_family": "mean",
+        "constraint_family": "normalization_stability"
+      },
+      "operators_used": [
+        "abs",
+        "sigmoid",
+        "exp",
+        "div",
+        "sub",
+        "mul",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    epsilon = 1e-6\n    log_prob_w = batch[\"log_prob_w\"]\n    log_prob_l = batch[\"log_prob_l\"]\n    weight = batch[\"weight\"]\n    delta_regret = batch.get(\"delta_regret\", ops.zeros_like(log_prob_w))\n    diff = ops.sub(log_prob_w, log_prob_l)\n    norm_diff = ops.div(diff, ops.add(ops.abs(diff), epsilon))\n    weight_factor = ops.sigmoid(delta_regret)\n    loss_per_pair = ops.mul(weight, ops.exp(ops.neg(ops.mul(norm_diff, weight_factor))))\n    return ops.mean(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

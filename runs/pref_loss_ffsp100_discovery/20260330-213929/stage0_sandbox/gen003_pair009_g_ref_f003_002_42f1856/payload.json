@@ -1,0 +1,106 @@
+{
+  "generation": 3,
+  "pair_index": 9,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f003_002_42f18568",
+    "ir": {
+      "name": "rank_regret_weighted_sigmoid_loss",
+      "intuition": "This loss shifts from margin or direct ranking loss paradigms to a regret-normalized sigmoid penalty that softens penalties by incorporating relative regret differences and weighting pairs to emphasize priority samples. It uses a sigmoid link on a regret-weighted scaled difference combined with a ranking delta signal, aggregating via mean while enforcing positivity constraints through activation.",
+      "pseudocode": "regret_diff = delta_regret; rank_delta = delta_rank; margin = scale * (log_prob_w - log_prob_l); score = sigmoid(margin) * relu(rank_delta) * (1 + alpha * regret_diff); loss = -weight * log(score + epsilon); return mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_regret_normalized",
+        "signal_family": "delta_regret",
+        "link_family": "sigmoid_soft_relu",
+        "agg_family": "mean",
+        "constraint_family": "relu_positivity"
+      },
+      "operators_used": [
+        "sigmoid",
+        "relu",
+        "mul",
+        "add",
+        "sub",
+        "log",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_regret = batch.get('delta_regret', ops.zeros_like(lpw))\n    delta_rank = batch.get('delta_rank', ops.zeros_like(lpw))\n    scale = float(extra.get('scale', 1.5))\n    alpha = float(extra.get('alpha', 0.7))\n\n    margin = ops.mul(scale, ops.sub(lpw, lpl))\n    sig_margin = ops.sigmoid(margin)\n    relu_rank = ops.relu(delta_rank)\n    # score combines sigmoid margin, positive rank delta, and scaled regret difference\n    score = ops.mul(sig_margin, relu_rank)\n    score = ops.mul(score, ops.add(ops.ones_like(score), ops.mul(alpha, delta_regret)))\n    eps = 1e-8\n    loss_per_pair = ops.mul(weight, -ops.log(score + eps))\n    return ops.mean(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
