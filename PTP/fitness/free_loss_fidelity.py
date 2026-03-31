@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 
 _OFFLINE_TENSORDICT_CACHE: dict[str, Any] = {}
+_PAIRWISE_OPTIONAL_KEY_FAMILIES: dict[str, tuple[str, str, str]] = {
+    "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
+    "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
+    "advantage": ("advantage_w", "advantage_l", "advantage_gap"),
+    "entropy": ("entropy_w", "entropy_l", "entropy_gap"),
+    "entropy_mean": ("entropy_w_mean", "entropy_l_mean", "entropy_mean_gap"),
+    "log_prob_ref": ("log_prob_ref_w", "log_prob_ref_l", "log_prob_ref_gap"),
+    "log_prob_ratio": ("log_prob_ratio_w", "log_prob_ratio_l", "log_prob_ratio_gap"),
+}
 
 
 def _normalize_precision_mode(value: str | None) -> str:
@@ -173,6 +182,120 @@ class OfflineSplitGenerator:
         return out
 
 
+def _infer_pairwise_reference_tensor(batch: Mapping[str, Any]) -> torch.Tensor | None:
+    for key in (
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "cost_a",
+        "cost_b",
+        "cost_gap",
+        "delta_z",
+        "delta_rank",
+        "delta_regret",
+    ):
+        value = batch.get(key)
+        if isinstance(value, torch.Tensor):
+            return value
+    return None
+
+
+def _ensure_pairwise_gap_family(
+    batch: Dict[str, torch.Tensor],
+    *,
+    winner_key: str,
+    loser_key: str,
+    gap_key: str,
+) -> None:
+    winner = batch.get(winner_key)
+    loser = batch.get(loser_key)
+    gap = batch.get(gap_key)
+
+    if not isinstance(gap, torch.Tensor) and isinstance(winner, torch.Tensor) and isinstance(loser, torch.Tensor):
+        gap = loser - winner
+        batch[gap_key] = gap
+    if not isinstance(winner, torch.Tensor) and isinstance(loser, torch.Tensor) and isinstance(gap, torch.Tensor):
+        winner = loser - gap
+        batch[winner_key] = winner
+    if not isinstance(loser, torch.Tensor) and isinstance(winner, torch.Tensor) and isinstance(gap, torch.Tensor):
+        loser = winner + gap
+        batch[loser_key] = loser
+
+
+def prepare_pairwise_loss_batch(
+    full_batch: Mapping[str, Any],
+    expects: Sequence[str] | None = None,
+) -> Dict[str, torch.Tensor]:
+    """Filter a full pairwise batch to the requested keys and fill safe derived signals.
+
+    This keeps gates and runtime mini-train on the same schema/fallback rules so that
+    candidate validation cannot silently diverge from actual execution.
+    """
+
+    batch_full: Dict[str, torch.Tensor] = {
+        str(key): value for key, value in full_batch.items() if isinstance(value, torch.Tensor)
+    }
+    ref = _infer_pairwise_reference_tensor(batch_full)
+
+    if (
+        "cost_gap" not in batch_full
+        and isinstance(batch_full.get("cost_a"), torch.Tensor)
+        and isinstance(batch_full.get("cost_b"), torch.Tensor)
+    ):
+        batch_full["cost_gap"] = batch_full["cost_b"] - batch_full["cost_a"]
+
+    if (
+        "advantage_w" not in batch_full
+        and isinstance(batch_full.get("cost_a"), torch.Tensor)
+        and "advantage_gap" not in batch_full
+    ):
+        batch_full["advantage_w"] = -batch_full["cost_a"]
+    if (
+        "advantage_l" not in batch_full
+        and isinstance(batch_full.get("cost_b"), torch.Tensor)
+        and "advantage_gap" not in batch_full
+    ):
+        batch_full["advantage_l"] = -batch_full["cost_b"]
+    if "advantage_gap" not in batch_full:
+        if isinstance(batch_full.get("advantage_w"), torch.Tensor) and isinstance(batch_full.get("advantage_l"), torch.Tensor):
+            batch_full["advantage_gap"] = batch_full["advantage_l"] - batch_full["advantage_w"]
+        elif isinstance(batch_full.get("cost_gap"), torch.Tensor):
+            batch_full["advantage_gap"] = -batch_full["cost_gap"]
+        elif (
+            isinstance(batch_full.get("cost_a"), torch.Tensor)
+            and isinstance(batch_full.get("cost_b"), torch.Tensor)
+        ):
+            batch_full["advantage_gap"] = batch_full["cost_a"] - batch_full["cost_b"]
+        elif isinstance(ref, torch.Tensor):
+            batch_full["advantage_gap"] = torch.zeros_like(ref)
+
+    for winner_key, loser_key, gap_key in _PAIRWISE_OPTIONAL_KEY_FAMILIES.values():
+        _ensure_pairwise_gap_family(
+            batch_full,
+            winner_key=winner_key,
+            loser_key=loser_key,
+            gap_key=gap_key,
+        )
+
+    if "weight" not in batch_full and isinstance(ref, torch.Tensor):
+        batch_full["weight"] = torch.ones_like(ref)
+
+    requested = [str(key).strip() for key in (expects or []) if str(key).strip()]
+    if not requested:
+        return dict(batch_full)
+
+    out: Dict[str, torch.Tensor] = {key: batch_full[key] for key in requested if key in batch_full}
+    if isinstance(ref, torch.Tensor):
+        for key in requested:
+            if key in out:
+                continue
+            if key in {"advantage_w", "advantage_l", "advantage_gap"}:
+                out[key] = torch.zeros_like(ref)
+            elif key == "weight":
+                out[key] = torch.ones_like(ref)
+    return out
+
+
 @dataclass
 class PrefBatch:
     """Intermediate preference batch built from a fixed feature_cache.
@@ -237,16 +360,7 @@ class PrefBatch:
             **pairwise_deltas,
             "weight": weight,
         }
-        optional_pairwise_keys = {
-            "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
-            "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
-            "advantage": ("advantage_w", "advantage_l", "advantage_gap"),
-            "entropy": ("entropy_w", "entropy_l", "entropy_gap"),
-            "entropy_mean": ("entropy_w_mean", "entropy_l_mean", "entropy_mean_gap"),
-            "log_prob_ref": ("log_prob_ref_w", "log_prob_ref_l", "log_prob_ref_gap"),
-            "log_prob_ratio": ("log_prob_ratio_w", "log_prob_ratio_l", "log_prob_ratio_gap"),
-        }
-        for key, (winner_key, loser_key, gap_key) in optional_pairwise_keys.items():
+        for key, (winner_key, loser_key, gap_key) in _PAIRWISE_OPTIONAL_KEY_FAMILIES.items():
             value = feature_cache.get(key)
             if not isinstance(value, torch.Tensor):
                 continue
@@ -1032,7 +1146,10 @@ def _train_one_batch_with_free_loss_rl4co(
             advantage = reward - reward.mean(dim=1, keepdim=True)
             loss = -(advantage * log_prob).mean()
         else:
-            batch = pref.to_pairwise_loss_batch(feature_cache)
+            batch = prepare_pairwise_loss_batch(
+                pref.to_pairwise_loss_batch(feature_cache),
+                compiled_loss.ir.implementation_hint.expects or [],
+            )
             loss = compiled_loss.loss_fn(
                 batch=batch,
                 model_output=feature_cache,
