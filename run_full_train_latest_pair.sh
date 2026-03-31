@@ -122,13 +122,13 @@ CMD=(
   "$PYTHON_BIN" -u run.py
   "experiment=${experiment}"
   "model.loss_type=free_loss"
-  "model.pref_pair_json_path=${best_pair_path}"
+  "+model.pref_pair_json_path=${best_pair_path}"
 )
 
 has_seed_override=false
 has_deterministic_override=false
-has_devices_override=false
-has_matmul_precision_override=false
+has_devices_override=true
+has_matmul_precision_override=true
 
 # Lightning raises if enable_progress_bar=false but RichProgressBar is still in callbacks.
 # Some experiment configs disable the progress bar but keep the callback via callbacks/default.yaml.
