@@ -971,6 +971,9 @@ def _train_one_batch_with_free_loss_rl4co(
     want_seq_len = bool(observables & {"seq_len", "log_prob_mean", "entropy_mean"})
     want_entropy = bool(observables & {"entropy", "entropy_mean"})
     want_step_logp = "log_prob_step" in observables
+    # If per-step log-probs are already returned, seq_len can be inferred from
+    # that tensor. Avoid also materializing actions for long FFSP rollouts.
+    want_actions = bool(want_seq_len and not want_step_logp)
 
     policy.train()
     rollout = _rl4co_rollout_full(
@@ -982,7 +985,7 @@ def _train_one_batch_with_free_loss_rl4co(
         rollout_strategy=rollout_strategy,
         device=device,
         precision=str(getattr(hf_cfg, "precision", "32-true") or "32-true"),
-        return_actions=want_seq_len or want_step_logp,
+        return_actions=want_actions,
         return_entropy=want_entropy,
         return_step_logp=want_step_logp,
     )

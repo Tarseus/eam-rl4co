@@ -84,7 +84,10 @@ train_batch_size: 50
 num_validation_episodes: 1000
 validation_batch_size: 50
 pomo_size: 24
-loss_observables: [seq_len, log_prob_mean, advantage, entropy, log_prob_step]
+# Keep FFSP100 discovery on scalar observables only.
+# Pairwise expansion of per-step tensors like `log_prob_step` is too memory-heavy
+# at this scale and can OOM every candidate during high-fidelity evaluation.
+loss_observables: [seq_len, log_prob_mean, advantage]
 ref_policy_source: none
 scratch_init_seed: 1234
 backend: rl4co

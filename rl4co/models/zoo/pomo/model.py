@@ -222,9 +222,12 @@ class POMO(REINFORCE):
         policy_kwargs: dict[str, Any] = {"phase": phase, "num_starts": n_start}
         if phase == "train" and self.loss_type == "free_loss":
             observables = set(self.free_loss_observables)
-            want_actions = bool(observables & {"seq_len", "log_prob_mean", "entropy_mean", "log_prob_step"})
+            want_seq_len = bool(observables & {"seq_len", "log_prob_mean", "entropy_mean"})
             want_entropy = bool(observables & {"entropy", "entropy_mean"})
             want_step_logp = "log_prob_step" in observables
+            # When step-level log-probs are requested, sequence length can be
+            # inferred without materializing the full action history.
+            want_actions = bool(want_seq_len and not want_step_logp)
             policy_kwargs.update(
                 {
                     "return_actions": want_actions,

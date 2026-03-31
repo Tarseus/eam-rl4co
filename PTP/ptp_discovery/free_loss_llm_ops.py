@@ -25,6 +25,7 @@ from .free_loss_compiler import (
     compile_free_loss,
     parse_free_loss_from_text,
 )
+from .free_loss_gates import supported_keys_for_mode
 from .free_loss_ir import FreeLossIR
 
 
@@ -38,6 +39,15 @@ _LLM_CACHE_PATH: str | None = None
 _LLM_CACHE_INDEX: dict[str, str] = {}
 _LLM_CACHE_HITS = 0
 _LLM_CACHE_MISSES = 0
+
+_OBSERVABLE_TO_PAIRWISE_KEYS: dict[str, tuple[str, ...]] = {
+    "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
+    "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
+    "advantage": ("advantage_w", "advantage_l", "advantage_gap"),
+    "entropy": ("entropy_w", "entropy_l", "entropy_gap"),
+    "entropy_mean": ("entropy_w_mean", "entropy_l_mean", "entropy_mean_gap"),
+    "log_prob_step": ("log_prob_step_w", "log_prob_step_l"),
+}
 
 
 def _repo_root() -> str:
@@ -275,6 +285,80 @@ Constraints:
     return base
 
 
+def build_runtime_prompt_context(
+    *,
+    loss_observables: Sequence[str] | None,
+    mode: str = "pairwise",
+) -> Mapping[str, Any]:
+    mode_norm = str(mode or "pairwise").strip().lower() or "pairwise"
+    supported = {str(k) for k in supported_keys_for_mode(mode_norm)}
+
+    available: set[str] = set()
+    preferred: set[str] = set()
+    blocked: set[str] = set()
+
+    if mode_norm == "pairwise":
+        base_keys = {
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b",
+            "cost_gap",
+            "delta_z",
+            "delta_rank",
+            "delta_regret",
+        }
+        available.update(base_keys)
+        preferred.update(base_keys)
+    else:
+        available.update(supported)
+        preferred.update(supported)
+
+    observable_names = [str(v).strip() for v in (loss_observables or []) if str(v).strip()]
+    observable_set = set(observable_names)
+    if mode_norm == "pairwise":
+        for obs_name, keys in _OBSERVABLE_TO_PAIRWISE_KEYS.items():
+            keys_set = set(keys)
+            if obs_name in observable_set:
+                available.update(keys_set)
+                if obs_name in {"seq_len", "log_prob_mean", "advantage"}:
+                    preferred.update(keys_set)
+            else:
+                blocked.update(keys_set)
+
+    available_sorted = sorted(k for k in available if k in supported)
+    preferred_sorted = sorted(k for k in preferred if k in supported and k in available)
+    blocked_sorted = sorted(k for k in blocked if k in supported and k not in available)
+    unavailable_sorted = sorted(k for k in supported if k not in available)
+
+    return {
+        "mode": mode_norm,
+        "configured_loss_observables": observable_names,
+        "available_keys": available_sorted,
+        "preferred_cheap_keys": preferred_sorted,
+        "blocked_optional_keys": blocked_sorted,
+        "unavailable_supported_keys": unavailable_sorted,
+        "notes": [
+            "implementation_hint.expects and any required batch[...] access must stay within available_keys",
+            "optional signals should be accessed with batch.get(..., fallback)",
+            "prefer preferred_cheap_keys when multiple designs are plausible",
+        ],
+    }
+
+
+def _append_prompt_context_block(prompt: str, prompt_context: Mapping[str, Any] | None) -> str:
+    if not prompt_context:
+        return prompt
+    return (
+        prompt
+        + "\n\nRUNTIME_CONTEXT_JSON:\n"
+        + json.dumps(dict(prompt_context), indent=2, ensure_ascii=False)
+        + "\n\nFollow RUNTIME_CONTEXT_JSON strictly. Do not require keys listed in "
+        + "`blocked_optional_keys` or `unavailable_supported_keys`."
+    )
+
+
 def _extract_json_object(text: str) -> str:
     """Extract the first complete top-level JSON object from model output.
 
@@ -480,9 +564,10 @@ def generate_free_loss_candidate(
     *,
     operator_whitelist: Sequence[str],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
     del operator_whitelist
-    base_prompt = _read_prompt(generation_prompt_path)
+    base_prompt = _append_prompt_context_block(_read_prompt(generation_prompt_path), prompt_context)
     prompt = base_prompt
     if global_feedback is not None:
         feedback_blob = json.dumps(global_feedback, indent=2, ensure_ascii=False)
@@ -497,8 +582,9 @@ def crossover_free_loss(
     parents: Sequence[FreeLossIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
-    prompt = _read_prompt(crossover_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(crossover_prompt_path), prompt_context)
     parent_blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -541,8 +627,9 @@ def mutate_free_loss(
     parent: FreeLossIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
-    prompt = _read_prompt(mutation_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(mutation_prompt_path), prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     parent_blob = {
         "name": parent.name,
@@ -577,10 +664,11 @@ def e2_free_loss(
     parents: Sequence[FreeLossIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
     """E2: consensus extraction over p parents, then synthesize a new child loss."""
 
-    prompt = _read_prompt(e2_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(e2_prompt_path), prompt_context)
     parent_blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -625,8 +713,9 @@ def paradigm_shift_free_loss(
     parents: Sequence[FreeLossIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
-    prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(prompt_path), prompt_context)
     parent_blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -666,8 +755,9 @@ def structure_shift_free_loss(
     parent: FreeLossIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
-    prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(prompt_path), prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     parent_blob = {
         "name": parent.name,
@@ -700,8 +790,9 @@ def constraint_inject_free_loss(
     parent: FreeLossIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
-    prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(prompt_path), prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     parent_blob = {
         "name": parent.name,
@@ -734,10 +825,11 @@ def m2_tune_hparams(
     parent: FreeLossIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
     """M2: hyperparameter-only tuning; structurally identical to parent."""
 
-    prompt = _read_prompt(m2_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(m2_prompt_path), prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     parent_blob = {
         "name": parent.name,
@@ -796,10 +888,11 @@ def m3_simplify_loss(
     candidate: FreeLossIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
     """M3: simplify/stabilize a candidate loss, given a failure reason."""
 
-    prompt = _read_prompt(m3_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(m3_prompt_path), prompt_context)
     payload = {
         "candidate": {
             "name": candidate.name,
@@ -830,8 +923,9 @@ def repair_free_loss(
     repair_prompt_path: str,
     failed_ir: FreeLossIR,
     failure_reason: Mapping[str, Any],
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
-    prompt = _read_prompt(repair_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(repair_prompt_path), prompt_context)
     payload = {
         "candidate": {
             "name": failed_ir.name,
@@ -854,6 +948,7 @@ def repair_free_loss(
 def repair_expects_with_prompt(
     expects_repair_prompt_path: str,
     ir: FreeLossIR,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
     """Use a lightweight LLM prompt to normalize implementation_hint.expects.
 
@@ -861,7 +956,7 @@ def repair_expects_with_prompt(
     a clean list of short input names.
     """
 
-    prompt = _read_prompt(expects_repair_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(expects_repair_prompt_path), prompt_context)
     payload = asdict(ir)
     prompt = prompt + "\n\nIR_JSON:\n" + json.dumps(payload, indent=2)
     raw = _call_llm(prompt, llm_op="EXPECTS_REPAIR", prompt_path=expects_repair_prompt_path)
@@ -879,6 +974,7 @@ def repair_from_gate_failure(
     counterexamples: Sequence[Mapping[str, Any]],
     allowed_keys: Sequence[str],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> FreeLossIR:
     """Generate a repaired child candidate guided by gate diagnostics.
 
@@ -890,7 +986,7 @@ def repair_from_gate_failure(
     if strategy not in {"e1", "e2", "m1", "m2"}:
         raise ValueError(f"Unknown directed repair strategy: {strategy!r}")
 
-    prompt = _read_prompt(directed_repair_prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(directed_repair_prompt_path), prompt_context)
     prompt = (
         prompt
         + "\n\nSTRATEGY:\n"
@@ -985,8 +1081,9 @@ def paradigm_shift_free_loss_with_meta(
     parents: Sequence[FreeLossIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[FreeLossIR, Mapping[str, Any]]:
-    prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(prompt_path), prompt_context)
     parent_blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -1035,8 +1132,9 @@ def structure_shift_free_loss_with_meta(
     parent: FreeLossIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[FreeLossIR, Mapping[str, Any]]:
-    prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(prompt_path), prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     parent_blob = {
         "name": parent.name,
@@ -1078,8 +1176,9 @@ def constraint_inject_free_loss_with_meta(
     parent: FreeLossIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[FreeLossIR, Mapping[str, Any]]:
-    prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(_read_prompt(prompt_path), prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     parent_blob = {
         "name": parent.name,

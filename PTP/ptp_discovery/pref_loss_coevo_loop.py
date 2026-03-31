@@ -5196,12 +5196,24 @@ def _append_global_feedback_block(prompt: str, global_feedback: Mapping[str, Any
     return prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 
+def _append_runtime_context_block(prompt: str, prompt_context: Mapping[str, Any] | None) -> str:
+    try:
+        fn = getattr(loss_llm_ops, "_append_prompt_context_block", None)
+        if callable(fn):
+            return str(fn(prompt, prompt_context))
+    except Exception:  # noqa: BLE001
+        pass
+    return prompt
+
+
 def _build_free_loss_generation_prompt(
     prompt_path: str,
     *,
     global_feedback: Mapping[str, Any] | None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> Tuple[str, str]:
     prompt = _read_prompt_best_effort(prompt_path)
+    prompt = _append_runtime_context_block(prompt, prompt_context)
     prompt = _append_global_feedback_block(prompt, global_feedback)
     return prompt, _prompt_sha1(prompt)
 
@@ -5213,8 +5225,10 @@ def _build_free_loss_parents_prompt(
     parents_fitness: Sequence[Mapping[str, Any]] | None,
     global_feedback: Mapping[str, Any] | None,
     parent_block_name: str,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> Tuple[str, str]:
     prompt = _read_prompt_best_effort(prompt_path)
+    prompt = _append_runtime_context_block(prompt, prompt_context)
     blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -5255,8 +5269,10 @@ def _build_free_loss_parent_prompt(
     parent_fitness: Mapping[str, Any] | None,
     global_feedback: Mapping[str, Any] | None,
     parent_block_name: str,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> Tuple[str, str]:
     prompt = _read_prompt_best_effort(prompt_path)
+    prompt = _append_runtime_context_block(prompt, prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     blob = {
         "name": parent.name,
@@ -6065,6 +6081,10 @@ def _propose_losses_for_generation(
 
     pop_f = max(int(pop_f), 1)
     out: List[Dict[str, Any]] = []
+    loss_prompt_context = loss_llm_ops.build_runtime_prompt_context(
+        loss_observables=tuple(str(v) for v in cfg.get("loss_observables", []) if str(v).strip()),
+        mode="pairwise",
+    )
 
     parent_pool: List[Mapping[str, Any]] = []
     for src in (elites_f, diverse_elites_f):
@@ -6341,13 +6361,18 @@ def _propose_losses_for_generation(
 
             try:
                 if llm_op == "E1_GENERATE":
-                    _, sha = _build_free_loss_generation_prompt(p_gen, global_feedback=call_feedback)
+                    _, sha = _build_free_loss_generation_prompt(
+                        p_gen,
+                        global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
+                    )
                     prompt_sha1 = sha
                     prompt_path = str(p_gen)
                     ir = loss_llm_ops.generate_free_loss_candidate(
                         p_gen,
                         operator_whitelist=operator_whitelist,
                         global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
                     )
                     base_origin = "E1"
                     op_type = "E1_GENERATE"
@@ -6360,10 +6385,17 @@ def _propose_losses_for_generation(
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
                         parent_block_name="PARENTS_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_x)
-                    ir = loss_llm_ops.crossover_free_loss(p_x, parents=parents_ir, parents_fitness=parents_fit, global_feedback=call_feedback)
+                    ir = loss_llm_ops.crossover_free_loss(
+                        p_x,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
+                    )
                     base_origin = "E1"
                     op_type = "E1"
                 elif llm_op == "E2":
@@ -6373,10 +6405,17 @@ def _propose_losses_for_generation(
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
                         parent_block_name="PARENTS_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_e2)
-                    ir = loss_llm_ops.e2_free_loss(p_e2, parents=parents_ir, parents_fitness=parents_fit, global_feedback=call_feedback)
+                    ir = loss_llm_ops.e2_free_loss(
+                        p_e2,
+                        parents=parents_ir,
+                        parents_fitness=parents_fit,
+                        global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
+                    )
                     base_origin = "E2"
                     op_type = "E2"
                 elif llm_op == "PARADIGM_SHIFT":
@@ -6386,6 +6425,7 @@ def _propose_losses_for_generation(
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
                         parent_block_name="PARENTS_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_shift)
@@ -6394,6 +6434,7 @@ def _propose_losses_for_generation(
                         parents=parents_ir,
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = str(meta.get("prompt_sha1", prompt_sha1))
                     prompt_path = str(meta.get("prompt_path", prompt_path))
@@ -6406,6 +6447,7 @@ def _propose_losses_for_generation(
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
                         parent_block_name="PARENT_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_structure)
@@ -6414,6 +6456,7 @@ def _propose_losses_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = str(meta.get("prompt_sha1", prompt_sha1))
                     prompt_path = str(meta.get("prompt_path", prompt_path))
@@ -6426,6 +6469,7 @@ def _propose_losses_for_generation(
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
                         parent_block_name="PARENT_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_constraint)
@@ -6434,6 +6478,7 @@ def _propose_losses_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = str(meta.get("prompt_sha1", prompt_sha1))
                     prompt_path = str(meta.get("prompt_path", prompt_path))
@@ -6446,6 +6491,7 @@ def _propose_losses_for_generation(
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
                         parent_block_name="PARENT_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_m2)
@@ -6454,6 +6500,7 @@ def _propose_losses_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
                     )
                     base_origin = "M2"
                     op_type = "M2"
@@ -6464,10 +6511,17 @@ def _propose_losses_for_generation(
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
                         parent_block_name="PARENT_JSON",
+                        prompt_context=loss_prompt_context,
                     )
                     prompt_sha1 = sha
                     prompt_path = str(p_m)
-                    ir = loss_llm_ops.mutate_free_loss(p_m, parent=parents_ir[0], parent_fitness=parents_fit[0], global_feedback=call_feedback)
+                    ir = loss_llm_ops.mutate_free_loss(
+                        p_m,
+                        parent=parents_ir[0],
+                        parent_fitness=parents_fit[0],
+                        global_feedback=call_feedback,
+                        prompt_context=loss_prompt_context,
+                    )
                     base_origin = "M1"
                     op_type = "M1"
                 history.append(
@@ -6556,6 +6610,7 @@ def _propose_losses_for_generation(
                                 candidate=ir,
                                 failure_reason=fail_reason,
                                 global_feedback=call_feedback,
+                                prompt_context=loss_prompt_context,
                             )
                         else:
                             repaired = None
@@ -6579,7 +6634,12 @@ def _propose_losses_for_generation(
                                     )[1],
                                 }
                             )
-                            repaired = loss_llm_ops.repair_free_loss(p_rep, failed_ir=ir, failure_reason=fail_reason)
+                            repaired = loss_llm_ops.repair_free_loss(
+                                p_rep,
+                                failed_ir=ir,
+                                failure_reason=fail_reason,
+                                prompt_context=loss_prompt_context,
+                            )
                         except Exception:  # noqa: BLE001
                             repaired = None
                             break
@@ -8338,6 +8398,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     selected_prompt_path,
                     failed_ir=current_ir,
                     failure_reason=failure_payload,
+                    prompt_context=loss_prompt_context,
                 )
                 attempt_record["repair_call_ok"] = True
             except Exception as exc:  # noqa: BLE001
@@ -8354,6 +8415,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 repaired_ir = loss_llm_ops.repair_expects_with_prompt(
                     expects_repair_prompt_path,
                     repaired_ir,
+                    prompt_context=loss_prompt_context,
                 )
                 attempt_record["expects_repair_ok"] = True
             except Exception as exc:  # noqa: BLE001
@@ -8483,6 +8545,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     selected_repair_prompt_path,
                     failed_ir=current_ir,
                     failure_reason=failure_reason,
+                    prompt_context=loss_prompt_context,
                 )
                 attempt_record["repair_call_ok"] = True
                 attempt_record["repair_prompt_path"] = str(selected_repair_prompt_path)
@@ -8501,6 +8564,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 repaired_ir = loss_llm_ops.repair_expects_with_prompt(
                     expects_repair_prompt_path,
                     repaired_ir,
+                    prompt_context=loss_prompt_context,
                 )
                 attempt_record["expects_repair_ok"] = True
             except Exception as exc:  # noqa: BLE001
@@ -9652,6 +9716,11 @@ def run_pref_loss_coevo(
         llm_prompts_raw.update(dict(builder_llm_raw.get("prompts") or {}))
     if isinstance(loss_llm_raw.get("prompts"), dict):
         llm_prompts_raw.update(dict(loss_llm_raw.get("prompts") or {}))
+
+    loss_prompt_context = loss_llm_ops.build_runtime_prompt_context(
+        loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
+        mode="pairwise",
+    )
     llm_prompts_defaults = {
         "builder_generation": "PTP/prompts/pref_builder_generation.txt",
         "builder_crossover": "PTP/prompts/pref_builder_crossover.txt",
@@ -11688,6 +11757,7 @@ def run_pref_loss_coevo(
                                     selected_loss_prompt,
                                     failed_ir=f_ir,
                                     failure_reason=fail_payload,
+                                    prompt_context=loss_prompt_context,
                                 )
                                 static_res = run_static_gates(candidate, operator_whitelist=operator_whitelist)
                                 if not bool(static_res.ok):
@@ -11722,6 +11792,7 @@ def run_pref_loss_coevo(
                                                 candidate=candidate,
                                                 failure_reason=last_fail,
                                                 global_feedback=call_feedback,
+                                                prompt_context=loss_prompt_context,
                                             )
                                             attempt_report["m3_attempted"] = True
                                         except Exception:
