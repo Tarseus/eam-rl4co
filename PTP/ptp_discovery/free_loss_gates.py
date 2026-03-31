@@ -9,7 +9,7 @@ import torch
 from .free_loss_compiler import CompiledFreeLoss
 from .free_loss_ir import FreeLossIR
 from fitness.co_features import build_model_output
-from fitness.free_loss_fidelity import PrefBatch
+from fitness.free_loss_fidelity import PrefBatch, prepare_pairwise_loss_batch
 
 
 @dataclass
@@ -425,29 +425,7 @@ def run_joint_preference_gates(
         )
 
     expects = [str(x) for x in (compiled.ir.implementation_hint.expects or [])]
-    if expects:
-        batch = {k: full_batch[k] for k in expects if k in full_batch}
-        # Runtime-safe fallbacks for optional quality signals that may be absent
-        # in specific configs/datasets.
-        if "weight" in expects and "weight" not in batch and isinstance(full_batch.get("log_prob_w"), torch.Tensor):
-            batch["weight"] = torch.ones_like(full_batch["log_prob_w"])
-        if (
-            "cost_gap" in expects
-            and "cost_gap" not in batch
-            and isinstance(full_batch.get("cost_a"), torch.Tensor)
-            and isinstance(full_batch.get("cost_b"), torch.Tensor)
-        ):
-            batch["cost_gap"] = full_batch["cost_b"] - full_batch["cost_a"]
-        if "advantage_gap" in expects and "advantage_gap" not in batch:
-            if isinstance(full_batch.get("cost_gap"), torch.Tensor):
-                batch["advantage_gap"] = full_batch["cost_gap"]
-            elif isinstance(full_batch.get("log_prob_w"), torch.Tensor):
-                batch["advantage_gap"] = torch.zeros_like(full_batch["log_prob_w"])
-        for key in ("advantage_w", "advantage_l"):
-            if key in expects and key not in batch and isinstance(full_batch.get("log_prob_w"), torch.Tensor):
-                batch[key] = torch.zeros_like(full_batch["log_prob_w"])
-    else:
-        batch = dict(full_batch)
+    batch = prepare_pairwise_loss_batch(full_batch, expects)
 
     log_prob_w0 = batch.get("log_prob_w")
     log_prob_l0 = batch.get("log_prob_l")
@@ -1686,8 +1664,8 @@ def run_objective_sensitivity_gate(
                 **obj_large,
                 "weight": torch.ones(pairwise_batch_size),
             }
-            batch_1 = {k: full_1[k] for k in expects if k in full_1}
-            batch_2 = {k: full_2[k] for k in expects if k in full_2}
+            batch_1 = prepare_pairwise_loss_batch(full_1, expects)
+            batch_2 = prepare_pairwise_loss_batch(full_2, expects)
             loss_1 = _loss_value(compiled, batch=batch_1, model_output={})
             loss_2 = _loss_value(compiled, batch=batch_2, model_output={})
         else:
@@ -1871,8 +1849,8 @@ def run_affine_invariance_gate(
             if "cost_b" in expects_set:
                 full_2["cost_b"] = a * cost_b + b
 
-            batch_1 = {k: full_1[k] for k in expects if k in full_1}
-            batch_2 = {k: full_2[k] for k in expects if k in full_2}
+            batch_1 = prepare_pairwise_loss_batch(full_1, expects)
+            batch_2 = prepare_pairwise_loss_batch(full_2, expects)
             loss_1 = _loss_value(compiled, batch=batch_1, model_output={})
             loss_2 = _loss_value(compiled, batch=batch_2, model_output={})
         else:
