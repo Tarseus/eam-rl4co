@@ -55,6 +55,7 @@ from ptp_discovery.free_loss_gates import (
 )
 from ptp_discovery.free_loss_ir import FreeLossIR, ir_from_json
 from ptp_discovery.free_loss_llm_ops import (
+    build_runtime_prompt_context,
     compile_free_loss_candidate,
     crossover_free_loss,
     e2_free_loss,
@@ -1865,6 +1866,10 @@ def run_free_loss_eoh(
     pref_semantic_gap_min_ratio = float(cfg_yaml.get("pref_semantic_gap_min_ratio", 0.9))
 
     hidden_dynamic_gates_enabled = bool(cfg_yaml.get("hidden_dynamic_gates_enabled", False))
+    loss_prompt_context = build_runtime_prompt_context(
+        loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
+        mode="pairwise",
+    )
 
     behavior_deltas = cfg_yaml.get("novelty_behavior_deltas") or [-10, -5, -2, -1, 0, 1, 2, 5, 10]
     behavior_deltas = [float(v) for v in behavior_deltas]
@@ -1952,7 +1957,7 @@ def run_free_loss_eoh(
         if not isinstance(expects, (list, tuple)) or not expects:
             return ir
         try:
-            return repair_expects_with_prompt(expects_repair_prompt, ir)
+            return repair_expects_with_prompt(expects_repair_prompt, ir, prompt_context=loss_prompt_context)
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Failed to repair expects via LLM: %s", exc)
             return ir
@@ -2072,6 +2077,7 @@ def run_free_loss_eoh(
                     parent_irs,
                     parents_fitness=[p["fitness"] for p in chosen],
                     global_feedback=global_feedback,
+                    prompt_context=loss_prompt_context,
                 ),
                 op,
             )
@@ -2085,6 +2091,7 @@ def run_free_loss_eoh(
                     parent_irs,
                     parents_fitness=[p["fitness"] for p in chosen],
                     global_feedback=global_feedback,
+                    prompt_context=loss_prompt_context,
                 ),
                 op,
             )
@@ -2097,6 +2104,7 @@ def run_free_loss_eoh(
                     parent["ir"],
                     parent_fitness=parent["fitness"],
                     global_feedback=global_feedback,
+                    prompt_context=loss_prompt_context,
                 ),
                 op,
             )
@@ -2117,6 +2125,7 @@ def run_free_loss_eoh(
                     parent["ir"],
                     failure_context,
                     global_feedback=global_feedback,
+                    prompt_context=loss_prompt_context,
                 ),
                 op,
             )
@@ -2129,6 +2138,7 @@ def run_free_loss_eoh(
                     parent["ir"],
                     parent_fitness=parent["fitness"],
                     global_feedback=global_feedback,
+                    prompt_context=loss_prompt_context,
                 ),
                 op,
             )
@@ -2138,6 +2148,7 @@ def run_free_loss_eoh(
                 gen_prompt,
                 operator_whitelist=operator_whitelist,
                 global_feedback=global_feedback,
+                prompt_context=loss_prompt_context,
             ),
             "E1_GENERATE",
         )
@@ -2395,7 +2406,7 @@ def run_free_loss_eoh(
                                     message=static_res.reason,
                                     extra=None,
                                 )
-                                ir = repair_free_loss(repair_prompt, ir, failure_payload)
+                                ir = repair_free_loss(repair_prompt, ir, failure_payload, prompt_context=loss_prompt_context)
                                 continue
                             except Exception as exc:  # noqa: BLE001
                                 LOGGER.warning(
@@ -2429,7 +2440,7 @@ def run_free_loss_eoh(
                                     message=str(exc),
                                     extra=None,
                                 )
-                                ir = repair_free_loss(repair_prompt, ir, failure_payload)
+                                ir = repair_free_loss(repair_prompt, ir, failure_payload, prompt_context=loss_prompt_context)
                                 continue
                             except Exception as exc2:  # noqa: BLE001
                                 LOGGER.warning(
@@ -2670,6 +2681,7 @@ def run_free_loss_eoh(
                                             ir,
                                             failure_payload,
                                             global_feedback=global_feedback,
+                                            prompt_context=loss_prompt_context,
                                         )
                                         llm_op = "M3_REPAIR"
                                         continue
@@ -2682,7 +2694,7 @@ def run_free_loss_eoh(
                                         )
 
                                 if repair_prompt:
-                                    ir = repair_free_loss(repair_prompt, ir, failure_payload)
+                                    ir = repair_free_loss(repair_prompt, ir, failure_payload, prompt_context=loss_prompt_context)
                                     llm_op = "REPAIR"
                                     continue
                             except Exception as exc:  # noqa: BLE001
@@ -2889,6 +2901,7 @@ def run_free_loss_eoh(
                                                 ir,
                                                 failure_payload,
                                                 global_feedback=global_feedback,
+                                                prompt_context=loss_prompt_context,
                                             )
                                             llm_op = "M3_REPAIR"
                                             continue
@@ -2901,7 +2914,7 @@ def run_free_loss_eoh(
                                             )
 
                                     if repair_prompt:
-                                        ir = repair_free_loss(repair_prompt, ir, failure_payload)
+                                        ir = repair_free_loss(repair_prompt, ir, failure_payload, prompt_context=loss_prompt_context)
                                         llm_op = "REPAIR"
                                         continue
                                 except Exception as exc:  # noqa: BLE001
@@ -3062,6 +3075,7 @@ def run_free_loss_eoh(
                                                 ir,
                                                 failure_payload,
                                                 global_feedback=global_feedback,
+                                                prompt_context=loss_prompt_context,
                                             )
                                             llm_op = "M3_REPAIR"
                                             continue
@@ -3074,7 +3088,7 @@ def run_free_loss_eoh(
                                             )
 
                                     if repair_prompt:
-                                        ir = repair_free_loss(repair_prompt, ir, failure_payload)
+                                        ir = repair_free_loss(repair_prompt, ir, failure_payload, prompt_context=loss_prompt_context)
                                         llm_op = "REPAIR"
                                         continue
                                 except Exception as exc:  # noqa: BLE001
