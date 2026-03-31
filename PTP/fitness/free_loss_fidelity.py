@@ -1042,7 +1042,7 @@ def _train_one_batch_with_free_loss_rl4co(
     max_reward, _ = reward.max(dim=1)
     score_mean = _rl4co_objective_from_reward(max_reward, hf_cfg).float().mean()
 
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=True)
     if not torch.isfinite(loss).all():
         raise RuntimeError("Non-finite loss encountered during mini-train")
     if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
@@ -1229,6 +1229,8 @@ def _evaluate_free_loss_candidate_rl4co(
                     batch_size=cfg.hf.validation_batch_size,
                     rollout_strategy=rollout_strategy,
                 )
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 if baseline_early_valid is not None and early_validation_objective > baseline_early_valid:
                     early_stopped = True
                     logger.info(
@@ -1253,6 +1255,8 @@ def _evaluate_free_loss_candidate_rl4co(
                     rollout_strategy=rollout_strategy,
                 )
             )
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         primary_phase = "single_steps"
         primary_epochs_total = 0
@@ -1407,6 +1411,8 @@ def _evaluate_free_loss_candidate_rl4co(
                         batch_size=cfg.hf.validation_batch_size,
                         rollout_strategy=rollout_strategy,
                     )
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                     epoch_objectives.append(epoch_valid_obj)
                     logger.info(
                         "RL4CO free-loss[%s] epoch %d/%d: validation_objective=%.6f",
@@ -1426,6 +1432,8 @@ def _evaluate_free_loss_candidate_rl4co(
                     batch_size=cfg.hf.validation_batch_size,
                     rollout_strategy=rollout_strategy,
                 )
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
                 if (
                     baseline_early_valid_phase is not None
                     and early_validation_objective > baseline_early_valid_phase
@@ -1454,6 +1462,8 @@ def _evaluate_free_loss_candidate_rl4co(
                     rollout_strategy=rollout_strategy,
                 )
             )
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         try:
             env = None
@@ -1997,7 +2007,7 @@ def evaluate_po_baseline_rl4co(
             max_reward, _ = reward.max(dim=1)
             score = _rl4co_objective_from_reward(max_reward, cfg).float().mean()
 
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
