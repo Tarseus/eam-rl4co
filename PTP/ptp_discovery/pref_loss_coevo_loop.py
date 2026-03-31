@@ -6082,7 +6082,7 @@ def _propose_losses_for_generation(
     pop_f = max(int(pop_f), 1)
     out: List[Dict[str, Any]] = []
     loss_prompt_context = loss_llm_ops.build_runtime_prompt_context(
-        loss_observables=tuple(str(v) for v in cfg.get("loss_observables", []) if str(v).strip()),
+        loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
         mode="pairwise",
     )
 
