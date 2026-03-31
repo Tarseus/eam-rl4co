@@ -121,6 +121,30 @@ def _normalize_device_alias(device_str: str) -> str:
     return ds
 
 
+def _resolve_loss_observables(cfg: Mapping[str, Any]) -> Tuple[str, ...]:
+    """Resolve optional runtime observables for candidate losses.
+
+    FFSP high-fidelity runs at 100-job scale are already close to the memory
+    limit. In that regime, `seq_len` / `log_prob_mean` force action
+    materialization during rollout and regularly tip stage3 candidate eval over
+    the edge, while the core cost/objective signals remain available without
+    them.
+    """
+
+    observables = tuple(str(v).strip() for v in (cfg.get("loss_observables", []) or []) if str(v).strip())
+    env_name = str(cfg.get("env_name") or cfg.get("problem") or "").strip().lower()
+    generator_params = cfg.get("generator_params", {}) or {}
+    try:
+        ffsp_jobs = int(generator_params.get("num_job", cfg.get("train_problem_size", 0)) or 0)
+    except (TypeError, ValueError):
+        ffsp_jobs = 0
+
+    if env_name == "ffsp" and ffsp_jobs >= 100:
+        blocked = {"seq_len", "log_prob_mean"}
+        observables = tuple(v for v in observables if v not in blocked)
+    return observables
+
+
 def _maybe_auto_flush_pref_cache(
     *,
     caches: PrefLossEvalCaches,
@@ -5073,7 +5097,7 @@ def _build_hf_cfg(cfg: Mapping[str, Any], *, seed: int, device_str: str) -> High
         size_aggregation=str(cfg.get("size_aggregation", "cvar")),
         size_cvar_alpha=float(cfg.get("size_cvar_alpha", 0.2)),
         pool_version=str(cfg.get("pool_version", "v0")),
-        loss_observables=tuple(str(v) for v in cfg.get("loss_observables", []) if str(v).strip()),
+        loss_observables=_resolve_loss_observables(cfg),
     )
 
 
@@ -9317,6 +9341,17 @@ def run_pref_loss_coevo(
         raise ValueError(f"Invalid YAML config: {config_path}")
     cfg_yaml.update({k: v for k, v in overrides.items() if v is not None})
     cfg_yaml, runtime_meta = _resolve_runtime_config(cfg_yaml)
+    resolved_loss_observables = _resolve_loss_observables(cfg_yaml)
+    raw_loss_observables = tuple(
+        str(v).strip() for v in (cfg_yaml.get("loss_observables", []) or []) if str(v).strip()
+    )
+    if resolved_loss_observables != raw_loss_observables:
+        LOGGER.info(
+            "Resolved loss_observables for runtime: raw=%s resolved=%s",
+            list(raw_loss_observables),
+            list(resolved_loss_observables),
+        )
+    cfg_yaml["loss_observables"] = list(resolved_loss_observables)
 
     seed = int(cfg_yaml.get("seed", 0))
     _set_seed(seed)

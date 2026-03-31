@@ -46,6 +46,39 @@ def test_free_cfg_propagates_split_fields(monkeypatch):
     assert int(getattr(free_cfg, "baseline_epoch_compare_offset", 0)) == 0
 
 
+def test_ffsp100_filters_seq_len_and_log_prob_mean(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "backend": "rl4co",
+        "env_name": "ffsp",
+        "generator_params": {"num_stage": 3, "num_machine": 4, "num_job": 100},
+        "policy_name": "matnet",
+        "policy_kwargs": {},
+        "rollout_strategy": "auto",
+        "objective_sign": "neg_reward",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [100],
+        "train_batch_size": 50,
+        "pomo_size": 24,
+        "learning_rate": 1e-4,
+        "weight_decay": 1e-6,
+        "alpha": 1.0,
+        "device": "cpu",
+        "num_validation_episodes": 1000,
+        "validation_batch_size": 50,
+        "loss_observables": ["seq_len", "log_prob_mean", "advantage"],
+    }
+
+    resolved = loop._resolve_loss_observables(cfg)
+    assert resolved == ("advantage",)
+
+    hf_cfg = loop._build_hf_cfg(cfg, seed=0, device_str="cpu")
+    assert tuple(hf_cfg.loss_observables) == ("advantage",)
+
+
 def test_external_baseline_slice_split_calls(monkeypatch, tmp_path):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
