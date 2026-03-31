@@ -6074,6 +6074,7 @@ def _propose_losses_for_generation(
     llm_cfg: Mapping[str, Any] | None = None,
     operator_whitelist: Sequence[str] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    loss_observables: Sequence[str] | None = None,
     llm_init_only: bool = False,
     carry_elites: bool = True,
 ) -> List[Dict[str, Any]]:
@@ -6082,7 +6083,7 @@ def _propose_losses_for_generation(
     pop_f = max(int(pop_f), 1)
     out: List[Dict[str, Any]] = []
     loss_prompt_context = loss_llm_ops.build_runtime_prompt_context(
-        loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
+        loss_observables=tuple(str(v) for v in (loss_observables or []) if str(v).strip()),
         mode="pairwise",
     )
 
@@ -10624,6 +10625,7 @@ def run_pref_loss_coevo(
             llm_cfg=llm_cfg_for_gen if llm_enabled else None,
             operator_whitelist=operator_whitelist,
             global_feedback=global_feedback if llm_enabled else None,
+            loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
             llm_init_only=bool(llm_init_only),
             carry_elites=False,
         )
