@@ -1,0 +1,107 @@
+{
+  "generation": 3,
+  "pair_index": 4,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f003_000_8d80696c",
+    "ir": {
+      "name": "loss_delta_rank_logsigmoid_contrastive",
+      "intuition": "Shift from margin- or ratio-based losses on log probability gaps weighted by advantage_gap, to a contrastive pairwise loss using delta_rank as a quality signal. The loss encourages the model to assign higher probabilities to samples with better ranks by directly using a logsigmoid on the log probability difference normalized by delta_rank, leveraging a contrastive paradigm with explicit penalization of inversions scaled by preference strength. This departs from margin and ratio paradigms, uses delta_rank instead of advantage_gap or cost signals, and adopts a sum aggregation with explicit clipping for stability.",
+      "pseudocode": "norm_gap = (log_prob_w - log_prob_l) / (abs(delta_rank) + epsilon)\nx = clamp(scale * norm_gap, -20, 20)\nloss = -logsigmoid(x) * weight * abs(delta_rank)\nreturn sum(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_contrastive",
+        "signal_family": "delta_rank",
+        "link_family": "logsigmoid",
+        "agg_family": "sum",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "sub",
+        "abs",
+        "add",
+        "div",
+        "mul",
+        "logsigmoid",
+        "clamp",
+        "neg",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    delta_rank = batch['delta_rank']\n    weight = batch.get('weight', None)\n    eps = 1e-6\n    scale = float(extra.get('scale', 1.0))\n    abs_delta_rank = ops.add(ops.abs(delta_rank), eps)\n    norm_gap = ops.div(ops.sub(lpw, lpl), abs_delta_rank)\n    x = ops.clamp(ops.mul(scale, norm_gap), -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    weighting = ops.mul(weight if weight is not None else ops.ones_like(loss), ops.abs(delta_rank))\n    loss = ops.mul(loss, weighting)\n    return ops.sum(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

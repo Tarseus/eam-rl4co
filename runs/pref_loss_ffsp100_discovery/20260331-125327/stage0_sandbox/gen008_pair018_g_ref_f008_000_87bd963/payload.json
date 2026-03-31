@@ -1,0 +1,103 @@
+{
+  "generation": 8,
+  "pair_index": 18,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_000_87bd963b",
+    "ir": {
+      "name": "loss_pairwise_rank_gap_negexp_weighted",
+      "intuition": "Shift from advantage gap to delta_rank signal using an exponential negative rank gap weighting that penalizes pairs with large rank decreases more strongly. Instead of margin-based or smooth approximations, the loss directly modulates negative log probability differences by an exponential decay of the rank gap, emphasizing pairs where the rank gap indicates clearer preference separations. Uses a pairwise weighted sum with monotonic negative exponential link and sum aggregation, differing in paradigm, signal, link, and aggregation families.",
+      "pseudocode": "delta = log_prob_w - log_prob_l\nrank_scale = exp(-clamp(delta_rank, 0, 20))\nweighted_loss = weight * (-delta * rank_scale)\nloss = sum(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_weighted_ranking_decay",
+        "signal_family": "delta_rank",
+        "link_family": "negexp_scale",
+        "agg_family": "sum",
+        "constraint_family": "clamp_bounded"
+      },
+      "operators_used": [
+        "exp",
+        "clamp",
+        "mul",
+        "sub",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    delta_rank = batch['delta_rank']\n    delta = lpw - lpl\n    rank_scale = ops.exp(-ops.clamp(delta_rank, 0.0, 20.0))\n    loss = -delta * rank_scale\n    if weight is not None:\n        loss = loss * weight\n    return ops.sum(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
