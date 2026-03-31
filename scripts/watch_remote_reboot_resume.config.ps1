@@ -16,6 +16,8 @@ $WatchRemoteRebootResumeConfig = @{
     PythonExe             = "python"
     SshExe                = "ssh"
     SshArgs               = @(
+        "-i",
+        (Join-Path $env:USERPROFILE ".ssh\id_ed25519"),
         "-oBatchMode=yes",
         "-oConnectionAttempts=1",
         "-oServerAliveInterval=10",

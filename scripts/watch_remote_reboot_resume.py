@@ -398,6 +398,23 @@ def _attempt_resume(
         _log(f"waiting_boot_grace_s={boot_grace_s:.1f}")
         time.sleep(boot_grace_s)
 
+    # If the target process is already running, do not probe/launch anything else.
+    # This avoids misreporting an older completed run when the current run has not
+    # yet emitted a resumable checkpoint.json.
+    running, running_err = _remote_process_running(
+        client,
+        process_needle=defaults["process_needle"],
+        timeout_s=cmd_timeout_s,
+    )
+    if running is None:
+        _log(f"proc_query_degraded: reason={running_err}; defer_resume_check_to_online_retry")
+        return False
+    elif running:
+        _log(f"resume_check_noop: {defaults['resume_label']}_process_already_running")
+        for ln in running[:3]:
+            _log(f"running_proc: {ln}")
+        return False
+
     latest = _probe_latest_run(
         client,
         watch_mode=watch_mode,
@@ -437,22 +454,6 @@ def _attempt_resume(
     )
     if completed:
         _log("resume_check_noop: latest_run_already_completed")
-        return False
-
-    # Keep the process probe aligned with the standalone PowerShell SSH test:
-    # use the configured command timeout and a direct remote command.
-    running, running_err = _remote_process_running(
-        client,
-        process_needle=defaults["process_needle"],
-        timeout_s=cmd_timeout_s,
-    )
-    if running is None:
-        _log(f"proc_query_degraded: reason={running_err}; defer_resume_check_to_online_retry")
-        return False
-    elif running:
-        _log(f"resume_check_noop: {defaults['resume_label']}_process_already_running")
-        for ln in running[:3]:
-            _log(f"running_proc: {ln}")
         return False
 
     if dry_run:

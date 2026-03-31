@@ -84,10 +84,10 @@ train_batch_size: 50
 num_validation_episodes: 1000
 validation_batch_size: 50
 pomo_size: 24
-# Keep FFSP100 discovery on scalar observables only.
-# Pairwise expansion of per-step tensors like `log_prob_step` is too memory-heavy
-# at this scale and can OOM every candidate during high-fidelity evaluation.
-loss_observables: [seq_len, log_prob_mean, advantage]
+# Keep FFSP100 discovery on the cheapest scalar observable only.
+# `seq_len` / `log_prob_mean` force action materialization in free-loss HF eval
+# and can push large-scale FFSP stage3 candidate runs over the memory limit.
+loss_observables: [advantage]
 ref_policy_source: none
 scratch_init_seed: 1234
 backend: rl4co
