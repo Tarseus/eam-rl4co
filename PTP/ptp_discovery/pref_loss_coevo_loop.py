@@ -1455,6 +1455,9 @@ def _truncate_jsonl_by_generation(path: str, gen_start: int) -> Tuple[int, int]:
 
 
 def _atomic_write_json(path: str, payload: Mapping[str, Any]) -> None:
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     tmp = f"{path}.tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(dict(payload), f, indent=2, ensure_ascii=False)
