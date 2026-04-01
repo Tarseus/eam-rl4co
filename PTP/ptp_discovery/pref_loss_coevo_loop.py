@@ -4439,7 +4439,7 @@ def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any]
             "elite_f": int(keep_top_k),
             "elite_g": int(keep_top_k),
             "builder_max_pairs_per_instance": _safe_int(
-                builder_pair_budget.get("per_instance", 64),
+                cfg.get("builder_max_pairs_per_instance", builder_pair_budget.get("per_instance", 64)),
                 64,
             ),
             "builder_min_coverage": _safe_float(cfg.get("builder_min_coverage", 0.0), 0.0),
