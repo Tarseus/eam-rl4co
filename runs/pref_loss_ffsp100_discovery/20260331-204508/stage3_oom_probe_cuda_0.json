@@ -1,0 +1,66 @@
+{
+  "config": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_ffsp100_discovery.yaml",
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260331-204508",
+  "device": "cuda:0",
+  "worker_python": "/data1/gushengda/anaconda3/envs/rlco1/bin/python3.11",
+  "generation": null,
+  "results": [
+    {
+      "f_id": "f000_000_079babfb",
+      "generation": -1,
+      "family": "pairwise_ranking|advantage_gap|mean|relu_nonneg",
+      "family_signature": "paradigm=pairwise_ranking|signal=advantage_gap|agg=mean|constraint=relu_nonneg",
+      "device": "cuda:0",
+      "train_batch_size": 32,
+      "validation_batch_size": 32,
+      "pomo_size": 24,
+      "f1_steps": 200,
+      "hf_epochs": 20,
+      "hf_instances_per_epoch": 1000,
+      "scratch_init_seed": 1234,
+      "valid_problem_sizes": [
+        100
+      ],
+      "per_init": [
+        {
+          "name": "scratch",
+          "init_checkpoint": null,
+          "ok": false,
+          "oom": false,
+          "error_type": "runtime_error",
+          "error": "CUDA driver error: invalid argument",
+          "peak_allocated_mb": 22613.06103515625,
+          "peak_reserved_mb": 22976.0,
+          "elapsed_s": 108.58829069137573
+        },
+        {
+          "name": "ckpt_100",
+          "init_checkpoint": "baseline/ffsp_matnet_po_paper100_epoch_100.ckpt",
+          "ok": false,
+          "oom": false,
+          "error_type": "runtime_error",
+          "error": "CUDA driver error: invalid argument",
+          "peak_allocated_mb": 22647.32470703125,
+          "peak_reserved_mb": 22964.0,
+          "elapsed_s": 92.86649894714355
+        }
+      ],
+      "any_oom": false,
+      "all_ok": false,
+      "oom_init_names": [],
+      "worker_returncode": 0,
+      "worker_elapsed_s": 207.31710767745972,
+      "worker_log": "stage3_oom_probe_logs/001_f000_000_079babfb.log"
+    }
+  ],
+  "summary": {
+    "total_losses": 1,
+    "oom_losses": 0,
+    "all_ok_losses": 0,
+    "non_oom_but_failed_losses": 1,
+    "per_init_oom_counts": {},
+    "worst_peak_allocated_mb": 22647.32470703125,
+    "worst_peak_loss_id": "f000_000_079babfb",
+    "oom_loss_ids": []
+  }
+}
