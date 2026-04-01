@@ -6,7 +6,7 @@ output_root: runs/pref_builder_weight_search_tsp100
 metric_mode: minimize
 improve_eps: 0.0
 cheap_gate_on: true
-high_fidelity_on: false
+high_fidelity_on: true
 seed_with_po4cops_default: false
 builder_min_coverage: 0.0
 builder_max_pairs_per_instance: 8192
@@ -21,7 +21,8 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  allowed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  allow_freeform_weight_family: true
   allow_uniform_none: true
 
 budgets:
@@ -64,7 +65,8 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    allowed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    allow_freeform_weight_family: true
     allow_uniform_none: true
   operator_bank:
     init:
