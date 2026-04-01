@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import gc
 from contextlib import nullcontext
 from dataclasses import dataclass, asdict, field
 import math
@@ -38,6 +39,53 @@ _PAIRWISE_OPTIONAL_KEY_FAMILIES: dict[str, tuple[str, str, str]] = {
     "log_prob_ref": ("log_prob_ref_w", "log_prob_ref_l", "log_prob_ref_gap"),
     "log_prob_ratio": ("log_prob_ratio_w", "log_prob_ratio_l", "log_prob_ratio_gap"),
 }
+
+
+def _cfg_like_get(cfg_like: Mapping[str, Any] | Any, key: str, default: Any = None) -> Any:
+    if isinstance(cfg_like, Mapping):
+        return cfg_like.get(key, default)
+    return getattr(cfg_like, key, default)
+
+
+def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
+    override = _cfg_like_get(cfg_like, "aggressive_cuda_cleanup", None)
+    if override is not None:
+        return bool(override)
+
+    env_name = str(
+        _cfg_like_get(cfg_like, "env_name", None) or _cfg_like_get(cfg_like, "problem", "tsp")
+    ).strip().lower()
+    generator_params = _cfg_like_get(cfg_like, "generator_params", {}) or {}
+    try:
+        ffsp_jobs = int(
+            (generator_params or {}).get(
+                "num_job",
+                _cfg_like_get(cfg_like, "train_problem_size", 0),
+            )
+            or 0
+        )
+    except Exception:  # noqa: BLE001
+        ffsp_jobs = 0
+    return env_name == "ffsp" and ffsp_jobs >= 100
+
+
+def _maybe_aggressive_cuda_cleanup(
+    device: torch.device,
+    cfg_like: Mapping[str, Any] | Any,
+    *,
+    collect_garbage: bool = False,
+) -> None:
+    if device.type != "cuda" or not _should_aggressive_cuda_cleanup(cfg_like):
+        return
+    if collect_garbage:
+        try:
+            gc.collect()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _normalize_precision_mode(value: str | None) -> str:
@@ -1081,6 +1129,7 @@ def _train_one_batch_with_free_loss_rl4co(
 ) -> Tuple[float, float, int]:
     batch_size = hf_cfg.train_batch_size
     num_rollouts = resolve_pomo_size(hf_cfg.pomo_size, hf_cfg.train_problem_size)
+    aggressive_cleanup = _should_aggressive_cuda_cleanup(hf_cfg)
     observables = set(normalize_loss_observables(getattr(hf_cfg, "loss_observables", None)))
     want_seq_len = bool(observables & {"seq_len", "log_prob_mean", "entropy_mean"})
     want_entropy = bool(observables & {"entropy", "entropy_mean"})
@@ -1170,7 +1219,29 @@ def _train_one_batch_with_free_loss_rl4co(
         loss.backward()
         optimizer.step()
 
-    return score_mean.item(), float(loss.item()), pair_count
+    score_item = float(score_mean.item())
+    loss_item = float(loss.item())
+
+    # FFSP100 stage3 runs can ratchet CUDA reserved memory upward over long
+    # phases. Drop the largest transient tensors before the next step so the
+    # allocator can release cached blocks earlier.
+    del rollout, reward, log_likelihood, objective, log_prob, extra, feature_cache, max_reward, score_mean, loss
+    try:
+        del pref
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        del batch
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        del advantage
+    except Exception:  # noqa: BLE001
+        pass
+    if aggressive_cleanup:
+        _maybe_aggressive_cuda_cleanup(device, hf_cfg)
+
+    return score_item, loss_item, pair_count
 
 
 @torch.no_grad()
@@ -1187,6 +1258,7 @@ def _evaluate_rl4co_model(
     env = _rl4co_build_env(cfg, problem_size)
     env = env.to(device)
     policy.eval()
+    aggressive_cleanup = _should_aggressive_cuda_cleanup(cfg)
 
     num_rollouts = resolve_pomo_size(cfg.pomo_size, problem_size)
     score_meter = AverageMeter()
@@ -1210,7 +1282,12 @@ def _evaluate_rl4co_model(
         score = _rl4co_objective_from_reward(max_reward, cfg).float().mean().item()
         score_meter.update(score, n=current_batch)
         episodes_done += current_batch
+        del max_reward, reward
+        if aggressive_cleanup:
+            _maybe_aggressive_cuda_cleanup(device, cfg)
 
+    env = None
+    _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
     return float(score_meter.avg)
 
 
@@ -2083,6 +2160,7 @@ def evaluate_po_baseline_rl4co(
         epoch_objectives: List[float] = []
         early_validation_objective: float | None = None
         early_stopped = False
+        aggressive_cleanup = _should_aggressive_cuda_cleanup(cfg)
 
         if early_eval_steps_phase is None:
             early_eval_steps_phase = min(100, total_steps)
@@ -2168,6 +2246,8 @@ def evaluate_po_baseline_rl4co(
                         int(phase_epochs),
                         epoch_valid_obj,
                     )
+                    if aggressive_cleanup:
+                        _maybe_aggressive_cuda_cleanup(device, cfg)
 
             if use_early_stop and early_eval_steps_phase > 0 and (step + 1) == early_eval_steps_phase:
                 early_validation_objective = _evaluate_rl4co_model(
@@ -2193,6 +2273,10 @@ def evaluate_po_baseline_rl4co(
                     )
                     break
 
+            del reward, log_likelihood, max_reward, score, loss
+            if aggressive_cleanup:
+                _maybe_aggressive_cuda_cleanup(device, cfg)
+
         if early_stopped and early_validation_objective is not None:
             final_valid_obj = float(early_validation_objective)
         else:
@@ -2210,8 +2294,7 @@ def evaluate_po_baseline_rl4co(
 
         try:
             env = None
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+            _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
         except Exception:  # noqa: BLE001
             pass
 
