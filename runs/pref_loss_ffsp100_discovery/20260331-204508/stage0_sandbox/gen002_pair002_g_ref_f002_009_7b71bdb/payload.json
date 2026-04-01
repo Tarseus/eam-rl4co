@@ -1,0 +1,107 @@
+{
+  "generation": 2,
+  "pair_index": 2,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_009_7b71bdb8",
+    "ir": {
+      "name": "loss_logsigmoid_inverse_advantage_diff",
+      "intuition": "Shift from multiplicative or margin-based losses to an inverse advantage difference weighting paradigm using a logsigmoid link on the difference of log probabilities scaled inversely by the clipped absolute advantage gap, stabilizing learning by down-weighting pairs with large advantage gaps and focusing on ambiguous pairs.",
+      "pseudocode": "adv_gap_abs = clamp(abs(advantage_w - advantage_l), min_clip, max_clip)\ninv_adv_scale = 1.0 / adv_gap_abs\nnorm_diff = (log_prob_w - log_prob_l) * inv_adv_scale\nx = clamp(norm_diff, -20, 20)\nloss = -logsigmoid(x) * weight\nreturn mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_inverse_gap",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "clamp_clip"
+      },
+      "operators_used": [
+        "abs",
+        "clamp",
+        "logsigmoid",
+        "neg",
+        "mul",
+        "mean",
+        "sub",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    eps = 1e-4\n    max_clip = 10.0\n    # Compute absolute advantage difference and clip\n    adv_gap = ops.abs(ops.sub(adv_w, adv_l))\n    adv_gap_clipped = ops.clamp(adv_gap, eps, max_clip)\n    inv_adv_scale = ops.div(ops.ones_like(adv_gap_clipped), adv_gap_clipped)\n    # Compute scaled difference of log probabilities\n    diff = ops.sub(lpw, lpl)\n    scaled_diff = ops.mul(diff, inv_adv_scale)\n    # Clamp to avoid numerical issues\n    x = ops.clamp(scaled_diff, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

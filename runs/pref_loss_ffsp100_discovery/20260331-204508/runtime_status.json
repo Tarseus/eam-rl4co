@@ -1,0 +1,55 @@
+{
+  "role": "pref_loss_coevo_main",
+  "status": "finished",
+  "pid": 79239,
+  "ppid": 79233,
+  "host": "ubuntu",
+  "argv": [
+    "PTP/ptp_discovery/run_pref_loss_coevo.py",
+    "--config",
+    "PTP/configs/experiment/pref_loss_coevo/loss_only_ffsp100_discovery.yaml"
+  ],
+  "cwd": "/data1/gushengda/eam-rl4co",
+  "created_at": "2026-03-31 20:45:08",
+  "created_at_epoch_s": 1774961108.6744027,
+  "heartbeat_count": 867,
+  "started_at": "2026-03-31 20:45:08",
+  "started_at_epoch_s": 1774961108.674425,
+  "last_heartbeat_at": "2026-04-01 03:53:09",
+  "last_heartbeat_epoch_s": 1774986789.3685174,
+  "extra": {
+    "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_ffsp100_discovery.yaml",
+    "resume_dir": null,
+    "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260331-204508",
+    "search_mode": "loss_only",
+    "preset": "simple",
+    "generations": 10,
+    "seed": 1234,
+    "devices": [
+      "cuda:0",
+      "cuda:1",
+      "cuda:3",
+      "cuda:4"
+    ],
+    "mp_enabled": true,
+    "mp_processes": 4,
+    "hf_scheduler_mode": "subprocess"
+  },
+  "progress": {
+    "stage": "generation_loop",
+    "next_generation": 10,
+    "generation": 9,
+    "phase": "loss"
+  },
+  "reason": "completed",
+  "exit_code": 0,
+  "ended_at": "2026-04-01 03:53:16",
+  "ended_at_epoch_s": 1774986796.5636349,
+  "result": {
+    "last_generation": 9,
+    "next_generation": 10,
+    "best_score": -0.08449993133545064,
+    "best_builder_id": "g_ref",
+    "best_loss_id": "f009_015_cc4ef9e1"
+  }
+}
