@@ -37,7 +37,11 @@ population:
 backend: rl4co
 env_name: tsp
 policy_name: pomo
-device: cuda
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+mp:
+  enabled: true
+  processes: 4
+  start_method: spawn
 train_problem_size: 100
 valid_problem_sizes: [100]
 train_batch_size: 64
