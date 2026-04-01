@@ -113,6 +113,10 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
             allowed_weight_families = search_space.get("allowed_weight_families", [])
             if not isinstance(allowed_weight_families, (list, tuple)):
                 allowed_weight_families = []
+            seed_weight_families = search_space.get("seed_weight_families", [])
+            if not isinstance(seed_weight_families, (list, tuple)):
+                seed_weight_families = []
+            allow_freeform_weight_family = bool(search_space.get("allow_freeform_weight_family", False))
             out += (
                 "\n\nBUILDER_SEARCH_SPACE_CONSTRAINTS:\n"
                 "- Search mode is reweight_only.\n"
@@ -120,10 +124,17 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 "- Do not change pair topology, candidate selection, coverage pattern, or pair capping logic.\n"
                 "- Your only substantive degree of freedom is the nonnegative pair weight function.\n"
                 "- Keep pair_idx identical to the fixed template and modify only `weight` plus metadata/hyperparameters.\n"
-                f"- Allowed weight_family values: {json.dumps([str(x) for x in allowed_weight_families], ensure_ascii=False)}\n"
                 "- Weight must be finite, nonnegative, vectorized, and instance-local.\n"
                 "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
             )
+            if allow_freeform_weight_family:
+                out += (
+                    f"- Seed weight_family values for the handcrafted initial pool: {json.dumps([str(x) for x in seed_weight_families], ensure_ascii=False)}\n"
+                    "- In this mode, `weight_family` is descriptive metadata rather than a hard whitelist.\n"
+                    "- You may introduce a new `weight_family` label if the actual formula is genuinely new.\n"
+                )
+            else:
+                out += f"- Allowed weight_family values: {json.dumps([str(x) for x in allowed_weight_families], ensure_ascii=False)}\n"
     return out + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 

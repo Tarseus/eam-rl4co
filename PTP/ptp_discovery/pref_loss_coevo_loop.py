@@ -2249,6 +2249,16 @@ _BUILDER_WEIGHT_FAMILIES = {
 }
 
 
+def _normalize_weight_family_values(raw: Any) -> List[str]:
+    out: List[str] = []
+    if isinstance(raw, (list, tuple)):
+        for item in raw:
+            fam = str(item or "").strip().lower()
+            if fam in _BUILDER_WEIGHT_FAMILIES and fam not in out:
+                out.append(fam)
+    return out
+
+
 def _loss_fingerprint(ir: FreeLossIR) -> Dict[str, Any]:
     """Compute a compact structural fingerprint for novelty checks.
 
@@ -2369,22 +2379,34 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     if fixed_pair_builder not in {"all_pairs", "anchor_best"}:
         fixed_pair_builder = "all_pairs"
 
-    families_raw = cfg.get("allowed_weight_families", [])
-    families: List[str] = []
-    if isinstance(families_raw, (list, tuple)):
-        for item in families_raw:
-            fam = str(item or "").strip().lower()
-            if fam in _BUILDER_WEIGHT_FAMILIES and fam not in families:
-                families.append(fam)
-    if not families:
-        families = ["uniform_none", "gap_linear", "gap_softmax", "gap_sigmoid", "gap_square"]
+    default_families = ["uniform_none", "gap_linear", "gap_softmax", "gap_sigmoid", "gap_square"]
+    allow_uniform_none = bool(cfg.get("allow_uniform_none", True))
+    allow_freeform_weight_family = bool(cfg.get("allow_freeform_weight_family", False))
+
+    families = _normalize_weight_family_values(cfg.get("allowed_weight_families", []))
+    if not families and not allow_freeform_weight_family:
+        families = list(default_families)
+
+    seed_families = _normalize_weight_family_values(cfg.get("seed_weight_families", families or default_families))
+    if not seed_families:
+        seed_families = list(default_families)
+
+    if not allow_uniform_none:
+        families = [fam for fam in families if fam != "uniform_none"]
+        seed_families = [fam for fam in seed_families if fam != "uniform_none"]
+        if not families and not allow_freeform_weight_family:
+            families = [fam for fam in default_families if fam != "uniform_none"]
+        if not seed_families:
+            seed_families = [fam for fam in default_families if fam != "uniform_none"]
 
     return {
         "enabled": bool(cfg.get("enabled", False)) or mode == "reweight_only",
         "mode": str(mode),
         "fixed_pair_builder": str(fixed_pair_builder),
-        "allowed_weight_families": list(families),
-        "allow_uniform_none": bool(cfg.get("allow_uniform_none", True)),
+        "allowed_weight_families": ([] if allow_freeform_weight_family else list(families)),
+        "seed_weight_families": list(seed_families),
+        "allow_uniform_none": bool(allow_uniform_none),
+        "allow_freeform_weight_family": bool(allow_freeform_weight_family),
     }
 
 
@@ -4875,20 +4897,20 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
     search_space_cfg = _normalize_builder_search_space_cfg(getattr(rng, "_pref_builder_search_space_cfg", None))
     if bool(search_space_cfg.get("enabled", False)) and str(search_space_cfg.get("mode")) == "reweight_only":
         fixed_pair_builder = str(search_space_cfg.get("fixed_pair_builder", "all_pairs"))
-        allowed_weight_families = [
+        seed_weight_families = [
             fam
-            for fam in list(search_space_cfg.get("allowed_weight_families", []))
+            for fam in list(search_space_cfg.get("seed_weight_families", []))
             if str(fam) in _BUILDER_WEIGHT_FAMILIES
         ]
         if not bool(search_space_cfg.get("allow_uniform_none", True)):
-            allowed_weight_families = [fam for fam in allowed_weight_families if str(fam) != "uniform_none"]
-        if not allowed_weight_families:
-            allowed_weight_families = ["gap_linear"]
+            seed_weight_families = [fam for fam in seed_weight_families if str(fam) != "uniform_none"]
+        if not seed_weight_families:
+            seed_weight_families = ["gap_linear"]
         for i in range(max(1, int(n))):
-            if i == 0 and int(n) > 1 and "uniform_none" in allowed_weight_families:
+            if i == 0 and int(n) > 1 and "uniform_none" in seed_weight_families:
                 fam_choice = "uniform_none"
             else:
-                fam_choice = str(rng.choice(allowed_weight_families))
+                fam_choice = str(rng.choice(seed_weight_families))
             pool.append(_make_reweight_builder_ir(kind=fixed_pair_builder, weight_family=fam_choice, index=i))
         return pool
 
