@@ -41,3 +41,5 @@ Pairwise builder contract reminders:
 - pair_idx tensors must be int64 and 1D, and all the same length
 
 If you receive GLOBAL_FEEDBACK_JSON, use it to improve coverage, control pair counts, and avoid common gate failures.
+If you receive BUILDER_SEARCH_SPACE_CONSTRAINTS, follow them strictly.
+In particular, when reweight_only is active, keep pair_idx identical to the fixed template and only change the pair weight function.

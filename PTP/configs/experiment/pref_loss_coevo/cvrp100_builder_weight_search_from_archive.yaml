@@ -1,0 +1,69 @@
+preset: simple
+search_mode: builder_only
+seed: 1234
+output_root: runs/pref_builder_weight_search_cvrp100
+
+metric_mode: minimize
+improve_eps: 0.0
+cheap_gate_on: true
+high_fidelity_on: false
+seed_with_po4cops_default: false
+builder_min_coverage: 0.0
+
+loss_transfer_seed:
+  enabled: true
+  source_loss_path: runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008/best_loss.json
+  keep_source_fitness: true
+  reset_history: false
+
+builder_search_space:
+  enabled: true
+  mode: reweight_only
+  fixed_pair_builder: all_pairs
+  allowed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  allow_uniform_none: true
+
+budgets:
+  generations: 12
+  pairing_budget_per_gen: 64
+  high_fidelity_top_m: 32
+
+backend: rl4co
+env_name: cvrp
+policy_name: pomo
+device: cuda
+train_problem_size: 100
+valid_problem_sizes: [100]
+train_batch_size: 64
+validation_batch_size: 64
+num_validation_episodes: 512
+proxy_problem_size: 100
+proxy_batch_size: 64
+proxy_batches: 2
+pomo_size: null
+generator_params:
+  num_loc: 100
+
+builder_llm:
+  enabled: true
+  offline_mode: false
+  parent_p: 5
+  seed_reserve: 0
+  search_space:
+    enabled: true
+    mode: reweight_only
+    fixed_pair_builder: all_pairs
+    allowed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    allow_uniform_none: true
+  operator_bank:
+    init:
+      - { name: GEN, count: 4 }
+      - { name: XOVER, count: 4 }
+      - { name: TUNE, count: 8 }
+    per_gen:
+      - { name: GEN, count: 4 }
+      - { name: XOVER, count: 4 }
+      - { name: TUNE, count: 8 }
+
+loss_llm:
+  enabled: false
