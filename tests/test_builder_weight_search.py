@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import random
 from pathlib import Path
 
 
@@ -218,3 +219,39 @@ def test_builder_only_prefers_imported_loss(monkeypatch, tmp_path):
     pair_lines = [json.loads(line) for line in (run_dir / "pairs.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     assert pair_lines, "expected at least one evaluated pair"
     assert all(str(rec.get("f_id", "")).startswith("fseed_000_") for rec in pair_lines)
+
+
+def test_reweight_only_freeform_prompt_and_seed_pool(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "seed_weight_families": ["gap_linear", "gap_sigmoid"],
+            "allow_uniform_none": False,
+            "allow_freeform_weight_family": True,
+        }
+    )
+
+    assert cfg["allow_freeform_weight_family"] is True
+    assert cfg["allowed_weight_families"] == []
+    assert cfg["seed_weight_families"] == ["gap_linear", "gap_sigmoid"]
+
+    prompt_path = _repo_root() / "PTP" / "prompts" / "pref_builder_generation.txt"
+    prompt, _ = builder_ops.build_generation_prompt(
+        str(prompt_path),
+        global_feedback={"builder_search_space": cfg},
+    )
+    assert "Seed weight_family values for the handcrafted initial pool" in prompt
+    assert "Allowed weight_family values" not in prompt
+
+    rng = random.Random(0)
+    rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+    pool = loop._make_builtin_builder_irs(rng, 8)
+    observed = {str(ir.hyperparams.get("weight_family")) for ir in pool}
+    assert observed <= {"gap_linear", "gap_sigmoid"}
