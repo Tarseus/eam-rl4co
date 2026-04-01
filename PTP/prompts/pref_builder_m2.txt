@@ -35,3 +35,6 @@ Hard constraints:
 - No imports, no filesystem/network, no randomness.
 - Use vectorized tensor ops only; do NOT use Python loops/comprehensions over pair tensors.
 - Do NOT implement O(num_pairs) Python loops for filtering/capping pairs; use mask/topk/slicing.
+
+If you receive BUILDER_SEARCH_SPACE_CONSTRAINTS, follow them strictly.
+When reweight_only is active, keep pair_idx unchanged and tune only weight-related hyperparameters or formulas.

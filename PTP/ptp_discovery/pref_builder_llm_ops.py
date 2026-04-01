@@ -104,7 +104,27 @@ def _parse_pref_builder_from_text(text: str) -> PreferenceBuilderIR:
 def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | None) -> str:
     if global_feedback is None:
         return prompt
-    return prompt + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
+    out = prompt
+    search_space = global_feedback.get("builder_search_space") if isinstance(global_feedback, Mapping) else None
+    if isinstance(search_space, Mapping):
+        mode = str(search_space.get("mode", "") or "").strip().lower()
+        if mode == "reweight_only":
+            fixed_pair_builder = str(search_space.get("fixed_pair_builder", "all_pairs") or "all_pairs").strip().lower()
+            allowed_weight_families = search_space.get("allowed_weight_families", [])
+            if not isinstance(allowed_weight_families, (list, tuple)):
+                allowed_weight_families = []
+            out += (
+                "\n\nBUILDER_SEARCH_SPACE_CONSTRAINTS:\n"
+                "- Search mode is reweight_only.\n"
+                f"- You must preserve the pair construction of the fixed template `{fixed_pair_builder}`.\n"
+                "- Do not change pair topology, candidate selection, coverage pattern, or pair capping logic.\n"
+                "- Your only substantive degree of freedom is the nonnegative pair weight function.\n"
+                "- Keep pair_idx identical to the fixed template and modify only `weight` plus metadata/hyperparameters.\n"
+                f"- Allowed weight_family values: {json.dumps([str(x) for x in allowed_weight_families], ensure_ascii=False)}\n"
+                "- Weight must be finite, nonnegative, vectorized, and instance-local.\n"
+                "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
+            )
+    return out + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 
 def build_generation_prompt(
