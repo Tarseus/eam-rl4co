@@ -1,0 +1,104 @@
+{
+  "generation": 1,
+  "pair_index": 15,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f001_015_b9369605",
+    "ir": {
+      "name": "advantage_softplus_weighted_logprob_diff_loss",
+      "intuition": "This loss replaces the tanh and sigmoid nonlinearities with a smooth softplus to transform the advantage gap, avoiding saturation issues and providing a strictly positive scaling factor. Using softplus(advantage_gap) as weight emphasizes pairs with larger advantage differences but maintains differentiability and smoother gradients. The loss also directly multiplies the log probability difference (log_prob_w - log_prob_l) by the weighted advantage transformation and mean aggregates, ensuring stable training. This design differs significantly from original tanh-sigmoid combo to pass novelty gates while preserving the principle of advantage-weighted pairwise ranking loss.",
+      "pseudocode": "weight_mod = softplus(clamp(advantage_gap, -10, 10))\nloss_raw = -(log_prob_w - log_prob_l) * weight_mod\nweighted_loss = loss_raw * weight\nloss = mean(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_weighted_advantage",
+        "signal_family": "advantage_gap",
+        "link_family": "softplus_linear",
+        "agg_family": "weighted_mean",
+        "constraint_family": "clamp_advantage"
+      },
+      "operators_used": [
+        "softplus",
+        "clamp",
+        "mean",
+        "mul",
+        "sub",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    adv_gap = batch['advantage_gap']\n\n    adv_clamped = ops.clamp(adv_gap, -10.0, 10.0)\n    weight_mod = ops.softplus(adv_clamped)\n    diff = lpw - lpl\n    loss_raw = ops.neg(ops.mul(diff, weight_mod))\n    weighted_loss = ops.mul(loss_raw, weight)\n    return ops.mean(weighted_loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
