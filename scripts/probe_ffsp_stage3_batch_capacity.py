@@ -1,0 +1,401 @@
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Mapping, Sequence
+
+import yaml
+
+
+def _repo_root_dir() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _read_yaml(path: Path) -> Dict[str, Any]:
+    with path.open("r", encoding="utf-8") as f:
+        payload = yaml.safe_load(f) or {}
+    if not isinstance(payload, dict):
+        raise ValueError(f"Expected dict YAML at {path}")
+    return dict(payload)
+
+
+def _find_latest_run_dir(output_root: Path) -> Path:
+    candidates = [p for p in output_root.iterdir() if p.is_dir()]
+    if not candidates:
+        raise FileNotFoundError(f"No run directories under {output_root}")
+    return sorted(candidates)[-1]
+
+
+def _resolve_run_dir(config_path: Path, run_dir_raw: str | None) -> Path:
+    if run_dir_raw:
+        run_dir = Path(run_dir_raw)
+        if not run_dir.is_absolute():
+            run_dir = (_repo_root_dir() / run_dir).resolve()
+        return run_dir
+    cfg = _read_yaml(config_path)
+    output_root = cfg.get("output_root", "runs/pref_loss_coevo")
+    out_dir = Path(output_root)
+    if not out_dir.is_absolute():
+        out_dir = (_repo_root_dir() / out_dir).resolve()
+    return _find_latest_run_dir(out_dir)
+
+
+def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
+    with path.open("r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            payload = json.loads(line)
+            if isinstance(payload, dict):
+                yield payload
+
+
+def _pick_target_fid(run_dir: Path, explicit_fid: str | None) -> str:
+    if explicit_fid:
+        return str(explicit_fid)
+
+    pairs_path = run_dir / "pairs.jsonl"
+    if pairs_path.is_file():
+        records = list(_iter_jsonl(pairs_path))
+        preferred = [
+            rec
+            for rec in records
+            if str(rec.get("pair_reason", "")) in {"ok_stage3_offline_minitrain", "stage3_early_pruned", "stage3_runtime_error"}
+        ]
+        if not preferred:
+            preferred = [rec for rec in records if bool(rec.get("joint_gate_ok")) and bool(rec.get("co_ok"))]
+        if preferred:
+            preferred = sorted(
+                preferred,
+                key=lambda rec: (int(rec.get("generation", -1) or -1), int(rec.get("pair_index", -1) or -1)),
+            )
+            fid = str(preferred[-1].get("f_id") or "").strip()
+            if fid:
+                return fid
+
+    losses_path = run_dir / "losses.jsonl"
+    if losses_path.is_file():
+        for rec in _iter_jsonl(losses_path):
+            fid = str(rec.get("id") or rec.get("f_id") or "").strip()
+            if fid and fid != "f_ref" and bool(rec.get("compile_ok", True)):
+                return fid
+
+    raise FileNotFoundError(f"Could not determine target loss id from run_dir={run_dir}")
+
+
+def _effective_fixed_pomo(cfg_yaml: Mapping[str, Any], explicit_pomo: int | None) -> int:
+    if explicit_pomo is not None:
+        return int(explicit_pomo)
+    pomo = cfg_yaml.get("pomo_size", None)
+    if pomo is None:
+        problem_size = int(cfg_yaml.get("train_problem_size", 1) or 1)
+        return max(problem_size, 1)
+    return max(int(pomo), 1)
+
+
+def _parse_batch_sizes(raw: str | None, *, min_batch_size: int, max_batch_size: int) -> List[int]:
+    if raw:
+        values = []
+        for token in str(raw).split(","):
+            token = token.strip()
+            if not token:
+                continue
+            values.append(int(token))
+        uniq = sorted({int(v) for v in values if int(v) > 0})
+        if not uniq:
+            raise ValueError("No positive batch sizes parsed from --batch-sizes")
+        return uniq
+    if min_batch_size <= 0 or max_batch_size <= 0:
+        raise ValueError("min/max batch size must be positive")
+    if min_batch_size > max_batch_size:
+        raise ValueError("min_batch_size must be <= max_batch_size")
+    return list(range(int(min_batch_size), int(max_batch_size) + 1))
+
+
+def _write_override_config(
+    base_cfg: Mapping[str, Any],
+    *,
+    batch_size: int,
+    pomo_size: int,
+) -> Path:
+    payload = dict(base_cfg)
+    payload["train_batch_size"] = int(batch_size)
+    payload["pomo_size"] = int(pomo_size)
+    tmp = tempfile.NamedTemporaryFile(prefix="ffsp_stage3_probe_", suffix=".yaml", delete=False, mode="w", encoding="utf-8")
+    with tmp:
+        yaml.safe_dump(payload, tmp, sort_keys=False, allow_unicode=True)
+    return Path(tmp.name)
+
+
+def _probe_one_batch_size(
+    *,
+    config_path: Path,
+    base_cfg: Mapping[str, Any],
+    run_dir: Path,
+    device: str,
+    python_exe: str,
+    target_fid: str,
+    batch_size: int,
+    pomo_size: int,
+) -> Dict[str, Any]:
+    override_path = _write_override_config(base_cfg, batch_size=batch_size, pomo_size=pomo_size)
+    try:
+        cmd = [
+            python_exe,
+            str((_repo_root_dir() / "scripts" / "check_pref_loss_stage3_oom.py").resolve()),
+            "--config",
+            str(override_path),
+            "--run-dir",
+            str(run_dir),
+            "--device",
+            str(device),
+            "--worker",
+            "--f-id",
+            str(target_fid),
+        ]
+        env = dict(os.environ)
+        py_paths = [str(_repo_root_dir()), str(_repo_root_dir() / "PTP")]
+        if env.get("PYTHONPATH"):
+            py_paths.append(env["PYTHONPATH"])
+        env["PYTHONPATH"] = os.pathsep.join(py_paths)
+
+        started = time.time()
+        proc = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            cwd=str(_repo_root_dir()),
+            env=env,
+        )
+        elapsed_s = float(time.time() - started)
+
+        payload: Dict[str, Any]
+        stdout = proc.stdout.strip()
+        stderr = proc.stderr.strip()
+        if stdout:
+            try:
+                payload = json.loads(stdout.splitlines()[-1])
+            except json.JSONDecodeError:
+                payload = {
+                    "all_ok": False,
+                    "any_oom": False,
+                    "per_init": [],
+                    "error_type": "worker_output_parse_error",
+                    "error": stdout[-4000:],
+                }
+        else:
+            payload = {
+                "all_ok": False,
+                "any_oom": False,
+                "per_init": [],
+                "error_type": "worker_no_output",
+                "error": stderr[-4000:],
+            }
+
+        payload["attempt_batch_size"] = int(batch_size)
+        payload["attempt_pomo_size"] = int(pomo_size)
+        payload["worker_returncode"] = int(proc.returncode)
+        payload["worker_elapsed_s"] = float(elapsed_s)
+        payload["worker_stderr_tail"] = stderr[-4000:] if stderr else ""
+        payload["success"] = bool(payload.get("all_ok"))
+        return payload
+    finally:
+        try:
+            override_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+def _binary_search_batch_capacity(
+    *,
+    config_path: Path,
+    base_cfg: Mapping[str, Any],
+    run_dir: Path,
+    device: str,
+    python_exe: str,
+    target_fid: str,
+    batch_sizes: Sequence[int],
+    pomo_size: int,
+) -> Dict[str, Any]:
+    sorted_sizes = sorted({int(v) for v in batch_sizes if int(v) > 0})
+    attempts: List[Dict[str, Any]] = []
+    lo = 0
+    hi = len(sorted_sizes) - 1
+    best: Dict[str, Any] | None = None
+
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        batch_size = int(sorted_sizes[mid])
+        payload = _probe_one_batch_size(
+            config_path=config_path,
+            base_cfg=base_cfg,
+            run_dir=run_dir,
+            device=device,
+            python_exe=python_exe,
+            target_fid=target_fid,
+            batch_size=batch_size,
+            pomo_size=pomo_size,
+        )
+        attempts.append(payload)
+        if bool(payload.get("success")):
+            best = payload
+            lo = mid + 1
+        else:
+            hi = mid - 1
+
+    return {
+        "mode": "binary",
+        "attempts": attempts,
+        "max_supported_batch_size": (int(best["attempt_batch_size"]) if best is not None else None),
+        "best_attempt": best,
+    }
+
+
+def _list_probe_batch_capacity(
+    *,
+    config_path: Path,
+    base_cfg: Mapping[str, Any],
+    run_dir: Path,
+    device: str,
+    python_exe: str,
+    target_fid: str,
+    batch_sizes: Sequence[int],
+    pomo_size: int,
+) -> Dict[str, Any]:
+    attempts: List[Dict[str, Any]] = []
+    best: Dict[str, Any] | None = None
+    for batch_size in sorted({int(v) for v in batch_sizes if int(v) > 0}):
+        payload = _probe_one_batch_size(
+            config_path=config_path,
+            base_cfg=base_cfg,
+            run_dir=run_dir,
+            device=device,
+            python_exe=python_exe,
+            target_fid=target_fid,
+            batch_size=batch_size,
+            pomo_size=pomo_size,
+        )
+        attempts.append(payload)
+        if bool(payload.get("success")):
+            best = payload
+    return {
+        "mode": "list",
+        "attempts": attempts,
+        "max_supported_batch_size": (int(best["attempt_batch_size"]) if best is not None else None),
+        "best_attempt": best,
+    }
+
+
+def _build_arg_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        description="Probe the largest FFSP stage3 train_batch_size supported by the current machine while keeping pomo_size fixed."
+    )
+    p.add_argument(
+        "--config",
+        default="PTP/configs/experiment/pref_loss_coevo/loss_only_ffsp100_discovery.yaml",
+        type=str,
+        help="Path to the pref-loss YAML config.",
+    )
+    p.add_argument("--run-dir", default=None, type=str, help="Run dir used to select a representative loss.")
+    p.add_argument("--device", default="cuda:0", type=str, help="Target device, e.g. cuda:0.")
+    p.add_argument("--python", default=sys.executable, type=str, help="Python executable for worker subprocesses.")
+    p.add_argument("--f-id", default=None, type=str, help="Explicit loss id to probe. Defaults to latest HF-admitted loss.")
+    p.add_argument("--fixed-pomo-size", default=None, type=int, help="Fixed pomo_size to use for all attempts.")
+    p.add_argument(
+        "--batch-sizes",
+        default=None,
+        type=str,
+        help="Comma-separated explicit batch sizes to probe, e.g. 4,8,12,16,20,24.",
+    )
+    p.add_argument("--min-batch-size", default=1, type=int, help="Minimum batch size for auto-generated probe list.")
+    p.add_argument("--max-batch-size", default=64, type=int, help="Maximum batch size for auto-generated probe list.")
+    p.add_argument(
+        "--mode",
+        default="binary",
+        choices=("binary", "list"),
+        help="binary: search max supported batch; list: probe every candidate batch size.",
+    )
+    p.add_argument("--output", default=None, type=str, help="Optional JSON report path.")
+    return p
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = _build_arg_parser().parse_args(argv)
+
+    config_path = Path(args.config).resolve()
+    run_dir = _resolve_run_dir(config_path, args.run_dir)
+    base_cfg = _read_yaml(config_path)
+    target_fid = _pick_target_fid(run_dir, args.f_id)
+    fixed_pomo_size = _effective_fixed_pomo(base_cfg, args.fixed_pomo_size)
+    batch_sizes = _parse_batch_sizes(
+        args.batch_sizes,
+        min_batch_size=int(args.min_batch_size),
+        max_batch_size=int(args.max_batch_size),
+    )
+    python_exe = str(Path(args.python).resolve())
+
+    if args.mode == "binary":
+        payload = _binary_search_batch_capacity(
+            config_path=config_path,
+            base_cfg=base_cfg,
+            run_dir=run_dir,
+            device=str(args.device),
+            python_exe=python_exe,
+            target_fid=target_fid,
+            batch_sizes=batch_sizes,
+            pomo_size=fixed_pomo_size,
+        )
+    else:
+        payload = _list_probe_batch_capacity(
+            config_path=config_path,
+            base_cfg=base_cfg,
+            run_dir=run_dir,
+            device=str(args.device),
+            python_exe=python_exe,
+            target_fid=target_fid,
+            batch_sizes=batch_sizes,
+            pomo_size=fixed_pomo_size,
+        )
+
+    report = {
+        "config_path": str(config_path),
+        "run_dir": str(run_dir),
+        "device": str(args.device),
+        "python": python_exe,
+        "target_fid": str(target_fid),
+        "fixed_pomo_size": int(fixed_pomo_size),
+        "batch_sizes": [int(v) for v in batch_sizes],
+        **payload,
+    }
+
+    output_path = (
+        Path(args.output).resolve()
+        if args.output
+        else (run_dir / f"stage3_batch_probe_{str(args.device).replace(':', '_')}_pomo{int(fixed_pomo_size)}.json")
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    print(json.dumps(
+        {
+            "target_fid": report["target_fid"],
+            "fixed_pomo_size": report["fixed_pomo_size"],
+            "max_supported_batch_size": report["max_supported_batch_size"],
+            "attempt_count": len(report["attempts"]),
+            "report_path": str(output_path),
+        },
+        indent=2,
+        ensure_ascii=False,
+    ))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
