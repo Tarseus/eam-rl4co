@@ -1,0 +1,122 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "f000_000_d3e7ade1",
+  "signature": "d3e7ade1719030f7f6bf2dc70b97cf2d5c082d40",
+  "family": "pairwise_ranking|advantage_gap|mean|exponential_weighting",
+  "family_signature": "paradigm=pairwise_ranking|signal=advantage_gap|agg=mean|constraint=exponential_weighting",
+  "origin": "PARADIGM_SHIFT",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "LOSS_PARADIGM_SHIFT",
+  "parents": [
+    "bootstrap_f_000",
+    "bootstrap_f_001"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+  "llm_seed": 197419547,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.21428571428571427,
+    "best_similarity_parts": {
+      "bigram": 0.06896551724137931,
+      "unigram": 0.2,
+      "call": 0.21428571428571427
+    },
+    "neighbors": [
+      {
+        "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+        "name": "loss_logsigmoid_001",
+        "similarity": 0.21428571428571427,
+        "similarity_parts": {
+          "bigram": 0.06896551724137931,
+          "unigram": 0.2,
+          "call": 0.21428571428571427
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.clamp",
+          "ops.logsigmoid"
+        ]
+      },
+      {
+        "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+        "name": "loss_logsigmoid_000_cost",
+        "similarity": 0.2,
+        "similarity_parts": {
+          "bigram": 0.06060606060606061,
+          "unigram": 0.19047619047619047,
+          "call": 0.2
+        },
+        "call_names_top": [
+          "batch.get",
+          "detach",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.clamp",
+          "ops.logsigmoid"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_margin_ranking_exp_advantage",
+    "intuition": "Shift from logsigmoid-margin losses to a margin-ranking loss weighted by an exponential advantage signal, emphasizing large advantage gaps while penalizing inversions.",
+    "pseudocode": "margin = lpw - lpl; weighted_loss = weight * exp(-advantage_gap) * relu(margin_threshold - margin); loss = mean(weighted_loss)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_ranking",
+      "signal_family": "advantage_gap",
+      "link_family": "relu",
+      "agg_family": "mean",
+      "constraint_family": "exponential_weighting"
+    },
+    "operators_used": [
+      "relu",
+      "exp",
+      "mul",
+      "sub",
+      "mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    adv_gap = batch['advantage_gap']\n    margin_threshold = float(extra.get('margin_threshold', 0.1))\n    margin = ops.sub(lpw, lpl)\n    violation = ops.relu(ops.sub(margin_threshold, margin))\n    exp_weight = ops.exp(ops.neg(adv_gap))\n    loss = ops.mul(ops.mul(exp_weight, violation), weight)\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
