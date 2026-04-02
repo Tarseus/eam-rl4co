@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 _OFFLINE_TENSORDICT_CACHE: dict[str, Any] = {}
 _PRECISION_OVERRIDE_WARNED: set[tuple[str, str, str, str]] = set()
+_ROLLOUT_DEBUG_EVENTS: list[dict[str, Any]] = []
 _PAIRWISE_OPTIONAL_KEY_FAMILIES: dict[str, tuple[str, str, str]] = {
     "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
     "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
@@ -258,8 +259,23 @@ def _log_rollout_input_debug(
         num_rollouts=num_rollouts,
         include_decoder_cache=include_decoder_cache,
     )
+    event = {
+        "message": str(message),
+        "summary": summary,
+    }
+    _ROLLOUT_DEBUG_EVENTS.append(event)
+    if len(_ROLLOUT_DEBUG_EVENTS) > 12:
+        del _ROLLOUT_DEBUG_EVENTS[:-12]
     logger.info("%s %s", str(message), summary)
     return summary
+
+
+def reset_rollout_debug_events() -> None:
+    _ROLLOUT_DEBUG_EVENTS.clear()
+
+
+def get_rollout_debug_events() -> List[Dict[str, Any]]:
+    return [dict(event) for event in _ROLLOUT_DEBUG_EVENTS]
 
 
 def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
@@ -1448,6 +1464,7 @@ def run_rl4co_rollout_smoke_test(
     env = None
     policy = None
     try:
+        reset_rollout_debug_events()
         _set_seed(int(cfg.seed))
         env = _rl4co_build_env(cfg, cfg.train_problem_size)
         env = env.to(target_device)
@@ -1477,6 +1494,7 @@ def run_rl4co_rollout_smoke_test(
         result["rollout_strategy"] = str(rollout_strategy)
         result["reward"] = _debug_value_summary(reward, max_depth=1, max_items=6)
         result["log_likelihood"] = _debug_value_summary(log_likelihood, max_depth=1, max_items=6)
+        result["rollout_debug_events"] = get_rollout_debug_events()
         return result
     except Exception as exc:  # noqa: BLE001
         result["error"] = f"{type(exc).__name__}: {exc}"
@@ -1485,6 +1503,7 @@ def run_rl4co_rollout_smoke_test(
             result["rollout_strategy"] = str(_rl4co_rollout_strategy(cfg, str(getattr(cfg, "policy_name", "") or "")))
         except Exception:  # noqa: BLE001
             result["rollout_strategy"] = None
+        result["rollout_debug_events"] = get_rollout_debug_events()
         return result
     finally:
         try:
@@ -1498,6 +1517,7 @@ def run_rl4co_rollout_smoke_test(
                 )
         except Exception:  # noqa: BLE001
             pass
+        reset_rollout_debug_events()
 
 
 def _train_one_batch_with_free_loss_rl4co(

@@ -34,6 +34,8 @@ from fitness.free_loss_fidelity import (
     extract_feature_cache,
     evaluate_free_loss_candidate,
     evaluate_po_baseline_rl4co,
+    get_rollout_debug_events,
+    reset_rollout_debug_events,
     run_rl4co_rollout_smoke_test,
 )
 from fitness.ptp_high_fidelity import (
@@ -9414,14 +9416,34 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 cand_agg: float
                 error: str | None = None
                 error_traceback: str | None = None
-                rollout_smoke_test: Dict[str, Any] | None = None
+                preflight_rollout_smoke_test: Dict[str, Any] | None = None
+                rollout_debug_events: List[Dict[str, Any]] | None = None
+                init_ckpt_abs = _abs_from_repo_root(str(init_ckpt)) if init_ckpt else None
                 try:
+                    try:
+                        preflight_rollout_smoke_test = run_rl4co_rollout_smoke_test(
+                            hf_cfg,
+                            init_checkpoint_path=init_ckpt_abs,
+                            phase="train",
+                            device=device_str,
+                            batch_size=1,
+                            num_rollouts=1,
+                        )
+                    except Exception as smoke_exc:  # noqa: BLE001
+                        preflight_rollout_smoke_test = {
+                            "ok": False,
+                            "error": f"{type(smoke_exc).__name__}: {smoke_exc}",
+                            "error_traceback": traceback.format_exc(),
+                        }
+                    if not bool((preflight_rollout_smoke_test or {}).get("ok", False)):
+                        raise RuntimeError("Preflight rollout smoke test failed")
+
                     free_cfg = FreeLossFidelityConfig(
                         hf=hf_cfg,
                         f1_steps=int(K),
                         f2_steps=0,
                         f3_enabled=False,
-                        init_checkpoint_path=_abs_from_repo_root(str(init_ckpt)) if init_ckpt else None,
+                        init_checkpoint_path=init_ckpt_abs,
                         init_checkpoint_epoch=None,
                         scratch_hf_epochs=int(scenario_cfg.get("scratch_hf_epochs", 0) or 0),
                         warmstart_hf_epochs=int(scenario_cfg.get("warmstart_hf_epochs", 0) or 0),
@@ -9433,7 +9455,9 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                             scenario_cfg.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
                         ),
                     )
+                    reset_rollout_debug_events()
                     fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+                    rollout_debug_events = get_rollout_debug_events()
                     size_objectives_raw = fitness.get("size_objectives", {})
                     size_objectives: Dict[int, float] = {}
                     if isinstance(size_objectives_raw, dict):
@@ -9452,23 +9476,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 except Exception as exc:  # noqa: BLE001
                     error = f"{type(exc).__name__}: {exc}"
                     error_traceback = traceback.format_exc()
-                    try:
-                        rollout_smoke_test = run_rl4co_rollout_smoke_test(
-                            hf_cfg,
-                            init_checkpoint_path=(
-                                _abs_from_repo_root(str(init_ckpt)) if init_ckpt else None
-                            ),
-                            phase="train",
-                            device=device_str,
-                            batch_size=1,
-                            num_rollouts=1,
-                        )
-                    except Exception as smoke_exc:  # noqa: BLE001
-                        rollout_smoke_test = {
-                            "ok": False,
-                            "error": f"{type(smoke_exc).__name__}: {smoke_exc}",
-                            "error_traceback": traceback.format_exc(),
-                        }
+                    if rollout_debug_events is None:
+                        rollout_debug_events = get_rollout_debug_events()
                     try:
                         fl_logger.exception(
                             "Stage3 mini-train FAILED scenario=%s init=%s g_id=%s f_id=%s device=%s logical_device=%s",
@@ -9502,7 +9511,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     "init_checkpoint": str(init_ckpt) if init_ckpt else None,
                     "error": error,
                     "error_traceback": error_traceback,
-                    "rollout_smoke_test": rollout_smoke_test,
+                    "preflight_rollout_smoke_test": preflight_rollout_smoke_test,
+                    "rollout_debug_events": rollout_debug_events,
                 }
                 scenario_per_init[str(init_name)] = init_record
                 flat_init_name = (
