@@ -21,6 +21,50 @@ def test_hf_subprocess_env_maps_physical_cuda_to_logical_cuda0():
     assert worker_device == "cuda:0"
 
 
+def test_hf_subprocess_env_can_enable_cuda_launch_blocking():
+    loop = importlib.import_module("ptp_discovery.pref_loss_coevo_loop")
+
+    env, worker_device = loop._hf_subprocess_env_and_device(
+        "cuda:1",
+        {"hf_subprocess_cuda_launch_blocking": True},
+    )
+
+    assert env["CUDA_VISIBLE_DEVICES"] == "1"
+    assert env["CUDA_LAUNCH_BLOCKING"] == "1"
+    assert worker_device == "cuda:0"
+
+
+def test_worker_device_fields_keep_physical_and_logical_devices():
+    loop = importlib.import_module("ptp_discovery.pref_loss_coevo_loop")
+
+    physical_device, logical_device = loop._worker_device_fields(
+        {
+            "device_physical_str": "cuda:2",
+            "device_str": "cuda:0",
+        }
+    )
+
+    assert physical_device == "cuda:2"
+    assert logical_device == "cuda:0"
+
+
+def test_hf_subprocess_failure_record_preserves_logical_device_metadata():
+    loop = importlib.import_module("ptp_discovery.pref_loss_coevo_loop")
+
+    rec = loop._hf_subprocess_failure_record(
+        {
+            "device_physical_str": "cuda:3",
+            "device_str": "cuda:0",
+        },
+        reason="child_failed",
+        error="boom",
+    )
+
+    assert rec["device"] == "cuda:3"
+    assert rec["device_str"] == "cuda:3"
+    assert rec["device_logical_str"] == "cuda:0"
+
+
 def test_run_hf_pair_eval_sets_logical_device_after_cuda_visible_devices_remap(monkeypatch, tmp_path):
     worker = importlib.import_module("ptp_discovery.run_hf_pair_eval")
 
