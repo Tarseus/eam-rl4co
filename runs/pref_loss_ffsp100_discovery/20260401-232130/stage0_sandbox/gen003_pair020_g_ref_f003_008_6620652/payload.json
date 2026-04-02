@@ -1,0 +1,105 @@
+{
+  "generation": 3,
+  "pair_index": 20,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f003_008_6620652f",
+    "ir": {
+      "name": "loss_pairwise_ranknet_advantage_weighted_exp_gap",
+      "intuition": "Shift paradigm to a pairwise ranking loss inspired by RankNet but weighted by the exponentiated advantage gap to emphasize pairs with larger preference signals. Uses a logistic sigmoid link on the difference in log probabilities, scaling by an exponential function of the advantage_gap to adjust the gradient focus. Aggregates by weighted mean to maintain balanced gradients and incorporates weights to respect sample importance. This paradigm differs from margin-based family and uses an exponential weighting signal, changing signal_family, link_family, agg_family, and paradigm_family.",
+      "pseudocode": "diff = log_prob_w - log_prob_l\nweighting = exp(beta * advantage_gap)\nprob = sigmoid(diff)\nloss_per_pair = -weighting * (weight * log(prob) + (1 - weight) * log(1 - prob)) # simplified as weight*loss\nfinal_loss = mean(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_ranking",
+        "signal_family": "advantage_gap_exponential_weight",
+        "link_family": "sigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "sigmoid",
+        "exp",
+        "log",
+        "mul",
+        "sub",
+        "add",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    diff = ops.sub(lpw, lpl)\n    weighting = ops.exp(ops.mul(beta, adv_gap))\n    prob = ops.sigmoid(diff)\n    # Avoid log(0) issues by clamping inside log\n    eps = 1e-8\n    prob_clamped = ops.clamp(prob, eps, 1 - eps)\n    loss_per_pair = -ops.mul(weighting, ops.log(prob_clamped))\n    if weight is not None:\n        loss_per_pair = ops.mul(loss_per_pair, weight)\n    return ops.mean(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

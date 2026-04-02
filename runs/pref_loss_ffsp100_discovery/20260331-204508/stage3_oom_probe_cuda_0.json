@@ -3,54 +3,18 @@
   "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260331-204508",
   "device": "cuda:0",
   "worker_python": "/data1/gushengda/anaconda3/envs/rlco1/bin/python3.11",
-  "generation": null,
+  "generation": "latest",
   "results": [
     {
-      "f_id": "f000_000_079babfb",
-      "generation": -1,
-      "family": "pairwise_ranking|advantage_gap|mean|relu_nonneg",
-      "family_signature": "paradigm=pairwise_ranking|signal=advantage_gap|agg=mean|constraint=relu_nonneg",
-      "device": "cuda:0",
-      "train_batch_size": 32,
-      "validation_batch_size": 32,
-      "pomo_size": 24,
-      "f1_steps": 200,
-      "hf_epochs": 20,
-      "hf_instances_per_epoch": 1000,
-      "scratch_init_seed": 1234,
-      "valid_problem_sizes": [
-        100
-      ],
-      "per_init": [
-        {
-          "name": "scratch",
-          "init_checkpoint": null,
-          "ok": false,
-          "oom": false,
-          "error_type": "runtime_error",
-          "error": "CUDA driver error: invalid argument",
-          "peak_allocated_mb": 22613.06103515625,
-          "peak_reserved_mb": 22976.0,
-          "elapsed_s": 108.58829069137573
-        },
-        {
-          "name": "ckpt_100",
-          "init_checkpoint": "baseline/ffsp_matnet_po_paper100_epoch_100.ckpt",
-          "ok": false,
-          "oom": false,
-          "error_type": "runtime_error",
-          "error": "CUDA driver error: invalid argument",
-          "peak_allocated_mb": 22647.32470703125,
-          "peak_reserved_mb": 22964.0,
-          "elapsed_s": 92.86649894714355
-        }
-      ],
+      "f_id": "f009_000_4b67fec5",
       "any_oom": false,
       "all_ok": false,
-      "oom_init_names": [],
-      "worker_returncode": 0,
-      "worker_elapsed_s": 207.31710767745972,
-      "worker_log": "stage3_oom_probe_logs/001_f000_000_079babfb.log"
+      "per_init": [],
+      "error_type": "worker_no_output",
+      "error": "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/autograd/graph.py:825: UserWarning: cuDNN SDPA backward got grad_output.strides() != output.strides(), attempting to materialize a grad_output with matching strides... (Triggered internally at /opt/conda/conda-bld/pytorch_1727971040866/work/aten/src/ATen/native/cudnn/MHA.cpp:674.)\n  return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass",
+      "worker_returncode": -9,
+      "worker_elapsed_s": 2945.3375236988068,
+      "worker_log": "stage3_oom_probe_logs/001_f009_000_4b67fec5.log"
     }
   ],
   "summary": {
@@ -59,8 +23,8 @@
     "all_ok_losses": 0,
     "non_oom_but_failed_losses": 1,
     "per_init_oom_counts": {},
-    "worst_peak_allocated_mb": 22647.32470703125,
-    "worst_peak_loss_id": "f000_000_079babfb",
+    "worst_peak_allocated_mb": null,
+    "worst_peak_loss_id": null,
     "oom_loss_ids": []
   }
 }
