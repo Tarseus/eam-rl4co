@@ -260,24 +260,28 @@ def _tensor_reduce_min(
 
 def _ops_max(
     x: torch.Tensor,
-    other: torch.Tensor | None = None,
+    other: torch.Tensor | float | int | None = None,
     *,
     dim: int | None = None,
     keepdim: bool = False,
 ) -> torch.Tensor:
     if other is not None:
+        if not isinstance(other, torch.Tensor):
+            other = torch.as_tensor(other, dtype=x.dtype, device=x.device)
         return torch.maximum(x, other)
     return _tensor_reduce_max(x, dim=dim, keepdim=keepdim)
 
 
 def _ops_min(
     x: torch.Tensor,
-    other: torch.Tensor | None = None,
+    other: torch.Tensor | float | int | None = None,
     *,
     dim: int | None = None,
     keepdim: bool = False,
 ) -> torch.Tensor:
     if other is not None:
+        if not isinstance(other, torch.Tensor):
+            other = torch.as_tensor(other, dtype=x.dtype, device=x.device)
         return torch.minimum(x, other)
     return _tensor_reduce_min(x, dim=dim, keepdim=keepdim)
 
@@ -287,12 +291,35 @@ def _ops_norm(
     p: float | int = 2,
     dim: int | Sequence[int] | None = None,
     keepdim: bool = False,
+    **kwargs: Any,
 ) -> torch.Tensor:
+    if "ord" in kwargs and kwargs["ord"] is not None:
+        p = kwargs["ord"]
+    if "axis" in kwargs and kwargs["axis"] is not None:
+        dim = kwargs["axis"]
+    if "dim" in kwargs and kwargs["dim"] is not None:
+        dim = kwargs["dim"]
+    if "keepdims" in kwargs and kwargs["keepdims"] is not None:
+        keepdim = bool(kwargs["keepdims"])
+    if "keepdim" in kwargs and kwargs["keepdim"] is not None:
+        keepdim = bool(kwargs["keepdim"])
     kwargs: Dict[str, Any] = {"p": p}
     if dim is not None:
         kwargs["dim"] = dim
         kwargs["keepdim"] = bool(keepdim)
     return torch.norm(x, **kwargs)
+
+
+def _ops_maximum(a: torch.Tensor, b: torch.Tensor | float | int) -> torch.Tensor:
+    if not isinstance(b, torch.Tensor):
+        b = torch.as_tensor(b, dtype=a.dtype, device=a.device)
+    return torch.maximum(a, b)
+
+
+def _ops_minimum(a: torch.Tensor, b: torch.Tensor | float | int) -> torch.Tensor:
+    if not isinstance(b, torch.Tensor):
+        b = torch.as_tensor(b, dtype=a.dtype, device=a.device)
+    return torch.minimum(a, b)
 
 
 def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
@@ -323,8 +350,8 @@ def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
         "rank_gap": _rank_gap,
         "max": _ops_max,
         "min": _ops_min,
-        "maximum": torch.maximum,
-        "minimum": torch.minimum,
+        "maximum": _ops_maximum,
+        "minimum": _ops_minimum,
         "sign": torch.sign,
         "norm": _ops_norm,
     }
@@ -390,6 +417,8 @@ def compile_free_loss(ir: FreeLossIR, *, operator_whitelist: Sequence[str] | Non
             "torch": torch,
             "F": F,
             "ops": ops_accessor,
+            "ones_like": torch.ones_like,
+            "zeros_like": torch.zeros_like,
         }
         local_ns: Dict[str, Any] = {}
         try:
