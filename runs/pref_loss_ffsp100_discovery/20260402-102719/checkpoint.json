@@ -1,0 +1,4845 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_ffsp100_discovery.yaml",
+  "seed": 1234,
+  "next_generation": 1,
+  "preset": "simple",
+  "search_mode": "loss_only",
+  "alternating_schedule": {
+    "enabled": false,
+    "start_phase": "loss",
+    "loss_generations": 0,
+    "builder_generations": 0,
+    "final_loss_generations": 0,
+    "rounds": 0
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "improve_eps_calibration": null,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "best_so_far": {
+    "score": Infinity,
+    "builder_id": "g_ref",
+    "loss_id": "f_ref",
+    "stage_final": "baseline",
+    "generation": -1,
+    "phase": "baseline"
+  },
+  "best_builder_cost": null,
+  "builder_cost_archive": {},
+  "best_score": Infinity,
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "f_ref"
+  },
+  "best_stage_final": "baseline",
+  "best_gen": -1,
+  "best_phase": "baseline",
+  "best_pair_score_history": [],
+  "best_pair_score_history_summary": {
+    "count": 0,
+    "scores": []
+  },
+  "pair_score_history_map": {},
+  "rng_state_b64": "gASVuw4AAAAAAABLAyhK2N9pRkqP5FQoigUiS8yeAIoFmCFU/gBKSTjBbkqsJHEoigVTdQ+lAIoFrvb9gQCKBaN1D5UASnoQkwRK6JVLeUo/uzZwigXYhXXxAErY+so1igVKmQrzAErlJv4AigVdKKvYAIoF9meb8gBK6idwb4oFB8TNjQCKBT8+tbAASuU48yaKBQja1cUASoCaqR6KBfxNAPoASsefdT1KfSijIooFqtSAuACKBcK2WpYAigXnwXXmAIoFM21/9ACKBYn7KMEAigUdSqewAIoFTrSypABK/OVNHkrHlgQzigWvN+2ZAEovVQELSvPb+yFKCAJhPYoFfwAWnQCKBZpdy/0ASk3ULQWKBafeg4cAigXaO3X+AIoFwLK03wCKBZKl1PwAigVX0B3yAIoFaVjhxwBKlDp6OooFj2kwgQCKBfUlyeUAigXsEy7NAIoFUsedrwBKvf+GC4oFIUfRngCKBbT7D6wAigWmVvruAIoF95pz+gCKBVAvGK4AigVI9Nz8AErTv412igVFy0CxAEqeibN8SnEuawpKS9JvcIoFg/OMgACKBUgXgpoASn1N9mmKBbU9sp0AigWfT8vMAIoFVZSolgCKBdizIPEASl7MQTuKBcpDpPQAigWaoI6VAIoF2Ltq8QBK3fuhKooFTf+8tQCKBV90O4EASkyXg3WKBUGSVYwASvUxdh+KBTX1VsoASvNi0CKKBXyyG50AigXlq9a2AEqbEBEVStKEGS6KBSz6MKUAigVFMZ2DAErLeVkaigXoE7uQAIoFA3GK7ACKBa+XjccAigUTfl+dAIoFacUpuABKU4xjBYoFlR+IvwCKBaHEgacASocl5XVKQBoPK4oFkdtbzQBKSOZDOooFne+12wBK5hxvU4oFQJbh9gCKBYKQ4LYASvDx9xKKBVYuuPcASvnZxgSKBXoWftMASpRGPF1KLaT1GooFg8ZwxgCKBW4oTJ8ASqVse3yKBRpmBI0ASrthlTSKBX7OXbAASswhBwFK5hbKXkqN4rYQSnPzJndK6OOxKooFXhfI0wBKLe4UVEokDDQhigX4PbGHAIoFF5YKsQCKBeonipUASre+eVpKvcLqfooFH4Ir3gBK/jWtDooFbssQkgBKfxl+aEpW66EtSt2yoV2KBfXv+bQASguWaE+KBUzy0vsAigX+Fk2nAEqPM0IKStdjmDeKBV7GzNcASpDyWwGKBWcTsdAAigULlqalAEpGJV1gSpH/Q0pKcEbVSkrz6copSqe1jG6KBbwhQ7AASmHWICNKyuwoc4oFtfHxrwBKi7U/K0opfKkGigXkxcP9AEr2b5dBStt2n1KKBT7+Yu0AStOhCgyKBZS1sbkASj8cMhpKpyqtCooFRC2StwCKBfUYL4kAigUfZ/yLAEqWSldUigXuoonsAIoFGgSx4QBKFE88Ekovz3UNigUjfgTgAEoMSUw1igW2dKG/AEqSMZhRigU/p/q1AEopjHUCigV9vt6bAEoAJB5RigWzciSAAIoFOUpL2wBK8vOEIYoFtJdt3ACKBYwIBfAASlfONEOKBZCcIocASoZD8wiKBWHNsbsAigXXvUX5AIoFQkcIoQBK8UnjeYoF1CuUwQBKJSzlNIoF+3tAgQCKBUlyF7kAigW4s6yUAIoFkW0a0ABKxshyL0oxafkfSsaVqTJK7wPjSYoFaJCZtQCKBeY3ydEASu1ZhTVKsMByf0rdQg4VigV2vk7+AEpcC5k6SpuWaA5KoIXOIooFuCE6wgBKL56yBEoGIBUQigXBpdTHAIoF573AkACKBdEaP+QASu2RjjZKUmgvPEqgEn0DigUNuo/zAIoFQxDX6gCKBd0eNbUASgekL0yKBY+pleMAShrTWFmKBbxU0vsAigV/E7TwAIoFbfuE3ABKgJ14OkrXDRI1Su+tjjRKJX1yOIoFUX5bpwBKmXm6bErNQh1qigUu0wONAEoy3VYaigX0/3fKAEreHYFcSp60iWWKBc8lLtUAigXXUKnBAEo4nnEIigUw8NHKAIoFXJWRywCKBcweHZ8AigVolDOTAEpAZpYFigVP5t/1AEqfZAgqigUeyauiAIoF/aPD1gBKT0rmfYoF9+L32QCKBXDauLUAigWFh+jLAEowtq96igUQ//7fAEqSkhcsSlz0KgpK3evteYoFtJFHlABK3nyQfIoF6uAQugBKB/dmNIoFdkx2/gCKBeoBScUASre0XUuKBSIeS4kASgHbpR+KBTJyUrEASkXU632KBTMXV+EASpo6lgtKXm+je4oFqBLz5gBKrsc/U4oFy8ve5wCKBcX86t4AigXkOyKiAEoG3q4ASlUpoUeKBeaYP4MAigWDoLPlAEoUL9lGigWeRsDDAIoFpzus+QCKBchgo8EASh3LDAqKBSZI9+gAigVc96reAIoFoDJK5ABK+VUFb0rnrah+SjUHEyeKBZd6cb0AigUglH+pAEpmIq9UigWQobmlAIoFfQeb0QCKBcfUWYYASmBSfGpKiGWyGIoFoXQ8oQCKBUl8sdoAStjMCUxKoNtMZEo38aQwigV1K9OPAIoFztCl7ABK7hoJG0r7G7seShqaHmGKBVPqqugASqkaPk5KYkgXDooFaG6NhABKlx5MOUrdUs9higWmj8KdAEoVFaBjigWv17WHAIoFcddFoABKJY3xWErbC38MigV0wc3HAIoFXIpa9gCKBVFJNOEAigXmhj/LAEqD2exXigUpt43UAIoFztmnnQBK/pOAb0o1h3YbigW2jd+vAEqWdyFFSmaTyxpK04r5fkprY4JpSnotimmKBVpAX/oAigWA73PxAIoF3AVVvgCKBWHuHtcASpVN6jCKBd5wW4YASnuVVwRKgQ+zJ0q0xFNhigWMlXiTAIoFZIi7yACKBZE0TdAAigXaVg3MAEq5ATBsigUwhkzeAIoFh3n9zQCKBbHdk48ASorcPz2KBRWNX9UASs0j2mpKQx6ME4oFCkYhwACKBQSYfJIASg35sBVK2Rj9aEocgi8USviHeTxKUKzLK4oF9+KRgQBKpwURdooFQc/6iABKF91OJUqTXA8tSqiYg3hK88BLQYoFmySHlABK+SZUPIoFHQB3lwBKkjLHcYoFr5LEtwBK6bPtX4oFTMiCpwCKBXSoV6MASusShCyKBSM8ZNkAigXfKlu4AEqPCalhSt3eK09KwqhzCooFyRG9nABKDFVgeIoF86sygABKz78sEErdwRxkSnnVflNKrJZoHIoF9yE+7wBKuvONdUoJffUAigVYFzvhAEr4GRIcSpv2MH9KUMmGekrj6k4/Sma83S1KqaAVO4oF0FnY/QBK2ZzOIkrtyqUsigU/C4iiAIoFKXZ5zABKbNSpD4oFF21sigBKttG4ZooFcLDXhwBKRPkWdooFIgQMrwCKBcgFLMgASmWBK0eKBem7b9QASiBUO0dKpsOxMkpBkd8GigV8mUb5AIoFwBze9gCKBShOI/UAigXmJgyYAIoFrYZLmgBKPWkHXkoY1FkKSha4FVdK5JRQSUreW1A+SkA2Yn+KBc5f168AigX1sCqXAEpGgSlwSrHqtgFKaTqOIErLHO8GSo9IzF1K51jjG0oZbKB/igUSKuCPAErLo6NligWcXBPnAEr0oTFlSizsFm2KBQEf3+MAigXLJ9vHAIoF1KkM5ACKBTEc9eQASv29HxmKBVusQaMASsw2Fz2KBahTh8IAigVzQNSFAErPltQeigXjM7TDAEqZn1RsSix5TV2KBdbvgfAAigVvJJ68AIoFbvXH6gCKBQbsYo4AigVxqmWcAEq20ZYqSmEs1CVKmptEa4oF0DYbzACKBchOteUAigW+DtP5AIoF7s3riACKBR2hO4wAigXpeBuSAEqG6fxZSrO2NgKKBcM/RbQAigU2Lu/+AEo2fEgVShOVMTSKBWk/T/MAigVcajjrAIoFEc0kvABKeYoaA4oFqW3XxwBKP60OU4oFOsaQvQBKqvBWeYoFbZT8+gCKBQPIEcMASutukHhKA881RErv0CVBSo7GilqKBVgp8ZsAigVYqMarAIoFwA731QBKsd8OIYoFrS0b5QBKVOTwJ4oFZc78kABKEo/rMUpKZS4uSgMDF1JKztrUG4oFP0Q1sACKBTYD8IIAigWpVwbQAIoFeRs2mwBKtIQYU0r37HweigX0tUqWAEoX/4cUSmJWi3lK69irZUp7J11HigXb7ha4AIoFux9gzgBKAc2hXUoY3DALSsX/CWaKBQDK+M8ASr+vwEhKjBVgNooFbl382wCKBUfbedsAigVQOXHMAIoFB3WfkQBK9CvmREqxrecIigWjvM20AEray0ZaSmdwWgeKBSVyhvUAigVJZsKeAIoFVkprwQBKDyQNHYoFHRmkuQCKBX643vsASj96LjeKBVirDqoASu/dmR1KQAkMe0o5NcNbigVWPN2CAIoFNBO71ABKYDkUe4oFgB5A6QBKWI4uQooFL+2RmgCKBZo6EqUAigWDv3ndAErSH0JjSu+z1VyKBRpMo5kAigVNEu7BAIoFhgu2kgBKS0fELkrPm3I3SvXmWnlK+3kqR4oFhuuMmQBKJ2MKYUptrUQPSnHPfipKlYK2SooFKBC/jwCKBUOJH54ASuTVPiCKBVdJoL4AigWyY3P9AIoFA69vhgCKBYTYoZcASkJophlKk651B4oFzUTKwABKu0LqZEo8qngBigXe2aSiAEpGIkkyigUY8Qb7AErlTUkJigWLOfDvAEqvKBcKigUIk+PRAIoF1haa+wBKYD7FZ0rFKRRlSqjG6jiKBegqz6YAigX/va60AIoFtv5z4QCKBeuBEcsAigVd/p/eAIoFnqus/QBK1cnYPooF8+/uiACKBcmm1pEASkreBXuKBVNhN4MAigXPxTuiAIoFrJfOzACKBTey0uwASo6r8RFKg47NAEpp/M0YSvvG0XiKBWN6MvgAigU1mCGUAIoF7o+D5wBKdFr7aEqYh4NwigUNfJ/TAIoFrraMgQBKjvo+LUrI+ZUPSgZSXzKKBR9EBqMAS3B0lE6HlC4=",
+  "seen_g": [],
+  "seen_f": [
+    "2bff9bd2dc43342b1328c3166204a96a6c7a7b87",
+    "4a5a0602f6160db24d31b3bb1b6b1d7418d24bdb",
+    "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+    "610b379c09f9c1a6f00ab8a9a1ff76743f2e84ab",
+    "656c0d6df5d21e37cbdd8046e6f61d4cca198be9",
+    "6dc875d88747807466a4f56fc6678b082583e27a",
+    "705b0d78a4d26d4a5389ae8fdaaad362470caf69",
+    "7e684ab728359aec3e6870898e35b07c2274a190",
+    "8ccf9130243478621dff6eb72cd395224cc3c3d5",
+    "8ddfd79fe419b86587c14db3aa11493dff8122eb",
+    "b875484e693387ab8fb4f94b32bc418111a29524",
+    "c220ee638ec688bd173a056eb6fbff22b5a5c844",
+    "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+    "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+    "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+    "ff5fc5f94fbc9e23391217a1c4f8e82f9d8b7eeb"
+  ],
+  "resident_pop_g": [],
+  "resident_pop_f": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_b875484e",
+      "signature": "b875484e693387ab8fb4f94b32bc418111a29524",
+      "family": "pairwise_hinge|advantage_gap|mean|nonnegative",
+      "family_signature": "paradigm=pairwise_hinge|signal=advantage_gap|agg=mean|constraint=nonnegative",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 197419547,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.3,
+        "best_similarity_parts": {
+          "bigram": 0.1,
+          "unigram": 0.3,
+          "call": 0.21428571428571427
+        },
+        "neighbors": [
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.3,
+            "similarity_parts": {
+              "bigram": 0.1,
+              "unigram": 0.3,
+              "call": 0.21428571428571427
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.2857142857142857,
+            "similarity_parts": {
+              "bigram": 0.08823529411764706,
+              "unigram": 0.2857142857142857,
+              "call": 0.2
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_margin_rank_sqrt_advantage_gap",
+        "intuition": "Switches paradigm from probabilistic margin to margin rank loss using sqrt-transformed advantage gap as weighting to emphasize moderate gaps, leveraging a hinge-style ranking loss.",
+        "pseudocode": "diff = lpw - lpl\nhinge = max(0, margin - diff)\nweighting = sqrt(abs(advantage_gap))\nloss = weighting * hinge\nreturn mean(loss * weight)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_hinge",
+          "signal_family": "advantage_gap",
+          "link_family": "linear",
+          "agg_family": "mean",
+          "constraint_family": "nonnegative"
+        },
+        "operators_used": [
+          "max",
+          "abs",
+          "sqrt",
+          "mul",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    margin = float(extra.get('margin', 1.0))\n    diff = ops.sub(lpw, lpl)\n    zero = ops.zeros_like(diff)\n    hinge = ops.max(ops.sub(margin, diff), zero)\n    weighting = ops.sqrt(ops.abs(adv_gap))\n    loss = ops.mul(weighting, hinge)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "f000_001_58e0598d",
+      "signature": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+      "family": "pairwise_margin|cost_gap|weighted_mean|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=weighted_mean|constraint=clamp_stabilized",
+      "origin": "STRUCTURE_SHIFT",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "LOSS_STRUCTURE_SHIFT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "8a3f57f2a1ce5b9b46900ba5a6a5a3bae54164be",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 270916581,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "8a3f57f2a1ce5b9b46900ba5a6a5a3bae54164be"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.7222222222222222,
+        "best_similarity_parts": {
+          "bigram": 0.59375,
+          "unigram": 0.7222222222222222,
+          "call": 0.7
+        },
+        "neighbors": [
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.7222222222222222,
+            "similarity_parts": {
+              "bigram": 0.59375,
+              "unigram": 0.7222222222222222,
+              "call": 0.7
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.6666666666666666,
+            "similarity_parts": {
+              "bigram": 0.34285714285714286,
+              "unigram": 0.6666666666666666,
+              "call": 0.6
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.30434782608695654,
+            "similarity_parts": {
+              "bigram": 0.07692307692307693,
+              "unigram": 0.30434782608695654,
+              "call": 0.26666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_shifted_agg",
+        "intuition": "pairwise logsigmoid loss with shifted aggregation via weighted sum, emphasizing cost gap influence",
+        "pseudocode": "x = clamp(alpha * scale * (lpw - lpl) - 0.1 * gap, -20, 20)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss) / sum(weight)  # weighted average aggregation",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "weighted_mean",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sum",
+          "div",
+          "mul",
+          "sub",
+          "add"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        weighted_loss = loss * weight\n        total_weight = ops.sum(weight)\n        total_weight = total_weight if total_weight > 0 else 1.0\n        loss = ops.sum(weighted_loss) / total_weight\n    else:\n        loss = ops.mean(loss)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "f000_002_ec5a2eef",
+      "signature": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+      "family": "pairwise_softnorm|advantage_gap|mean|none",
+      "family_signature": "paradigm=pairwise_softnorm|signal=advantage_gap|agg=mean|constraint=none",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1298922895,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.3888888888888889,
+        "best_similarity_parts": {
+          "bigram": 0.15384615384615385,
+          "unigram": 0.3888888888888889,
+          "call": 0.16666666666666666
+        },
+        "neighbors": [
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.3888888888888889,
+            "similarity_parts": {
+              "bigram": 0.15384615384615385,
+              "unigram": 0.3888888888888889,
+              "call": 0.16666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.3888888888888889,
+            "similarity_parts": {
+              "bigram": 0.13636363636363635,
+              "unigram": 0.3888888888888889,
+              "call": 0.3076923076923077
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.38095238095238093,
+            "similarity_parts": {
+              "bigram": 0.11428571428571428,
+              "unigram": 0.38095238095238093,
+              "call": 0.23076923076923078
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_tanh_exp",
+        "intuition": "Shift paradigm from margin-based losses to a soft nonlinear advantage weighting that modulates the difference in log probabilities with a tanh of the advantage signal, enhancing gradient smoothness and informativeness.",
+        "pseudocode": "adv_norm = tanh(advantage_gap)\nx = (log_prob_w - log_prob_l) * exp(adv_norm)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nreturn mean(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_softnorm",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "tanh",
+          "exp",
+          "logsigmoid",
+          "mul",
+          "sub",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    adv_norm = ops.tanh(adv_gap)\n    x = ops.mul(ops.sub(lpw, lpl), ops.exp(adv_norm))\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_e6f1d066",
+      "signature": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+      "family": "ranking|advantage|mean|pairwise",
+      "family_signature": "paradigm=ranking|signal=advantage|agg=mean|constraint=pairwise",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1_GENERATE",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": "bac6f38f847e25b236ada0e3db41fbaad30140ba",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "llm_seed": 2066035487,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1_GENERATE",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+          "prompt_sha1": "bac6f38f847e25b236ada0e3db41fbaad30140ba"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.4444444444444444,
+        "best_similarity_parts": {
+          "bigram": 0.0,
+          "unigram": 0.35714285714285715,
+          "call": 0.4444444444444444
+        },
+        "neighbors": [
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.4444444444444444,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.35714285714285715,
+              "call": 0.4444444444444444
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.3333333333333333,
+            "similarity_parts": {
+              "bigram": 0.05263157894736842,
+              "unigram": 0.3333333333333333,
+              "call": 0.3333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.25,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.2,
+              "call": 0.25
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "pairwise_advantage_gap_loss",
+        "intuition": "This loss encourages the model to increase the advantage difference between preferred and less preferred options by focusing on the advantage gap. By maximizing advantage_gap (or equivalently minimizing its negative), it aligns the model towards preferred outcomes, promoting better ranking and preference consistency.",
+        "pseudocode": "Loss = -mean(logsigmoid(advantage_w - advantage_l + margin))",
+        "hyperparams": {
+          "paradigm_family": "ranking",
+          "signal_family": "advantage",
+          "link_family": "logistic",
+          "agg_family": "mean",
+          "constraint_family": "pairwise",
+          "other_hparams": "margin=1.0"
+        },
+        "operators_used": [
+          "logsigmoid"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    margin = extra.get('margin', 1.0)\n    diff = ops.sub(advantage_w, advantage_l)\n    loss_terms = ops.logsigmoid(ops.add(diff, margin))\n    weighted_loss = ops.mul(loss_terms, weight)\n    return ops.mean(weighted_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 4,
+      "id": "f000_004_f4dcd2a9",
+      "signature": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+      "family": "pairwise_signal_modulated|advantage_gap|mean|stabilized_reciprocal_tanh",
+      "family_signature": "paradigm=pairwise_signal_modulated|signal=advantage_gap|agg=mean|constraint=stabilized_reciprocal_tanh",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "b4c4995a643485c5424f8f7308a37db9bfcc662c",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1525740512,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "b4c4995a643485c5424f8f7308a37db9bfcc662c"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5263157894736842,
+        "best_similarity_parts": {
+          "bigram": 0.10344827586206896,
+          "unigram": 0.5263157894736842,
+          "call": 0.4375
+        },
+        "neighbors": [
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.5263157894736842,
+            "similarity_parts": {
+              "bigram": 0.10344827586206896,
+              "unigram": 0.5263157894736842,
+              "call": 0.4375
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.47368421052631576,
+            "similarity_parts": {
+              "bigram": 0.07407407407407407,
+              "unigram": 0.47368421052631576,
+              "call": 0.42857142857142855
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+            "name": "pairwise_advantage_gap_loss",
+            "similarity": 0.46153846153846156,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.4375,
+              "call": 0.46153846153846156
+            },
+            "call_names_top": [
+              "extra.get",
+              "ops.add",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_tanh_reciprocal",
+        "intuition": "Encourage preference alignment by transforming advantage gap via tanh modulation and stabilized reciprocal scaling, emphasizing pairs with small advantage gaps and diminishing influence of large gaps to reduce gradient noise.",
+        "pseudocode": "adv = batch['advantage_gap']\nx = tanh(adv) / (abs(adv) + epsilon)\nloss_raw = -logsigmoid(scale * (log_prob_w - log_prob_l) * x)\nloss = mean(weight * loss_raw) if weight else mean(loss_raw)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_signal_modulated",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "stabilized_reciprocal_tanh"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "tanh",
+          "abs",
+          "add",
+          "div",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv = batch['advantage_gap']\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    epsilon = 1e-6\n    mod = ops.div(ops.tanh(adv), ops.add(ops.abs(adv), epsilon))\n    x = ops.mul(scale, ops.mul(ops.sub(lpw, lpl), mod))\n    loss_raw = ops.neg(ops.logsigmoid(x))\n    if weight is not None:\n        loss = ops.mean(ops.mul(loss_raw, weight))\n    else:\n        loss = ops.mean(loss_raw)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "f000_005_6dc875d8",
+      "signature": "6dc875d88747807466a4f56fc6678b082583e27a",
+      "family": "contrastive|advantage_gap|mean|clamp_bounded",
+      "family_signature": "paradigm=contrastive|signal=advantage_gap|agg=mean|constraint=clamp_bounded",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "0c17babe8594cefe33b9746a12d5805e882620d1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1144412258,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "0c17babe8594cefe33b9746a12d5805e882620d1"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5789473684210527,
+        "best_similarity_parts": {
+          "bigram": 0.13333333333333333,
+          "unigram": 0.5789473684210527,
+          "call": 0.5333333333333333
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.5789473684210527,
+            "similarity_parts": {
+              "bigram": 0.13333333333333333,
+              "unigram": 0.5789473684210527,
+              "call": 0.5333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.5294117647058824,
+            "similarity_parts": {
+              "bigram": 0.17391304347826086,
+              "unigram": 0.5294117647058824,
+              "call": 0.4166666666666667
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.12903225806451613,
+              "unigram": 0.5,
+              "call": 0.4166666666666667
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_advantage_tanh_contrastive",
+        "intuition": "Contrastive loss paradigm using a smooth bounded tanh of the advantage difference to enforce margin and stability, emphasizing preference ranking with a symmetric structured penalty rather than a simple margin.",
+        "pseudocode": "adv_diff = advantage_w - advantage_l\nscaled_diff = alpha * adv_diff\nclamped = clamp(scaled_diff, -10, 10)\nloss = mean(1 - tanh(clamped)) weighted by example weight",
+        "hyperparams": {
+          "paradigm_family": "contrastive",
+          "signal_family": "advantage_gap",
+          "link_family": "tanh",
+          "agg_family": "mean",
+          "constraint_family": "clamp_bounded"
+        },
+        "operators_used": [
+          "tanh",
+          "clamp",
+          "mean",
+          "sub",
+          "mul"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_w",
+            "advantage_l"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    adv_diff = ops.sub(adv_w, adv_l)\n    scaled_diff = ops.mul(alpha, adv_diff)\n    clamped = ops.clamp(scaled_diff, -10.0, 10.0)\n    raw_loss = ops.sub(ops.ones_like(clamped), ops.tanh(clamped))\n    if weight is not None:\n        raw_loss = ops.mul(raw_loss, weight)\n    return ops.mean(raw_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "f000_006_610b379c",
+      "signature": "610b379c09f9c1a6f00ab8a9a1ff76743f2e84ab",
+      "family": "pairwise_margin|cost_gap|sum|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=sum|constraint=clamp_stabilized",
+      "origin": "STRUCTURE_SHIFT",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "LOSS_STRUCTURE_SHIFT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "afe5b6ddc4b59747182affcb1f2b53586a8c4b04",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 859131847,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "afe5b6ddc4b59747182affcb1f2b53586a8c4b04"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.8888888888888888,
+        "best_similarity_parts": {
+          "bigram": 0.6451612903225806,
+          "unigram": 0.8235294117647058,
+          "call": 0.8888888888888888
+        },
+        "neighbors": [
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.8888888888888888,
+            "similarity_parts": {
+              "bigram": 0.6451612903225806,
+              "unigram": 0.8235294117647058,
+              "call": 0.8888888888888888
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.8666666666666667,
+            "similarity_parts": {
+              "bigram": 0.84,
+              "unigram": 0.8666666666666667,
+              "call": 0.7777777777777778
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.8,
+            "similarity_parts": {
+              "bigram": 0.4482758620689655,
+              "unigram": 0.8,
+              "call": 0.6666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_sum",
+        "intuition": "pairwise logsigmoid loss with sum aggregation for stronger gradient signal",
+        "pseudocode": "loss = sum(-logsigmoid(clamp(alpha*scale*(lpw-lpl) - 0.1*(cost_b-cost_a), -20, 20)) * weight)",
+        "hyperparams": {
+          "scale": 1.9496803035382082,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.sum(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "f000_007_656c0d6d",
+      "signature": "656c0d6df5d21e37cbdd8046e6f61d4cca198be9",
+      "family": "pairwise_margin|advantage_gap|mean|none",
+      "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=mean|constraint=none",
+      "origin": "REPAIR",
+      "origin_base": "M2",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "582131fcf9027dd1267f641101d80b32e69fca63",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 82890994,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "582131fcf9027dd1267f641101d80b32e69fca63"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "c941ac2fcc36505f2a91da7c4364eae0f0a0bb46"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "58a4e63c98588d3963a55b6fba887639e3abb51d"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "8c7a20c56ccdb620637caaabbadd7a3db909f4b9"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5882352941176471,
+        "best_similarity_parts": {
+          "bigram": 0.20833333333333334,
+          "unigram": 0.5882352941176471,
+          "call": 0.5
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.5882352941176471,
+            "similarity_parts": {
+              "bigram": 0.20833333333333334,
+              "unigram": 0.5882352941176471,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "6dc875d88747807466a4f56fc6678b082583e27a",
+            "name": "loss_advantage_tanh_contrastive",
+            "similarity": 0.5625,
+            "similarity_parts": {
+              "bigram": 0.17391304347826086,
+              "unigram": 0.5625,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.mean",
+              "ops.mul",
+              "ops.ones_like",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.19047619047619047,
+              "unigram": 0.5,
+              "call": 0.38461538461538464
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_softplus_weighted_v1",
+        "intuition": "Replaced the tanh link and simple subtraction with a smooth softplus operator applied to the negative scaled advantage gap, which provides a valid margin-based loss that grows with negative advantage and saturates smoothly for large positive advantage. This avoids direct use of tanh and subtraction to reduce similarity to prior tanh-based losses. The scale hyperparameter is used without clamping, keeping gradient stability via softplus smoothness. Weighted the per-sample loss by the provided weight to preserve importance and averaged with mean aggregation. This design uses advantage_gap to reflect quality differences, uses softplus for a convex smooth margin loss, and respects the required keys and pairwise mode constraints, improving novelty and maintaining valid gradients.",
+        "pseudocode": "scaled_adv = scale * advantage_gap\nloss_terms = weight * softplus(-scaled_adv) if weight else softplus(-scaled_adv)\nloss = mean(loss_terms)",
+        "hyperparams": {
+          "scale": 1.5,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "softplus",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "softplus",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "advantage_gap",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.5))\n    scaled_adv = ops.mul(scale, adv_gap)\n    neg_scaled_adv = ops.neg(scaled_adv)\n    loss_terms = ops.softplus(neg_scaled_adv)\n    if weight is not None:\n        loss_terms = ops.mul(loss_terms, weight)\n    return ops.mean(loss_terms)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 8,
+      "id": "f000_008_8ccf9130",
+      "signature": "8ccf9130243478621dff6eb72cd395224cc3c3d5",
+      "family": "pairwise_ranking|advantage_gap|mean|relu_margin",
+      "family_signature": "paradigm=pairwise_ranking|signal=advantage_gap|agg=mean|constraint=relu_margin",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "048a1697be39c2b1f328d410fd1e8efcf8a40dbe",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 303174602,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "048a1697be39c2b1f328d410fd1e8efcf8a40dbe"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.8181818181818182,
+        "best_similarity_parts": {
+          "bigram": 0.20833333333333334,
+          "unigram": 0.6666666666666666,
+          "call": 0.8181818181818182
+        },
+        "neighbors": [
+          {
+            "sig": "6dc875d88747807466a4f56fc6678b082583e27a",
+            "name": "loss_advantage_tanh_contrastive",
+            "similarity": 0.8181818181818182,
+            "similarity_parts": {
+              "bigram": 0.20833333333333334,
+              "unigram": 0.6666666666666666,
+              "call": 0.8181818181818182
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.mean",
+              "ops.mul",
+              "ops.ones_like",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.4375,
+            "similarity_parts": {
+              "bigram": 0.06896551724137931,
+              "unigram": 0.42105263157894735,
+              "call": 0.4375
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.42857142857142855,
+            "similarity_parts": {
+              "bigram": 0.125,
+              "unigram": 0.4117647058823529,
+              "call": 0.42857142857142855
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_margin_ranking_tanh_advantage",
+        "intuition": "Replace the log-sigmoid link with a smooth margin ranking approached via tanh, leveraging advantage_gap as a quality signal and applying a margin with soft weighting to emphasize pairs with greater advantage differences.",
+        "pseudocode": "margin = 1.0\nadv_adj = ops.clamp(batch['advantage_gap'], 0.0, None)\nscore_diff = batch['log_prob_w'] - batch['log_prob_l']\nmargin_loss_raw = ops.relu(margin - score_diff)\nweighted_loss = margin_loss_raw * ops.tanh(adv_adj)\nloss = weighted_loss * batch.get('weight', 1.0)\nreturn loss.mean()",
+        "hyperparams": {
+          "paradigm_family": "pairwise_ranking",
+          "signal_family": "advantage_gap",
+          "link_family": "tanh",
+          "agg_family": "mean",
+          "constraint_family": "relu_margin"
+        },
+        "operators_used": [
+          "clamp",
+          "relu",
+          "tanh",
+          "sub",
+          "mul",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batch['advantage_gap']\n    margin = float(extra.get('margin', 1.0))\n    adv_adj = ops.clamp(advantage_gap, 0.0, float('inf'))\n    score_diff = ops.sub(lpw, lpl)\n    margin_loss_raw = ops.relu(ops.sub(margin, score_diff))\n    adv_weight = ops.tanh(adv_adj)\n    loss = ops.mul(margin_loss_raw, adv_weight)\n    loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 9,
+      "id": "f000_009_2bff9bd2",
+      "signature": "2bff9bd2dc43342b1328c3166204a96a6c7a7b87",
+      "family": "pairwise_margin|cost_gap|mean|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=mean|constraint=clamp_stabilized",
+      "origin": "REPAIR",
+      "origin_base": "E1",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "9045229f8db19249e16c295376cf6f9f29a2ed33",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+      "llm_seed": 24825937,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_crossover.txt",
+          "prompt_sha1": "9045229f8db19249e16c295376cf6f9f29a2ed33"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M3",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+          "prompt_sha1": "f0bb89675d6414b3b44ac823611fabe09416feb3"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.7142857142857143,
+        "best_similarity_parts": {
+          "bigram": 0.0975609756097561,
+          "unigram": 0.6842105263157895,
+          "call": 0.7142857142857143
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.7142857142857143,
+            "similarity_parts": {
+              "bigram": 0.0975609756097561,
+              "unigram": 0.6842105263157895,
+              "call": 0.7142857142857143
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "6dc875d88747807466a4f56fc6678b082583e27a",
+            "name": "loss_advantage_tanh_contrastive",
+            "similarity": 0.6666666666666666,
+            "similarity_parts": {
+              "bigram": 0.16216216216216217,
+              "unigram": 0.6666666666666666,
+              "call": 0.6153846153846154
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.mean",
+              "ops.mul",
+              "ops.ones_like",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.6111111111111112,
+            "similarity_parts": {
+              "bigram": 0.21052631578947367,
+              "unigram": 0.6111111111111112,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "mixed_logsigmoid_cost_logsigmoid",
+        "intuition": "Simplified the candidate by providing full pseudocode and stable clamping for numerical stability. Combined the two logsigmoid losses with distinct scales and clamp inputs to [-20,20] to avoid instability. Weighted average ensures balance between different scales using the cost gap guidance. Weighting applied only if present, ensuring safe fallback. This improves clarity, stability, and conformance to pass expectations while preserving nuanced margin learning.",
+        "pseudocode": "Retrieve log_prob_w, log_prob_l, and weight from batch. Load alpha and two scale hyperparameters. Compute margin as alpha * scale * (log_prob_w - log_prob_l). Clamp margin between -20 and 20 for stability. Compute negative logsigmoid of margin as loss component. Average the two loss components from the two scales. Multiply by weight if given. Return mean loss over batch.",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "clamp",
+          "logsigmoid",
+          "mean",
+          "mul",
+          "add",
+          "sub"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_gap",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale0 = float(extra.get('hyperparams0', {}).get('scale', 1.9496803035382082))\n    scale1 = float(extra.get('hyperparams1', {}).get('scale', 0.6752757766189963))\n    margin0 = ops.clamp(ops.mul(alpha * scale0, ops.sub(lpw, lpl)), -20.0, 20.0)\n    margin1 = ops.clamp(ops.mul(alpha * scale1, ops.sub(lpw, lpl)), -20.0, 20.0)\n    loss0 = ops.neg(ops.logsigmoid(margin0))\n    loss1 = ops.neg(ops.logsigmoid(margin1))\n    combined_loss = ops.mul(0.5, ops.add(loss0, loss1))\n    if weight is not None:\n        combined_loss = ops.mul(combined_loss, weight)\n    return ops.mean(combined_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 10,
+      "id": "f000_010_c220ee63",
+      "signature": "c220ee638ec688bd173a056eb6fbff22b5a5c844",
+      "family": "pairwise_margin|advantage_gap|weighted_mean|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=weighted_mean|constraint=clamp_stabilized",
+      "origin": "REPAIR",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "2fbd22a54ec8390d24314da2568b93a6ff68f452",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 2030776188,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "2fbd22a54ec8390d24314da2568b93a6ff68f452"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "6df8a1d7f9f385f882bb4f7ac5a04457a81d32ef"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.625,
+        "best_similarity_parts": {
+          "bigram": 0.34375,
+          "unigram": 0.625,
+          "call": 0.6
+        },
+        "neighbors": [
+          {
+            "sig": "610b379c09f9c1a6f00ab8a9a1ff76743f2e84ab",
+            "name": "loss_logsigmoid_000_cost_sum",
+            "similarity": 0.625,
+            "similarity_parts": {
+              "bigram": 0.34375,
+              "unigram": 0.625,
+              "call": 0.6
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.sum"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.5625,
+            "similarity_parts": {
+              "bigram": 0.21875,
+              "unigram": 0.5625,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.5454545454545454,
+            "similarity_parts": {
+              "bigram": 0.2972972972972973,
+              "unigram": 0.5263157894736842,
+              "call": 0.5454545454545454
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_001_cost_weighted_mean_advantage",
+        "intuition": "Modified aggregation from sum to weighted mean to stabilize loss scale and added advantage_gap signal to leverage configured observables. Removed manual cost gap clamp and weighted cost influence via advantage signal to better separate cost and probability effects and reduce similarity to original. This ensures clearer learning signals and passes novelty evaluation.",
+        "pseudocode": "x = alpha * scale * (log_prob_w - log_prob_l) - 0.1 * cost_gap\nloss_per_pair = -logsigmoid(clamp(x, -20, 20)) * weight * advantage_gap\nloss = sum(loss_per_pair) / sum(weight * advantage_gap + epsilon)",
+        "hyperparams": {
+          "scale": 1.9496803035382082,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "weighted_mean",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sum",
+          "div",
+          "add",
+          "mul",
+          "sub"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_gap",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n\n    x = alpha * scale * (lpw - lpl) - 0.1 * cost_gap\n    x = ops.clamp(x, -20.0, 20.0)\n    base_loss = -ops.logsigmoid(x)\n\n    weighted_adv = weight * advantage_gap\n    weighted_loss = base_loss * weighted_adv\n\n    sum_weighted_loss = ops.sum(weighted_loss)\n    sum_weights = ops.sum(weighted_adv)\n    eps = 1e-8\n    loss = div(sum_weighted_loss, ops.add(sum_weights, eps))\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 11,
+      "id": "f000_011_4a5a0602",
+      "signature": "4a5a0602f6160db24d31b3bb1b6b1d7418d24bdb",
+      "family": "pairwise_margin|advantage_gap|mean|scale_invariance",
+      "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=mean|constraint=scale_invariance",
+      "origin": "CONSTRAINT_INJECT",
+      "origin_base": "CONSTRAINT_INJECT",
+      "op_type": "LOSS_CONSTRAINT_INJECT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "7bc7d83c6e1a7c1043e10948448367d3f611ba69",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "llm_seed": 717742554,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_CONSTRAINT_INJECT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+          "prompt_sha1": "7bc7d83c6e1a7c1043e10948448367d3f611ba69"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.8235294117647058,
+        "best_similarity_parts": {
+          "bigram": 0.37142857142857144,
+          "unigram": 0.8235294117647058,
+          "call": 0.75
+        },
+        "neighbors": [
+          {
+            "sig": "2bff9bd2dc43342b1328c3166204a96a6c7a7b87",
+            "name": "mixed_logsigmoid_cost_logsigmoid",
+            "similarity": 0.8235294117647058,
+            "similarity_parts": {
+              "bigram": 0.37142857142857144,
+              "unigram": 0.8235294117647058,
+              "call": 0.75
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.add",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "6dc875d88747807466a4f56fc6678b082583e27a",
+            "name": "loss_advantage_tanh_contrastive",
+            "similarity": 0.7058823529411765,
+            "similarity_parts": {
+              "bigram": 0.23333333333333334,
+              "unigram": 0.7058823529411765,
+              "call": 0.6666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.mean",
+              "ops.mul",
+              "ops.ones_like",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.6470588235294118,
+            "similarity_parts": {
+              "bigram": 0.3333333333333333,
+              "unigram": 0.6470588235294118,
+              "call": 0.5454545454545454
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_normalized_advantage",
+        "intuition": "Normalize the advantage gap signal to enforce scale-invariance before computing a stable pairwise logsigmoid loss, ensuring consistent optimization dynamics regardless of advantage scale.",
+        "pseudocode": "norm_adv = normalize(advantage_gap)\nx = alpha * scale * (log_prob_w - log_prob_l) * norm_adv\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nreturn mean(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "scale_invariance"
+        },
+        "operators_used": [
+          "normalize",
+          "logsigmoid",
+          "clamp",
+          "mean",
+          "mul",
+          "sub",
+          "add"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    norm_adv = ops.normalize(adv_gap)\n    x = ops.mul(alpha * scale, ops.mul(ops.sub(lpw, lpl), norm_adv))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 12,
+      "id": "f000_012_705b0d78",
+      "signature": "705b0d78a4d26d4a5389ae8fdaaad362470caf69",
+      "family": "pairwise_margin|advantage_gap|mean|normalization",
+      "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=mean|constraint=normalization",
+      "origin": "CONSTRAINT_INJECT",
+      "origin_base": "CONSTRAINT_INJECT",
+      "op_type": "LOSS_CONSTRAINT_INJECT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "a45fe97dd671586f1ea9c09290fea4f447b95c5f",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "llm_seed": 2132802046,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_CONSTRAINT_INJECT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+          "prompt_sha1": "a45fe97dd671586f1ea9c09290fea4f447b95c5f"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.8125,
+        "best_similarity_parts": {
+          "bigram": 0.4642857142857143,
+          "unigram": 0.8125,
+          "call": 0.8
+        },
+        "neighbors": [
+          {
+            "sig": "4a5a0602f6160db24d31b3bb1b6b1d7418d24bdb",
+            "name": "loss_logsigmoid_normalized_advantage",
+            "similarity": 0.8125,
+            "similarity_parts": {
+              "bigram": 0.4642857142857143,
+              "unigram": 0.8125,
+              "call": 0.8
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.normalize",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.8,
+            "similarity_parts": {
+              "bigram": 0.56,
+              "unigram": 0.8,
+              "call": 0.6666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.75,
+            "similarity_parts": {
+              "bigram": 0.5357142857142857,
+              "unigram": 0.75,
+              "call": 0.6
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_normalized_advantage",
+        "intuition": "Inject explicit normalization constraint by normalizing advantage_gap to stabilize training and enforce scale invariance before applying clipped log-sigmoid.",
+        "pseudocode": "norm_adv = normalize(advantage_gap)\\nx = alpha * scale * (log_prob_w - log_prob_l) * norm_adv\\nx_clamped = clamp(x, -20, 20)\\nloss = -logsigmoid(x_clamped)\\nweighted_loss = loss * weight\\nreturn mean(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "normalization"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "normalize",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    norm_adv = ops.normalize(adv_gap)\n    x = alpha * scale * (lpw - lpl) * norm_adv\n    x_clamped = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x_clamped)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 13,
+      "id": "f000_013_8ddfd79f",
+      "signature": "8ddfd79fe419b86587c14db3aa11493dff8122eb",
+      "family": "ranking|advantage_cost|log|margin",
+      "family_signature": "paradigm=ranking|signal=advantage_cost|agg=log|constraint=margin",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1_GENERATE",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": "cc359b61b0b8cbc6110be3616d818d66ea3fb819",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "llm_seed": 704388509,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1_GENERATE",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+          "prompt_sha1": "cc359b61b0b8cbc6110be3616d818d66ea3fb819"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.7777777777777778,
+        "best_similarity_parts": {
+          "bigram": 0.23076923076923078,
+          "unigram": 0.7777777777777778,
+          "call": 0.75
+        },
+        "neighbors": [
+          {
+            "sig": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+            "name": "pairwise_advantage_gap_loss",
+            "similarity": 0.7777777777777778,
+            "similarity_parts": {
+              "bigram": 0.23076923076923078,
+              "unigram": 0.7777777777777778,
+              "call": 0.75
+            },
+            "call_names_top": [
+              "extra.get",
+              "ops.add",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "2bff9bd2dc43342b1328c3166204a96a6c7a7b87",
+            "name": "mixed_logsigmoid_cost_logsigmoid",
+            "similarity": 0.7272727272727273,
+            "similarity_parts": {
+              "bigram": 0.027777777777777776,
+              "unigram": 0.5625,
+              "call": 0.7272727272727273
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.add",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "4a5a0602f6160db24d31b3bb1b6b1d7418d24bdb",
+            "name": "loss_logsigmoid_normalized_advantage",
+            "similarity": 0.6363636363636364,
+            "similarity_parts": {
+              "bigram": 0.06896551724137931,
+              "unigram": 0.5,
+              "call": 0.6363636363636364
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.normalize",
+              "ops.sub"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "pairwise_advantage_cost_gap_loss",
+        "intuition": "This loss encourages preference signals based on advantage and cost gap, promoting better ranking of higher advantage and lower cost gaps. It weighs pairwise comparisons so that pairs with higher advantage and lower cost gap contribute positively, aligning the model to favor better outcomes. Using logsigmoid functions emphasizes significant differences while maintaining numerical stability.",
+        "pseudocode": "loss = sum_logsigmoid( advantage_w - advantage_l + alpha * (cost_gap_w - cost_gap_l) ) / batch_size",
+        "hyperparams": {
+          "paradigm_family": "ranking",
+          "signal_family": "advantage_cost",
+          "link_family": "pairwise",
+          "agg_family": "log",
+          "constraint_family": "margin",
+          "other_hparams": "alpha=1.0"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "sub",
+          "mul",
+          "add"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_w",
+            "advantage_l",
+            "cost_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    cost_gap_w = batch['cost_gap']  # assumed batch['cost_gap'] for both; adjust if separate\n    cost_gap_l = batch.get('cost_gap', 0)\n    weight = batch['weight']\n    # Compute pairwise difference\n    diff_adv = ops.sub(advantage_w, advantage_l)\n    diff_cost = ops.mul(alpha, ops.sub(cost_gap_w, cost_gap_l))\n    combined = ops.add(diff_adv, diff_cost)\n    loss_vals = ops.logsigmoid(combined)\n    # Optionally weigh by pair weight\n    weighted_loss = ops.mul(loss_vals, weight)\n    # Return mean over batch\n    return ops.mean(weighted_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 14,
+      "id": "f000_014_7e684ab7",
+      "signature": "7e684ab728359aec3e6870898e35b07c2274a190",
+      "family": "pairwise|advantage|mean|identity",
+      "family_signature": "paradigm=pairwise|signal=advantage|agg=mean|constraint=identity",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1_GENERATE",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": "18ac2cb981bd6f5e7894fcfa280d68d174c6ce44",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "llm_seed": 323504225,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1_GENERATE",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+          "prompt_sha1": "18ac2cb981bd6f5e7894fcfa280d68d174c6ce44"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5,
+        "best_similarity_parts": {
+          "bigram": 0.2222222222222222,
+          "unigram": 0.5,
+          "call": 0.42857142857142855
+        },
+        "neighbors": [
+          {
+            "sig": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+            "name": "pairwise_advantage_gap_loss",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.2222222222222222,
+              "unigram": 0.5,
+              "call": 0.42857142857142855
+            },
+            "call_names_top": [
+              "extra.get",
+              "ops.add",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "8ddfd79fe419b86587c14db3aa11493dff8122eb",
+            "name": "pairwise_advantage_cost_gap_loss",
+            "similarity": 0.4,
+            "similarity_parts": {
+              "bigram": 0.15384615384615385,
+              "unigram": 0.4,
+              "call": 0.3333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.add",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.375,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.3076923076923077,
+              "call": 0.375
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "pairwise_advantage_gap_loss",
+        "intuition": "This loss leverages the advantage_gap signal to compare pairs' relative quality, encouraging the model to rank higher advantage scores higher, which aligns with the goal of preference optimization. Using the advantage_gap normalizes differences, improving stability across batch pairs.",
+        "pseudocode": "loss = mean over pairs of logsigmoid( advantage_gap between pair )",
+        "hyperparams": {
+          "paradigm_family": "pairwise",
+          "signal_family": "advantage",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "identity",
+          "other_hparams": ""
+        },
+        "operators_used": [
+          "logsigmoid"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    advantage_gap = batch['advantage_gap']\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    score_diff = advantage_gap\n    label = ops.sign(score_diff)\n    pairwise_term = ops.logsigmoid(ops.mul(score_diff, label))\n    weighted_loss = ops.mul(pairwise_term, weight)\n    loss = ops.mean(weighted_loss)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 15,
+      "id": "f000_015_ff5fc5f9",
+      "signature": "ff5fc5f94fbc9e23391217a1c4f8e82f9d8b7eeb",
+      "family": "pairwise_margin|cost_gap|mean|normalization_l2",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=mean|constraint=normalization_l2",
+      "origin": "CONSTRAINT_INJECT",
+      "origin_base": "CONSTRAINT_INJECT",
+      "op_type": "LOSS_CONSTRAINT_INJECT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "fa7b5786281466815c88746a2c86f982ccc8294c",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "llm_seed": 619530673,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_CONSTRAINT_INJECT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+          "prompt_sha1": "fa7b5786281466815c88746a2c86f982ccc8294c"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.7142857142857143,
+        "best_similarity_parts": {
+          "bigram": 0.14285714285714285,
+          "unigram": 0.7142857142857143,
+          "call": 0.6666666666666666
+        },
+        "neighbors": [
+          {
+            "sig": "2bff9bd2dc43342b1328c3166204a96a6c7a7b87",
+            "name": "mixed_logsigmoid_cost_logsigmoid",
+            "similarity": 0.7142857142857143,
+            "similarity_parts": {
+              "bigram": 0.14285714285714285,
+              "unigram": 0.7142857142857143,
+              "call": 0.6666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.add",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.7,
+            "similarity_parts": {
+              "bigram": 0.4857142857142857,
+              "unigram": 0.7,
+              "call": 0.5714285714285714
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "4a5a0602f6160db24d31b3bb1b6b1d7418d24bdb",
+            "name": "loss_logsigmoid_normalized_advantage",
+            "similarity": 0.6666666666666666,
+            "similarity_parts": {
+              "bigram": 0.21951219512195122,
+              "unigram": 0.6666666666666666,
+              "call": 0.6
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.normalize",
+              "ops.sub"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_normalized",
+        "intuition": "Normalize the difference term by the L2 norm of the log probabilities to enforce scale invariance and stabilize training.",
+        "pseudocode": "norm_factor = sqrt((lpw^2 + lpl^2).mean())\nloss = -logsigmoid(clamp(alpha * scale * (lpw - lpl) / norm_factor, -20, 20))",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "normalization_l2"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sqrt",
+          "mean",
+          "add",
+          "mul",
+          "div"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    norm_factor = ops.sqrt(ops.mean(ops.add(ops.mul(lpw, lpw), ops.mul(lpl, lpl))))\n    x = alpha * scale * ops.div(ops.sub(lpw, lpl), norm_factor) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "elites_g": [],
+  "elites_f": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_b875484e",
+      "signature": "b875484e693387ab8fb4f94b32bc418111a29524",
+      "family": "pairwise_hinge|advantage_gap|mean|nonnegative",
+      "family_signature": "paradigm=pairwise_hinge|signal=advantage_gap|agg=mean|constraint=nonnegative",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 197419547,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.3,
+        "best_similarity_parts": {
+          "bigram": 0.1,
+          "unigram": 0.3,
+          "call": 0.21428571428571427
+        },
+        "neighbors": [
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.3,
+            "similarity_parts": {
+              "bigram": 0.1,
+              "unigram": 0.3,
+              "call": 0.21428571428571427
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.2857142857142857,
+            "similarity_parts": {
+              "bigram": 0.08823529411764706,
+              "unigram": 0.2857142857142857,
+              "call": 0.2
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_margin_rank_sqrt_advantage_gap",
+        "intuition": "Switches paradigm from probabilistic margin to margin rank loss using sqrt-transformed advantage gap as weighting to emphasize moderate gaps, leveraging a hinge-style ranking loss.",
+        "pseudocode": "diff = lpw - lpl\nhinge = max(0, margin - diff)\nweighting = sqrt(abs(advantage_gap))\nloss = weighting * hinge\nreturn mean(loss * weight)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_hinge",
+          "signal_family": "advantage_gap",
+          "link_family": "linear",
+          "agg_family": "mean",
+          "constraint_family": "nonnegative"
+        },
+        "operators_used": [
+          "max",
+          "abs",
+          "sqrt",
+          "mul",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    margin = float(extra.get('margin', 1.0))\n    diff = ops.sub(lpw, lpl)\n    zero = ops.zeros_like(diff)\n    hinge = ops.max(ops.sub(margin, diff), zero)\n    weighting = ops.sqrt(ops.abs(adv_gap))\n    loss = ops.mul(weighting, hinge)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "f000_001_58e0598d",
+      "signature": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+      "family": "pairwise_margin|cost_gap|weighted_mean|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=weighted_mean|constraint=clamp_stabilized",
+      "origin": "STRUCTURE_SHIFT",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "LOSS_STRUCTURE_SHIFT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "8a3f57f2a1ce5b9b46900ba5a6a5a3bae54164be",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 270916581,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "8a3f57f2a1ce5b9b46900ba5a6a5a3bae54164be"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.7222222222222222,
+        "best_similarity_parts": {
+          "bigram": 0.59375,
+          "unigram": 0.7222222222222222,
+          "call": 0.7
+        },
+        "neighbors": [
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.7222222222222222,
+            "similarity_parts": {
+              "bigram": 0.59375,
+              "unigram": 0.7222222222222222,
+              "call": 0.7
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.6666666666666666,
+            "similarity_parts": {
+              "bigram": 0.34285714285714286,
+              "unigram": 0.6666666666666666,
+              "call": 0.6
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.30434782608695654,
+            "similarity_parts": {
+              "bigram": 0.07692307692307693,
+              "unigram": 0.30434782608695654,
+              "call": 0.26666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_shifted_agg",
+        "intuition": "pairwise logsigmoid loss with shifted aggregation via weighted sum, emphasizing cost gap influence",
+        "pseudocode": "x = clamp(alpha * scale * (lpw - lpl) - 0.1 * gap, -20, 20)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss) / sum(weight)  # weighted average aggregation",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "weighted_mean",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sum",
+          "div",
+          "mul",
+          "sub",
+          "add"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        weighted_loss = loss * weight\n        total_weight = ops.sum(weight)\n        total_weight = total_weight if total_weight > 0 else 1.0\n        loss = ops.sum(weighted_loss) / total_weight\n    else:\n        loss = ops.mean(loss)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "f000_002_ec5a2eef",
+      "signature": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+      "family": "pairwise_softnorm|advantage_gap|mean|none",
+      "family_signature": "paradigm=pairwise_softnorm|signal=advantage_gap|agg=mean|constraint=none",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1298922895,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.3888888888888889,
+        "best_similarity_parts": {
+          "bigram": 0.15384615384615385,
+          "unigram": 0.3888888888888889,
+          "call": 0.16666666666666666
+        },
+        "neighbors": [
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.3888888888888889,
+            "similarity_parts": {
+              "bigram": 0.15384615384615385,
+              "unigram": 0.3888888888888889,
+              "call": 0.16666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.3888888888888889,
+            "similarity_parts": {
+              "bigram": 0.13636363636363635,
+              "unigram": 0.3888888888888889,
+              "call": 0.3076923076923077
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.38095238095238093,
+            "similarity_parts": {
+              "bigram": 0.11428571428571428,
+              "unigram": 0.38095238095238093,
+              "call": 0.23076923076923078
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_tanh_exp",
+        "intuition": "Shift paradigm from margin-based losses to a soft nonlinear advantage weighting that modulates the difference in log probabilities with a tanh of the advantage signal, enhancing gradient smoothness and informativeness.",
+        "pseudocode": "adv_norm = tanh(advantage_gap)\nx = (log_prob_w - log_prob_l) * exp(adv_norm)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nreturn mean(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_softnorm",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "tanh",
+          "exp",
+          "logsigmoid",
+          "mul",
+          "sub",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    adv_norm = ops.tanh(adv_gap)\n    x = ops.mul(ops.sub(lpw, lpl), ops.exp(adv_norm))\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_e6f1d066",
+      "signature": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+      "family": "ranking|advantage|mean|pairwise",
+      "family_signature": "paradigm=ranking|signal=advantage|agg=mean|constraint=pairwise",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1_GENERATE",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": "bac6f38f847e25b236ada0e3db41fbaad30140ba",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "llm_seed": 2066035487,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1_GENERATE",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+          "prompt_sha1": "bac6f38f847e25b236ada0e3db41fbaad30140ba"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.4444444444444444,
+        "best_similarity_parts": {
+          "bigram": 0.0,
+          "unigram": 0.35714285714285715,
+          "call": 0.4444444444444444
+        },
+        "neighbors": [
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.4444444444444444,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.35714285714285715,
+              "call": 0.4444444444444444
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.3333333333333333,
+            "similarity_parts": {
+              "bigram": 0.05263157894736842,
+              "unigram": 0.3333333333333333,
+              "call": 0.3333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.25,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.2,
+              "call": 0.25
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "pairwise_advantage_gap_loss",
+        "intuition": "This loss encourages the model to increase the advantage difference between preferred and less preferred options by focusing on the advantage gap. By maximizing advantage_gap (or equivalently minimizing its negative), it aligns the model towards preferred outcomes, promoting better ranking and preference consistency.",
+        "pseudocode": "Loss = -mean(logsigmoid(advantage_w - advantage_l + margin))",
+        "hyperparams": {
+          "paradigm_family": "ranking",
+          "signal_family": "advantage",
+          "link_family": "logistic",
+          "agg_family": "mean",
+          "constraint_family": "pairwise",
+          "other_hparams": "margin=1.0"
+        },
+        "operators_used": [
+          "logsigmoid"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    margin = extra.get('margin', 1.0)\n    diff = ops.sub(advantage_w, advantage_l)\n    loss_terms = ops.logsigmoid(ops.add(diff, margin))\n    weighted_loss = ops.mul(loss_terms, weight)\n    return ops.mean(weighted_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 4,
+      "id": "f000_004_f4dcd2a9",
+      "signature": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+      "family": "pairwise_signal_modulated|advantage_gap|mean|stabilized_reciprocal_tanh",
+      "family_signature": "paradigm=pairwise_signal_modulated|signal=advantage_gap|agg=mean|constraint=stabilized_reciprocal_tanh",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "b4c4995a643485c5424f8f7308a37db9bfcc662c",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1525740512,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "b4c4995a643485c5424f8f7308a37db9bfcc662c"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5263157894736842,
+        "best_similarity_parts": {
+          "bigram": 0.10344827586206896,
+          "unigram": 0.5263157894736842,
+          "call": 0.4375
+        },
+        "neighbors": [
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.5263157894736842,
+            "similarity_parts": {
+              "bigram": 0.10344827586206896,
+              "unigram": 0.5263157894736842,
+              "call": 0.4375
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.47368421052631576,
+            "similarity_parts": {
+              "bigram": 0.07407407407407407,
+              "unigram": 0.47368421052631576,
+              "call": 0.42857142857142855
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+            "name": "pairwise_advantage_gap_loss",
+            "similarity": 0.46153846153846156,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.4375,
+              "call": 0.46153846153846156
+            },
+            "call_names_top": [
+              "extra.get",
+              "ops.add",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_tanh_reciprocal",
+        "intuition": "Encourage preference alignment by transforming advantage gap via tanh modulation and stabilized reciprocal scaling, emphasizing pairs with small advantage gaps and diminishing influence of large gaps to reduce gradient noise.",
+        "pseudocode": "adv = batch['advantage_gap']\nx = tanh(adv) / (abs(adv) + epsilon)\nloss_raw = -logsigmoid(scale * (log_prob_w - log_prob_l) * x)\nloss = mean(weight * loss_raw) if weight else mean(loss_raw)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_signal_modulated",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "stabilized_reciprocal_tanh"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "tanh",
+          "abs",
+          "add",
+          "div",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv = batch['advantage_gap']\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    epsilon = 1e-6\n    mod = ops.div(ops.tanh(adv), ops.add(ops.abs(adv), epsilon))\n    x = ops.mul(scale, ops.mul(ops.sub(lpw, lpl), mod))\n    loss_raw = ops.neg(ops.logsigmoid(x))\n    if weight is not None:\n        loss = ops.mean(ops.mul(loss_raw, weight))\n    else:\n        loss = ops.mean(loss_raw)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "f000_005_6dc875d8",
+      "signature": "6dc875d88747807466a4f56fc6678b082583e27a",
+      "family": "contrastive|advantage_gap|mean|clamp_bounded",
+      "family_signature": "paradigm=contrastive|signal=advantage_gap|agg=mean|constraint=clamp_bounded",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "0c17babe8594cefe33b9746a12d5805e882620d1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1144412258,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "0c17babe8594cefe33b9746a12d5805e882620d1"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5789473684210527,
+        "best_similarity_parts": {
+          "bigram": 0.13333333333333333,
+          "unigram": 0.5789473684210527,
+          "call": 0.5333333333333333
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.5789473684210527,
+            "similarity_parts": {
+              "bigram": 0.13333333333333333,
+              "unigram": 0.5789473684210527,
+              "call": 0.5333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.5294117647058824,
+            "similarity_parts": {
+              "bigram": 0.17391304347826086,
+              "unigram": 0.5294117647058824,
+              "call": 0.4166666666666667
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.12903225806451613,
+              "unigram": 0.5,
+              "call": 0.4166666666666667
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_advantage_tanh_contrastive",
+        "intuition": "Contrastive loss paradigm using a smooth bounded tanh of the advantage difference to enforce margin and stability, emphasizing preference ranking with a symmetric structured penalty rather than a simple margin.",
+        "pseudocode": "adv_diff = advantage_w - advantage_l\nscaled_diff = alpha * adv_diff\nclamped = clamp(scaled_diff, -10, 10)\nloss = mean(1 - tanh(clamped)) weighted by example weight",
+        "hyperparams": {
+          "paradigm_family": "contrastive",
+          "signal_family": "advantage_gap",
+          "link_family": "tanh",
+          "agg_family": "mean",
+          "constraint_family": "clamp_bounded"
+        },
+        "operators_used": [
+          "tanh",
+          "clamp",
+          "mean",
+          "sub",
+          "mul"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_w",
+            "advantage_l"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    adv_diff = ops.sub(adv_w, adv_l)\n    scaled_diff = ops.mul(alpha, adv_diff)\n    clamped = ops.clamp(scaled_diff, -10.0, 10.0)\n    raw_loss = ops.sub(ops.ones_like(clamped), ops.tanh(clamped))\n    if weight is not None:\n        raw_loss = ops.mul(raw_loss, weight)\n    return ops.mean(raw_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "f000_006_610b379c",
+      "signature": "610b379c09f9c1a6f00ab8a9a1ff76743f2e84ab",
+      "family": "pairwise_margin|cost_gap|sum|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=sum|constraint=clamp_stabilized",
+      "origin": "STRUCTURE_SHIFT",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "LOSS_STRUCTURE_SHIFT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "afe5b6ddc4b59747182affcb1f2b53586a8c4b04",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 859131847,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "afe5b6ddc4b59747182affcb1f2b53586a8c4b04"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.8888888888888888,
+        "best_similarity_parts": {
+          "bigram": 0.6451612903225806,
+          "unigram": 0.8235294117647058,
+          "call": 0.8888888888888888
+        },
+        "neighbors": [
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.8888888888888888,
+            "similarity_parts": {
+              "bigram": 0.6451612903225806,
+              "unigram": 0.8235294117647058,
+              "call": 0.8888888888888888
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.8666666666666667,
+            "similarity_parts": {
+              "bigram": 0.84,
+              "unigram": 0.8666666666666667,
+              "call": 0.7777777777777778
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.8,
+            "similarity_parts": {
+              "bigram": 0.4482758620689655,
+              "unigram": 0.8,
+              "call": 0.6666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_sum",
+        "intuition": "pairwise logsigmoid loss with sum aggregation for stronger gradient signal",
+        "pseudocode": "loss = sum(-logsigmoid(clamp(alpha*scale*(lpw-lpl) - 0.1*(cost_b-cost_a), -20, 20)) * weight)",
+        "hyperparams": {
+          "scale": 1.9496803035382082,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.sum(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "f000_007_656c0d6d",
+      "signature": "656c0d6df5d21e37cbdd8046e6f61d4cca198be9",
+      "family": "pairwise_margin|advantage_gap|mean|none",
+      "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=mean|constraint=none",
+      "origin": "REPAIR",
+      "origin_base": "M2",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "582131fcf9027dd1267f641101d80b32e69fca63",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 82890994,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "582131fcf9027dd1267f641101d80b32e69fca63"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "c941ac2fcc36505f2a91da7c4364eae0f0a0bb46"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "58a4e63c98588d3963a55b6fba887639e3abb51d"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "8c7a20c56ccdb620637caaabbadd7a3db909f4b9"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5882352941176471,
+        "best_similarity_parts": {
+          "bigram": 0.20833333333333334,
+          "unigram": 0.5882352941176471,
+          "call": 0.5
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.5882352941176471,
+            "similarity_parts": {
+              "bigram": 0.20833333333333334,
+              "unigram": 0.5882352941176471,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "6dc875d88747807466a4f56fc6678b082583e27a",
+            "name": "loss_advantage_tanh_contrastive",
+            "similarity": 0.5625,
+            "similarity_parts": {
+              "bigram": 0.17391304347826086,
+              "unigram": 0.5625,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.mean",
+              "ops.mul",
+              "ops.ones_like",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.19047619047619047,
+              "unigram": 0.5,
+              "call": 0.38461538461538464
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_softplus_weighted_v1",
+        "intuition": "Replaced the tanh link and simple subtraction with a smooth softplus operator applied to the negative scaled advantage gap, which provides a valid margin-based loss that grows with negative advantage and saturates smoothly for large positive advantage. This avoids direct use of tanh and subtraction to reduce similarity to prior tanh-based losses. The scale hyperparameter is used without clamping, keeping gradient stability via softplus smoothness. Weighted the per-sample loss by the provided weight to preserve importance and averaged with mean aggregation. This design uses advantage_gap to reflect quality differences, uses softplus for a convex smooth margin loss, and respects the required keys and pairwise mode constraints, improving novelty and maintaining valid gradients.",
+        "pseudocode": "scaled_adv = scale * advantage_gap\nloss_terms = weight * softplus(-scaled_adv) if weight else softplus(-scaled_adv)\nloss = mean(loss_terms)",
+        "hyperparams": {
+          "scale": 1.5,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "softplus",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "softplus",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "advantage_gap",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.5))\n    scaled_adv = ops.mul(scale, adv_gap)\n    neg_scaled_adv = ops.neg(scaled_adv)\n    loss_terms = ops.softplus(neg_scaled_adv)\n    if weight is not None:\n        loss_terms = ops.mul(loss_terms, weight)\n    return ops.mean(loss_terms)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "diverse_elites_g": [],
+  "diverse_elites_f": [
+    {
+      "id": "f000_000_b875484e",
+      "signature": "b875484e693387ab8fb4f94b32bc418111a29524",
+      "family": "pairwise_hinge|advantage_gap|mean|nonnegative",
+      "ir": {
+        "name": "loss_margin_rank_sqrt_advantage_gap",
+        "intuition": "Switches paradigm from probabilistic margin to margin rank loss using sqrt-transformed advantage gap as weighting to emphasize moderate gaps, leveraging a hinge-style ranking loss.",
+        "pseudocode": "diff = lpw - lpl\nhinge = max(0, margin - diff)\nweighting = sqrt(abs(advantage_gap))\nloss = weighting * hinge\nreturn mean(loss * weight)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_hinge",
+          "signal_family": "advantage_gap",
+          "link_family": "linear",
+          "agg_family": "mean",
+          "constraint_family": "nonnegative"
+        },
+        "operators_used": [
+          "max",
+          "abs",
+          "sqrt",
+          "mul",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    margin = float(extra.get('margin', 1.0))\n    diff = ops.sub(lpw, lpl)\n    zero = ops.zeros_like(diff)\n    hinge = ops.max(ops.sub(margin, diff), zero)\n    weighting = ops.sqrt(ops.abs(adv_gap))\n    loss = ops.mul(weighting, hinge)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "fitness": Infinity,
+      "archive_cell": [
+        0,
+        0
+      ],
+      "archive_score": Infinity
+    }
+  ],
+  "hof_g": [],
+  "hof_f": [
+    {
+      "generation": 0,
+      "index": 0,
+      "id": "f000_000_b875484e",
+      "signature": "b875484e693387ab8fb4f94b32bc418111a29524",
+      "family": "pairwise_hinge|advantage_gap|mean|nonnegative",
+      "family_signature": "paradigm=pairwise_hinge|signal=advantage_gap|agg=mean|constraint=nonnegative",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 197419547,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.3,
+        "best_similarity_parts": {
+          "bigram": 0.1,
+          "unigram": 0.3,
+          "call": 0.21428571428571427
+        },
+        "neighbors": [
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.3,
+            "similarity_parts": {
+              "bigram": 0.1,
+              "unigram": 0.3,
+              "call": 0.21428571428571427
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.2857142857142857,
+            "similarity_parts": {
+              "bigram": 0.08823529411764706,
+              "unigram": 0.2857142857142857,
+              "call": 0.2
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_margin_rank_sqrt_advantage_gap",
+        "intuition": "Switches paradigm from probabilistic margin to margin rank loss using sqrt-transformed advantage gap as weighting to emphasize moderate gaps, leveraging a hinge-style ranking loss.",
+        "pseudocode": "diff = lpw - lpl\nhinge = max(0, margin - diff)\nweighting = sqrt(abs(advantage_gap))\nloss = weighting * hinge\nreturn mean(loss * weight)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_hinge",
+          "signal_family": "advantage_gap",
+          "link_family": "linear",
+          "agg_family": "mean",
+          "constraint_family": "nonnegative"
+        },
+        "operators_used": [
+          "max",
+          "abs",
+          "sqrt",
+          "mul",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    margin = float(extra.get('margin', 1.0))\n    diff = ops.sub(lpw, lpl)\n    zero = ops.zeros_like(diff)\n    hinge = ops.max(ops.sub(margin, diff), zero)\n    weighting = ops.sqrt(ops.abs(adv_gap))\n    loss = ops.mul(weighting, hinge)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 1,
+      "id": "f000_001_58e0598d",
+      "signature": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+      "family": "pairwise_margin|cost_gap|weighted_mean|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=weighted_mean|constraint=clamp_stabilized",
+      "origin": "STRUCTURE_SHIFT",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "LOSS_STRUCTURE_SHIFT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "8a3f57f2a1ce5b9b46900ba5a6a5a3bae54164be",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 270916581,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "8a3f57f2a1ce5b9b46900ba5a6a5a3bae54164be"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.7222222222222222,
+        "best_similarity_parts": {
+          "bigram": 0.59375,
+          "unigram": 0.7222222222222222,
+          "call": 0.7
+        },
+        "neighbors": [
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.7222222222222222,
+            "similarity_parts": {
+              "bigram": 0.59375,
+              "unigram": 0.7222222222222222,
+              "call": 0.7
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.6666666666666666,
+            "similarity_parts": {
+              "bigram": 0.34285714285714286,
+              "unigram": 0.6666666666666666,
+              "call": 0.6
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.30434782608695654,
+            "similarity_parts": {
+              "bigram": 0.07692307692307693,
+              "unigram": 0.30434782608695654,
+              "call": 0.26666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_shifted_agg",
+        "intuition": "pairwise logsigmoid loss with shifted aggregation via weighted sum, emphasizing cost gap influence",
+        "pseudocode": "x = clamp(alpha * scale * (lpw - lpl) - 0.1 * gap, -20, 20)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss) / sum(weight)  # weighted average aggregation",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "weighted_mean",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sum",
+          "div",
+          "mul",
+          "sub",
+          "add"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        weighted_loss = loss * weight\n        total_weight = ops.sum(weight)\n        total_weight = total_weight if total_weight > 0 else 1.0\n        loss = ops.sum(weighted_loss) / total_weight\n    else:\n        loss = ops.mean(loss)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 2,
+      "id": "f000_002_ec5a2eef",
+      "signature": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+      "family": "pairwise_softnorm|advantage_gap|mean|none",
+      "family_signature": "paradigm=pairwise_softnorm|signal=advantage_gap|agg=mean|constraint=none",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1298922895,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.3888888888888889,
+        "best_similarity_parts": {
+          "bigram": 0.15384615384615385,
+          "unigram": 0.3888888888888889,
+          "call": 0.16666666666666666
+        },
+        "neighbors": [
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.3888888888888889,
+            "similarity_parts": {
+              "bigram": 0.15384615384615385,
+              "unigram": 0.3888888888888889,
+              "call": 0.16666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.3888888888888889,
+            "similarity_parts": {
+              "bigram": 0.13636363636363635,
+              "unigram": 0.3888888888888889,
+              "call": 0.3076923076923077
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.38095238095238093,
+            "similarity_parts": {
+              "bigram": 0.11428571428571428,
+              "unigram": 0.38095238095238093,
+              "call": 0.23076923076923078
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_tanh_exp",
+        "intuition": "Shift paradigm from margin-based losses to a soft nonlinear advantage weighting that modulates the difference in log probabilities with a tanh of the advantage signal, enhancing gradient smoothness and informativeness.",
+        "pseudocode": "adv_norm = tanh(advantage_gap)\nx = (log_prob_w - log_prob_l) * exp(adv_norm)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nreturn mean(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_softnorm",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "tanh",
+          "exp",
+          "logsigmoid",
+          "mul",
+          "sub",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    adv_norm = ops.tanh(adv_gap)\n    x = ops.mul(ops.sub(lpw, lpl), ops.exp(adv_norm))\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 3,
+      "id": "f000_003_e6f1d066",
+      "signature": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+      "family": "ranking|advantage|mean|pairwise",
+      "family_signature": "paradigm=ranking|signal=advantage|agg=mean|constraint=pairwise",
+      "origin": "E1",
+      "origin_base": "E1",
+      "op_type": "E1_GENERATE",
+      "parents": [],
+      "attempt": 0,
+      "prompt_sha1": "bac6f38f847e25b236ada0e3db41fbaad30140ba",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "llm_seed": 2066035487,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "E1_GENERATE",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+          "prompt_sha1": "bac6f38f847e25b236ada0e3db41fbaad30140ba"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.4444444444444444,
+        "best_similarity_parts": {
+          "bigram": 0.0,
+          "unigram": 0.35714285714285715,
+          "call": 0.4444444444444444
+        },
+        "neighbors": [
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.4444444444444444,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.35714285714285715,
+              "call": 0.4444444444444444
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.3333333333333333,
+            "similarity_parts": {
+              "bigram": 0.05263157894736842,
+              "unigram": 0.3333333333333333,
+              "call": 0.3333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.25,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.2,
+              "call": 0.25
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "pairwise_advantage_gap_loss",
+        "intuition": "This loss encourages the model to increase the advantage difference between preferred and less preferred options by focusing on the advantage gap. By maximizing advantage_gap (or equivalently minimizing its negative), it aligns the model towards preferred outcomes, promoting better ranking and preference consistency.",
+        "pseudocode": "Loss = -mean(logsigmoid(advantage_w - advantage_l + margin))",
+        "hyperparams": {
+          "paradigm_family": "ranking",
+          "signal_family": "advantage",
+          "link_family": "logistic",
+          "agg_family": "mean",
+          "constraint_family": "pairwise",
+          "other_hparams": "margin=1.0"
+        },
+        "operators_used": [
+          "logsigmoid"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    margin = extra.get('margin', 1.0)\n    diff = ops.sub(advantage_w, advantage_l)\n    loss_terms = ops.logsigmoid(ops.add(diff, margin))\n    weighted_loss = ops.mul(loss_terms, weight)\n    return ops.mean(weighted_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 4,
+      "id": "f000_004_f4dcd2a9",
+      "signature": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+      "family": "pairwise_signal_modulated|advantage_gap|mean|stabilized_reciprocal_tanh",
+      "family_signature": "paradigm=pairwise_signal_modulated|signal=advantage_gap|agg=mean|constraint=stabilized_reciprocal_tanh",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "b4c4995a643485c5424f8f7308a37db9bfcc662c",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1525740512,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "b4c4995a643485c5424f8f7308a37db9bfcc662c"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5263157894736842,
+        "best_similarity_parts": {
+          "bigram": 0.10344827586206896,
+          "unigram": 0.5263157894736842,
+          "call": 0.4375
+        },
+        "neighbors": [
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.5263157894736842,
+            "similarity_parts": {
+              "bigram": 0.10344827586206896,
+              "unigram": 0.5263157894736842,
+              "call": 0.4375
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.47368421052631576,
+            "similarity_parts": {
+              "bigram": 0.07407407407407407,
+              "unigram": 0.47368421052631576,
+              "call": 0.42857142857142855
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "e6f1d06622e40ce08d2ef94a1ae3eef048226064",
+            "name": "pairwise_advantage_gap_loss",
+            "similarity": 0.46153846153846156,
+            "similarity_parts": {
+              "bigram": 0.0,
+              "unigram": 0.4375,
+              "call": 0.46153846153846156
+            },
+            "call_names_top": [
+              "extra.get",
+              "ops.add",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_tanh_reciprocal",
+        "intuition": "Encourage preference alignment by transforming advantage gap via tanh modulation and stabilized reciprocal scaling, emphasizing pairs with small advantage gaps and diminishing influence of large gaps to reduce gradient noise.",
+        "pseudocode": "adv = batch['advantage_gap']\nx = tanh(adv) / (abs(adv) + epsilon)\nloss_raw = -logsigmoid(scale * (log_prob_w - log_prob_l) * x)\nloss = mean(weight * loss_raw) if weight else mean(loss_raw)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_signal_modulated",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "stabilized_reciprocal_tanh"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "tanh",
+          "abs",
+          "add",
+          "div",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv = batch['advantage_gap']\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    epsilon = 1e-6\n    mod = ops.div(ops.tanh(adv), ops.add(ops.abs(adv), epsilon))\n    x = ops.mul(scale, ops.mul(ops.sub(lpw, lpl), mod))\n    loss_raw = ops.neg(ops.logsigmoid(x))\n    if weight is not None:\n        loss = ops.mean(ops.mul(loss_raw, weight))\n    else:\n        loss = ops.mean(loss_raw)\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 5,
+      "id": "f000_005_6dc875d8",
+      "signature": "6dc875d88747807466a4f56fc6678b082583e27a",
+      "family": "contrastive|advantage_gap|mean|clamp_bounded",
+      "family_signature": "paradigm=contrastive|signal=advantage_gap|agg=mean|constraint=clamp_bounded",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "LOSS_PARADIGM_SHIFT",
+      "parents": [
+        "bootstrap_f_000",
+        "bootstrap_f_001"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "0c17babe8594cefe33b9746a12d5805e882620d1",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "llm_seed": 1144412258,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+          "prompt_sha1": "0c17babe8594cefe33b9746a12d5805e882620d1"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5789473684210527,
+        "best_similarity_parts": {
+          "bigram": 0.13333333333333333,
+          "unigram": 0.5789473684210527,
+          "call": 0.5333333333333333
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.5789473684210527,
+            "similarity_parts": {
+              "bigram": 0.13333333333333333,
+              "unigram": 0.5789473684210527,
+              "call": 0.5333333333333333
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+            "name": "loss_pairwise_advantage_tanh_exp",
+            "similarity": 0.5294117647058824,
+            "similarity_parts": {
+              "bigram": 0.17391304347826086,
+              "unigram": 0.5294117647058824,
+              "call": 0.4166666666666667
+            },
+            "call_names_top": [
+              "batch.get",
+              "ops.exp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.12903225806451613,
+              "unigram": 0.5,
+              "call": 0.4166666666666667
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_advantage_tanh_contrastive",
+        "intuition": "Contrastive loss paradigm using a smooth bounded tanh of the advantage difference to enforce margin and stability, emphasizing preference ranking with a symmetric structured penalty rather than a simple margin.",
+        "pseudocode": "adv_diff = advantage_w - advantage_l\nscaled_diff = alpha * adv_diff\nclamped = clamp(scaled_diff, -10, 10)\nloss = mean(1 - tanh(clamped)) weighted by example weight",
+        "hyperparams": {
+          "paradigm_family": "contrastive",
+          "signal_family": "advantage_gap",
+          "link_family": "tanh",
+          "agg_family": "mean",
+          "constraint_family": "clamp_bounded"
+        },
+        "operators_used": [
+          "tanh",
+          "clamp",
+          "mean",
+          "sub",
+          "mul"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_w",
+            "advantage_l"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    adv_diff = ops.sub(adv_w, adv_l)\n    scaled_diff = ops.mul(alpha, adv_diff)\n    clamped = ops.clamp(scaled_diff, -10.0, 10.0)\n    raw_loss = ops.sub(ops.ones_like(clamped), ops.tanh(clamped))\n    if weight is not None:\n        raw_loss = ops.mul(raw_loss, weight)\n    return ops.mean(raw_loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 6,
+      "id": "f000_006_610b379c",
+      "signature": "610b379c09f9c1a6f00ab8a9a1ff76743f2e84ab",
+      "family": "pairwise_margin|cost_gap|sum|clamp_stabilized",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=sum|constraint=clamp_stabilized",
+      "origin": "STRUCTURE_SHIFT",
+      "origin_base": "STRUCTURE_SHIFT",
+      "op_type": "LOSS_STRUCTURE_SHIFT",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "afe5b6ddc4b59747182affcb1f2b53586a8c4b04",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "llm_seed": 859131847,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "LOSS_STRUCTURE_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+          "prompt_sha1": "afe5b6ddc4b59747182affcb1f2b53586a8c4b04"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.8888888888888888,
+        "best_similarity_parts": {
+          "bigram": 0.6451612903225806,
+          "unigram": 0.8235294117647058,
+          "call": 0.8888888888888888
+        },
+        "neighbors": [
+          {
+            "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+            "name": "loss_logsigmoid_000_cost_shifted_agg",
+            "similarity": 0.8888888888888888,
+            "similarity_parts": {
+              "bigram": 0.6451612903225806,
+              "unigram": 0.8235294117647058,
+              "call": 0.8888888888888888
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.sum"
+            ]
+          },
+          {
+            "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+            "name": "loss_logsigmoid_000_cost",
+            "similarity": 0.8666666666666667,
+            "similarity_parts": {
+              "bigram": 0.84,
+              "unigram": 0.8666666666666667,
+              "call": 0.7777777777777778
+            },
+            "call_names_top": [
+              "batch.get",
+              "detach",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          },
+          {
+            "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+            "name": "loss_logsigmoid_001",
+            "similarity": 0.8,
+            "similarity_parts": {
+              "bigram": 0.4482758620689655,
+              "unigram": 0.8,
+              "call": 0.6666666666666666
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "loss.mean",
+              "ops.clamp",
+              "ops.logsigmoid"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_logsigmoid_000_cost_sum",
+        "intuition": "pairwise logsigmoid loss with sum aggregation for stronger gradient signal",
+        "pseudocode": "loss = sum(-logsigmoid(clamp(alpha*scale*(lpw-lpl) - 0.1*(cost_b-cost_a), -20, 20)) * weight)",
+        "hyperparams": {
+          "scale": 1.9496803035382082,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.sum(loss)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "generation": 0,
+      "index": 7,
+      "id": "f000_007_656c0d6d",
+      "signature": "656c0d6df5d21e37cbdd8046e6f61d4cca198be9",
+      "family": "pairwise_margin|advantage_gap|mean|none",
+      "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=mean|constraint=none",
+      "origin": "REPAIR",
+      "origin_base": "M2",
+      "op_type": "REPAIR",
+      "parents": [
+        "bootstrap_f_000"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "582131fcf9027dd1267f641101d80b32e69fca63",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "llm_seed": 82890994,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "M2",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+          "prompt_sha1": "582131fcf9027dd1267f641101d80b32e69fca63"
+        },
+        {
+          "attempt": 0,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "c941ac2fcc36505f2a91da7c4364eae0f0a0bb46"
+        },
+        {
+          "attempt": 1,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "58a4e63c98588d3963a55b6fba887639e3abb51d"
+        },
+        {
+          "attempt": 2,
+          "side": "loss",
+          "llm_op": "REPAIR",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+          "prompt_sha1": "8c7a20c56ccdb620637caaabbadd7a3db909f4b9"
+        }
+      ],
+      "novelty": {
+        "max_similarity": 0.5882352941176471,
+        "best_similarity_parts": {
+          "bigram": 0.20833333333333334,
+          "unigram": 0.5882352941176471,
+          "call": 0.5
+        },
+        "neighbors": [
+          {
+            "sig": "f4dcd2a937c74fa300a52a7b81597ee36d0eecdb",
+            "name": "loss_pairwise_advantage_tanh_reciprocal",
+            "similarity": 0.5882352941176471,
+            "similarity_parts": {
+              "bigram": 0.20833333333333334,
+              "unigram": 0.5882352941176471,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.abs",
+              "ops.add",
+              "ops.div",
+              "ops.logsigmoid",
+              "ops.mean",
+              "ops.mul",
+              "ops.neg",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "6dc875d88747807466a4f56fc6678b082583e27a",
+            "name": "loss_advantage_tanh_contrastive",
+            "similarity": 0.5625,
+            "similarity_parts": {
+              "bigram": 0.17391304347826086,
+              "unigram": 0.5625,
+              "call": 0.5
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "get",
+              "ops.clamp",
+              "ops.mean",
+              "ops.mul",
+              "ops.ones_like",
+              "ops.sub",
+              "ops.tanh"
+            ]
+          },
+          {
+            "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+            "name": "loss_margin_rank_sqrt_advantage_gap",
+            "similarity": 0.5,
+            "similarity_parts": {
+              "bigram": 0.19047619047619047,
+              "unigram": 0.5,
+              "call": 0.38461538461538464
+            },
+            "call_names_top": [
+              "batch.get",
+              "extra.get",
+              "float",
+              "ops.abs",
+              "ops.max",
+              "ops.mean",
+              "ops.mul",
+              "ops.sqrt",
+              "ops.sub",
+              "ops.zeros_like"
+            ]
+          }
+        ]
+      },
+      "ir": {
+        "name": "loss_pairwise_advantage_softplus_weighted_v1",
+        "intuition": "Replaced the tanh link and simple subtraction with a smooth softplus operator applied to the negative scaled advantage gap, which provides a valid margin-based loss that grows with negative advantage and saturates smoothly for large positive advantage. This avoids direct use of tanh and subtraction to reduce similarity to prior tanh-based losses. The scale hyperparameter is used without clamping, keeping gradient stability via softplus smoothness. Weighted the per-sample loss by the provided weight to preserve importance and averaged with mean aggregation. This design uses advantage_gap to reflect quality differences, uses softplus for a convex smooth margin loss, and respects the required keys and pairwise mode constraints, improving novelty and maintaining valid gradients.",
+        "pseudocode": "scaled_adv = scale * advantage_gap\nloss_terms = weight * softplus(-scaled_adv) if weight else softplus(-scaled_adv)\nloss = mean(loss_terms)",
+        "hyperparams": {
+          "scale": 1.5,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "softplus",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "softplus",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "advantage_gap",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.5))\n    scaled_adv = ops.mul(scale, adv_gap)\n    neg_scaled_adv = ops.neg(scaled_adv)\n    loss_terms = ops.softplus(neg_scaled_adv)\n    if weight is not None:\n        loss_terms = ops.mul(loss_terms, weight)\n    return ops.mean(loss_terms)",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "",
+      "static_trace": null,
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "fitness": Infinity,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "archive_g": {},
+  "archive_f": {
+    "0,0": [
+      {
+        "id": "f000_000_b875484e",
+        "signature": "b875484e693387ab8fb4f94b32bc418111a29524",
+        "family": "pairwise_hinge|advantage_gap|mean|nonnegative",
+        "ir": {
+          "name": "loss_margin_rank_sqrt_advantage_gap",
+          "intuition": "Switches paradigm from probabilistic margin to margin rank loss using sqrt-transformed advantage gap as weighting to emphasize moderate gaps, leveraging a hinge-style ranking loss.",
+          "pseudocode": "diff = lpw - lpl\nhinge = max(0, margin - diff)\nweighting = sqrt(abs(advantage_gap))\nloss = weighting * hinge\nreturn mean(loss * weight)",
+          "hyperparams": {
+            "paradigm_family": "pairwise_hinge",
+            "signal_family": "advantage_gap",
+            "link_family": "linear",
+            "agg_family": "mean",
+            "constraint_family": "nonnegative"
+          },
+          "operators_used": [
+            "max",
+            "abs",
+            "sqrt",
+            "mul",
+            "mean"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "weight",
+              "advantage_gap"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    margin = float(extra.get('margin', 1.0))\n    diff = ops.sub(lpw, lpl)\n    zero = ops.zeros_like(diff)\n    hinge = ops.max(ops.sub(margin, diff), zero)\n    weighting = ops.sqrt(ops.abs(adv_gap))\n    loss = ops.mul(weighting, hinge)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+          "theoretical_basis": ""
+        },
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "fitness": Infinity,
+        "archive_cell": [
+          0,
+          0
+        ],
+        "archive_score": Infinity
+      }
+    ]
+  },
+  "stagnation_generations": 1,
+  "schema_version": 1,
+  "saved_at": "2026-04-02 10:45:54"
+}
