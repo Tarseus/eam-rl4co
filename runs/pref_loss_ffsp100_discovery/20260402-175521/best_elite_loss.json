@@ -1,0 +1,152 @@
+{
+  "generation": 1,
+  "index": 0,
+  "id": "f001_000_b72e70b1",
+  "signature": "b72e70b13a94107c4500111008c7bd7161129a47",
+  "family": "pairwise_contrastive|advantage_gap_reciprocal|mean|none",
+  "family_signature": "paradigm=pairwise_contrastive|signal=advantage_gap_reciprocal|agg=mean|constraint=none",
+  "origin": "PARADIGM_SHIFT",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "LOSS_PARADIGM_SHIFT",
+  "parents": [
+    "f000_006_d89a2dad",
+    "f000_001_90ef38f9",
+    "f000_010_2d1edbc0",
+    "f000_002_a61ab15f",
+    "f000_008_70ad9f8f"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "533f08ad6cd77fc27129947e83987af0847feeed",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+  "llm_seed": 1097253883,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "prompt_sha1": "533f08ad6cd77fc27129947e83987af0847feeed"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.7857142857142857,
+    "best_similarity_parts": {
+      "bigram": 0.18181818181818182,
+      "unigram": 0.7857142857142857,
+      "call": 0.7272727272727273
+    },
+    "neighbors": [
+      {
+        "sig": "4d1c57c1cdaae06d45dd335cc7fc8fabadb653b5",
+        "name": "loss_exp_advantage_ratio",
+        "similarity": 0.7857142857142857,
+        "similarity_parts": {
+          "bigram": 0.18181818181818182,
+          "unigram": 0.7857142857142857,
+          "call": 0.7272727272727273
+        },
+        "call_names_top": [
+          "batch.get",
+          "ops.add",
+          "ops.div",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.softplus",
+          "ops.sub",
+          "ops.zscore"
+        ]
+      },
+      {
+        "sig": "933a1b8654f67dc4f326ba44f64e94599fbf4e8a",
+        "name": "loss_softplus_deltaz_avg_relaxed_001",
+        "similarity": 0.6,
+        "similarity_parts": {
+          "bigram": 0.3333333333333333,
+          "unigram": 0.6,
+          "call": 0.5
+        },
+        "call_names_top": [
+          "batch.get",
+          "ops.add",
+          "ops.cast",
+          "ops.mean",
+          "ops.mul",
+          "ops.softplus",
+          "ops.sub",
+          "torch.tensor"
+        ]
+      },
+      {
+        "sig": "a61ab15f83dec13829642f5ee23c985c521f8935",
+        "name": "loss_energy_based_advantage_sigmoid",
+        "similarity": 0.5294117647058824,
+        "similarity_parts": {
+          "bigram": 0.17391304347826086,
+          "unigram": 0.5294117647058824,
+          "call": 0.42857142857142855
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.sigmoid",
+          "ops.sub"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_contrastive_advantage_reciprocal",
+    "intuition": "Shift from margin or energy paradigms to a contrastive probabilistic framework using reciprocal advantage signals, combining log-probability differences with inverted advantage gaps to penalize pairs where high log_prob_w and low advantage_gap conflict, using a softplus link encouraging contrastive separation.",
+    "pseudocode": "adv_gap = batch['advantage_gap']\nl_diff = batch['log_prob_w'] - batch['log_prob_l']\ninv_adv = 1 / (abs(adv_gap) + epsilon)\nscore = l_diff * inv_adv\nloss = mean(weight * softplus(-score))",
+    "hyperparams": {
+      "paradigm_family": "pairwise_contrastive",
+      "signal_family": "advantage_gap_reciprocal",
+      "link_family": "softplus",
+      "agg_family": "mean",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "softplus",
+      "sub",
+      "abs",
+      "add",
+      "div",
+      "mul",
+      "mean",
+      "neg"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    abs_adv = ops.add(ops.abs(adv_gap), epsilon)\n    inv_adv = ops.div(ops.ones_like(abs_adv), abs_adv)\n    l_diff = ops.sub(lpw, lpl)\n    score = ops.mul(l_diff, inv_adv)\n    neg_score = ops.neg(score)\n    loss_vec = ops.softplus(neg_score)\n    if weight is not None:\n        loss_vec = ops.mul(loss_vec, weight)\n    return ops.mean(loss_vec)",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.0,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
