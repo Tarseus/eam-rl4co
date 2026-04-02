@@ -24,6 +24,7 @@ from .ptp_high_fidelity import (
     get_total_hf_train_steps,
 )
 from ptp_discovery.free_loss_compiler import CompiledFreeLoss
+from ptp_discovery.cuda_diagnostics import collect_cuda_snapshot, format_cuda_snapshot
 
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,26 @@ def _cfg_like_get(cfg_like: Mapping[str, Any] | Any, key: str, default: Any = No
     if isinstance(cfg_like, Mapping):
         return cfg_like.get(key, default)
     return getattr(cfg_like, key, default)
+
+
+def _cuda_diag_enabled(cfg_like: Mapping[str, Any] | Any) -> bool:
+    return bool(_cfg_like_get(cfg_like, "cuda_diagnostics_enabled", False))
+
+
+def _log_cuda_diag(
+    *,
+    cfg_like: Mapping[str, Any] | Any,
+    device: torch.device,
+    message: str,
+) -> Dict[str, Any] | None:
+    if device.type != "cuda" or not _cuda_diag_enabled(cfg_like):
+        return None
+    snap = collect_cuda_snapshot(
+        devices=[str(device)],
+        include_nvidia_smi=bool(_cfg_like_get(cfg_like, "cuda_diagnostics_include_nvidia_smi", True)),
+    )
+    logger.info("%s %s", str(message), format_cuda_snapshot(snap))
+    return snap
 
 
 def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
@@ -1499,12 +1520,53 @@ def _evaluate_free_loss_candidate_rl4co(
     ) -> Dict[str, Any]:
         _set_seed(cfg.hf.seed)
 
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot before env build",
+        )
         env = _rl4co_build_env(cfg.hf, cfg.hf.train_problem_size)
-        env = env.to(device)
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after env build before env.to",
+        )
+        try:
+            env = env.to(device)
+        except Exception:
+            _log_cuda_diag(
+                cfg_like=cfg.hf,
+                device=device,
+                message=f"RL4CO phase={phase} cuda snapshot on env.to exception",
+            )
+            raise
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after env.to",
+        )
         policy, rollout_strategy = _rl4co_build_policy(cfg.hf, env)
         if init_ckpt:
             _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
-        policy = policy.to(device)
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after policy build before policy.to",
+        )
+        try:
+            policy = policy.to(device)
+        except Exception:
+            _log_cuda_diag(
+                cfg_like=cfg.hf,
+                device=device,
+                message=f"RL4CO phase={phase} cuda snapshot on policy.to exception",
+            )
+            raise
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after policy.to",
+        )
         scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
         optimizer = Adam(
             policy.parameters(),
@@ -1679,6 +1741,11 @@ def _evaluate_free_loss_candidate_rl4co(
                 _empty_cuda_cache_for_device(device, synchronize=True)
         except Exception:  # noqa: BLE001
             pass
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after cleanup",
+        )
 
         return {
             "phase": phase,
