@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 _OFFLINE_TENSORDICT_CACHE: dict[str, Any] = {}
+_PRECISION_OVERRIDE_WARNED: set[tuple[str, str, str, str]] = set()
 _PAIRWISE_OPTIONAL_KEY_FAMILIES: dict[str, tuple[str, str, str]] = {
     "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
     "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
@@ -130,6 +131,27 @@ def _normalize_precision_mode(value: str | None) -> str:
     if mode in {"bf16", "bf16-mixed"}:
         return "bf16-mixed"
     return "32-true"
+
+
+def _effective_precision_mode(cfg_like: Mapping[str, Any] | Any) -> str:
+    requested = _normalize_precision_mode(_cfg_like_get(cfg_like, "precision", "32-true"))
+    env_name = str(
+        _cfg_like_get(cfg_like, "env_name", _cfg_like_get(cfg_like, "problem", "")) or ""
+    ).strip().lower()
+    policy_name = str(_cfg_like_get(cfg_like, "policy_name", "") or "").strip().lower()
+    if requested == "16-mixed" and env_name == "ffsp" and policy_name == "matnet":
+        key = (env_name, policy_name, requested, "32-true")
+        if key not in _PRECISION_OVERRIDE_WARNED:
+            logger.warning(
+                "Overriding precision from %s to 32-true for env=%s policy=%s in RL4CO HF rollout "
+                "to avoid FFSP MatNet CUDA invalid-argument failures.",
+                requested,
+                env_name,
+                policy_name,
+            )
+            _PRECISION_OVERRIDE_WARNED.add(key)
+        return "32-true"
+    return requested
 
 
 def _normalize_po_impl(value: str | None) -> str:
@@ -1182,7 +1204,7 @@ def _train_one_batch_with_free_loss_rl4co(
         phase="train",
         rollout_strategy=rollout_strategy,
         device=device,
-        precision=str(getattr(hf_cfg, "precision", "32-true") or "32-true"),
+        precision=_effective_precision_mode(hf_cfg),
         return_actions=want_actions,
         return_entropy=want_entropy,
         return_step_logp=want_step_logp,
@@ -1311,7 +1333,7 @@ def _evaluate_rl4co_model(
             phase="test",
             rollout_strategy=rollout_strategy,
             device=device,
-            precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
+            precision=_effective_precision_mode(cfg),
         )
         max_reward, _ = reward.max(dim=1)
         score = _rl4co_objective_from_reward(max_reward, cfg).float().mean().item()
@@ -1370,7 +1392,7 @@ def _evaluate_free_loss_candidate_rl4co(
         if cfg.init_checkpoint_path:
             _load_policy_weights_from_checkpoint(policy, str(cfg.init_checkpoint_path))
         policy = policy.to(device)
-        scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
+        scaler = _make_grad_scaler(device, _effective_precision_mode(cfg.hf))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.hf.learning_rate),
@@ -1567,7 +1589,7 @@ def _evaluate_free_loss_candidate_rl4co(
             device=device,
             message=f"RL4CO phase={phase} cuda snapshot after policy.to",
         )
-        scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
+        scaler = _make_grad_scaler(device, _effective_precision_mode(cfg.hf))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.hf.learning_rate),
@@ -2229,7 +2251,7 @@ def evaluate_po_baseline_rl4co(
         if init_ckpt:
             _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
         policy = policy.to(device)
-        scaler = _make_grad_scaler(device, str(getattr(cfg, "precision", "32-true") or "32-true"))
+        scaler = _make_grad_scaler(device, _effective_precision_mode(cfg))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.learning_rate),
@@ -2269,7 +2291,7 @@ def evaluate_po_baseline_rl4co(
                 phase="train",
                 rollout_strategy=rollout_strategy,
                 device=device,
-                precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
+                precision=_effective_precision_mode(cfg),
             )
             reward = reward.float()
             log_likelihood = log_likelihood.float()

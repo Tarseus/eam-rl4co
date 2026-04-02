@@ -10,7 +10,7 @@ for path in (repo_root, ptp_root):
     if path_s not in sys.path:
         sys.path.insert(0, path_s)
 
-from fitness.free_loss_fidelity import _should_aggressive_cuda_cleanup
+from fitness.free_loss_fidelity import _effective_precision_mode, _should_aggressive_cuda_cleanup
 
 
 def test_aggressive_cuda_cleanup_enabled_for_ffsp100() -> None:
@@ -38,3 +38,21 @@ def test_aggressive_cuda_cleanup_disabled_for_other_envs() -> None:
         "train_problem_size": 100,
     }
     assert _should_aggressive_cuda_cleanup(cfg) is False
+
+
+def test_ffsp_matnet_mixed_precision_forces_fp32() -> None:
+    cfg = {
+        "env_name": "ffsp",
+        "policy_name": "matnet",
+        "precision": "16-mixed",
+    }
+    assert _effective_precision_mode(cfg) == "32-true"
+
+
+def test_other_policies_keep_requested_precision() -> None:
+    cfg = {
+        "env_name": "tsp",
+        "policy_name": "am",
+        "precision": "16-mixed",
+    }
+    assert _effective_precision_mode(cfg) == "16-mixed"
