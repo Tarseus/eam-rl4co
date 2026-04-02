@@ -65,6 +65,17 @@ def test_hf_subprocess_failure_record_preserves_logical_device_metadata():
     assert rec["device_logical_str"] == "cuda:0"
 
 
+def test_collect_cuda_snapshot_and_format_without_requested_devices():
+    diag = importlib.import_module("ptp_discovery.cuda_diagnostics")
+
+    snapshot = diag.collect_cuda_snapshot(devices=[], include_nvidia_smi=False)
+    text = diag.format_cuda_snapshot(snapshot)
+
+    assert isinstance(snapshot, dict)
+    assert snapshot["requested_devices"] == []
+    assert text.startswith("cuda_diag(")
+
+
 def test_run_hf_pair_eval_sets_logical_device_after_cuda_visible_devices_remap(monkeypatch, tmp_path):
     worker = importlib.import_module("ptp_discovery.run_hf_pair_eval")
 

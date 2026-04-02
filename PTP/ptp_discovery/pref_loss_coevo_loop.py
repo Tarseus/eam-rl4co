@@ -83,6 +83,7 @@ from ptp_discovery.pref_builder_ir import (
 
 import ptp_discovery.free_loss_llm_ops as loss_llm_ops
 import ptp_discovery.pref_builder_llm_ops as builder_llm_ops
+from ptp_discovery.cuda_diagnostics import collect_cuda_snapshot, format_cuda_snapshot
 from ptp_discovery.runtime_trace import RuntimeTrace
 
 
@@ -97,21 +98,65 @@ def _cache_brief(caches: PrefLossEvalCaches) -> str:
 
 
 def _cuda_mem_brief(devices: Sequence[str]) -> str:
-    if not torch.cuda.is_available():
-        return "cuda=unavailable"
-    out: list[str] = []
-    for d in devices:
-        ds = str(d)
-        if not ds.startswith("cuda"):
-            continue
-        try:
-            dev = torch.device(ds)
-            alloc_gb = float(torch.cuda.memory_allocated(dev)) / (1024**3)
-            reserv_gb = float(torch.cuda.memory_reserved(dev)) / (1024**3)
-            out.append(f"{ds}(alloc={alloc_gb:.2f}G,resv={reserv_gb:.2f}G)")
-        except Exception:  # noqa: BLE001
-            continue
-    return "cuda(" + " ".join(out) + ")" if out else "cuda=ok"
+    return format_cuda_snapshot(collect_cuda_snapshot(devices=list(devices), include_nvidia_smi=False))
+
+
+def _cuda_diagnostics_enabled(cfg_like: Mapping[str, Any] | None) -> bool:
+    return bool(isinstance(cfg_like, Mapping) and cfg_like.get("cuda_diagnostics_enabled", False))
+
+
+def _cuda_diagnostics_include_nvidia_smi(cfg_like: Mapping[str, Any] | None) -> bool:
+    if not isinstance(cfg_like, Mapping):
+        return False
+    return bool(cfg_like.get("cuda_diagnostics_include_nvidia_smi", True))
+
+
+def _capture_cuda_diag_for_cfg(
+    cfg_like: Mapping[str, Any] | None,
+    *,
+    devices: Sequence[str] | None,
+) -> Dict[str, Any] | None:
+    if not _cuda_diagnostics_enabled(cfg_like):
+        return None
+    return collect_cuda_snapshot(
+        devices=list(devices) if devices is not None else None,
+        include_nvidia_smi=_cuda_diagnostics_include_nvidia_smi(cfg_like),
+    )
+
+
+def _append_cuda_diag_jsonl(path: str | None, record: Mapping[str, Any] | None) -> None:
+    if not path or not isinstance(record, Mapping):
+        return
+    parent = os.path.dirname(os.path.abspath(path))
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(dict(record), ensure_ascii=False) + "\n")
+
+
+def _record_cuda_diag_event(
+    *,
+    cfg_like: Mapping[str, Any] | None,
+    devices: Sequence[str] | None,
+    logger: logging.Logger | None,
+    message: str,
+    jsonl_path: str | None = None,
+    extra: Mapping[str, Any] | None = None,
+) -> Dict[str, Any] | None:
+    snap = _capture_cuda_diag_for_cfg(cfg_like, devices=devices)
+    if snap is None:
+        return None
+    if logger is not None:
+        logger.info("%s %s", str(message), format_cuda_snapshot(snap))
+    record: Dict[str, Any] = {
+        "ts": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "message": str(message),
+        "snapshot": snap,
+    }
+    if isinstance(extra, Mapping):
+        record["extra"] = dict(extra)
+    _append_cuda_diag_jsonl(jsonl_path, record)
+    return record
 
 
 def _normalize_device_alias(device_str: str) -> str:
@@ -2058,9 +2103,29 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
                 f"gen{int(gen):03d}_pair{int(pair_index):03d}_{str(physical_device).replace(':', '_')}",
             )
             os.makedirs(task_dir, exist_ok=True)
+            diag_jsonl_path = os.path.join(task_dir, "cuda_diagnostics.jsonl")
             payload_path = os.path.join(task_dir, "payload.json")
             result_path = os.path.join(task_dir, "result.json")
             log_path = os.path.join(task_dir, "subprocess.log")
+            task["hf_cuda_diag_jsonl_path"] = diag_jsonl_path
+            launch_diag = _record_cuda_diag_event(
+                cfg_like=task.get("cfg_yaml") if isinstance(task.get("cfg_yaml"), Mapping) else None,
+                devices=list(device_list),
+                logger=LOGGER,
+                message=f"HF subprocess launch gen={int(gen)} pair_index={int(pair_index)} physical_device={physical_device}",
+                jsonl_path=diag_jsonl_path,
+                extra={
+                    "generation": int(gen),
+                    "pair_index": int(pair_index),
+                    "physical_device": str(physical_device),
+                    "logical_device": str(worker_device),
+                    "g_id": str(task.get("g_entry", {}).get("id", task.get("g_id", ""))),
+                    "f_id": str(task.get("f_entry", {}).get("id", task.get("f_id", ""))),
+                    "event": "scheduler_launch_before_spawn",
+                },
+            )
+            if launch_diag is not None:
+                task["scheduler_launch_cuda_diag"] = launch_diag.get("snapshot")
             _atomic_write_json(payload_path, task)
             timeout_s = _resolve_hf_timeout_s(task.get("cfg_yaml"), default=None)
 
@@ -2170,6 +2235,29 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
                 rec["device_physical_str"] = physical_device
             rec["hf_subprocess_log"] = os.path.relpath(str(meta["log_path"]), start=run_dir)
             rec["hf_subprocess_result"] = os.path.relpath(result_path, start=run_dir)
+            if task.get("hf_cuda_diag_jsonl_path"):
+                rec["hf_cuda_diagnostics"] = os.path.relpath(str(task.get("hf_cuda_diag_jsonl_path")), start=run_dir)
+            finish_diag = _record_cuda_diag_event(
+                cfg_like=task.get("cfg_yaml") if isinstance(task.get("cfg_yaml"), Mapping) else None,
+                devices=list(device_list),
+                logger=LOGGER,
+                message=(
+                    f"HF subprocess finished gen={_safe_int(task.get('generation', -1), -1)} "
+                    f"pair_index={_safe_int(task.get('pair_index', -1), -1)} physical_device={physical_device}"
+                ),
+                jsonl_path=str(task.get("hf_cuda_diag_jsonl_path") or ""),
+                extra={
+                    "generation": _safe_int(task.get("generation", -1), -1),
+                    "pair_index": _safe_int(task.get("pair_index", -1), -1),
+                    "physical_device": str(physical_device),
+                    "exit_code": exitcode,
+                    "pair_reason": rec.get("pair_reason"),
+                    "pair_ok": rec.get("pair_ok"),
+                    "event": "scheduler_after_child_finish",
+                },
+            )
+            if finish_diag is not None:
+                rec["scheduler_finish_cuda_diag"] = finish_diag.get("snapshot")
             results_by_key[key] = dict(rec)
             active.remove(meta)
             try:
@@ -5287,6 +5375,8 @@ def _build_hf_cfg(cfg: Mapping[str, Any], *, seed: int, device_str: str) -> High
         size_cvar_alpha=float(cfg.get("size_cvar_alpha", 0.2)),
         pool_version=str(cfg.get("pool_version", "v0")),
         loss_observables=_resolve_loss_observables(cfg),
+        cuda_diagnostics_enabled=bool(cfg.get("cuda_diagnostics_enabled", False)),
+        cuda_diagnostics_include_nvidia_smi=bool(cfg.get("cuda_diagnostics_include_nvidia_smi", True)),
     )
 
 
@@ -8160,6 +8250,15 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "seed_signature": None,
         "descriptor": None,
     }
+    if isinstance(payload.get("scheduler_launch_cuda_diag"), Mapping):
+        record["scheduler_launch_cuda_diag"] = dict(payload.get("scheduler_launch_cuda_diag") or {})
+    if isinstance(payload.get("worker_start_cuda_diag"), Mapping):
+        record["worker_start_cuda_diag"] = dict(payload.get("worker_start_cuda_diag") or {})
+    if payload.get("hf_cuda_diag_jsonl_path") and run_dir_s:
+        try:
+            record["hf_cuda_diagnostics"] = os.path.relpath(str(payload.get("hf_cuda_diag_jsonl_path")), start=run_dir_s)
+        except Exception:  # noqa: BLE001
+            pass
     if proxy_record is not None:
         record["proxy_metrics"] = proxy_record.get("proxy_metrics")
         record["seed_signature"] = proxy_record.get("seed_signature")
@@ -9842,8 +9941,21 @@ def run_pref_loss_coevo(
     else:
         run_dir = _timestamp_dir(out_root)
 
+    cuda_diag_jsonl_path = os.path.join(run_dir, "cuda_diagnostics.jsonl")
     LOGGER.info("Run directory: %s", os.path.abspath(run_dir))
     LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+    _record_cuda_diag_event(
+        cfg_like=cfg_yaml,
+        devices=list(device_list),
+        logger=LOGGER,
+        message="Run initialized CUDA snapshot",
+        jsonl_path=cuda_diag_jsonl_path,
+        extra={
+            "event": "run_initialized",
+            "run_dir": os.path.abspath(str(run_dir)),
+            "devices": list(device_list),
+        },
+    )
     try:
         runtime_trace_hb_s = max(5.0, float(cfg_yaml.get("runtime_trace_heartbeat_s", 30.0) or 30.0))
     except (TypeError, ValueError):
@@ -10853,6 +10965,18 @@ def run_pref_loss_coevo(
                 "next_generation": int(gen + 1),
             },
             force=True,
+        )
+        _record_cuda_diag_event(
+            cfg_like=cfg_yaml,
+            devices=list(device_list),
+            logger=LOGGER,
+            message=f"Generation {int(gen)} start CUDA snapshot",
+            jsonl_path=cuda_diag_jsonl_path,
+            extra={
+                "event": "generation_start",
+                "generation": int(gen),
+                "phase": str(generation_phase_label),
+            },
         )
         if phase_block_label is None:
             phase_block_label = str(generation_phase_label)
@@ -12910,6 +13034,19 @@ def run_pref_loss_coevo(
                     str(mp_enabled),
                     int(mp_processes),
                 )
+                _record_cuda_diag_event(
+                    cfg_like=cfg_yaml,
+                    devices=list(device_list),
+                    logger=LOGGER,
+                    message=f"HF batch start gen={int(gen)} tasks={int(len(hf_tasks))}",
+                    jsonl_path=cuda_diag_jsonl_path,
+                    extra={
+                        "event": "hf_batch_start",
+                        "generation": int(gen),
+                        "task_count": int(len(hf_tasks)),
+                        "assignment": dict(collections.Counter(str(t.get("device_str", "")) for t in hf_tasks)),
+                    },
+                )
                 hf_scheduler_mode = _hf_scheduler_mode(cfg_yaml)
                 if mp_enabled and mp_processes > 0 and len(hf_tasks) > 1:
                     procs = min(int(mp_processes), max(1, len(hf_tasks)), max(1, len(device_list)))
@@ -12966,6 +13103,18 @@ def run_pref_loss_coevo(
                 else:
                     for task in hf_tasks:
                         hf_results.append(_evaluate_pair_worker(task))
+                _record_cuda_diag_event(
+                    cfg_like=cfg_yaml,
+                    devices=list(device_list),
+                    logger=LOGGER,
+                    message=f"HF batch end gen={int(gen)} tasks={int(len(hf_tasks))}",
+                    jsonl_path=cuda_diag_jsonl_path,
+                    extra={
+                        "event": "hf_batch_end",
+                        "generation": int(gen),
+                        "task_count": int(len(hf_tasks)),
+                    },
+                )
                 for hf_rec in hf_results:
                     joint_gate_repair_attempt_records_gen.extend(
                         _pop_joint_gate_repair_reports(hf_rec)
