@@ -7,6 +7,8 @@ import sys
 import traceback
 from typing import Any, Dict, Mapping
 
+import torch
+
 
 if __package__ is None or __package__ == "":
     ptp_discovery_dir = os.path.dirname(os.path.abspath(__file__))
@@ -62,6 +64,9 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(f"Invalid payload JSON (expected dict): {args.payload}")
 
         payload = dict(payload_raw)
+        physical_device = str(payload.get("device_physical_str") or payload.get("device_str") or "")
+        if physical_device.startswith("cuda") and torch.cuda.is_available():
+            torch.cuda.set_device(torch.device(physical_device))
         trace.heartbeat(
             extra={
                 "generation": payload.get("generation"),

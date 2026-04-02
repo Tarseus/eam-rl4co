@@ -130,6 +130,14 @@ class _SafeCodeValidator(ast.NodeVisitor):
         "socket",
         "pathlib",
     }
+    _DISALLOWED_TENSOR_METHOD_CALLS = {
+        "max",
+        "min",
+        "maximum",
+        "minimum",
+        "norm",
+        "sign",
+    }
 
     _FORBIDDEN_COMPLEXITY_NODES = (
         ast.For,
@@ -158,6 +166,13 @@ class _SafeCodeValidator(ast.NodeVisitor):
                 raise CompileError(
                     f"Loss code must not access '{base.id}.{func.attr}'. "
                     "Only tensor-level math using torch/F is allowed."
+                )
+            if (
+                func.attr in self._DISALLOWED_TENSOR_METHOD_CALLS
+                and not (isinstance(base, ast.Name) and base.id == "ops")
+            ):
+                raise CompileError(
+                    f"Loss code must use 'ops.{func.attr}(...)' instead of tensor method '.{func.attr}(...)'."
                 )
         self.generic_visit(node)
 
@@ -219,6 +234,67 @@ def _rank_gap(cost_a: torch.Tensor, cost_b: torch.Tensor) -> torch.Tensor:
     return cost_b - cost_a
 
 
+def _tensor_reduce_max(
+    x: torch.Tensor,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if dim is None:
+        return torch.max(x)
+    values, _ = torch.max(x, dim=int(dim), keepdim=bool(keepdim))
+    return values
+
+
+def _tensor_reduce_min(
+    x: torch.Tensor,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if dim is None:
+        return torch.min(x)
+    values, _ = torch.min(x, dim=int(dim), keepdim=bool(keepdim))
+    return values
+
+
+def _ops_max(
+    x: torch.Tensor,
+    other: torch.Tensor | None = None,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if other is not None:
+        return torch.maximum(x, other)
+    return _tensor_reduce_max(x, dim=dim, keepdim=keepdim)
+
+
+def _ops_min(
+    x: torch.Tensor,
+    other: torch.Tensor | None = None,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if other is not None:
+        return torch.minimum(x, other)
+    return _tensor_reduce_min(x, dim=dim, keepdim=keepdim)
+
+
+def _ops_norm(
+    x: torch.Tensor,
+    p: float | int = 2,
+    dim: int | Sequence[int] | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    kwargs: Dict[str, Any] = {"p": p}
+    if dim is not None:
+        kwargs["dim"] = dim
+        kwargs["keepdim"] = bool(keepdim)
+    return torch.norm(x, **kwargs)
+
+
 def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
     return {
         "logsigmoid": F.logsigmoid,
@@ -245,6 +321,12 @@ def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
         "normalize": _safe_normalize,
         "zscore": _safe_zscore,
         "rank_gap": _rank_gap,
+        "max": _ops_max,
+        "min": _ops_min,
+        "maximum": torch.maximum,
+        "minimum": torch.minimum,
+        "sign": torch.sign,
+        "norm": _ops_norm,
     }
 
 

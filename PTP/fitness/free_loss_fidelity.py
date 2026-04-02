@@ -69,6 +69,28 @@ def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
     return env_name == "ffsp" and ffsp_jobs >= 100
 
 
+def _empty_cuda_cache_for_device(
+    device: torch.device,
+    *,
+    collect_garbage: bool = False,
+    synchronize: bool = False,
+) -> None:
+    if device.type != "cuda" or not torch.cuda.is_available():
+        return
+    if collect_garbage:
+        try:
+            gc.collect()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        with torch.cuda.device(device):
+            if synchronize:
+                torch.cuda.synchronize(device)
+            torch.cuda.empty_cache()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _maybe_aggressive_cuda_cleanup(
     device: torch.device,
     cfg_like: Mapping[str, Any] | Any,
@@ -77,15 +99,7 @@ def _maybe_aggressive_cuda_cleanup(
 ) -> None:
     if device.type != "cuda" or not _should_aggressive_cuda_cleanup(cfg_like):
         return
-    if collect_garbage:
-        try:
-            gc.collect()
-        except Exception:  # noqa: BLE001
-            pass
-    try:
-        torch.cuda.empty_cache()
-    except Exception:  # noqa: BLE001
-        pass
+    _empty_cuda_cache_for_device(device, collect_garbage=collect_garbage, synchronize=True)
 
 
 def _normalize_precision_mode(value: str | None) -> str:
@@ -1424,7 +1438,7 @@ def _evaluate_free_loss_candidate_rl4co(
                     rollout_strategy=rollout_strategy,
                 )
                 if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                    _empty_cuda_cache_for_device(device, synchronize=True)
                 if baseline_early_valid is not None and early_validation_objective > baseline_early_valid:
                     early_stopped = True
                     logger.info(
@@ -1450,7 +1464,7 @@ def _evaluate_free_loss_candidate_rl4co(
                 )
             )
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            _empty_cuda_cache_for_device(device, synchronize=True)
 
         primary_phase = "single_steps"
         primary_epochs_total = 0
@@ -1606,7 +1620,7 @@ def _evaluate_free_loss_candidate_rl4co(
                         rollout_strategy=rollout_strategy,
                     )
                     if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
+                        _empty_cuda_cache_for_device(device, synchronize=True)
                     epoch_objectives.append(epoch_valid_obj)
                     logger.info(
                         "RL4CO free-loss[%s] epoch %d/%d: validation_objective=%.6f",
@@ -1627,7 +1641,7 @@ def _evaluate_free_loss_candidate_rl4co(
                     rollout_strategy=rollout_strategy,
                 )
                 if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
+                    _empty_cuda_cache_for_device(device, synchronize=True)
                 if (
                     baseline_early_valid_phase is not None
                     and early_validation_objective > baseline_early_valid_phase
@@ -1657,12 +1671,12 @@ def _evaluate_free_loss_candidate_rl4co(
                 )
             )
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            _empty_cuda_cache_for_device(device, synchronize=True)
 
         try:
             env = None
             if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+                _empty_cuda_cache_for_device(device, synchronize=True)
         except Exception:  # noqa: BLE001
             pass
 
