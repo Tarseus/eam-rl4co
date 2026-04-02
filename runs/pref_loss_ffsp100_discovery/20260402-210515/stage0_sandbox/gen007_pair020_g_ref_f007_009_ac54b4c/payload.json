@@ -1,0 +1,102 @@
+{
+  "generation": 7,
+  "pair_index": 20,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f007_009_ac54b4c2",
+    "ir": {
+      "name": "loss_pairwise_log_prob_margin_advantage_cost",
+      "intuition": "Fixed operator contract failure by changing both paradigm_family from 'pairwise' to 'pairwise' (unchanged), and changing constraint_family from 'none' to 'none' (unchanged) was insufficient; thus also changed signal_family from 'advantage_gap' to 'cost_gap' to satisfy required tag changes. This repair replaces the advantage-based margin with a cost-based margin, aligning with signaling requirements while keeping a softplus hinge for smoothness and using the margin parameter to soften the penalization boundary. This ensures the loss respects the contract constraints and maintains differentiability and vectorized scoring.",
+      "pseudocode": "margin = (log_prob_w - log_prob_l) - cost_gap\nloss_margin = softplus(margin_param - margin)\nloss = mean(loss_margin * weight)",
+      "hyperparams": {
+        "paradigm_family": "pairwise",
+        "signal_family": "cost_gap",
+        "agg_family": "mean",
+        "constraint_family": "none",
+        "margin_param": 0.1
+      },
+      "operators_used": [
+        "sub",
+        "softplus",
+        "mean",
+        "mul"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    cost_gap = batch['cost_gap']\n    weight = batch['weight']\n\n    margin_param = float(extra.get('margin_param', extra.get('hyperparams', {}).get('margin_param', 0.1)))\n\n    margin = ops.sub(ops.sub(lpw, lpl), cost_gap)  # (log_prob_w - log_prob_l) - cost_gap\n    loss_margin = ops.softplus(ops.sub(margin_param, margin))  # softplus(margin_param - margin) smooth hinge\n\n    weighted_loss = ops.mul(loss_margin, weight)\n    return ops.mean(weighted_loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
