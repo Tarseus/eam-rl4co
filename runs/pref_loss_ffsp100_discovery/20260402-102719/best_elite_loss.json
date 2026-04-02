@@ -1,10 +1,10 @@
 {
   "generation": 0,
-  "index": 0,
-  "id": "f000_000_b875484e",
-  "signature": "b875484e693387ab8fb4f94b32bc418111a29524",
-  "family": "pairwise_hinge|advantage_gap|mean|nonnegative",
-  "family_signature": "paradigm=pairwise_hinge|signal=advantage_gap|agg=mean|constraint=nonnegative",
+  "index": 2,
+  "id": "f000_002_ec5a2eef",
+  "signature": "ec5a2eef950c7820804134b9aa5898bd406f64a0",
+  "family": "pairwise_softnorm|advantage_gap|mean|none",
+  "family_signature": "paradigm=pairwise_softnorm|signal=advantage_gap|agg=mean|constraint=none",
   "origin": "PARADIGM_SHIFT",
   "origin_base": "PARADIGM_SHIFT",
   "op_type": "LOSS_PARADIGM_SHIFT",
@@ -13,34 +13,34 @@
     "bootstrap_f_001"
   ],
   "attempt": 0,
-  "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae",
+  "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260",
   "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
-  "llm_seed": 197419547,
+  "llm_seed": 1298922895,
   "history": [
     {
       "attempt": 0,
       "side": "loss",
       "llm_op": "LOSS_PARADIGM_SHIFT",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
-      "prompt_sha1": "0b8e77cd5d13c52f46819766e40371b67016e9ae"
+      "prompt_sha1": "171308ce772c73b9893909674be9eb8605c55260"
     }
   ],
   "novelty": {
-    "max_similarity": 0.3,
+    "max_similarity": 0.3888888888888889,
     "best_similarity_parts": {
-      "bigram": 0.1,
-      "unigram": 0.3,
-      "call": 0.21428571428571427
+      "bigram": 0.15384615384615385,
+      "unigram": 0.3888888888888889,
+      "call": 0.16666666666666666
     },
     "neighbors": [
       {
         "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
         "name": "loss_logsigmoid_001",
-        "similarity": 0.3,
+        "similarity": 0.3888888888888889,
         "similarity_parts": {
-          "bigram": 0.1,
-          "unigram": 0.3,
-          "call": 0.21428571428571427
+          "bigram": 0.15384615384615385,
+          "unigram": 0.3888888888888889,
+          "call": 0.16666666666666666
         },
         "call_names_top": [
           "batch.get",
@@ -53,13 +53,35 @@
         ]
       },
       {
-        "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
-        "name": "loss_logsigmoid_000_cost",
-        "similarity": 0.2857142857142857,
+        "sig": "b875484e693387ab8fb4f94b32bc418111a29524",
+        "name": "loss_margin_rank_sqrt_advantage_gap",
+        "similarity": 0.3888888888888889,
         "similarity_parts": {
-          "bigram": 0.08823529411764706,
-          "unigram": 0.2857142857142857,
-          "call": 0.2
+          "bigram": 0.13636363636363635,
+          "unigram": 0.3888888888888889,
+          "call": 0.3076923076923077
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "ops.abs",
+          "ops.max",
+          "ops.mean",
+          "ops.mul",
+          "ops.sqrt",
+          "ops.sub",
+          "ops.zeros_like"
+        ]
+      },
+      {
+        "sig": "58e0598d0d36a7a1164dd626ecac4c86161acb92",
+        "name": "loss_logsigmoid_000_cost_shifted_agg",
+        "similarity": 0.38095238095238093,
+        "similarity_parts": {
+          "bigram": 0.11428571428571428,
+          "unigram": 0.38095238095238093,
+          "call": 0.23076923076923078
         },
         "call_names_top": [
           "batch.get",
@@ -67,29 +89,31 @@
           "extra.get",
           "float",
           "get",
-          "loss.mean",
           "ops.clamp",
-          "ops.logsigmoid"
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.sum"
         ]
       }
     ]
   },
   "ir": {
-    "name": "loss_margin_rank_sqrt_advantage_gap",
-    "intuition": "Switches paradigm from probabilistic margin to margin rank loss using sqrt-transformed advantage gap as weighting to emphasize moderate gaps, leveraging a hinge-style ranking loss.",
-    "pseudocode": "diff = lpw - lpl\nhinge = max(0, margin - diff)\nweighting = sqrt(abs(advantage_gap))\nloss = weighting * hinge\nreturn mean(loss * weight)",
+    "name": "loss_pairwise_advantage_tanh_exp",
+    "intuition": "Shift paradigm from margin-based losses to a soft nonlinear advantage weighting that modulates the difference in log probabilities with a tanh of the advantage signal, enhancing gradient smoothness and informativeness.",
+    "pseudocode": "adv_norm = tanh(advantage_gap)\nx = (log_prob_w - log_prob_l) * exp(adv_norm)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nreturn mean(weighted_loss)",
     "hyperparams": {
-      "paradigm_family": "pairwise_hinge",
+      "paradigm_family": "pairwise_softnorm",
       "signal_family": "advantage_gap",
-      "link_family": "linear",
+      "link_family": "logsigmoid",
       "agg_family": "mean",
-      "constraint_family": "nonnegative"
+      "constraint_family": "none"
     },
     "operators_used": [
-      "max",
-      "abs",
-      "sqrt",
+      "tanh",
+      "exp",
+      "logsigmoid",
       "mul",
+      "sub",
       "mean"
     ],
     "implementation_hint": {
@@ -102,7 +126,7 @@
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    margin = float(extra.get('margin', 1.0))\n    diff = ops.sub(lpw, lpl)\n    zero = ops.zeros_like(diff)\n    hinge = ops.max(ops.sub(margin, diff), zero)\n    weighting = ops.sqrt(ops.abs(adv_gap))\n    loss = ops.mul(weighting, hinge)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    adv_norm = ops.tanh(adv_gap)\n    x = ops.mul(ops.sub(lpw, lpl), ops.exp(adv_norm))\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
     "theoretical_basis": ""
   },
   "static_ok": true,
@@ -110,7 +134,7 @@
   "static_trace": null,
   "compile_ok": true,
   "compile_reason": "ok",
-  "fitness": Infinity,
+  "fitness": 0.0,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,

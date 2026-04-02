@@ -1,0 +1,107 @@
+{
+  "generation": 2,
+  "pair_index": 27,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_014_7b5ffb70",
+    "ir": {
+      "name": "pairwise_advantage_softplus_modulation",
+      "intuition": "Replaced the tanh-based modulation of advantage_gap with a softplus-based smooth, monotonic transform to reduce similarity to prior tanh+logsigmoid designs. Using softplus on advantage_gap scaled and subtracted by a bias produces a unidirectional modulation that enhances positive gaps while softly suppressing negative ones. Maintained combination with the log_prob difference and clamp for stability. This avoids the symmetric saturation behavior of tanh, providing a unique nonlinear adjustment and thus reduces textual overlap and improves novelty.",
+      "pseudocode": "gap = advantage_gap.detach()\nscaled_gap = softplus(gap * gap_scale + bias) - bias_shift\nscore = alpha * (log_prob_w - log_prob_l) + scaled_gap\nscore = clamp(score, -20, 20)\nloss = -logsigmoid(score)\nif weight is not None:\n    loss = loss * weight\nreturn mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid_softplus_modulation",
+        "agg_family": "mean",
+        "constraint_family": "clamp_stabilized",
+        "other_hparams": "scale and bias parameters control softplus shift and modulation"
+      },
+      "operators_used": [
+        "detach",
+        "softplus",
+        "mul",
+        "add",
+        "sub",
+        "clamp",
+        "logsigmoid",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "advantage_gap",
+          "weight"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    gap = batch['advantage_gap'].detach()\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    gap_scale = float(extra.get('hyperparams', {}).get('gap_scale', 3.0))\n    bias = float(extra.get('hyperparams', {}).get('bias', 1.0))\n    bias_shift = float(extra.get('hyperparams', {}).get('bias_shift', 0.5))\n    scaled_gap = ops.sub(ops.softplus(ops.add(ops.mul(gap, gap_scale), bias)), bias_shift)\n    score = ops.add(ops.mul(alpha, ops.sub(lpw, lpl)), scaled_gap)\n    score = ops.clamp(score, -20.0, 20.0)\n    loss = -ops.logsigmoid(score)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

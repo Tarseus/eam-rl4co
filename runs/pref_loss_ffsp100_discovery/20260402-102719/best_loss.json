@@ -1,47 +1,84 @@
 {
-  "id": "f_ref",
+  "id": "f001_003_a0caeae1",
   "ir": {
-    "name": "ref_logsigmoid",
-    "intuition": "Reference loss: negative logsigmoid on log-prob winner-loser gap.",
-    "pseudocode": "loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
+    "name": "loss_pairwise_weighted_ranknorm_advantage_gap",
+    "intuition": "A pairwise ranking loss that replaces the logistic/logsigmoid link with a rank-normalization approach. It computes a normalized rank gap between winning and losing pairs, then weights this rank difference by a sigmoid-transformed advantage gap. This paradigm uses rank-based normalization for signal contrast combined with soft non-linear weighting, promoting stable and smooth preference gradients while emphasizing pairs with meaningful advantage gaps.",
+    "pseudocode": "rank_diff = rank_gap(log_prob_w, log_prob_l)\nweight_sigmoid = sigmoid(advantage_gap)\nweighted_rank_loss = weight * rank_diff * weight_sigmoid\nloss = mean(weighted_rank_loss)",
     "hyperparams": {
-      "alpha": 1.0,
-      "paradigm_family": "pairwise_margin",
-      "signal_family": "logprob_gap",
-      "link_family": "logsigmoid",
+      "paradigm_family": "pairwise_ranknorm",
+      "signal_family": "advantage_gap",
+      "link_family": "sigmoid",
       "agg_family": "mean",
-      "constraint_family": "weight_optional"
+      "constraint_family": "weighted_nonnegative"
     },
     "operators_used": [
-      "logsigmoid"
+      "rank_gap",
+      "sigmoid",
+      "mul",
+      "mean"
     ],
     "implementation_hint": {
       "expects": [
-        "cost_a",
-        "cost_b",
         "log_prob_w",
         "log_prob_l",
-        "weight"
+        "weight",
+        "advantage_gap"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    logit = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n    w = batch.get('weight')\n    loss = -ops.logsigmoid(logit)\n    if w is not None:\n        loss = loss * w\n    return loss.mean()\n",
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_gap = batch['advantage_gap']\n    rank_diff = ops.rank_gap(lpw, lpl)\n    weight_sigmoid = ops.sigmoid(adv_gap)\n    weighted_loss = ops.mul(rank_diff, weight_sigmoid)\n    if weight is not None:\n        weighted_loss = ops.mul(weighted_loss, weight)\n    return ops.mean(weighted_loss)",
     "theoretical_basis": ""
   },
-  "stage_final": "baseline",
-  "score": Infinity,
-  "final_score": Infinity,
+  "stage": "high_fidelity",
+  "stage_final": "high_fidelity",
+  "score": 0.23999977111816406,
+  "final_score": 0.23999977111816406,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage3_high_fidelity"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled"
+  },
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
   "compare_target": "incumbent",
   "metric_mode": "minimize",
   "improve_eps": 0.0,
-  "reference_score": null,
+  "reference_score": Infinity,
   "better_than_incumbent": true,
-  "best_pair_generation": -1,
-  "best_pair_phase": "baseline",
-  "score_history": [],
+  "best_pair_generation": 1,
+  "best_pair_phase": "loss",
+  "best_pair_last_phase_label": "baseline",
+  "best_pair_last_phase_reference_score": Infinity,
+  "score_history": [
+    {
+      "generation": 1,
+      "pair_index": 9,
+      "phase": "loss",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": 0.23999977111816406,
+      "eval_budget_signature": "15c45eca7df17018",
+      "reference_score": Infinity
+    }
+  ],
   "score_history_summary": {
-    "count": 0,
-    "scores": []
+    "count": 1,
+    "scores": [
+      0.23999977111816406
+    ],
+    "best": 0.23999977111816406,
+    "worst": 0.23999977111816406,
+    "mean": 0.23999977111816406,
+    "latest": 0.23999977111816406
   }
 }
