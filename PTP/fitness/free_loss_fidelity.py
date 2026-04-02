@@ -91,6 +91,29 @@ def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
     return env_name == "ffsp" and ffsp_jobs >= 100
 
 
+def _aggressive_cuda_cleanup_mode(cfg_like: Mapping[str, Any] | Any) -> str:
+    if not _should_aggressive_cuda_cleanup(cfg_like):
+        return "off"
+    mode = str(_cfg_like_get(cfg_like, "aggressive_cuda_cleanup_mode", "step") or "step").strip().lower()
+    if mode not in {"step", "epoch", "phase", "off"}:
+        return "step"
+    return mode
+
+
+def _should_run_aggressive_cleanup(cfg_like: Mapping[str, Any] | Any, *, when: str) -> bool:
+    mode = _aggressive_cuda_cleanup_mode(cfg_like)
+    when_norm = str(when or "").strip().lower()
+    if mode == "off":
+        return False
+    if mode == "step":
+        return when_norm in {"step", "epoch", "phase"}
+    if mode == "epoch":
+        return when_norm in {"epoch", "phase"}
+    if mode == "phase":
+        return when_norm == "phase"
+    return False
+
+
 def _empty_cuda_cache_for_device(
     device: torch.device,
     *,
@@ -1295,7 +1318,7 @@ def _train_one_batch_with_free_loss_rl4co(
         del advantage
     except Exception:  # noqa: BLE001
         pass
-    if aggressive_cleanup:
+    if _should_run_aggressive_cleanup(hf_cfg, when="step"):
         _maybe_aggressive_cuda_cleanup(device, hf_cfg)
 
     return score_item, loss_item, pair_count
@@ -1340,11 +1363,12 @@ def _evaluate_rl4co_model(
         score_meter.update(score, n=current_batch)
         episodes_done += current_batch
         del max_reward, reward
-        if aggressive_cleanup:
+        if _should_run_aggressive_cleanup(cfg, when="step"):
             _maybe_aggressive_cuda_cleanup(device, cfg)
 
     env = None
-    _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
+    if _should_run_aggressive_cleanup(cfg, when="phase"):
+        _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
     return float(score_meter.avg)
 
 
@@ -1705,6 +1729,8 @@ def _evaluate_free_loss_candidate_rl4co(
                     )
                     if torch.cuda.is_available():
                         _empty_cuda_cache_for_device(device, synchronize=True)
+                    if _should_run_aggressive_cleanup(cfg.hf, when="epoch"):
+                        _maybe_aggressive_cuda_cleanup(device, cfg.hf)
                     epoch_objectives.append(epoch_valid_obj)
                     logger.info(
                         "RL4CO free-loss[%s] epoch %d/%d: validation_objective=%.6f",
@@ -2349,7 +2375,7 @@ def evaluate_po_baseline_rl4co(
                         int(phase_epochs),
                         epoch_valid_obj,
                     )
-                    if aggressive_cleanup:
+                    if _should_run_aggressive_cleanup(cfg, when="epoch"):
                         _maybe_aggressive_cuda_cleanup(device, cfg)
 
             if use_early_stop and early_eval_steps_phase > 0 and (step + 1) == early_eval_steps_phase:
@@ -2377,7 +2403,7 @@ def evaluate_po_baseline_rl4co(
                     break
 
             del reward, log_likelihood, max_reward, score, loss
-            if aggressive_cleanup:
+            if _should_run_aggressive_cleanup(cfg, when="step"):
                 _maybe_aggressive_cuda_cleanup(device, cfg)
 
         if early_stopped and early_validation_objective is not None:
@@ -2397,7 +2423,8 @@ def evaluate_po_baseline_rl4co(
 
         try:
             env = None
-            _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
+            if _should_run_aggressive_cleanup(cfg, when="phase"):
+                _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
         except Exception:  # noqa: BLE001
             pass
 

@@ -42,6 +42,7 @@ stage0_sandbox_hard_failure_kinds: ["pref_batch_to_loss_batch_error","forward_er
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
 aggressive_cuda_cleanup: true
+aggressive_cuda_cleanup_mode: epoch
 hf_subprocess_cuda_launch_blocking: true
 cuda_diagnostics_enabled: true
 cuda_diagnostics_include_nvidia_smi: true
