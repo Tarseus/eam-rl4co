@@ -122,6 +122,7 @@ def _collect_nvidia_smi(*, timeout_s: float = 3.0) -> Dict[str, Any]:
 def collect_cuda_snapshot(
     *,
     devices: Sequence[str] | None = None,
+    include_torch: bool = True,
     include_nvidia_smi: bool = False,
     nvidia_smi_timeout_s: float = 3.0,
 ) -> Dict[str, Any]:
@@ -134,7 +135,7 @@ def collect_cuda_snapshot(
         "torch_devices": [],
     }
 
-    if torch.cuda.is_available():
+    if include_torch and torch.cuda.is_available():
         for label in snapshot["requested_devices"]:
             if not str(label).startswith("cuda"):
                 continue

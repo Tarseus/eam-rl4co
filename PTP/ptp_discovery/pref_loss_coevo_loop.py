@@ -120,6 +120,7 @@ def _capture_cuda_diag_for_cfg(
         return None
     return collect_cuda_snapshot(
         devices=list(devices) if devices is not None else None,
+        include_torch=False,
         include_nvidia_smi=_cuda_diagnostics_include_nvidia_smi(cfg_like),
     )
 
