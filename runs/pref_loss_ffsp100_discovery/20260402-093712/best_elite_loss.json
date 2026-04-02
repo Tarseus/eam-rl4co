@@ -1,0 +1,145 @@
+{
+  "generation": 7,
+  "index": 0,
+  "id": "f007_000_6a8fd31f",
+  "signature": "6a8fd31f61e052eb7f129a3ebba3e4a81c6e4038",
+  "family": "weighted_pairwise_importance|advantage_gap|weighted_sum_normalized|none",
+  "family_signature": "paradigm=weighted_pairwise_importance|signal=advantage_gap|agg=weighted_sum_normalized|constraint=none",
+  "origin": "STRUCTURE_SHIFT",
+  "origin_base": "STRUCTURE_SHIFT",
+  "op_type": "LOSS_STRUCTURE_SHIFT",
+  "parents": [
+    "f006_007_3b6c636d"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "d76f1b666f45820ba72a3dfd96edf6ca3f73e3ee",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+  "llm_seed": 682604274,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_STRUCTURE_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+      "prompt_sha1": "d76f1b666f45820ba72a3dfd96edf6ca3f73e3ee"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.875,
+    "best_similarity_parts": {
+      "bigram": 0.5714285714285714,
+      "unigram": 0.8,
+      "call": 0.875
+    },
+    "neighbors": [
+      {
+        "sig": "7cfebbc31086144ef3b5ad3948c8430545c207ea",
+        "name": "pairwise_advantage_tanh_weighted_logsigmoid_diff_sum_norm_agg",
+        "similarity": 0.875,
+        "similarity_parts": {
+          "bigram": 0.5714285714285714,
+          "unigram": 0.8,
+          "call": 0.875
+        },
+        "call_names_top": [
+          "ops.add",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.sub",
+          "ops.sum",
+          "ops.tanh"
+        ]
+      },
+      {
+        "sig": "d1d900408ec70670ce4d99edd5e0f5b1e8d244e2",
+        "name": "pairwise_advantage_tanh_weighted_sum_agg",
+        "similarity": 0.8571428571428571,
+        "similarity_parts": {
+          "bigram": 0.5833333333333334,
+          "unigram": 0.7777777777777778,
+          "call": 0.8571428571428571
+        },
+        "call_names_top": [
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.sub",
+          "ops.sum",
+          "ops.tanh"
+        ]
+      },
+      {
+        "sig": "14a4c1f6e1917cf4671c8946da4b6aaa6cf6f5fe",
+        "name": "pairwise_advantage_tanh_weighted_mean_clamp_stabilized",
+        "similarity": 0.7777777777777778,
+        "similarity_parts": {
+          "bigram": 0.3,
+          "unigram": 0.75,
+          "call": 0.7777777777777778
+        },
+        "call_names_top": [
+          "ops.abs",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.sub",
+          "ops.sum",
+          "ops.tanh"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_advantage_tanh_weighted_sum_agg",
+    "intuition": "Weights the pairwise losses by a tanh-transformed advantage difference multiplied by weight, and aggregates using a weighted sum normalized by total weight, shifting aggregation from mean to weighted sum normalization.",
+    "pseudocode": "adv_diff = advantage_w - advantage_l\nweighting = tanh(adv_diff)\nscore_diff = log_prob_w - log_prob_l\npair_loss = -logsigmoid(score_diff)\nweighted_loss = pair_loss * weighting * weight\nloss = sum(weighted_loss) / (sum(weight) + epsilon)",
+    "hyperparams": {
+      "paradigm_family": "weighted_pairwise_importance",
+      "signal_family": "advantage_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "tanh",
+      "logsigmoid",
+      "sub",
+      "mul",
+      "div",
+      "sum",
+      "neg",
+      "add"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_w",
+        "advantage_l"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    adv_diff = ops.sub(adv_w, adv_l)\n    weighting = ops.tanh(adv_diff)\n    score_diff = ops.sub(lpw, lpl)\n    pair_loss = ops.neg(ops.logsigmoid(score_diff))\n    weighted_loss = ops.mul(pair_loss, ops.mul(weighting, weight))\n    total_weight = ops.sum(weight) + 1e-7\n    loss = ops.div(ops.sum(weighted_loss), total_weight)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.0,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
