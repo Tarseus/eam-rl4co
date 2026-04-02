@@ -1927,12 +1927,18 @@ def _run_stage0_sandbox_gate(
     return out
 
 
-def _hf_subprocess_env_and_device(device_str: str) -> Tuple[Dict[str, str], str]:
+def _hf_subprocess_env_and_device(
+    device_str: str,
+    cfg_like: Mapping[str, Any] | None = None,
+) -> Tuple[Dict[str, str], str]:
     env = dict(os.environ)
     py_paths = [str(_repo_root_dir()), os.path.join(_repo_root_dir(), "PTP")]
     if env.get("PYTHONPATH"):
         py_paths.append(str(env["PYTHONPATH"]))
     env["PYTHONPATH"] = os.pathsep.join(py_paths)
+
+    if isinstance(cfg_like, Mapping) and bool(cfg_like.get("hf_subprocess_cuda_launch_blocking", False)):
+        env["CUDA_LAUNCH_BLOCKING"] = "1"
 
     dev = str(device_str or "").strip()
     if dev.startswith("cuda:"):
@@ -1943,6 +1949,12 @@ def _hf_subprocess_env_and_device(device_str: str) -> Tuple[Dict[str, str], str]
     return env, dev
 
 
+def _worker_device_fields(payload_like: Mapping[str, Any]) -> Tuple[str, str]:
+    logical_device = str(payload_like.get("device_str") or "").strip()
+    physical_device = str(payload_like.get("device_physical_str") or logical_device).strip()
+    return physical_device, logical_device
+
+
 def _hf_subprocess_failure_record(
     task: Mapping[str, Any],
     *,
@@ -1951,9 +1963,10 @@ def _hf_subprocess_failure_record(
     exitcode: int | None = None,
 ) -> Dict[str, Any]:
     fixed = dict(task) if isinstance(task, Mapping) else {}
-    physical_device = str(fixed.get("device_physical_str") or fixed.get("device_str") or "")
+    physical_device, logical_device = _worker_device_fields(fixed)
     fixed["device"] = physical_device
     fixed["device_str"] = physical_device
+    fixed["device_logical_str"] = logical_device
     fixed["pair_ok"] = False
     fixed["pair_reason"] = str(reason)
     fixed["high_fidelity_error"] = str(error)
@@ -2031,7 +2044,10 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
 
             task = dict(pending.pop(next_idx))
             physical_device = str(task.get("device_str", ""))
-            env, worker_device = _hf_subprocess_env_and_device(physical_device)
+            env, worker_device = _hf_subprocess_env_and_device(
+                physical_device,
+                task.get("cfg_yaml") if isinstance(task.get("cfg_yaml"), Mapping) else None,
+            )
             task["device_physical_str"] = physical_device
             task["device_str"] = worker_device
 
@@ -8097,7 +8113,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     g_entry = dict(payload["g_entry"])
     f_entry = dict(payload["f_entry"])
     cfg = dict(payload["cfg_yaml"])
-    device_str = str(payload["device_str"])
+    physical_device_str, device_str = _worker_device_fields(payload)
     run_dir = payload.get("run_dir")
     run_dir_s = str(run_dir) if isinstance(run_dir, (str, os.PathLike)) and run_dir else None
     operator_whitelist = list(payload.get("operator_whitelist", []))
@@ -8131,7 +8147,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "f_id": str(f_entry["id"]),
         "g_ir": dict(g_entry["ir"]),
         "f_ir": dict(f_entry["ir"]),
-        "device": device_str,
+        "device": physical_device_str,
+        "device_str": physical_device_str,
+        "device_physical_str": physical_device_str,
+        "device_logical_str": device_str,
         "cheap_gate_on": cheap_gate_on,
         "high_fidelity_on": high_fidelity_on,
         "eval_budget_signature": eval_sig,
@@ -9149,7 +9168,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         if run_dir_s:
             safe_gid = str(record.get("g_id", "g")).replace(os.sep, "_").replace(":", "_")[:24]
             safe_fid = str(record.get("f_id", "f")).replace(os.sep, "_").replace(":", "_")[:24]
-            safe_dev = str(device_str).replace(os.sep, "_").replace(":", "_")
+            safe_dev = str(physical_device_str or device_str).replace(os.sep, "_").replace(":", "_")
             log_path = os.path.join(
                 run_dir_s,
                 f"gen{generation:03d}_pair{pair_index:03d}_{safe_dev}_{safe_gid}_{safe_fid}.log",
@@ -9293,6 +9312,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 cand_by_size: Dict[int, float] = {}
                 cand_agg: float
                 error: str | None = None
+                error_traceback: str | None = None
                 try:
                     free_cfg = FreeLossFidelityConfig(
                         hf=hf_cfg,
@@ -9329,13 +9349,15 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                         raise RuntimeError("Non-finite candidate aggregated objective")
                 except Exception as exc:  # noqa: BLE001
                     error = f"{type(exc).__name__}: {exc}"
+                    error_traceback = traceback.format_exc()
                     try:
                         fl_logger.exception(
-                            "Stage3 mini-train FAILED scenario=%s init=%s g_id=%s f_id=%s device=%s",
+                            "Stage3 mini-train FAILED scenario=%s init=%s g_id=%s f_id=%s device=%s logical_device=%s",
                             str(scenario_name),
                             str(init_name),
                             str(record.get("g_id")),
                             str(record.get("f_id")),
+                            str(physical_device_str or device_str),
                             str(device_str),
                         )
                     except Exception:  # noqa: BLE001
@@ -9360,6 +9382,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     ),
                     "init_checkpoint": str(init_ckpt) if init_ckpt else None,
                     "error": error,
+                    "error_traceback": error_traceback,
                 }
                 scenario_per_init[str(init_name)] = init_record
                 flat_init_name = (
@@ -9436,6 +9459,11 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         scenario_nonnegative_count = sum(1 for delta in scenario_delta_means if not (float(delta) < 0.0))
         all_scenarios_negative = bool(scenario_delta_means) and bool(scenario_nonnegative_count == 0)
         worst_scenario_delta = float(max(scenario_delta_means)) if scenario_delta_means else float("inf")
+        runtime_error_inits = [
+            str(init_name)
+            for init_name, init_record in all_per_init.items()
+            if isinstance(init_record, Mapping) and str(init_record.get("error") or "").strip()
+        ]
 
         if early_prune_report is not None:
             record["pair_ok"] = False
@@ -9472,6 +9500,9 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             "eval_signature": (
                 next(iter(eval_signatures.values())) if len(eval_signatures) == 1 else eval_signatures
             ),
+            "any_error": bool(any_error),
+            "runtime_error_count": int(len(runtime_error_inits)),
+            "runtime_error_inits": list(runtime_error_inits),
         }
         if early_prune_report is not None:
             record["fitness"]["early_prune"] = dict(early_prune_report)
@@ -9482,6 +9513,9 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         record["stage3_all_scenarios_negative"] = bool(all_scenarios_negative)
         record["stage3_nonnegative_scenario_count"] = int(scenario_nonnegative_count)
         record["stage3_worst_scenario_delta"] = float(worst_scenario_delta)
+        record["stage3_any_error"] = bool(any_error)
+        record["stage3_runtime_error_count"] = int(len(runtime_error_inits))
+        record["stage3_runtime_error_inits"] = list(runtime_error_inits)
         fl_logger.info(
             "Stage3 offline mini-train DONE gen=%d pair_index=%d score=%s any_error=%s",
             int(generation),

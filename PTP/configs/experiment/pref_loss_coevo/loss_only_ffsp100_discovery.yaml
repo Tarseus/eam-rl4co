@@ -41,6 +41,8 @@ stage0_sandbox_variants: ["visible", "hidden"]
 stage0_sandbox_hard_failure_kinds: ["pref_batch_to_loss_batch_error","forward_error","backward_error","loss_not_finite","missing_grads","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_missing_grads","numeric_stress_grad_not_finite"]
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+aggressive_cuda_cleanup: true
+hf_subprocess_cuda_launch_blocking: true
 mp:
   enabled: true
   processes: 4
