@@ -34,6 +34,7 @@ from fitness.free_loss_fidelity import (
     extract_feature_cache,
     evaluate_free_loss_candidate,
     evaluate_po_baseline_rl4co,
+    run_rl4co_rollout_smoke_test,
 )
 from fitness.ptp_high_fidelity import (
     HighFidelityConfig,
@@ -9413,6 +9414,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 cand_agg: float
                 error: str | None = None
                 error_traceback: str | None = None
+                rollout_smoke_test: Dict[str, Any] | None = None
                 try:
                     free_cfg = FreeLossFidelityConfig(
                         hf=hf_cfg,
@@ -9451,6 +9453,23 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     error = f"{type(exc).__name__}: {exc}"
                     error_traceback = traceback.format_exc()
                     try:
+                        rollout_smoke_test = run_rl4co_rollout_smoke_test(
+                            hf_cfg,
+                            init_checkpoint_path=(
+                                _abs_from_repo_root(str(init_ckpt)) if init_ckpt else None
+                            ),
+                            phase="train",
+                            device=device_str,
+                            batch_size=1,
+                            num_rollouts=1,
+                        )
+                    except Exception as smoke_exc:  # noqa: BLE001
+                        rollout_smoke_test = {
+                            "ok": False,
+                            "error": f"{type(smoke_exc).__name__}: {smoke_exc}",
+                            "error_traceback": traceback.format_exc(),
+                        }
+                    try:
                         fl_logger.exception(
                             "Stage3 mini-train FAILED scenario=%s init=%s g_id=%s f_id=%s device=%s logical_device=%s",
                             str(scenario_name),
@@ -9483,6 +9502,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     "init_checkpoint": str(init_ckpt) if init_ckpt else None,
                     "error": error,
                     "error_traceback": error_traceback,
+                    "rollout_smoke_test": rollout_smoke_test,
                 }
                 scenario_per_init[str(init_name)] = init_record
                 flat_init_name = (
