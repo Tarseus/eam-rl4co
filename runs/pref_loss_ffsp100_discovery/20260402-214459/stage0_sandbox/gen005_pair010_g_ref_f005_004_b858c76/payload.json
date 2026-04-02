@@ -1,0 +1,105 @@
+{
+  "generation": 5,
+  "pair_index": 10,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f005_004_b858c767",
+    "ir": {
+      "name": "normalized_logsigmoid_delta_regret_softmax_weighted_loss",
+      "intuition": "Shift paradigm from pairwise margin/diff to a probabilistic softmax preference model over regret differences. Instead of comparing log-prob differences directly, compute a normalized softmax weight from delta_regret and modulate the loss accordingly with logsigmoid applied to log probability differences, capturing relative regret-scaled preference strength. This uses delta_regret signal, changes signal_family and agg_family, and employs a softmax-like aggregation across pairs with weighting for smoother probabilistic interpretation and better sensitivity to regret scaling.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\ndelta_r = batch['delta_regret']\nweight = batch.get('weight', None)\n\n# Normalize delta_regret scores to get softmax weights over pairs\nexp_regret = exp(delta_r)\nsoftmax_weights = exp_regret / sum(exp_regret)\n\n# Compute pairwise score difference\nscore_diff = lpw - lpl\n\n# Loss is negative logsigmoid weighted by softmax weights and weight\nloss_per_pair = -logsigmoid(score_diff) * softmax_weights\nif weight is not None:\n    loss_per_pair = loss_per_pair * weight\nfinal_loss = sum(loss_per_pair)\nreturn final_loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_softmax",
+        "signal_family": "delta_regret",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_sum_softmax",
+        "constraint_family": "normalization"
+      },
+      "operators_used": [
+        "exp",
+        "logsigmoid",
+        "mul",
+        "div",
+        "neg",
+        "sum",
+        "sub"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    delta_r = batch['delta_regret']\n    weight = batch.get('weight', None)\n\n    exp_regret = ops.exp(delta_r)\n    denom = ops.sum(exp_regret) + 1e-12\n    softmax_weights = ops.div(exp_regret, denom)\n\n    score_diff = ops.sub(lpw, lpl)\n    loss_per_pair = ops.neg(ops.logsigmoid(score_diff))\n    loss_per_pair = ops.mul(loss_per_pair, softmax_weights)\n    if weight is not None:\n        loss_per_pair = ops.mul(loss_per_pair, weight)\n    return ops.sum(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
