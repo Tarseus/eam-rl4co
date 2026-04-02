@@ -49,13 +49,15 @@ Hard constraints:
 - `generated_loss` must return one scalar torch.Tensor, typically via `.mean()` or a weighted mean.
 - No imports / filesystem / eval / exec / randomness / global state.
 - Use only vectorized tensor ops and `ops.*` helpers.
+- For DSL math operators, use `ops.*` explicitly. Do NOT call tensor methods like `.max()`, `.min()`, `.maximum()`, `.minimum()`, `.norm()`, or `.sign()`.
 - Always read `log_prob_w` / `log_prob_l` from `batch[...]` (never from `model_output[...]`).
 - Restrict `ops.*` to:
   logsigmoid, softplus, sigmoid, exp, log, abs, tanh, relu, clamp, normalize, zscore, rank_gap,
-  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg.
+  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg,
+  max, min, maximum, minimum, sign, norm.
 
 Runtime repair rules:
-- Do NOT use Python built-in `max`, `min`, or `abs` directly on tensors. Use tensor-safe expressions and `ops.abs` when available.
+- Do NOT use Python built-in `max`, `min`, or `abs` directly on tensors. Use tensor-safe expressions and `ops.abs`/`ops.max`/`ops.min` when available.
 - Avoid complicated tensor conditionals unless strictly necessary. If you need branching, keep it broadcast-safe and minimal.
 - Before `sqrt`, `log`, `exp`, division, or reciprocal-like operations, clamp to safe ranges:
   - `sqrt(x)` -> use a non-negative lower bound such as `x.clamp(min=eps).sqrt()`

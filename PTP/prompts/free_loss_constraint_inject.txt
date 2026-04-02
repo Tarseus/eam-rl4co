@@ -46,3 +46,8 @@ Hard constraints:
 - generated_loss must return a scalar torch.Tensor.
 - No imports / filesystem / eval / exec / randomness.
 - Use only vectorized tensor ops and ops.* helpers.
+- For DSL math operators, use `ops.*` explicitly. Do NOT call tensor methods like `.max()`, `.min()`, `.maximum()`, `.minimum()`, `.norm()`, or `.sign()`.
+- Restrict `ops.*` to:
+  logsigmoid, softplus, sigmoid, exp, log, abs, tanh, relu, clamp, normalize, zscore, rank_gap,
+  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg,
+  max, min, maximum, minimum, sign, norm.
