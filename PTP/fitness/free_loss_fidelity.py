@@ -1452,6 +1452,14 @@ def run_rl4co_rollout_smoke_test(
     effective_batch_size = max(1, min(int(batch_size), int(getattr(cfg, "train_batch_size", 1) or 1)))
     max_rollouts = resolve_pomo_size(getattr(cfg, "pomo_size", None), int(cfg.train_problem_size))
     effective_num_rollouts = max(1, min(int(num_rollouts), int(max_rollouts)))
+    env_name = str(getattr(cfg, "env_name", "") or "").strip().lower()
+    policy_name = str(getattr(cfg, "policy_name", "") or "").strip().lower()
+    policy_kwargs = dict(getattr(cfg, "policy_kwargs", {}) or {})
+    use_po4cops_compat = bool(policy_kwargs.get("po4cops_compat", False))
+    # PO4COPs CVRP decoder uses InstanceNorm1d over the rollout/start dimension.
+    # A single rollout produces shape [B, C, 1], which InstanceNorm rejects.
+    if env_name == "cvrp" and policy_name == "pomo" and use_po4cops_compat and effective_num_rollouts < 2:
+        effective_num_rollouts = min(max(int(max_rollouts), 1), 2)
     result: Dict[str, Any] = {
         "ok": False,
         "phase": str(phase),
