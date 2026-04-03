@@ -44,6 +44,11 @@ mp:
   enabled: true
   processes: 4
   start_method: spawn
+eval_stages:
+  stage0_gate: true
+  stage1_proxy: false
+  stage2_micro_unroll: false
+  stage3_high_fidelity: true
 train_problem_size: 100
 valid_problem_sizes: [100]
 train_batch_size: 64
