@@ -66,18 +66,49 @@ def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
                 yield payload
 
 
-def _pick_target_fid(run_dir: Path, explicit_fid: str | None) -> str:
-    if explicit_fid:
-        return str(explicit_fid)
+def _parse_explicit_fids(explicit_fids_raw: str | None) -> List[str]:
+    if not explicit_fids_raw:
+        return []
+    out: List[str] = []
+    for token in str(explicit_fids_raw).split(","):
+        fid = str(token).strip()
+        if fid:
+            out.append(fid)
+    return out
+
+
+def _pick_target_fids(
+    run_dir: Path,
+    *,
+    explicit_fids_raw: str | None,
+    failed_only: bool,
+    max_targets: int | None,
+) -> List[str]:
+    explicit_fids = _parse_explicit_fids(explicit_fids_raw)
+    if explicit_fids:
+        uniq: List[str] = []
+        seen: set[str] = set()
+        for fid in explicit_fids:
+            if fid not in seen:
+                seen.add(fid)
+                uniq.append(fid)
+        return uniq[: int(max_targets)] if max_targets is not None else uniq
 
     pairs_path = run_dir / "pairs.jsonl"
     if pairs_path.is_file():
         records = list(_iter_jsonl(pairs_path))
-        preferred = [
-            rec
-            for rec in records
-            if str(rec.get("pair_reason", "")) in {"ok_stage3_offline_minitrain", "stage3_early_pruned", "stage3_runtime_error"}
-        ]
+        if failed_only:
+            preferred = [
+                rec
+                for rec in records
+                if str(rec.get("pair_reason", "")) in {"stage3_early_pruned", "stage3_runtime_error", "stage3_fatal"}
+            ]
+        else:
+            preferred = [
+                rec
+                for rec in records
+                if str(rec.get("pair_reason", "")) in {"ok_stage3_offline_minitrain", "stage3_early_pruned", "stage3_runtime_error"}
+            ]
         if not preferred:
             preferred = [rec for rec in records if bool(rec.get("joint_gate_ok")) and bool(rec.get("co_ok"))]
         if preferred:
@@ -85,18 +116,34 @@ def _pick_target_fid(run_dir: Path, explicit_fid: str | None) -> str:
                 preferred,
                 key=lambda rec: (int(rec.get("generation", -1) or -1), int(rec.get("pair_index", -1) or -1)),
             )
-            fid = str(preferred[-1].get("f_id") or "").strip()
-            if fid:
-                return fid
+            out: List[str] = []
+            seen: set[str] = set()
+            for rec in reversed(preferred):
+                fid = str(rec.get("f_id") or "").strip()
+                if not fid or fid in seen:
+                    continue
+                seen.add(fid)
+                out.append(fid)
+                if max_targets is not None and len(out) >= int(max_targets):
+                    break
+            if out:
+                return out
 
     losses_path = run_dir / "losses.jsonl"
     if losses_path.is_file():
+        out = []
+        seen: set[str] = set()
         for rec in _iter_jsonl(losses_path):
             fid = str(rec.get("id") or rec.get("f_id") or "").strip()
-            if fid and fid != "f_ref" and bool(rec.get("compile_ok", True)):
-                return fid
+            if fid and fid != "f_ref" and bool(rec.get("compile_ok", True)) and fid not in seen:
+                seen.add(fid)
+                out.append(fid)
+                if max_targets is not None and len(out) >= int(max_targets):
+                    break
+        if out:
+            return out
 
-    raise FileNotFoundError(f"Could not determine target loss id from run_dir={run_dir}")
+    raise FileNotFoundError(f"Could not determine target loss ids from run_dir={run_dir}")
 
 
 def _effective_fixed_pomo(cfg_yaml: Mapping[str, Any], explicit_pomo: int | None) -> int:
@@ -450,6 +497,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--device", default="cuda:0", type=str, help="Target device, e.g. cuda:0.")
     p.add_argument("--python", default=sys.executable, type=str, help="Python executable for worker subprocesses.")
     p.add_argument("--f-id", default=None, type=str, help="Explicit loss id to probe in stage3 mode.")
+    p.add_argument("--f-ids", default=None, type=str, help="Comma-separated loss ids to probe in stage3 mode.")
+    p.add_argument("--failed-only", action="store_true", help="In stage3 mode, prefer only previously stage3-failed individuals.")
+    p.add_argument("--max-targets", default=None, type=int, help="Optional cap on number of target losses in stage3 mode.")
     p.add_argument(
         "--probe-target",
         default="stage3",
@@ -482,10 +532,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     base_cfg = _read_yaml(config_path)
     if str(args.probe_target) == "stage3":
         run_dir = _resolve_run_dir(config_path, args.run_dir)
-        target_fid = _pick_target_fid(run_dir, args.f_id)
+        explicit_fids_raw = args.f_ids if args.f_ids is not None else args.f_id
+        target_fids = _pick_target_fids(
+            run_dir,
+            explicit_fids_raw=explicit_fids_raw,
+            failed_only=bool(args.failed_only),
+            max_targets=(int(args.max_targets) if args.max_targets is not None else None),
+        )
     else:
         run_dir = None
-        target_fid = None
+        target_fids = []
     fixed_pomo_size = _effective_fixed_pomo(base_cfg, args.fixed_pomo_size)
     batch_sizes = _parse_batch_sizes(
         args.batch_sizes,
@@ -494,42 +550,73 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     python_exe = str(Path(args.python).resolve())
 
-    if args.mode == "binary":
-        payload = _binary_search_batch_capacity(
+    def _run_for_one_target(target_fid: str) -> Dict[str, Any]:
+        if args.mode == "binary":
+            return _binary_search_batch_capacity(
+                config_path=config_path,
+                base_cfg=base_cfg,
+                run_dir=run_dir,
+                device=str(args.device),
+                python_exe=python_exe,
+                target_fid=str(target_fid),
+                batch_sizes=batch_sizes,
+                pomo_size=fixed_pomo_size,
+                probe_target=str(args.probe_target),
+            )
+        return _list_probe_batch_capacity(
             config_path=config_path,
             base_cfg=base_cfg,
             run_dir=run_dir,
             device=str(args.device),
             python_exe=python_exe,
-            target_fid=str(target_fid or ""),
-            batch_sizes=batch_sizes,
-            pomo_size=fixed_pomo_size,
-            probe_target=str(args.probe_target),
-        )
-    else:
-        payload = _list_probe_batch_capacity(
-            config_path=config_path,
-            base_cfg=base_cfg,
-            run_dir=run_dir,
-            device=str(args.device),
-            python_exe=python_exe,
-            target_fid=str(target_fid or ""),
+            target_fid=str(target_fid),
             batch_sizes=batch_sizes,
             pomo_size=fixed_pomo_size,
             probe_target=str(args.probe_target),
         )
 
-    report = {
-        "config_path": str(config_path),
-        "probe_target": str(args.probe_target),
-        "run_dir": (str(run_dir) if run_dir is not None else None),
-        "device": str(args.device),
-        "python": python_exe,
-        "target_fid": (str(target_fid) if target_fid is not None else None),
-        "fixed_pomo_size": int(fixed_pomo_size),
-        "batch_sizes": [int(v) for v in batch_sizes],
-        **payload,
-    }
+    if str(args.probe_target) == "baseline":
+        payload = _run_for_one_target("")
+        report = {
+            "config_path": str(config_path),
+            "probe_target": str(args.probe_target),
+            "run_dir": None,
+            "device": str(args.device),
+            "python": python_exe,
+            "target_fid": None,
+            "fixed_pomo_size": int(fixed_pomo_size),
+            "batch_sizes": [int(v) for v in batch_sizes],
+            **payload,
+        }
+    else:
+        per_target_reports: List[Dict[str, Any]] = []
+        for target_fid in target_fids:
+            payload = _run_for_one_target(str(target_fid))
+            per_target_reports.append(
+                {
+                    "target_fid": str(target_fid),
+                    **payload,
+                }
+            )
+
+        supported = [
+            int(item["max_supported_batch_size"])
+            for item in per_target_reports
+            if item.get("max_supported_batch_size") is not None
+        ]
+        report = {
+            "config_path": str(config_path),
+            "probe_target": str(args.probe_target),
+            "run_dir": (str(run_dir) if run_dir is not None else None),
+            "device": str(args.device),
+            "python": python_exe,
+            "target_fids": [str(fid) for fid in target_fids],
+            "fixed_pomo_size": int(fixed_pomo_size),
+            "batch_sizes": [int(v) for v in batch_sizes],
+            "per_target": per_target_reports,
+            "safe_batch_size_for_all_targets": (min(supported) if supported else None),
+            "max_supported_batch_size": (min(supported) if supported else None),
+        }
 
     output_path = (
         Path(args.output).resolve()
@@ -545,10 +632,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(json.dumps(
         {
-            "target_fid": report["target_fid"],
+            "target_fid": report.get("target_fid"),
+            "target_fids": report.get("target_fids"),
             "fixed_pomo_size": report["fixed_pomo_size"],
             "max_supported_batch_size": report["max_supported_batch_size"],
-            "attempt_count": len(report["attempts"]),
+            "attempt_count": (
+                len(report["attempts"])
+                if "attempts" in report
+                else sum(len(item.get("attempts", [])) for item in report.get("per_target", []))
+            ),
             "report_path": str(output_path),
         },
         indent=2,
