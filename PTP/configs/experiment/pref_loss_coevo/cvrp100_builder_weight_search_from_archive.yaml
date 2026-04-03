@@ -25,14 +25,18 @@ builder_search_space:
   allow_uniform_none: true
 
 budgets:
-  generations: 12
+  generations: 10
   pairing_budget_per_gen: 64
   high_fidelity_top_m: 32
 
 backend: rl4co
 env_name: cvrp
 policy_name: pomo
-device: cuda
+devices: ["cuda:2", "cuda:3", "cuda:4", "cuda:5"]
+mp:
+  enabled: true
+  processes: 4
+  start_method: spawn
 train_problem_size: 100
 valid_problem_sizes: [100]
 train_batch_size: 64
