@@ -6,7 +6,7 @@ output_root: runs/pref_builder_weight_search_cvrp100
 metric_mode: minimize
 improve_eps: 0.0
 cheap_gate_on: true
-high_fidelity_on: false
+high_fidelity_on: true
 seed_with_po4cops_default: false
 builder_min_coverage: 0.0
 builder_max_pairs_per_instance: 8192
@@ -28,6 +28,7 @@ budgets:
   generations: 10
   pairing_budget_per_gen: 64
   high_fidelity_top_m: 32
+  hf_epochs: 10
 
 backend: rl4co
 env_name: cvrp
@@ -46,6 +47,9 @@ proxy_problem_size: 100
 proxy_batch_size: 64
 proxy_batches: 2
 pomo_size: null
+hf_epochs: 10
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
 generator_params:
   num_loc: 100
 
