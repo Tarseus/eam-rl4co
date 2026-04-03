@@ -17,6 +17,15 @@ def _repo_root_dir() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def _configure_import_path() -> None:
+    repo_root = _repo_root_dir()
+    ptp_root = repo_root / "PTP"
+    for path in (repo_root, ptp_root):
+        path_s = str(path)
+        if path_s not in sys.path:
+            sys.path.insert(0, path_s)
+
+
 def _read_yaml(path: Path) -> Dict[str, Any]:
     with path.open("r", encoding="utf-8") as f:
         payload = yaml.safe_load(f) or {}
@@ -134,17 +143,147 @@ def _write_override_config(
     return Path(tmp.name)
 
 
+def _probe_one_baseline_batch_size(
+    *,
+    base_cfg: Mapping[str, Any],
+    device: str,
+    batch_size: int,
+    pomo_size: int,
+) -> Dict[str, Any]:
+    _configure_import_path()
+
+    import gc
+    import traceback
+
+    import torch
+
+    from fitness.free_loss_fidelity import evaluate_po_baseline_rl4co
+    from ptp_discovery.pref_loss_coevo_loop import _build_hf_cfg, _resolve_training_seed, _stage3_init_specs_from_baseline_cfg
+
+    cfg_yaml = dict(base_cfg)
+    cfg_yaml["train_batch_size"] = int(batch_size)
+    cfg_yaml["pomo_size"] = int(pomo_size)
+    scratch_seed = int(_resolve_training_seed(cfg_yaml))
+    hf_cfg = _build_hf_cfg(cfg_yaml, seed=scratch_seed, device_str=str(device))
+    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
+
+    result: Dict[str, Any] = {
+        "attempt_batch_size": int(batch_size),
+        "attempt_pomo_size": int(pomo_size),
+        "device": str(device),
+        "scratch_init_seed": int(scratch_seed),
+        "per_init": [],
+    }
+
+    def _reset_cuda_peak() -> None:
+        if not torch.cuda.is_available():
+            return
+        dev = torch.device(str(device))
+        try:
+            torch.cuda.empty_cache()
+            torch.cuda.reset_peak_memory_stats(dev)
+            torch.cuda.synchronize(dev)
+        except Exception:
+            pass
+
+    def _peak_memory_mb() -> Dict[str, float | None]:
+        if not torch.cuda.is_available():
+            return {"peak_allocated_mb": None, "peak_reserved_mb": None}
+        dev = torch.device(str(device))
+        try:
+            torch.cuda.synchronize(dev)
+            return {
+                "peak_allocated_mb": float(torch.cuda.max_memory_allocated(dev)) / (1024.0**2),
+                "peak_reserved_mb": float(torch.cuda.max_memory_reserved(dev)) / (1024.0**2),
+            }
+        except Exception:
+            return {"peak_allocated_mb": None, "peak_reserved_mb": None}
+
+    for init_name, init_ckpt in init_specs:
+        gc.collect()
+        _reset_cuda_peak()
+        started = time.time()
+        per_init: Dict[str, Any] = {
+            "name": str(init_name),
+            "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+        }
+        try:
+            payload = evaluate_po_baseline_rl4co(
+                hf_cfg,
+                init_checkpoint_path=(str((_repo_root_dir() / str(init_ckpt)).resolve()) if init_ckpt else None),
+                init_checkpoint_epoch=None,
+                scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+                warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+                baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+                baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0) or 1.0),
+                baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+                baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+                baseline_epoch_window_violation_weight=float(
+                    cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+                ),
+            )
+            per_init["ok"] = True
+            per_init["oom"] = False
+            if isinstance(payload, Mapping):
+                metadata = payload.get("metadata")
+                if isinstance(metadata, Mapping):
+                    fit = metadata.get("fitness")
+                    if isinstance(fit, Mapping):
+                        per_init["fitness_score"] = fit.get("score")
+                        per_init["final_validation_objective"] = fit.get("final_validation_objective")
+        except torch.cuda.OutOfMemoryError as exc:
+            per_init["ok"] = False
+            per_init["oom"] = True
+            per_init["error_type"] = "cuda_oom"
+            per_init["error"] = str(exc)
+        except RuntimeError as exc:
+            msg = str(exc)
+            per_init["ok"] = False
+            per_init["oom"] = "out of memory" in msg.lower()
+            per_init["error_type"] = "runtime_error"
+            per_init["error"] = msg
+        except Exception as exc:  # noqa: BLE001
+            per_init["ok"] = False
+            per_init["oom"] = False
+            per_init["error_type"] = type(exc).__name__
+            per_init["error"] = str(exc)
+            per_init["traceback"] = traceback.format_exc(limit=10)
+        finally:
+            per_init.update(_peak_memory_mb())
+            per_init["elapsed_s"] = float(time.time() - started)
+            result["per_init"].append(per_init)
+            gc.collect()
+            if torch.cuda.is_available():
+                try:
+                    torch.cuda.empty_cache()
+                except Exception:
+                    pass
+
+    result["any_oom"] = bool(any(bool(item.get("oom")) for item in result["per_init"]))
+    result["all_ok"] = bool(all(bool(item.get("ok")) for item in result["per_init"]))
+    result["success"] = bool(result["all_ok"])
+    return result
+
+
 def _probe_one_batch_size(
     *,
     config_path: Path,
     base_cfg: Mapping[str, Any],
-    run_dir: Path,
+    run_dir: Path | None,
     device: str,
     python_exe: str,
     target_fid: str,
     batch_size: int,
     pomo_size: int,
+    probe_target: str,
 ) -> Dict[str, Any]:
+    if str(probe_target) == "baseline":
+        return _probe_one_baseline_batch_size(
+            base_cfg=base_cfg,
+            device=device,
+            batch_size=batch_size,
+            pomo_size=pomo_size,
+        )
     override_path = _write_override_config(base_cfg, batch_size=batch_size, pomo_size=pomo_size)
     try:
         cmd = [
@@ -217,12 +356,13 @@ def _binary_search_batch_capacity(
     *,
     config_path: Path,
     base_cfg: Mapping[str, Any],
-    run_dir: Path,
+    run_dir: Path | None,
     device: str,
     python_exe: str,
     target_fid: str,
     batch_sizes: Sequence[int],
     pomo_size: int,
+    probe_target: str,
 ) -> Dict[str, Any]:
     sorted_sizes = sorted({int(v) for v in batch_sizes if int(v) > 0})
     attempts: List[Dict[str, Any]] = []
@@ -242,6 +382,7 @@ def _binary_search_batch_capacity(
             target_fid=target_fid,
             batch_size=batch_size,
             pomo_size=pomo_size,
+            probe_target=probe_target,
         )
         attempts.append(payload)
         if bool(payload.get("success")):
@@ -262,12 +403,13 @@ def _list_probe_batch_capacity(
     *,
     config_path: Path,
     base_cfg: Mapping[str, Any],
-    run_dir: Path,
+    run_dir: Path | None,
     device: str,
     python_exe: str,
     target_fid: str,
     batch_sizes: Sequence[int],
     pomo_size: int,
+    probe_target: str,
 ) -> Dict[str, Any]:
     attempts: List[Dict[str, Any]] = []
     best: Dict[str, Any] | None = None
@@ -281,6 +423,7 @@ def _list_probe_batch_capacity(
             target_fid=target_fid,
             batch_size=batch_size,
             pomo_size=pomo_size,
+            probe_target=probe_target,
         )
         attempts.append(payload)
         if bool(payload.get("success")):
@@ -303,10 +446,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         help="Path to the pref-loss YAML config.",
     )
-    p.add_argument("--run-dir", default=None, type=str, help="Run dir used to select a representative loss.")
+    p.add_argument("--run-dir", default=None, type=str, help="Run dir used to select a representative loss in stage3 mode.")
     p.add_argument("--device", default="cuda:0", type=str, help="Target device, e.g. cuda:0.")
     p.add_argument("--python", default=sys.executable, type=str, help="Python executable for worker subprocesses.")
-    p.add_argument("--f-id", default=None, type=str, help="Explicit loss id to probe. Defaults to latest HF-admitted loss.")
+    p.add_argument("--f-id", default=None, type=str, help="Explicit loss id to probe in stage3 mode.")
+    p.add_argument(
+        "--probe-target",
+        default="stage3",
+        choices=("stage3", "baseline"),
+        help="stage3: probe a representative candidate loss; baseline: probe the common FFSP100 baseline mini-train path.",
+    )
     p.add_argument("--fixed-pomo-size", default=None, type=int, help="Fixed pomo_size to use for all attempts.")
     p.add_argument(
         "--batch-sizes",
@@ -330,9 +479,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
 
     config_path = Path(args.config).resolve()
-    run_dir = _resolve_run_dir(config_path, args.run_dir)
     base_cfg = _read_yaml(config_path)
-    target_fid = _pick_target_fid(run_dir, args.f_id)
+    if str(args.probe_target) == "stage3":
+        run_dir = _resolve_run_dir(config_path, args.run_dir)
+        target_fid = _pick_target_fid(run_dir, args.f_id)
+    else:
+        run_dir = None
+        target_fid = None
     fixed_pomo_size = _effective_fixed_pomo(base_cfg, args.fixed_pomo_size)
     batch_sizes = _parse_batch_sizes(
         args.batch_sizes,
@@ -348,9 +501,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_dir=run_dir,
             device=str(args.device),
             python_exe=python_exe,
-            target_fid=target_fid,
+            target_fid=str(target_fid or ""),
             batch_sizes=batch_sizes,
             pomo_size=fixed_pomo_size,
+            probe_target=str(args.probe_target),
         )
     else:
         payload = _list_probe_batch_capacity(
@@ -359,17 +513,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             run_dir=run_dir,
             device=str(args.device),
             python_exe=python_exe,
-            target_fid=target_fid,
+            target_fid=str(target_fid or ""),
             batch_sizes=batch_sizes,
             pomo_size=fixed_pomo_size,
+            probe_target=str(args.probe_target),
         )
 
     report = {
         "config_path": str(config_path),
-        "run_dir": str(run_dir),
+        "probe_target": str(args.probe_target),
+        "run_dir": (str(run_dir) if run_dir is not None else None),
         "device": str(args.device),
         "python": python_exe,
-        "target_fid": str(target_fid),
+        "target_fid": (str(target_fid) if target_fid is not None else None),
         "fixed_pomo_size": int(fixed_pomo_size),
         "batch_sizes": [int(v) for v in batch_sizes],
         **payload,
@@ -378,7 +534,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     output_path = (
         Path(args.output).resolve()
         if args.output
-        else (run_dir / f"stage3_batch_probe_{str(args.device).replace(':', '_')}_pomo{int(fixed_pomo_size)}.json")
+        else (
+            ((run_dir if run_dir is not None else config_path.parent) / (
+                f"{str(args.probe_target)}_batch_probe_{str(args.device).replace(':', '_')}_pomo{int(fixed_pomo_size)}.json"
+            ))
+        )
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
