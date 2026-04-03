@@ -1,0 +1,72 @@
+{
+  "builder_id": "g000_000_59b6b66b",
+  "cost": 960.0,
+  "perf": 0.0,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": 0.0,
+  "best_perf_anchor": 0.0,
+  "threshold": 0.0,
+  "generation": 1,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g000_000_59b6b66b",
+    "f_id": "fseed_000_3c3e0ea7",
+    "score": 0.0,
+    "final_score": null,
+    "stage": "gate",
+    "stage_final": "none",
+    "phase": "builder",
+    "generation": 1,
+    "pair_reason": "ok_gate_only",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "builder_all_pairs_uniform_none_000",
+      "intuition": "rule_based:all_pairs:reweight:uniform_none",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "fixed_pair_reweight_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "uniform_none"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 4,
+  "ir": {
+    "name": "builder_all_pairs_uniform_none_000",
+    "intuition": "rule_based:all_pairs:reweight:uniform_none",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "fixed_pair_reweight_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "uniform_none"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n"
+  }
+}
