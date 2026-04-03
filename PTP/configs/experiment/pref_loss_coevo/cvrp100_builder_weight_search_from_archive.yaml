@@ -21,14 +21,20 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  allowed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  allow_freeform_weight_family: true
   allow_uniform_none: true
 
 budgets:
   generations: 10
-  pairing_budget_per_gen: 64
+  pairing_budget_per_gen: 16
   high_fidelity_top_m: 32
   hf_epochs: 10
+
+population:
+  n_candidates_builder: 16
+  n_candidates_loss: 1
+  keep_top_k: 8
 
 backend: rl4co
 env_name: cvrp
@@ -47,9 +53,6 @@ proxy_problem_size: 100
 proxy_batch_size: 64
 proxy_batches: 2
 pomo_size: null
-hf_epochs: 10
-scratch_hf_epochs: 5
-warmstart_hf_epochs: 5
 generator_params:
   num_loc: 100
 
@@ -62,7 +65,8 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    allowed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    allow_freeform_weight_family: true
     allow_uniform_none: true
   operator_bank:
     init:
