@@ -18,6 +18,7 @@ if __package__ is None or __package__ == "":
         if os.path.isdir(path) and path not in sys.path:
             sys.path.insert(0, path)
 
+from ptp_discovery.cuda_diagnostics import collect_cuda_snapshot, format_cuda_snapshot
 from ptp_discovery.pref_loss_coevo_loop import _evaluate_pair_worker
 from ptp_discovery.runtime_trace import RuntimeTrace
 
@@ -64,9 +65,23 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(f"Invalid payload JSON (expected dict): {args.payload}")
 
         payload = dict(payload_raw)
-        physical_device = str(payload.get("device_physical_str") or payload.get("device_str") or "")
-        if physical_device.startswith("cuda") and torch.cuda.is_available():
-            torch.cuda.set_device(torch.device(physical_device))
+        worker_device = str(payload.get("device_str") or payload.get("device_physical_str") or "")
+        if worker_device.startswith("cuda") and torch.cuda.is_available():
+            # Subprocess workers may remap a physical GPU like `cuda:2` to a
+            # process-local logical device `cuda:0` via CUDA_VISIBLE_DEVICES.
+            torch.cuda.set_device(torch.device(worker_device))
+        cfg_yaml = payload.get("cfg_yaml") if isinstance(payload.get("cfg_yaml"), dict) else {}
+        if bool(cfg_yaml.get("cuda_diagnostics_enabled", False)):
+            worker_diag = collect_cuda_snapshot(
+                devices=[worker_device] if worker_device else None,
+                include_nvidia_smi=bool(cfg_yaml.get("cuda_diagnostics_include_nvidia_smi", True)),
+            )
+            payload["worker_start_cuda_diag"] = worker_diag
+            print(
+                "[run_hf_pair_eval] worker startup "
+                + format_cuda_snapshot(worker_diag),
+                flush=True,
+            )
         trace.heartbeat(
             extra={
                 "generation": payload.get("generation"),

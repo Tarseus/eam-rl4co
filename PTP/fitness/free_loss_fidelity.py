@@ -7,6 +7,7 @@ from dataclasses import dataclass, asdict, field
 import math
 import os
 import re
+import traceback
 from typing import Any, Dict, List, Mapping, Protocol, Sequence, Tuple
 
 import logging
@@ -24,12 +25,15 @@ from .ptp_high_fidelity import (
     get_total_hf_train_steps,
 )
 from ptp_discovery.free_loss_compiler import CompiledFreeLoss
+from ptp_discovery.cuda_diagnostics import collect_cuda_snapshot, format_cuda_snapshot
 
 
 logger = logging.getLogger(__name__)
 
 
 _OFFLINE_TENSORDICT_CACHE: dict[str, Any] = {}
+_PRECISION_OVERRIDE_WARNED: set[tuple[str, str, str, str]] = set()
+_ROLLOUT_DEBUG_EVENTS: list[dict[str, Any]] = []
 _PAIRWISE_OPTIONAL_KEY_FAMILIES: dict[str, tuple[str, str, str]] = {
     "seq_len": ("seq_len_w", "seq_len_l", "seq_len_gap"),
     "log_prob_mean": ("log_prob_w_mean", "log_prob_l_mean", "log_prob_mean_gap"),
@@ -45,6 +49,233 @@ def _cfg_like_get(cfg_like: Mapping[str, Any] | Any, key: str, default: Any = No
     if isinstance(cfg_like, Mapping):
         return cfg_like.get(key, default)
     return getattr(cfg_like, key, default)
+
+
+def _cuda_diag_enabled(cfg_like: Mapping[str, Any] | Any) -> bool:
+    return bool(_cfg_like_get(cfg_like, "cuda_diagnostics_enabled", False))
+
+
+def _log_cuda_diag(
+    *,
+    cfg_like: Mapping[str, Any] | Any,
+    device: torch.device,
+    message: str,
+) -> Dict[str, Any] | None:
+    if device.type != "cuda" or not _cuda_diag_enabled(cfg_like):
+        return None
+    snap = collect_cuda_snapshot(
+        devices=[str(device)],
+        include_nvidia_smi=bool(_cfg_like_get(cfg_like, "cuda_diagnostics_include_nvidia_smi", True)),
+    )
+    logger.info("%s %s", str(message), format_cuda_snapshot(snap))
+    return snap
+
+
+def _tensor_debug_summary(value: torch.Tensor) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {
+        "type": "tensor",
+        "shape": list(value.shape),
+        "dtype": str(value.dtype),
+        "device": str(value.device),
+        "numel": int(value.numel()),
+    }
+    if value.numel() <= 0:
+        return summary
+    try:
+        if value.is_floating_point() or value.is_complex():
+            finite_mask = torch.isfinite(value)
+            finite_all = bool(finite_mask.all().item())
+            summary["isfinite"] = finite_all
+            if finite_all:
+                summary["min"] = float(value.amin().item())
+                summary["max"] = float(value.amax().item())
+            else:
+                summary["finite_ratio"] = float(finite_mask.float().mean().item())
+        elif value.dtype == torch.bool:
+            summary["true_ratio"] = float(value.float().mean().item())
+        else:
+            summary["min"] = float(value.amin().item())
+            summary["max"] = float(value.amax().item())
+    except Exception as exc:  # noqa: BLE001
+        summary["summary_error"] = f"{type(exc).__name__}: {exc}"
+    return summary
+
+
+def _mapping_debug_summary(value: Any, *, depth: int = 0, max_depth: int = 2, max_items: int = 8) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {"type": type(value).__name__}
+    batch_size = getattr(value, "batch_size", None)
+    if batch_size is not None:
+        try:
+            summary["batch_size"] = list(batch_size)
+        except Exception:  # noqa: BLE001
+            summary["batch_size"] = str(batch_size)
+    try:
+        keys = [str(k) for k in list(value.keys())]
+    except Exception:  # noqa: BLE001
+        return summary
+    summary["keys"] = keys[:max_items]
+    if len(keys) > max_items:
+        summary["truncated_keys"] = int(len(keys) - max_items)
+    if depth >= max_depth:
+        return summary
+    items: Dict[str, Any] = {}
+    for key in keys[:max_items]:
+        try:
+            item = value.get(key)
+        except Exception:  # noqa: BLE001
+            try:
+                item = value[key]
+            except Exception as exc:  # noqa: BLE001
+                items[str(key)] = {"summary_error": f"{type(exc).__name__}: {exc}"}
+                continue
+        items[str(key)] = _debug_value_summary(item, depth=depth + 1, max_depth=max_depth, max_items=max_items)
+    summary["items"] = items
+    return summary
+
+
+def _object_debug_summary(value: Any, *, depth: int = 0, max_depth: int = 2, max_items: int = 8) -> Dict[str, Any]:
+    summary: Dict[str, Any] = {"type": type(value).__name__}
+    field_names = [name for name in ("node_embeddings", "graph_context", "glimpse_key", "glimpse_val", "logit_key") if hasattr(value, name)]
+    if not field_names:
+        return summary
+    summary["fields"] = field_names
+    if depth >= max_depth:
+        return summary
+    items: Dict[str, Any] = {}
+    for name in field_names[:max_items]:
+        try:
+            items[name] = _debug_value_summary(getattr(value, name), depth=depth + 1, max_depth=max_depth, max_items=max_items)
+        except Exception as exc:  # noqa: BLE001
+            items[name] = {"summary_error": f"{type(exc).__name__}: {exc}"}
+    summary["items"] = items
+    return summary
+
+
+def _debug_value_summary(value: Any, *, depth: int = 0, max_depth: int = 2, max_items: int = 8) -> Any:
+    if isinstance(value, torch.Tensor):
+        return _tensor_debug_summary(value)
+    if isinstance(value, Mapping):
+        return _mapping_debug_summary(value, depth=depth, max_depth=max_depth, max_items=max_items)
+    if hasattr(value, "keys") and callable(getattr(value, "keys", None)):
+        return _mapping_debug_summary(value, depth=depth, max_depth=max_depth, max_items=max_items)
+    if isinstance(value, (list, tuple)):
+        items = [
+            _debug_value_summary(item, depth=depth + 1, max_depth=max_depth, max_items=max_items)
+            for item in value[:max_items]
+        ]
+        summary: Dict[str, Any] = {"type": type(value).__name__, "len": len(value), "items": items}
+        if len(value) > max_items:
+            summary["truncated_items"] = int(len(value) - max_items)
+        return summary
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return _object_debug_summary(value, depth=depth, max_depth=max_depth, max_items=max_items)
+
+
+def _rollout_input_debug_summary(
+    *,
+    env: Any,
+    policy: Any,
+    td: Any,
+    phase: str,
+    rollout_strategy: str,
+    device: torch.device,
+    precision: str,
+    batch_size: int,
+    num_rollouts: int,
+    include_decoder_cache: bool = False,
+) -> Dict[str, Any]:
+    decode_type = None
+    try:
+        decode_type = getattr(policy, f"{phase}_decode_type")
+    except Exception:  # noqa: BLE001
+        decode_type = None
+    summary: Dict[str, Any] = {
+        "phase": str(phase),
+        "rollout_strategy": str(rollout_strategy),
+        "device": str(device),
+        "precision": str(precision),
+        "batch_size": int(batch_size),
+        "num_rollouts": int(num_rollouts),
+        "decode_type": str(decode_type) if decode_type is not None else None,
+        "env": {
+            "type": type(env).__name__,
+            "name": str(getattr(env, "name", "")),
+            "num_stage": getattr(env, "num_stage", None),
+            "num_machine": getattr(env, "num_machine", None),
+            "flatten_stages": getattr(env, "flatten_stages", None),
+        },
+        "policy": {
+            "type": type(policy).__name__,
+            "policy_name": str(getattr(policy, "__class__", type(policy)).__name__),
+        },
+        "td": _debug_value_summary(td, max_depth=2, max_items=10),
+    }
+    if include_decoder_cache:
+        decoder_summaries: List[Dict[str, Any]] = []
+        for idx, decoder in enumerate(getattr(policy, "decoders", []) or []):
+            decoder_summary: Dict[str, Any] = {
+                "index": int(idx),
+                "type": type(decoder).__name__,
+            }
+            if hasattr(decoder, "cached_embs"):
+                decoder_summary["cached_embs"] = _debug_value_summary(
+                    getattr(decoder, "cached_embs"),
+                    max_depth=2,
+                    max_items=8,
+                )
+            decoder_summaries.append(decoder_summary)
+        if decoder_summaries:
+            summary["decoder_caches"] = decoder_summaries
+    return summary
+
+
+def _log_rollout_input_debug(
+    *,
+    cfg_like: Mapping[str, Any] | Any | None,
+    env: Any,
+    policy: Any,
+    td: Any,
+    phase: str,
+    rollout_strategy: str,
+    device: torch.device,
+    precision: str,
+    batch_size: int,
+    num_rollouts: int,
+    include_decoder_cache: bool,
+    message: str,
+) -> Dict[str, Any] | None:
+    if cfg_like is None or not _cuda_diag_enabled(cfg_like):
+        return None
+    summary = _rollout_input_debug_summary(
+        env=env,
+        policy=policy,
+        td=td,
+        phase=phase,
+        rollout_strategy=rollout_strategy,
+        device=device,
+        precision=precision,
+        batch_size=batch_size,
+        num_rollouts=num_rollouts,
+        include_decoder_cache=include_decoder_cache,
+    )
+    event = {
+        "message": str(message),
+        "summary": summary,
+    }
+    _ROLLOUT_DEBUG_EVENTS.append(event)
+    if len(_ROLLOUT_DEBUG_EVENTS) > 12:
+        del _ROLLOUT_DEBUG_EVENTS[:-12]
+    logger.info("%s %s", str(message), summary)
+    return summary
+
+
+def reset_rollout_debug_events() -> None:
+    _ROLLOUT_DEBUG_EVENTS.clear()
+
+
+def get_rollout_debug_events() -> List[Dict[str, Any]]:
+    return [dict(event) for event in _ROLLOUT_DEBUG_EVENTS]
 
 
 def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
@@ -67,6 +298,29 @@ def _should_aggressive_cuda_cleanup(cfg_like: Mapping[str, Any] | Any) -> bool:
     except Exception:  # noqa: BLE001
         ffsp_jobs = 0
     return env_name == "ffsp" and ffsp_jobs >= 100
+
+
+def _aggressive_cuda_cleanup_mode(cfg_like: Mapping[str, Any] | Any) -> str:
+    if not _should_aggressive_cuda_cleanup(cfg_like):
+        return "off"
+    mode = str(_cfg_like_get(cfg_like, "aggressive_cuda_cleanup_mode", "step") or "step").strip().lower()
+    if mode not in {"step", "epoch", "phase", "off"}:
+        return "step"
+    return mode
+
+
+def _should_run_aggressive_cleanup(cfg_like: Mapping[str, Any] | Any, *, when: str) -> bool:
+    mode = _aggressive_cuda_cleanup_mode(cfg_like)
+    when_norm = str(when or "").strip().lower()
+    if mode == "off":
+        return False
+    if mode == "step":
+        return when_norm in {"step", "epoch", "phase"}
+    if mode == "epoch":
+        return when_norm in {"epoch", "phase"}
+    if mode == "phase":
+        return when_norm == "phase"
+    return False
 
 
 def _empty_cuda_cache_for_device(
@@ -109,6 +363,27 @@ def _normalize_precision_mode(value: str | None) -> str:
     if mode in {"bf16", "bf16-mixed"}:
         return "bf16-mixed"
     return "32-true"
+
+
+def _effective_precision_mode(cfg_like: Mapping[str, Any] | Any) -> str:
+    requested = _normalize_precision_mode(_cfg_like_get(cfg_like, "precision", "32-true"))
+    env_name = str(
+        _cfg_like_get(cfg_like, "env_name", _cfg_like_get(cfg_like, "problem", "")) or ""
+    ).strip().lower()
+    policy_name = str(_cfg_like_get(cfg_like, "policy_name", "") or "").strip().lower()
+    if requested == "16-mixed" and env_name == "ffsp" and policy_name == "matnet":
+        key = (env_name, policy_name, requested, "32-true")
+        if key not in _PRECISION_OVERRIDE_WARNED:
+            logger.warning(
+                "Overriding precision from %s to 32-true for env=%s policy=%s in RL4CO HF rollout "
+                "to avoid FFSP MatNet CUDA invalid-argument failures.",
+                requested,
+                env_name,
+                policy_name,
+            )
+            _PRECISION_OVERRIDE_WARNED.add(key)
+        return "32-true"
+    return requested
 
 
 def _normalize_po_impl(value: str | None) -> str:
@@ -1027,6 +1302,7 @@ def _rl4co_rollout_full(
     rollout_strategy: str,
     device: torch.device,
     precision: str = "32-true",
+    cfg_like: Mapping[str, Any] | Any | None = None,
     return_actions: bool = False,
     return_entropy: bool = False,
     return_step_logp: bool = False,
@@ -1045,30 +1321,61 @@ def _rl4co_rollout_full(
     batch = gen(batch_size)
     batch = batch.to(device)
     td = env.reset(batch)
+    _log_rollout_input_debug(
+        cfg_like=cfg_like,
+        env=env,
+        policy=policy,
+        td=td,
+        phase=phase,
+        rollout_strategy=rollout_strategy,
+        device=device,
+        precision=precision,
+        batch_size=batch_size,
+        num_rollouts=num_rollouts,
+        include_decoder_cache=False,
+        message="RL4CO rollout input before policy forward",
+    )
 
     with _autocast_context(device, precision):
-        if rollout_strategy == "policy_multistart":
-            out = policy(
-                td,
-                env,
+        try:
+            if rollout_strategy == "policy_multistart":
+                out = policy(
+                    td,
+                    env,
+                    phase=phase,
+                    num_starts=num_rollouts,
+                    return_actions=return_actions,
+                    return_entropy=return_entropy,
+                    return_sum_log_likelihood=not return_step_logp,
+                )
+                reward = unbatchify(out["reward"], num_rollouts)
+            else:
+                td_rep = batchify(td, num_rollouts) if num_rollouts > 1 else td
+                out = policy(
+                    td_rep,
+                    env,
+                    phase=phase,
+                    return_actions=return_actions,
+                    return_entropy=return_entropy,
+                    return_sum_log_likelihood=not return_step_logp,
+                )
+                reward = unbatchify(out["reward"], num_rollouts)
+        except Exception:
+            _log_rollout_input_debug(
+                cfg_like=cfg_like,
+                env=env,
+                policy=policy,
+                td=td,
                 phase=phase,
-                num_starts=num_rollouts,
-                return_actions=return_actions,
-                return_entropy=return_entropy,
-                return_sum_log_likelihood=not return_step_logp,
+                rollout_strategy=rollout_strategy,
+                device=device,
+                precision=precision,
+                batch_size=batch_size,
+                num_rollouts=num_rollouts,
+                include_decoder_cache=True,
+                message="RL4CO rollout input on policy forward exception",
             )
-            reward = unbatchify(out["reward"], num_rollouts)
-        else:
-            td_rep = batchify(td, num_rollouts) if num_rollouts > 1 else td
-            out = policy(
-                td_rep,
-                env,
-                phase=phase,
-                return_actions=return_actions,
-                return_entropy=return_entropy,
-                return_sum_log_likelihood=not return_step_logp,
-            )
-            reward = unbatchify(out["reward"], num_rollouts)
+            raise
 
     raw_log_likelihood = out["log_likelihood"]
     log_likelihood_step = None
@@ -1112,6 +1419,7 @@ def _rl4co_rollout(
     rollout_strategy: str,
     device: torch.device,
     precision: str = "32-true",
+    cfg_like: Mapping[str, Any] | Any | None = None,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     out = _rl4co_rollout_full(
         env,
@@ -1122,11 +1430,102 @@ def _rl4co_rollout(
         rollout_strategy=rollout_strategy,
         device=device,
         precision=precision,
+        cfg_like=cfg_like,
         return_actions=False,
         return_entropy=False,
         return_step_logp=False,
     )
     return out["reward"], out["log_likelihood"]
+
+
+def run_rl4co_rollout_smoke_test(
+    cfg: HighFidelityConfig,
+    *,
+    init_checkpoint_path: str | None = None,
+    phase: str = "train",
+    device: str | torch.device | None = None,
+    batch_size: int = 1,
+    num_rollouts: int = 1,
+) -> Dict[str, Any]:
+    target_device = device if isinstance(device, torch.device) else torch.device(str(device or cfg.device))
+    effective_precision = _effective_precision_mode(cfg)
+    effective_batch_size = max(1, min(int(batch_size), int(getattr(cfg, "train_batch_size", 1) or 1)))
+    max_rollouts = resolve_pomo_size(getattr(cfg, "pomo_size", None), int(cfg.train_problem_size))
+    effective_num_rollouts = max(1, min(int(num_rollouts), int(max_rollouts)))
+    env_name = str(getattr(cfg, "env_name", "") or "").strip().lower()
+    policy_name = str(getattr(cfg, "policy_name", "") or "").strip().lower()
+    policy_kwargs = dict(getattr(cfg, "policy_kwargs", {}) or {})
+    use_po4cops_compat = bool(policy_kwargs.get("po4cops_compat", False))
+    # PO4COPs CVRP decoder uses InstanceNorm1d over the rollout/start dimension.
+    # A single rollout produces shape [B, C, 1], which InstanceNorm rejects.
+    if env_name == "cvrp" and policy_name == "pomo" and use_po4cops_compat and effective_num_rollouts < 2:
+        effective_num_rollouts = min(max(int(max_rollouts), 1), 2)
+    result: Dict[str, Any] = {
+        "ok": False,
+        "phase": str(phase),
+        "device": str(target_device),
+        "precision": str(effective_precision),
+        "batch_size": int(effective_batch_size),
+        "num_rollouts": int(effective_num_rollouts),
+        "init_checkpoint_path": str(init_checkpoint_path) if init_checkpoint_path else None,
+    }
+    env = None
+    policy = None
+    try:
+        reset_rollout_debug_events()
+        _set_seed(int(cfg.seed))
+        env = _rl4co_build_env(cfg, cfg.train_problem_size)
+        env = env.to(target_device)
+        policy, rollout_strategy = _rl4co_build_policy(cfg, env)
+        if init_checkpoint_path:
+            _load_policy_weights_from_checkpoint(policy, str(init_checkpoint_path))
+        policy = policy.to(target_device)
+        policy.eval()
+        with torch.no_grad():
+            rollout = _rl4co_rollout_full(
+                env,
+                policy,
+                effective_batch_size,
+                effective_num_rollouts,
+                phase=str(phase),
+                rollout_strategy=rollout_strategy,
+                device=target_device,
+                precision=effective_precision,
+                cfg_like=cfg,
+                return_actions=False,
+                return_entropy=False,
+                return_step_logp=False,
+            )
+        reward = rollout["reward"]
+        log_likelihood = rollout["log_likelihood"]
+        result["ok"] = True
+        result["rollout_strategy"] = str(rollout_strategy)
+        result["reward"] = _debug_value_summary(reward, max_depth=1, max_items=6)
+        result["log_likelihood"] = _debug_value_summary(log_likelihood, max_depth=1, max_items=6)
+        result["rollout_debug_events"] = get_rollout_debug_events()
+        return result
+    except Exception as exc:  # noqa: BLE001
+        result["error"] = f"{type(exc).__name__}: {exc}"
+        result["error_traceback"] = traceback.format_exc()
+        try:
+            result["rollout_strategy"] = str(_rl4co_rollout_strategy(cfg, str(getattr(cfg, "policy_name", "") or "")))
+        except Exception:  # noqa: BLE001
+            result["rollout_strategy"] = None
+        result["rollout_debug_events"] = get_rollout_debug_events()
+        return result
+    finally:
+        try:
+            env = None
+            policy = None
+            if target_device.type == "cuda":
+                _empty_cuda_cache_for_device(
+                    target_device,
+                    collect_garbage=_should_run_aggressive_cleanup(cfg, when="phase"),
+                    synchronize=True,
+                )
+        except Exception:  # noqa: BLE001
+            pass
+        reset_rollout_debug_events()
 
 
 def _train_one_batch_with_free_loss_rl4co(
@@ -1161,7 +1560,8 @@ def _train_one_batch_with_free_loss_rl4co(
         phase="train",
         rollout_strategy=rollout_strategy,
         device=device,
-        precision=str(getattr(hf_cfg, "precision", "32-true") or "32-true"),
+        precision=_effective_precision_mode(hf_cfg),
+        cfg_like=hf_cfg,
         return_actions=want_actions,
         return_entropy=want_entropy,
         return_step_logp=want_step_logp,
@@ -1252,7 +1652,7 @@ def _train_one_batch_with_free_loss_rl4co(
         del advantage
     except Exception:  # noqa: BLE001
         pass
-    if aggressive_cleanup:
+    if _should_run_aggressive_cleanup(hf_cfg, when="step"):
         _maybe_aggressive_cuda_cleanup(device, hf_cfg)
 
     return score_item, loss_item, pair_count
@@ -1290,18 +1690,20 @@ def _evaluate_rl4co_model(
             phase="test",
             rollout_strategy=rollout_strategy,
             device=device,
-            precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
+            precision=_effective_precision_mode(cfg),
+            cfg_like=cfg,
         )
         max_reward, _ = reward.max(dim=1)
         score = _rl4co_objective_from_reward(max_reward, cfg).float().mean().item()
         score_meter.update(score, n=current_batch)
         episodes_done += current_batch
         del max_reward, reward
-        if aggressive_cleanup:
+        if _should_run_aggressive_cleanup(cfg, when="step"):
             _maybe_aggressive_cuda_cleanup(device, cfg)
 
     env = None
-    _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
+    if _should_run_aggressive_cleanup(cfg, when="phase"):
+        _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
     return float(score_meter.avg)
 
 
@@ -1349,7 +1751,7 @@ def _evaluate_free_loss_candidate_rl4co(
         if cfg.init_checkpoint_path:
             _load_policy_weights_from_checkpoint(policy, str(cfg.init_checkpoint_path))
         policy = policy.to(device)
-        scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
+        scaler = _make_grad_scaler(device, _effective_precision_mode(cfg.hf))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.hf.learning_rate),
@@ -1499,13 +1901,54 @@ def _evaluate_free_loss_candidate_rl4co(
     ) -> Dict[str, Any]:
         _set_seed(cfg.hf.seed)
 
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot before env build",
+        )
         env = _rl4co_build_env(cfg.hf, cfg.hf.train_problem_size)
-        env = env.to(device)
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after env build before env.to",
+        )
+        try:
+            env = env.to(device)
+        except Exception:
+            _log_cuda_diag(
+                cfg_like=cfg.hf,
+                device=device,
+                message=f"RL4CO phase={phase} cuda snapshot on env.to exception",
+            )
+            raise
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after env.to",
+        )
         policy, rollout_strategy = _rl4co_build_policy(cfg.hf, env)
         if init_ckpt:
             _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
-        policy = policy.to(device)
-        scaler = _make_grad_scaler(device, str(getattr(cfg.hf, "precision", "32-true") or "32-true"))
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after policy build before policy.to",
+        )
+        try:
+            policy = policy.to(device)
+        except Exception:
+            _log_cuda_diag(
+                cfg_like=cfg.hf,
+                device=device,
+                message=f"RL4CO phase={phase} cuda snapshot on policy.to exception",
+            )
+            raise
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after policy.to",
+        )
+        scaler = _make_grad_scaler(device, _effective_precision_mode(cfg.hf))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.hf.learning_rate),
@@ -1621,6 +2064,8 @@ def _evaluate_free_loss_candidate_rl4co(
                     )
                     if torch.cuda.is_available():
                         _empty_cuda_cache_for_device(device, synchronize=True)
+                    if _should_run_aggressive_cleanup(cfg.hf, when="epoch"):
+                        _maybe_aggressive_cuda_cleanup(device, cfg.hf)
                     epoch_objectives.append(epoch_valid_obj)
                     logger.info(
                         "RL4CO free-loss[%s] epoch %d/%d: validation_objective=%.6f",
@@ -1679,6 +2124,11 @@ def _evaluate_free_loss_candidate_rl4co(
                 _empty_cuda_cache_for_device(device, synchronize=True)
         except Exception:  # noqa: BLE001
             pass
+        _log_cuda_diag(
+            cfg_like=cfg.hf,
+            device=device,
+            message=f"RL4CO phase={phase} cuda snapshot after cleanup",
+        )
 
         return {
             "phase": phase,
@@ -2162,7 +2612,7 @@ def evaluate_po_baseline_rl4co(
         if init_ckpt:
             _load_policy_weights_from_checkpoint(policy, str(init_ckpt))
         policy = policy.to(device)
-        scaler = _make_grad_scaler(device, str(getattr(cfg, "precision", "32-true") or "32-true"))
+        scaler = _make_grad_scaler(device, _effective_precision_mode(cfg))
         optimizer = Adam(
             policy.parameters(),
             lr=float(cfg.learning_rate),
@@ -2202,7 +2652,8 @@ def evaluate_po_baseline_rl4co(
                 phase="train",
                 rollout_strategy=rollout_strategy,
                 device=device,
-                precision=str(getattr(cfg, "precision", "32-true") or "32-true"),
+                precision=_effective_precision_mode(cfg),
+                cfg_like=cfg,
             )
             reward = reward.float()
             log_likelihood = log_likelihood.float()
@@ -2260,7 +2711,7 @@ def evaluate_po_baseline_rl4co(
                         int(phase_epochs),
                         epoch_valid_obj,
                     )
-                    if aggressive_cleanup:
+                    if _should_run_aggressive_cleanup(cfg, when="epoch"):
                         _maybe_aggressive_cuda_cleanup(device, cfg)
 
             if use_early_stop and early_eval_steps_phase > 0 and (step + 1) == early_eval_steps_phase:
@@ -2288,7 +2739,7 @@ def evaluate_po_baseline_rl4co(
                     break
 
             del reward, log_likelihood, max_reward, score, loss
-            if aggressive_cleanup:
+            if _should_run_aggressive_cleanup(cfg, when="step"):
                 _maybe_aggressive_cuda_cleanup(device, cfg)
 
         if early_stopped and early_validation_objective is not None:
@@ -2308,7 +2759,8 @@ def evaluate_po_baseline_rl4co(
 
         try:
             env = None
-            _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
+            if _should_run_aggressive_cleanup(cfg, when="phase"):
+                _maybe_aggressive_cuda_cleanup(device, cfg, collect_garbage=aggressive_cleanup)
         except Exception:  # noqa: BLE001
             pass
 

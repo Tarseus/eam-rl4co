@@ -1,0 +1,178 @@
+{
+  "generation": 3,
+  "index": 5,
+  "id": "g003_005_57a9c8c8",
+  "signature": "57a9c8c8f6c73bd14e3919fe41f78094fa08eb17",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|constraint=fixed_pair_reweight_only",
+  "origin": "SEED",
+  "origin_base": null,
+  "op_type": "SEED_MUTATE",
+  "parents": [
+    "g002_001_f98d083c"
+  ],
+  "attempt": 0,
+  "prompt_sha1": null,
+  "prompt_path": null,
+  "llm_seed": null,
+  "history": [],
+  "ir": {
+    "name": "builder_all_pairs_uniform_none_000_m_from_g002_001_f98",
+    "intuition": "rule_based:all_pairs:reweight:uniform_none",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "fixed_pair_reweight_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "uniform_none"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": -0.04296618700027466,
+  "descriptor": {
+    "x": 1.0,
+    "y": 1.0,
+    "cell": [
+      7,
+      7
+    ]
+  },
+  "builder_perf": -0.04296618700027466,
+  "builder_cost": 316800.0,
+  "builder_feasible": true,
+  "builder_threshold": -0.04296618700027466,
+  "builder_best_perf": -0.04296618700027466,
+  "selection_sort_key": [
+    0.0,
+    316800.0,
+    -0.04296618700027466
+  ],
+  "stage": "high_fidelity",
+  "score": -0.04296618700027466,
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "best_pair_generation": 3,
+  "score_history": [
+    {
+      "generation": 3,
+      "pair_index": 0,
+      "phase": "builder",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.04296618700027466,
+      "eval_budget_signature": "0b305404eaee8d33",
+      "reference_score": -0.03956693410873413
+    },
+    {
+      "generation": 4,
+      "pair_index": 7,
+      "phase": "builder",
+      "stage": "cheap",
+      "stage_final": "high_fidelity",
+      "score": -0.04296618700027466,
+      "eval_budget_signature": "0b305404eaee8d33",
+      "reference_score": -0.04296618700027466
+    },
+    {
+      "generation": 7,
+      "pair_index": 15,
+      "phase": "builder",
+      "stage": "cheap",
+      "stage_final": "high_fidelity",
+      "score": -0.04296618700027466,
+      "eval_budget_signature": "0b305404eaee8d33",
+      "reference_score": -0.04296618700027466
+    },
+    {
+      "generation": 8,
+      "pair_index": 8,
+      "phase": "builder",
+      "stage": "cheap",
+      "stage_final": "high_fidelity",
+      "score": -0.04296618700027466,
+      "eval_budget_signature": "0b305404eaee8d33",
+      "reference_score": -0.04296618700027466
+    },
+    {
+      "generation": 9,
+      "pair_index": 9,
+      "phase": "builder",
+      "stage": "cheap",
+      "stage_final": "high_fidelity",
+      "score": -0.04296618700027466,
+      "eval_budget_signature": "0b305404eaee8d33",
+      "reference_score": -0.04296618700027466
+    },
+    {
+      "generation": 10,
+      "pair_index": 7,
+      "phase": "builder",
+      "stage": "cheap",
+      "stage_final": "high_fidelity",
+      "score": -0.04296618700027466,
+      "eval_budget_signature": "0b305404eaee8d33",
+      "reference_score": -0.04296618700027466
+    }
+  ],
+  "score_history_summary": {
+    "count": 6,
+    "scores": [
+      -0.04296618700027466,
+      -0.04296618700027466,
+      -0.04296618700027466,
+      -0.04296618700027466,
+      -0.04296618700027466,
+      -0.04296618700027466
+    ],
+    "best": -0.04296618700027466,
+    "worst": -0.04296618700027466,
+    "mean": -0.04296618700027466,
+    "latest": -0.04296618700027466
+  }
+}
