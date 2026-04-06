@@ -65,6 +65,8 @@ class HighFidelityConfig:
     size_cvar_alpha: float = 0.2
     pool_version: str = "v0"
     loss_observables: Sequence[str] = DEFAULT_LOSS_OBSERVABLES
+    cuda_diagnostics_enabled: bool = False
+    cuda_diagnostics_include_nvidia_smi: bool = True
 
 
 def resolve_pomo_size(pomo_size: int | None, problem_size: int) -> int:

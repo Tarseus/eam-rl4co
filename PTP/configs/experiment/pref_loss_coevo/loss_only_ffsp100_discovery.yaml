@@ -40,8 +40,12 @@ stage0_sandbox_rounds: 1
 stage0_sandbox_variants: ["visible", "hidden"]
 stage0_sandbox_hard_failure_kinds: ["pref_batch_to_loss_batch_error","forward_error","backward_error","loss_not_finite","missing_grads","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_missing_grads","numeric_stress_grad_not_finite"]
 
-proxy_device: cuda:0
-devices: ["cuda:1", "cuda:2", "cuda:3", "cuda:4"]
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+aggressive_cuda_cleanup: true
+aggressive_cuda_cleanup_mode: epoch
+hf_subprocess_cuda_launch_blocking: true
+cuda_diagnostics_enabled: true
+cuda_diagnostics_include_nvidia_smi: true
 mp:
   enabled: true
   processes: 4
@@ -81,10 +85,10 @@ baseline_epoch_window_violation_weight: 0.0
 early_eval_steps: 0
 train_problem_size: 100
 valid_problem_sizes: [100]
-train_batch_size: 50
+train_batch_size: 8
 num_validation_episodes: 1000
 validation_batch_size: 50
-pomo_size: 24
+pomo_size: 4
 # Keep FFSP100 discovery on the cheapest scalar observable only.
 # `seq_len` / `log_prob_mean` force action materialization in free-loss HF eval
 # and can push large-scale FFSP stage3 candidate runs over the memory limit.
@@ -115,7 +119,7 @@ learning_rate: 0.0001
 weight_decay: 0.000001
 alpha: 1.0
 po_impl: exponential
-precision: 16-mixed
+precision: 32-true
 
 baseline:
   # 需要先训练baseline
