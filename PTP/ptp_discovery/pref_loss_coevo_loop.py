@@ -3627,6 +3627,9 @@ def _expand_operator_bank(side_cfg: Mapping[str, Any], generation: int, rng: ran
     bank = side_cfg.get("operator_bank", {}) if isinstance(side_cfg, Mapping) else {}
     if not isinstance(bank, Mapping):
         return []
+    search_space_cfg = {}
+    if str(side) == "builder":
+        search_space_cfg = _normalize_builder_search_space_cfg(side_cfg.get("search_space", {}))
     section = bank.get("init" if int(generation) <= 0 else "per_gen", [])
     if not isinstance(section, Sequence) or isinstance(section, (str, bytes)):
         return []
@@ -3635,6 +3638,11 @@ def _expand_operator_bank(side_cfg: Mapping[str, Any], generation: int, rng: ran
         if not isinstance(item, Mapping):
             continue
         op = _normalize_operator_name(str(item.get("name", "")), side=side)
+        if bool(search_space_cfg.get("enabled", False)) and str(search_space_cfg.get("mode")) == "reweight_only":
+            if op == "PARADIGM_SHIFT":
+                op = "GEN"
+            elif op in {"STRUCTURE_SHIFT", "CONSTRAINT_INJECT"}:
+                op = "TUNE"
         if op in {"", "ELITE", "M3", "REPAIR"}:
             continue
         count = max(0, _safe_int(item.get("count", 0), 0))

@@ -95,3 +95,4 @@ def test_seed_reserve_keeps_seed_builders_and_losses(monkeypatch):
     seed_losses = [c for c in losses if str(c.get("op_type", "")).startswith("SEED")]
     assert len(seed_losses) >= 2
 
+
