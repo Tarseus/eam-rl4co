@@ -255,3 +255,39 @@ def test_reweight_only_freeform_prompt_and_seed_pool(monkeypatch):
     pool = loop._make_builtin_builder_irs(rng, 8)
     observed = {str(ir.hyperparams.get("weight_family")) for ir in pool}
     assert observed <= {"gap_linear", "gap_sigmoid"}
+
+
+def test_reweight_only_builder_operator_bank_remaps_structure_ops(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    plan = loop._expand_operator_bank(
+        {
+            "search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+            },
+            "operator_bank": {
+                "init": [
+                    {"name": "GEN", "count": 1},
+                    {"name": "PARADIGM_SHIFT", "count": 2},
+                    {"name": "STRUCTURE_SHIFT", "count": 3},
+                    {"name": "CONSTRAINT_INJECT", "count": 4},
+                    {"name": "XOVER", "count": 1},
+                ]
+            },
+        },
+        generation=0,
+        rng=random.Random(0),
+        side="builder",
+    )
+
+    assert "PARADIGM_SHIFT" not in plan
+    assert "STRUCTURE_SHIFT" not in plan
+    assert "CONSTRAINT_INJECT" not in plan
+    assert plan.count("GEN") == 3
+    assert plan.count("TUNE") == 7
+    assert plan.count("XOVER") == 1
