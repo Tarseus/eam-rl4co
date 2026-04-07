@@ -10642,6 +10642,7 @@ def run_pref_loss_coevo(
     scratch_hf_epochs_cfg = int(cfg_yaml.get("scratch_hf_epochs", 0) or 0)
     warmstart_hf_epochs_cfg = int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0)
     split_hf_epoch_eval = bool(scratch_hf_epochs_cfg > 0 and warmstart_hf_epochs_cfg > 0)
+    scratch_only_hf_epoch_eval = bool(scratch_hf_epochs_cfg > 0 and warmstart_hf_epochs_cfg <= 0)
 
     if baseline_metrics_csv and baseline_ckpt_epoch is not None and int(getattr(sig_hf_cfg, "hf_epochs", 0) or 0) > 0:
         metrics_path = _abs_from_repo_root(str(baseline_metrics_csv))
@@ -10649,40 +10650,48 @@ def run_pref_loss_coevo(
         baseline_scratch_epoch_objectives: List[float] | None = None
         baseline_warmstart_epoch_objectives: List[float] | None = None
         scratch_start_epoch_used: int | None = None
-        try:
-            if split_hf_epoch_eval:
-                scratch_start_epoch_cfg = (
-                    (baseline_cfg or {}).get("scratch_start_epoch")
-                    or cfg_yaml.get("baseline_scratch_start_epoch")
-                )
-                if scratch_start_epoch_cfg is None:
-                    try:
-                        baseline_scratch_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
-                            metrics_path,
-                            value_col=baseline_val_column,
-                            start_epoch=0,
-                            num_epochs=int(scratch_hf_epochs_cfg),
-                            objective_sign=str(sig_hf_cfg.objective_sign),
-                        )
-                        scratch_start_epoch_used = 0
-                    except Exception:  # noqa: BLE001
-                        baseline_scratch_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
-                            metrics_path,
-                            value_col=baseline_val_column,
-                            start_epoch=1,
-                            num_epochs=int(scratch_hf_epochs_cfg),
-                            objective_sign=str(sig_hf_cfg.objective_sign),
-                        )
-                        scratch_start_epoch_used = 1
-                else:
-                    scratch_start_epoch_used = int(scratch_start_epoch_cfg)
-                    baseline_scratch_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
+
+        def _load_scratch_baseline_epoch_objectives(num_epochs: int) -> List[float]:
+            nonlocal scratch_start_epoch_used
+            scratch_start_epoch_cfg = (
+                (baseline_cfg or {}).get("scratch_start_epoch")
+                or cfg_yaml.get("baseline_scratch_start_epoch")
+            )
+            if scratch_start_epoch_cfg is None:
+                try:
+                    objectives = baseline_epoch_objectives_from_metrics_csv(
                         metrics_path,
                         value_col=baseline_val_column,
-                        start_epoch=int(scratch_start_epoch_used),
-                        num_epochs=int(scratch_hf_epochs_cfg),
+                        start_epoch=0,
+                        num_epochs=int(num_epochs),
                         objective_sign=str(sig_hf_cfg.objective_sign),
                     )
+                    scratch_start_epoch_used = 0
+                    return objectives
+                except Exception:  # noqa: BLE001
+                    objectives = baseline_epoch_objectives_from_metrics_csv(
+                        metrics_path,
+                        value_col=baseline_val_column,
+                        start_epoch=1,
+                        num_epochs=int(num_epochs),
+                        objective_sign=str(sig_hf_cfg.objective_sign),
+                    )
+                    scratch_start_epoch_used = 1
+                    return objectives
+
+            scratch_start_epoch_used = int(scratch_start_epoch_cfg)
+            return baseline_epoch_objectives_from_metrics_csv(
+                metrics_path,
+                value_col=baseline_val_column,
+                start_epoch=int(scratch_start_epoch_used),
+                num_epochs=int(num_epochs),
+                objective_sign=str(sig_hf_cfg.objective_sign),
+            )
+        try:
+            if split_hf_epoch_eval:
+                baseline_scratch_epoch_objectives = _load_scratch_baseline_epoch_objectives(
+                    int(scratch_hf_epochs_cfg)
+                )
 
                 baseline_warmstart_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
                     metrics_path,
@@ -10695,6 +10704,11 @@ def run_pref_loss_coevo(
                 baseline_epoch_objectives = list(baseline_scratch_epoch_objectives or []) + list(
                     baseline_warmstart_epoch_objectives or []
                 )
+            elif scratch_only_hf_epoch_eval:
+                baseline_scratch_epoch_objectives = _load_scratch_baseline_epoch_objectives(
+                    int(scratch_hf_epochs_cfg)
+                )
+                baseline_epoch_objectives = list(baseline_scratch_epoch_objectives or [])
             else:
                 baseline_epoch_objectives = baseline_epoch_objectives_from_metrics_csv(
                     metrics_path,

@@ -190,3 +190,85 @@ def test_external_baseline_slice_split_calls(monkeypatch, tmp_path):
     assert scratch["num_epochs"] == 10
     assert warm["start_epoch"] == 410
     assert warm["num_epochs"] == 10
+
+
+def test_external_baseline_slice_scratch_only_uses_scratch_window(monkeypatch, tmp_path):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    calls: list[dict] = []
+
+    def _fake_baseline(metrics_csv_path, *, value_col, start_epoch, num_epochs, objective_sign):  # noqa: ANN001
+        calls.append(
+            {
+                "metrics_csv_path": str(metrics_csv_path),
+                "value_col": str(value_col),
+                "start_epoch": int(start_epoch),
+                "num_epochs": int(num_epochs),
+                "objective_sign": str(objective_sign),
+            }
+        )
+        return [float(i) for i in range(int(num_epochs))]
+
+    monkeypatch.setattr(loop, "baseline_epoch_objectives_from_metrics_csv", _fake_baseline)
+
+    cfg = {
+        "seed": 0,
+        "output_root": str(tmp_path / "runs"),
+        "generations": 0,
+        "pop_g": 2,
+        "pop_f": 2,
+        "elite_g": 1,
+        "elite_f": 1,
+        "pairing_budget_per_gen": 1,
+        "cheap_gate_on": False,
+        "high_fidelity_on": False,
+        "backend": "rl4co",
+        "env_name": "tsp",
+        "generator_params": {"num_loc": 20},
+        "policy_name": "pomo",
+        "policy_kwargs": {},
+        "rollout_strategy": "auto",
+        "objective_sign": "neg_reward",
+        "hf_epochs": 10,
+        "hf_instances_per_epoch": 100000,
+        "train_problem_size": 20,
+        "valid_problem_sizes": [20],
+        "train_batch_size": 64,
+        "pomo_size": 16,
+        "learning_rate": 3e-4,
+        "weight_decay": 1e-6,
+        "alpha": 0.05,
+        "device": "cpu",
+        "num_validation_episodes": 10000,
+        "validation_batch_size": 64,
+        "size_aggregation": "cvar",
+        "size_cvar_alpha": 0.2,
+        "scratch_hf_epochs": 10,
+        "warmstart_hf_epochs": 0,
+        "baseline_epoch_compare_offset": 0,
+        "early_eval_steps": 0,
+        "baseline": {
+            "metrics_csv": "baseline/metrics.csv",
+            "checkpoint": "baseline/epoch_409.ckpt",
+            "checkpoint_epoch": 409,
+            "scratch_start_epoch": 0,
+            "val_column": "val/reward",
+        },
+        "proxy_problem_size": 20,
+        "proxy_batch_size": 8,
+        "proxy_batches": 1,
+    }
+
+    cfg_path = tmp_path / "cfg.yaml"
+    import yaml
+
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    loop.run_pref_loss_coevo(str(cfg_path))
+
+    assert len(calls) == 1
+    scratch = calls[0]
+    assert scratch["start_epoch"] == 0
+    assert scratch["num_epochs"] == 10
