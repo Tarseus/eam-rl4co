@@ -1456,9 +1456,9 @@ def run_rl4co_rollout_smoke_test(
     policy_name = str(getattr(cfg, "policy_name", "") or "").strip().lower()
     policy_kwargs = dict(getattr(cfg, "policy_kwargs", {}) or {})
     use_po4cops_compat = bool(policy_kwargs.get("po4cops_compat", False))
-    # PO4COPs CVRP decoder uses InstanceNorm1d over the rollout/start dimension.
-    # A single rollout produces shape [B, C, 1], which InstanceNorm rejects.
-    if env_name == "cvrp" and policy_name == "pomo" and use_po4cops_compat and effective_num_rollouts < 2:
+    # PO4COPs-compatible POMO decoders use InstanceNorm1d over the rollout/start
+    # dimension. A single rollout produces shape [B, C, 1], which InstanceNorm rejects.
+    if env_name in {"tsp", "cvrp"} and policy_name == "pomo" and use_po4cops_compat and effective_num_rollouts < 2:
         effective_num_rollouts = min(max(int(max_rollouts), 1), 2)
     result: Dict[str, Any] = {
         "ok": False,
