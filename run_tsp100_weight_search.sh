@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
+PYTHON_BIN="${PYTHON_BIN:-python}"
 CONFIG_PATH="${1:-PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml}"
 MODE="${2:-start}" # start | resume-latest | resume-dir
 RESUME_DIR="${3:-}"
@@ -17,8 +18,9 @@ LOG_DIR="${ROOT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
 LOG_PATH="${LOG_DIR}/tsp100_weight_search_${TS}.out"
+TAIL_LOG="${TAIL_LOG:-1}"
 
-CMD=(python -u PTP/ptp_discovery/run_pref_loss_coevo.py --config "$CONFIG_PATH")
+CMD=("$PYTHON_BIN" -u PTP/ptp_discovery/run_pref_loss_coevo.py --config "$CONFIG_PATH")
 case "$MODE" in
   start)
     ;;
@@ -46,4 +48,6 @@ echo "Log: $LOG_PATH"
 nohup "${CMD[@]}" >"$LOG_PATH" 2>&1 &
 echo "Started PID: $!"
 
-# tail -f "$LOG_PATH"
+if [[ "$TAIL_LOG" != "0" ]]; then
+  tail -f "$LOG_PATH"
+fi
