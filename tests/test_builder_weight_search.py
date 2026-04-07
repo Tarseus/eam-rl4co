@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import random
 from pathlib import Path
 
@@ -291,3 +292,55 @@ def test_reweight_only_builder_operator_bank_remaps_structure_ops(monkeypatch):
     assert plan.count("GEN") == 3
     assert plan.count("TUNE") == 7
     assert plan.count("XOVER") == 1
+
+
+def test_builder_llm_exception_is_logged(monkeypatch, caplog):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+
+    def _boom(*args, **kwargs):  # noqa: ANN001
+        raise RuntimeError("OPENAI_API_KEY is not set")
+
+    monkeypatch.setattr(builder_ops, "generate_pref_builder_candidate_with_meta", _boom)
+
+    with caplog.at_level(logging.WARNING):
+        out = loop._propose_builders_for_generation(
+            generation=0,
+            pop_g=1,
+            elites_g=[],
+            diverse_elites_g=[],
+            rng=random.Random(0),
+            llm_cfg={
+                "builder": {
+                    "enabled": True,
+                    "parent_p": 2,
+                    "seed_reserve": 0,
+                    "search_space": {
+                        "enabled": True,
+                        "mode": "reweight_only",
+                        "fixed_pair_builder": "all_pairs",
+                    },
+                    "operator_bank": {
+                        "init": [
+                            {"name": "GEN", "count": 1},
+                        ]
+                    },
+                    "repair": {"enabled": False},
+                },
+                "prompts": {
+                    "builder_generation": "PTP/prompts/pref_builder_generation.txt",
+                },
+            },
+            operator_whitelist=[],
+            global_feedback={},
+            llm_init_only=True,
+            carry_elites=False,
+        )
+
+    assert out == []
+    assert "Builder LLM proposal failed at gen=0" in caplog.text
+    assert "OPENAI_API_KEY is not set" in caplog.text
+    assert "Builder generation 0 produced zero valid proposals while llm_init_only=true" in caplog.text
