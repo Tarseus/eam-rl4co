@@ -46,6 +46,28 @@ def test_free_cfg_propagates_split_fields(monkeypatch):
     assert int(getattr(free_cfg, "baseline_epoch_compare_offset", 0)) == 0
 
 
+def test_simple_runtime_config_lifts_split_hf_epochs_from_budgets(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "preset": "simple",
+        "search_mode": "builder_only",
+        "budgets": {
+            "hf_epochs": 10,
+            "scratch_hf_epochs": 5,
+            "warmstart_hf_epochs": 5,
+        },
+    }
+
+    runtime_cfg, _ = loop._resolve_runtime_config(cfg)
+
+    assert int(runtime_cfg.get("hf_epochs", 0) or 0) == 10
+    assert int(runtime_cfg.get("scratch_hf_epochs", 0) or 0) == 5
+    assert int(runtime_cfg.get("warmstart_hf_epochs", 0) or 0) == 5
+
+
 def test_ffsp100_filters_seq_len_and_log_prob_mean(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 

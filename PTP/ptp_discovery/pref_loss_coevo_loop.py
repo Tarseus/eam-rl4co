@@ -3691,6 +3691,10 @@ def _apply_stage3_round_overrides(cfg_yaml: Mapping[str, Any], round_cfg: Mappin
         out["f1_steps"] = int(round_cfg.get("f1_steps") or out.get("f1_steps", 32) or 32)
     if "hf_epochs" in round_cfg and round_cfg.get("hf_epochs") is not None:
         out["hf_epochs"] = int(round_cfg.get("hf_epochs") or 0)
+    if "scratch_hf_epochs" in round_cfg and round_cfg.get("scratch_hf_epochs") is not None:
+        out["scratch_hf_epochs"] = int(round_cfg.get("scratch_hf_epochs") or 0)
+    if "warmstart_hf_epochs" in round_cfg and round_cfg.get("warmstart_hf_epochs") is not None:
+        out["warmstart_hf_epochs"] = int(round_cfg.get("warmstart_hf_epochs") or 0)
     if "hf_instances_per_epoch" in round_cfg and round_cfg.get("hf_instances_per_epoch") is not None:
         out["hf_instances_per_epoch"] = int(round_cfg.get("hf_instances_per_epoch") or 0)
 
@@ -4564,6 +4568,14 @@ def _resolve_runtime_config(cfg_yaml: Mapping[str, Any]) -> Tuple[Dict[str, Any]
                 hf_top_m_default,
             ),
             "hf_epochs": _safe_int(budgets.get("hf_epochs", cfg.get("hf_epochs", 1)), 1),
+            "scratch_hf_epochs": _safe_int(
+                budgets.get("scratch_hf_epochs", cfg.get("scratch_hf_epochs", 0)),
+                0,
+            ),
+            "warmstart_hf_epochs": _safe_int(
+                budgets.get("warmstart_hf_epochs", cfg.get("warmstart_hf_epochs", 0)),
+                0,
+            ),
             "pop_f": _safe_int(population.get("n_candidates_loss", cfg.get("pop_f", 64)), 64),
             "pop_g": _safe_int(population.get("n_candidates_builder", cfg.get("pop_g", 64)), 64),
             "elite_f": int(keep_top_k),
