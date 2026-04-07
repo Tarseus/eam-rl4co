@@ -6106,6 +6106,8 @@ def _propose_builders_for_generation(
         seed_reserve = 0
 
     if llm_enabled:
+        llm_failure_counts: Dict[str, int] = {}
+        llm_failure_samples: List[Dict[str, Any]] = []
         if operator_whitelist is None:
             operator_whitelist = []
         parent_p = int(builder_cfg.get("parent_p", 5) or 5)
@@ -6288,8 +6290,10 @@ def _propose_builders_for_generation(
                 call_feedback["llm_call"]["parent_family_shortage"] = bool(locals().get("shortage", False))
 
             history: List[Dict[str, Any]] = []
+            prompt_ref = ""
             try:
                 if llm_op == "E1_GENERATE":
+                    prompt_ref = str(p_gen)
                     ir, meta = builder_llm_ops.generate_pref_builder_candidate_with_meta(
                         p_gen,
                         operator_whitelist=operator_whitelist,
@@ -6300,6 +6304,7 @@ def _propose_builders_for_generation(
                     parent_ids = []
                     parent_entries_used = []
                 elif llm_op == "E1":
+                    prompt_ref = str(p_x)
                     ir, meta = builder_llm_ops.crossover_pref_builder_with_meta(
                         p_x,
                         parents=parents_ir,
@@ -6310,6 +6315,7 @@ def _propose_builders_for_generation(
                     op_type = "E1"
                     parent_ids = parents_ids
                 elif llm_op == "E2":
+                    prompt_ref = str(p_e2)
                     ir, meta = builder_llm_ops.e2_pref_builder_with_meta(
                         p_e2,
                         parents=parents_ir,
@@ -6320,6 +6326,7 @@ def _propose_builders_for_generation(
                     op_type = "E2"
                     parent_ids = parents_ids
                 elif llm_op == "PARADIGM_SHIFT":
+                    prompt_ref = str(p_shift)
                     ir, meta = builder_llm_ops.paradigm_shift_builder_with_meta(
                         p_shift,
                         parents=parents_ir,
@@ -6330,6 +6337,7 @@ def _propose_builders_for_generation(
                     op_type = "BUILDER_PARADIGM_SHIFT"
                     parent_ids = parents_ids
                 elif llm_op == "STRUCTURE_SHIFT":
+                    prompt_ref = str(p_structure)
                     ir, meta = builder_llm_ops.structure_shift_builder_with_meta(
                         p_structure,
                         parent=parents_ir[0],
@@ -6340,6 +6348,7 @@ def _propose_builders_for_generation(
                     op_type = "BUILDER_STRUCTURE_SHIFT"
                     parent_ids = parents_ids
                 elif llm_op == "CONSTRAINT_INJECT":
+                    prompt_ref = str(p_constraint)
                     ir, meta = builder_llm_ops.constraint_inject_builder_with_meta(
                         p_constraint,
                         parent=parents_ir[0],
@@ -6350,6 +6359,7 @@ def _propose_builders_for_generation(
                     op_type = "BUILDER_CONSTRAINT_INJECT"
                     parent_ids = parents_ids
                 elif llm_op == "M2":
+                    prompt_ref = str(p_m2)
                     ir, meta = builder_llm_ops.m2_tune_builder_with_meta(
                         p_m2,
                         parent=parents_ir[0],
@@ -6360,6 +6370,7 @@ def _propose_builders_for_generation(
                     op_type = "M2"
                     parent_ids = parents_ids
                 else:
+                    prompt_ref = str(p_m)
                     ir, meta = builder_llm_ops.mutate_pref_builder_with_meta(
                         p_m,
                         parent=parents_ir[0],
@@ -6370,7 +6381,27 @@ def _propose_builders_for_generation(
                     op_type = "M1"
                     parent_ids = parents_ids
                 history.append({"attempt": 0, "side": "builder", **dict(meta)})
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                llm_failure_counts[str(llm_op)] = int(llm_failure_counts.get(str(llm_op), 0)) + 1
+                if len(llm_failure_samples) < 5:
+                    llm_failure_samples.append(
+                        {
+                            "requested_op": str(raw_op),
+                            "llm_op": str(llm_op),
+                            "prompt_path": str(prompt_ref),
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        }
+                    )
+                    LOGGER.warning(
+                        "Builder LLM proposal failed at gen=%d requested_op=%s llm_op=%s prompt=%s error=%s: %s",
+                        int(generation),
+                        str(raw_op),
+                        str(llm_op),
+                        str(prompt_ref or "<none>"),
+                        type(exc).__name__,
+                        str(exc),
+                    )
                 continue
 
             ok, fail_reason = validate_builder_candidate(
@@ -6441,6 +6472,24 @@ def _propose_builders_for_generation(
                         "history": history,
                         "llm_seed": llm_seed,
                     }
+                )
+
+        if llm_failure_counts:
+            failure_summary = ", ".join(
+                f"{str(op_name)}={int(count)}" for op_name, count in sorted(llm_failure_counts.items(), key=lambda item: str(item[0]))
+            )
+            LOGGER.warning(
+                "Builder LLM proposal failure summary at gen=%d: %s",
+                int(generation),
+                failure_summary,
+            )
+            if bool(llm_init_only) and not out:
+                LOGGER.error(
+                    "Builder generation %d produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. "
+                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, or invalid LLM JSON/code. "
+                    "failure_samples=%s",
+                    int(generation),
+                    llm_failure_samples,
                 )
 
     # Mutations/crossover and fresh seeds.
@@ -6589,6 +6638,8 @@ def _propose_losses_for_generation(
         seed_reserve = 0
 
     if llm_enabled:
+        llm_failure_counts: Dict[str, int] = {}
+        llm_failure_samples: List[Dict[str, Any]] = []
         if operator_whitelist is None:
             operator_whitelist = []
         parent_p = int(loss_cfg.get("parent_p", 5) or 5)
@@ -6818,9 +6869,11 @@ def _propose_losses_for_generation(
             parent_ids = list(parents_ids)
             prompt_sha1 = None
             prompt_path = None
+            prompt_ref = ""
 
             try:
                 if llm_op == "E1_GENERATE":
+                    prompt_ref = str(p_gen)
                     _, sha = _build_free_loss_generation_prompt(
                         p_gen,
                         global_feedback=call_feedback,
@@ -6839,6 +6892,7 @@ def _propose_losses_for_generation(
                     parent_ids = []
                     parent_entries_used = []
                 elif llm_op == "E1":
+                    prompt_ref = str(p_x)
                     _, sha = _build_free_loss_parents_prompt(
                         p_x,
                         parents=parents_ir,
@@ -6859,6 +6913,7 @@ def _propose_losses_for_generation(
                     base_origin = "E1"
                     op_type = "E1"
                 elif llm_op == "E2":
+                    prompt_ref = str(p_e2)
                     _, sha = _build_free_loss_parents_prompt(
                         p_e2,
                         parents=parents_ir,
@@ -6879,6 +6934,7 @@ def _propose_losses_for_generation(
                     base_origin = "E2"
                     op_type = "E2"
                 elif llm_op == "PARADIGM_SHIFT":
+                    prompt_ref = str(p_shift)
                     _, sha = _build_free_loss_parents_prompt(
                         p_shift,
                         parents=parents_ir,
@@ -6901,6 +6957,7 @@ def _propose_losses_for_generation(
                     base_origin = "PARADIGM_SHIFT"
                     op_type = "LOSS_PARADIGM_SHIFT"
                 elif llm_op == "STRUCTURE_SHIFT":
+                    prompt_ref = str(p_structure)
                     _, sha = _build_free_loss_parent_prompt(
                         p_structure,
                         parent=parents_ir[0],
@@ -6923,6 +6980,7 @@ def _propose_losses_for_generation(
                     base_origin = "STRUCTURE_SHIFT"
                     op_type = "LOSS_STRUCTURE_SHIFT"
                 elif llm_op == "CONSTRAINT_INJECT":
+                    prompt_ref = str(p_constraint)
                     _, sha = _build_free_loss_parent_prompt(
                         p_constraint,
                         parent=parents_ir[0],
@@ -6945,6 +7003,7 @@ def _propose_losses_for_generation(
                     base_origin = "CONSTRAINT_INJECT"
                     op_type = "LOSS_CONSTRAINT_INJECT"
                 elif llm_op == "M2":
+                    prompt_ref = str(p_m2)
                     _, sha = _build_free_loss_parent_prompt(
                         p_m2,
                         parent=parents_ir[0],
@@ -6965,6 +7024,7 @@ def _propose_losses_for_generation(
                     base_origin = "M2"
                     op_type = "M2"
                 else:
+                    prompt_ref = str(p_m)
                     _, sha = _build_free_loss_parent_prompt(
                         p_m,
                         parent=parents_ir[0],
@@ -6993,7 +7053,27 @@ def _propose_losses_for_generation(
                         "prompt_sha1": str(prompt_sha1),
                     }
                 )
-            except Exception:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001
+                llm_failure_counts[str(llm_op)] = int(llm_failure_counts.get(str(llm_op), 0)) + 1
+                if len(llm_failure_samples) < 5:
+                    llm_failure_samples.append(
+                        {
+                            "requested_op": str(raw_op),
+                            "llm_op": str(llm_op),
+                            "prompt_path": str(prompt_ref),
+                            "error_type": type(exc).__name__,
+                            "error": str(exc),
+                        }
+                    )
+                    LOGGER.warning(
+                        "Loss LLM proposal failed at gen=%d requested_op=%s llm_op=%s prompt=%s error=%s: %s",
+                        int(generation),
+                        str(raw_op),
+                        str(llm_op),
+                        str(prompt_ref or "<none>"),
+                        type(exc).__name__,
+                        str(exc),
+                    )
                 continue
 
             ok = False
@@ -7156,6 +7236,24 @@ def _propose_losses_for_generation(
                         "llm_seed": llm_seed,
                         "novelty": novelty_meta,
                     }
+                )
+
+        if llm_failure_counts:
+            failure_summary = ", ".join(
+                f"{str(op_name)}={int(count)}" for op_name, count in sorted(llm_failure_counts.items(), key=lambda item: str(item[0]))
+            )
+            LOGGER.warning(
+                "Loss LLM proposal failure summary at gen=%d: %s",
+                int(generation),
+                failure_summary,
+            )
+            if bool(llm_init_only) and not out:
+                LOGGER.error(
+                    "Loss generation %d produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. "
+                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, or invalid LLM JSON/code. "
+                    "failure_samples=%s",
+                    int(generation),
+                    llm_failure_samples,
                 )
 
     if bool(llm_init_only):
