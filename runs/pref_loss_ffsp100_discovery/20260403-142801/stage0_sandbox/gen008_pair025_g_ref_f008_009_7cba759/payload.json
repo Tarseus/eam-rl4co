@@ -1,0 +1,111 @@
+{
+  "generation": 8,
+  "pair_index": 25,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_009_7cba7592",
+    "ir": {
+      "name": "advantage_signed_margin_loss_repaired",
+      "intuition": "Fixed similarity by introducing asymmetric scaling of margin shift with a learned hyperparameter beta that modulates the influence of mean advantage sign on the margin shift. This reduces direct similarity by changing the computation of shift. Also replaced norm with a stabilized mean norm plus a learned smoothing epsilon from hyperparams, to improve numerical stability. Added clamping of normalized differences before applying logsigmoid to prevent extreme gradients. These changes maintain the original goal of adaptive symmetric margin while improving stability and differentiating the implementation.",
+      "pseudocode": "epsilon = max(1e-6, hyperparams.get('epsilon', 1e-6))\nnorm_per_sample = norm(advantage_gap, dim=1)\nmean_norm = mean(norm_per_sample)\nnorm_adv_gap = max(mean_norm, epsilon)\nmean_advantage = mean(advantage_gap)\nsign_advantage = sign(mean_advantage)\nbeta = hyperparams.get('beta', 0.7)\nmargin = clamp(abs(mean_advantage), 0.0, 1.0)\nshift = sign_advantage * margin * beta\nx = alpha * scale * (log_prob_w - log_prob_l) / norm_adv_gap\nx = x - shift\nx = clamp(x, -15, 15)\nloss = -logsigmoid(x)\nloss = loss * weight\nreturn sum(loss) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "normalization_adaptive_symmetric_margin_modified",
+        "other_hparams": "beta: float between 0 and 1 for margin scaling; epsilon: float for numerical stability"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "sum",
+        "sub",
+        "mul",
+        "div",
+        "sign",
+        "abs"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    hyperparams = extra.get('hyperparams', {})\n    alpha = float(extra.get('alpha', hyperparams.get('alpha', 1.0)))\n    scale = float(hyperparams.get('scale', 1.5))\n    epsilon = max(1e-6, float(hyperparams.get('epsilon', 1e-6)))\n    beta = float(hyperparams.get('beta', 0.7))\n    # norm of advantage_gap per sample along last dim\n    norm_per_sample = ops.norm(advantage_gap)\n    mean_norm = ops.mean(norm_per_sample)\n    norm_adv_gap = ops.maximum(mean_norm, epsilon)\n    mean_advantage = ops.mean(advantage_gap)\n    sign_advantage = ops.sign(mean_advantage)\n    margin = ops.clamp(ops.abs(mean_advantage), 0.0, 1.0)\n    shift = ops.mul(sign_advantage, ops.mul(margin, beta))\n    x = ops.mul(alpha * scale, ops.div(ops.sub(lpw, lpl), norm_adv_gap))\n    x = ops.sub(x, shift)\n    x = ops.clamp(x, -15.0, 15.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss = ops.mul(loss, weight)\n    weighted_sum = ops.sum(loss)\n    weight_sum = ops.sum(weight)\n    loss_scaled = ops.div(weighted_sum, ops.maximum(weight_sum, epsilon))\n    return loss_scaled",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

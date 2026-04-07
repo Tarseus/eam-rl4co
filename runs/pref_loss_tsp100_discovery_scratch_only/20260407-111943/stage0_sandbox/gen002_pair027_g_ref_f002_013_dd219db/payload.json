@@ -1,0 +1,106 @@
+{
+  "generation": 2,
+  "pair_index": 27,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_013_dd219db0",
+    "ir": {
+      "name": "loss_pairwise_ranked_sigmoid_advantage_decay",
+      "intuition": "This loss applies a sigmoid transformation to the difference in log probabilities, which is then re-weighted by an exponentially decayed function of the rank gap derived from advantage signals. It encourages the model to focus more on pairs with larger advantage differences while softly penalizing smaller differences, promoting smooth rank-aware preference learning.",
+      "pseudocode": "rank_gap = abs(rank(advantage_w) - rank(advantage_l))\nweight_decay = exp(-decay_rate * rank_gap)\nsigmoid_score = sigmoid(log_prob_w - log_prob_l)\nraw_loss = (1 - sigmoid_score) * weight * weight_decay\nfinal_loss = mean(raw_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_decay",
+        "signal_family": "advantage_gap_rank",
+        "link_family": "sigmoid",
+        "agg_family": "mean",
+        "constraint_family": "exponential_decay_weight"
+      },
+      "operators_used": [
+        "sub",
+        "abs",
+        "sigmoid",
+        "exp",
+        "mul",
+        "mean",
+        "rank_gap"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    decay_rate = float(extra.get('decay_rate', 0.5))\n\n    gap_rank = ops.abs(ops.rank_gap(adv_w, adv_l))\n    weight_decay = ops.exp(ops.neg(ops.mul(decay_rate, gap_rank)))\n\n    score_diff = ops.sub(lpw, lpl)\n    sigmoid_score = ops.sigmoid(score_diff)\n\n    loss_raw = ops.mul(ops.sub(ops.ones_like(sigmoid_score), sigmoid_score), weight)\n    loss_weighted = ops.mul(loss_raw, weight_decay)\n\n    return ops.mean(loss_weighted)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

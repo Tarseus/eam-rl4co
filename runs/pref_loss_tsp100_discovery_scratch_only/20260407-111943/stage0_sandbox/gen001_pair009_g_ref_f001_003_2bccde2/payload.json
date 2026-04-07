@@ -1,0 +1,106 @@
+{
+  "generation": 1,
+  "pair_index": 9,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f001_003_2bccde2d",
+    "ir": {
+      "name": "loss_rankgap_weighted_sigmoid_cost",
+      "intuition": "Shift from logistic-advantage loss to a rank-based paradigm that uses the sigmoid link on a rank gap signal weighted by a normalized cost gap to emphasize pairs with significant cost differences, encouraging the model to learn preferences guided by both rank and cost while softly regularizing the margin.",
+      "pseudocode": "rank_gap = batch['delta_rank']\ncost_gap = batch['cost_gap']\nweight = batch['weight']\nlog_prob_w = batch['log_prob_w']\nlog_prob_l = batch['log_prob_l']\nnorm_cost_gap = cost_gap / (max(abs(cost_gap)) + epsilon)\nsigmoid_margin = sigmoid(beta * (rank_gap - (log_prob_w - log_prob_l)))\nloss = mean(weight * norm_cost_gap * sigmoid_margin)",
+      "hyperparams": {
+        "paradigm_family": "rank_based",
+        "signal_family": "rank_gap_cost_gap",
+        "link_family": "sigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "soft_margin"
+      },
+      "operators_used": [
+        "sub",
+        "div",
+        "max",
+        "abs",
+        "mul",
+        "sigmoid",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    rank_gap = batch['delta_rank']\n    cost_gap = batch['cost_gap']\n    eps = 1e-8\n    abs_cost_gap = ops.abs(cost_gap)\n    max_abs_cost = ops.max(abs_cost_gap)\n    max_abs_cost = ops.maximum(max_abs_cost, ops.ones_like(max_abs_cost) * eps)  # avoid div 0\n    norm_cost_gap = ops.div(cost_gap, max_abs_cost)\n    beta = float(extra.get('beta', 5.0))\n    diff = ops.sub(lpw, lpl)\n    margin_arg = ops.sub(rank_gap, diff)\n    sigmoid_margin = ops.sigmoid(ops.mul(beta, margin_arg))\n    weighted_components = ops.mul(weight, ops.mul(norm_cost_gap, sigmoid_margin))\n    loss = ops.mean(weighted_components)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

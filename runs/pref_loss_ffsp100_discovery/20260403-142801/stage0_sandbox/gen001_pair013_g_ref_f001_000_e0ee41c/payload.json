@@ -1,0 +1,105 @@
+{
+  "generation": 1,
+  "pair_index": 13,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f001_000_e0ee41c6",
+    "ir": {
+      "name": "loss_pairwise_softmax_margin_advantage",
+      "intuition": "Shift from contrastive or sigmoid losses to a margin-based softmax paradigm that forms probabilities over the pair (winner and loser), scaled by advantage gap. This loss uses a softmax over log-probabilities with an explicit margin weighted by advantage difference, encouraging clear probabilistic separation with smooth gradients and better calibration.",
+      "pseudocode": "adv_gap = advantage_w - advantage_l\nmargin = adv_gap * margin_coef\nlogits = [log_prob_w, log_prob_l - margin]\nprob_w = softmax(logits)[0]\nloss = -log(prob_w) * weight\nfinal_loss = mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_softmax",
+        "signal_family": "advantage_gap",
+        "link_family": "log",
+        "agg_family": "mean",
+        "constraint_family": "margin"
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "stack",
+        "log",
+        "exp",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    margin_coef = float(extra.get('margin_coef', extra.get('hyperparams', {}).get('margin_coef', 1.0)))\n    adv_gap = ops.sub(adv_w, adv_l)\n    margin = ops.mul(adv_gap, margin_coef)\n    logit_w = lpw\n    logit_l = ops.sub(lpl, margin)\n    logits = ops.stack([logit_w, logit_l], axis=0)  # shape [2, batch_size]\n    max_logits = ops.maximum(logits[0], logits[1])\n    exp_logits = ops.exp(ops.sub(logits, max_logits))\n    sum_exp = ops.add(exp_logits[0], exp_logits[1])\n    prob_w = ops.div(exp_logits[0], sum_exp)\n    loss_per_pair = ops.neg(ops.log(ops.clamp(prob_w, 1e-12, 1.0)))\n    if weight is not None:\n        loss_per_pair = ops.mul(loss_per_pair, weight)\n    return ops.mean(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "generation": 9,
+  "pair_index": 18,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f009_015_49389dfa",
+    "ir": {
+      "name": "weighted_advantage_logsigmoid_weighted_sum_sqrt_norm_loss_v2",
+      "intuition": "Removed margin scaling and tanh clipping to avoid similarity with other candidates; introduced sqrt normalization of advantage_gap norm to reduce sensitivity to large gradients, ensuring numeric stability. Used weighted sum loss with logsigmoid for stable pairwise preference modeling, keeping the weighted sum but changing normalization to sqrt and removing margin and clipping to increase novelty and preserve expressiveness.",
+      "pseudocode": "epsilon=1e-6\nnorm_per_sample = norm(advantage_gap)\nnorm = maximum(sqrt(mean(norm_per_sample)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nloss = -logsigmoid(x_raw)\nloss_weighted = loss * weight\nloss_sum = sum(loss_weighted) / maximum(sum(weight), epsilon)\nreturn loss_sum",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_sum",
+        "constraint_family": "sqrt_norm_scaling"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "maximum",
+        "mean",
+        "mul",
+        "sub",
+        "div",
+        "sum",
+        "neg",
+        "norm",
+        "sqrt"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    norm_per_sample = ops.norm(advantage_gap)\n    norm_mean = ops.mean(norm_per_sample)\n    norm = ops.maximum(ops.sqrt(norm_mean), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    loss = ops.neg(ops.logsigmoid(x_raw))\n    loss_weighted = ops.mul(loss, weight)\n    loss_sum = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_sum",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
