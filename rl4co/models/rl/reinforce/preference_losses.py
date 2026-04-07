@@ -11,113 +11,127 @@ def bopo_loss(
     log_likelihood: torch.Tensor,
     alpha: float = 1.0,
     pair_mode: Literal["anchor_best", "all_pairs"] = "anchor_best",
-    select_strategy: Literal["top_k", "quantile"] = "top_k",
+    select_strategy: Literal["paper", "top_k", "quantile"] = "paper",
     select_k: int | None = None,
     select_quantile: float = 0.5,
+    sequence_length: torch.Tensor | float | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """BOPO-style (Best-anchored and Objective-guided Preference Optimization) loss / SRO loss.
 
-    This implements the Stochastic Ranking Optimization (SRO) loss from the BOPO paper.
-    It uses the makespan ratio (objective gap) to weight the preference loss.
+    This implements the Stochastic Ranking Optimization (SRO) loss used by BOPO.
+    The paper-faithful path is ``select_strategy="paper"``, which:
+    1. sorts each candidate pool by reward/objective,
+    2. picks evenly spaced candidates via stride ``B // K``,
+    3. forms best-anchored pairs,
+    4. weights each pair by the objective ratio.
 
     Args:
         reward: Tensor of shape [batch, pomo], higher is better.
             For minimization problems like JSP/FFSP, reward = -makespan.
-        log_likelihood: Tensor of shape [batch, pomo], sum log-prob per trajectory.
+        log_likelihood: Tensor of shape [batch, pomo], trajectory log-prob score.
+            When ``sequence_length`` is provided, this is normalized to the
+            paper's mean-per-step log-prob before pairing.
         alpha: Scale applied to log-likelihood.
         pair_mode: Pairing strategy:
             - "anchor_best": Pair the best solution with all other selected solutions
             - "all_pairs": Pair all better-worse pairs among selected solutions
         select_strategy: Strategy to select solutions for pairing:
+            - "paper": BOPO paper-faithful evenly spaced rank selection
             - "top_k": Select the top k solutions
             - "quantile": Select solutions better than a quantile threshold
         select_k: Number of top solutions to select (for "top_k" strategy).
             If None, uses sqrt(pomo) as default.
         select_quantile: Quantile threshold (for "quantile" strategy, 0.0-1.0).
+        sequence_length: Optional scalar or tensor broadcastable to ``reward``.
+            When set, ``log_likelihood`` is divided by this value so the BOPO
+            score uses mean log-prob per decoding step like the official code.
 
     Returns:
         loss: Scalar tensor.
         pair_count: Number of pairs used, useful for diagnostics.
     """
+    if pair_mode not in {"anchor_best", "all_pairs"}:
+        raise ValueError(f"Unknown bopo pair_mode: {pair_mode}")
+    if select_strategy not in {"paper", "top_k", "quantile"}:
+        raise ValueError(f"Unknown bopo select_strategy: {select_strategy}")
+    if not 0.0 <= float(select_quantile) <= 1.0:
+        raise ValueError(f"select_quantile must be in [0, 1], got {select_quantile}.")
+
     batch_size, num_pomo = reward.shape
 
     # Convert reward to objective (lower is better, e.g., makespan)
     # reward = -objective => objective = -reward
     objective = -reward
+    log_score = log_likelihood
+    if sequence_length is not None:
+        if not torch.is_tensor(sequence_length):
+            sequence_length = torch.tensor(
+                float(sequence_length), device=log_likelihood.device, dtype=log_likelihood.dtype
+            )
+        log_score = log_score / sequence_length.clamp_min(1.0)
 
-    # Determine number of solutions to select
-    if select_strategy == "top_k":
-        if select_k is None:
-            select_k = max(2, int(torch.sqrt(torch.tensor(num_pomo, dtype=torch.float32)).item()))
-        select_k = min(select_k, num_pomo)
-        # Sort by objective (ascending) and select top k
-        sorted_obj, sorted_idx = objective.sort(dim=1, descending=False)
-        selected_idx = sorted_idx[:, :select_k]
-    else:  # quantile
-        # Select solutions better than the quantile threshold
-        threshold = torch.quantile(objective, select_quantile, dim=1, keepdim=True)
-        # Create mask and get indices of selected solutions
-        mask = objective <= threshold
-        # Ensure at least 2 solutions are selected
-        for b in range(batch_size):
-            if mask[b].sum() < 2:
-                _, top_idx = objective[b].topk(2, largest=False)
-                mask[b, top_idx] = True
-        # Get selected indices (this is a bit more complex since each row may have different count)
-        # For simplicity, we'll use top_k with sqrt(num_pomo) as fallback
-        sorted_obj, sorted_idx = objective.sort(dim=1, descending=False)
-        select_k = max(2, int(torch.sqrt(torch.tensor(num_pomo, dtype=torch.float32)).item()))
-        select_k = min(select_k, num_pomo)
-        selected_idx = sorted_idx[:, :select_k]
+    if select_k is None:
+        default_k = max(2, int(torch.sqrt(torch.tensor(num_pomo, dtype=torch.float32)).item()))
+    else:
+        default_k = int(select_k)
+    if default_k < 2:
+        raise ValueError(f"BOPO selection requires at least 2 candidates, got {default_k}.")
 
-    # Gather selected solutions
-    selected_obj = objective.gather(1, selected_idx)
-    selected_logp = alpha * log_likelihood.gather(1, selected_idx)
-    _, num_selected = selected_idx.shape
+    per_pair_losses: list[torch.Tensor] = []
+    pair_count_value = 0
+    eps = 1e-8
 
-    if pair_mode == "anchor_best":
-        # Pair the best (first) with all others
-        # Shape: [batch, num_selected-1]
-        best_obj = selected_obj[:, [0]]
-        best_logp = selected_logp[:, [0]]
-        worse_obj = selected_obj[:, 1:]
-        worse_logp = selected_logp[:, 1:]
+    for batch_idx in range(batch_size):
+        objective_row = objective[batch_idx]
+        log_score_row = alpha * log_score[batch_idx]
 
-        # Compute makespan factor (objective ratio: worse / better >= 1)
-        # Add epsilon to avoid division by zero
-        eps = 1e-8
-        makespan_factor = (worse_obj + eps) / (best_obj + eps)
+        if select_strategy == "paper":
+            if num_pomo % default_k != 0:
+                raise ValueError(
+                    f"BOPO paper strategy requires num_pomo % select_k == 0, got "
+                    f"num_pomo={num_pomo}, select_k={default_k}."
+                )
+            stride = num_pomo // default_k
+            selected = reward[batch_idx].sort(descending=True).indices[::stride]
+            if selected.numel() != default_k:
+                raise RuntimeError(
+                    f"BOPO paper selection expected exactly {default_k} items, got {selected.numel()}."
+                )
+        elif select_strategy == "top_k":
+            k_eff = min(default_k, num_pomo)
+            selected = objective_row.sort(descending=False).indices[:k_eff]
+        else:
+            threshold = torch.quantile(objective_row, float(select_quantile))
+            selected = torch.nonzero(objective_row <= threshold, as_tuple=False).flatten()
+            if selected.numel() < 2:
+                selected = objective_row.topk(2, largest=False).indices
+            selected = selected[torch.argsort(objective_row[selected], descending=False)]
 
-        # Logp gap: logp_better - logp_worse
-        logp_gap = best_logp - worse_logp
+        selected_obj = objective_row[selected]
+        selected_logp = log_score_row[selected]
 
-        # Loss: -log(sigmoid(makespan_factor * logp_gap))
-        loss = -torch.log(torch.sigmoid(makespan_factor * logp_gap)).mean()
-        pair_count = torch.tensor(batch_size * (num_selected - 1), dtype=torch.float32, device=reward.device)
+        if pair_mode == "anchor_best":
+            better_obj = selected_obj[0].expand(selected_obj.numel() - 1)
+            worse_obj = selected_obj[1:]
+            better_logp = selected_logp[0].expand(selected_logp.numel() - 1)
+            worse_logp = selected_logp[1:]
+            makespan_factor = (worse_obj + eps) / (better_obj + eps)
+            logp_gap = better_logp - worse_logp
+            per_pair_losses.append(-F.logsigmoid(makespan_factor * logp_gap))
+            pair_count_value += int(selected_obj.numel() - 1)
+        else:
+            for better_pos in range(selected_obj.numel()):
+                for worse_pos in range(better_pos + 1, selected_obj.numel()):
+                    makespan_factor = (selected_obj[worse_pos] + eps) / (selected_obj[better_pos] + eps)
+                    logp_gap = selected_logp[better_pos] - selected_logp[worse_pos]
+                    per_pair_losses.append(-F.logsigmoid(makespan_factor * logp_gap).unsqueeze(0))
+                    pair_count_value += 1
 
-    else:  # all_pairs
-        # Create all better-worse pairs
-        # Expand to [batch, num_selected, num_selected]
-        obj_i = selected_obj[:, :, None]
-        obj_j = selected_obj[:, None, :]
-        logp_i = selected_logp[:, :, None]
-        logp_j = selected_logp[:, None, :]
+    if pair_count_value == 0:
+        return log_likelihood.sum() * 0.0, torch.tensor(0.0, device=reward.device)
 
-        # Mask where i is better than j (obj_i < obj_j)
-        better_mask = (obj_i < obj_j).float()
-
-        # Compute makespan factor for each pair
-        eps = 1e-8
-        makespan_factor = (obj_j + eps) / (obj_i + eps)
-
-        # Logp gap: logp_i - logp_j (i is better)
-        logp_gap = logp_i - logp_j
-
-        # Loss: -log(sigmoid(makespan_factor * logp_gap)) averaged over all pairs
-        pf_log = torch.log(torch.sigmoid(makespan_factor * logp_gap))
-        loss = -(pf_log * better_mask).sum() / better_mask.sum().clamp_min(1.0)
-        pair_count = better_mask.sum()
-
+    loss = torch.cat([x.reshape(-1) for x in per_pair_losses]).mean()
+    pair_count = torch.tensor(float(pair_count_value), dtype=torch.float32, device=reward.device)
     return loss, pair_count
 
 
@@ -148,6 +162,11 @@ def sll_loss(
     Returns:
         loss: Scalar tensor.
     """
+    if impl not in {"sll", "slim", "listnet"}:
+        raise ValueError(f"Unknown sll_loss impl: {impl}")
+    if float(temperature) <= 0.0:
+        raise ValueError(f"sll temperature must be > 0, got {temperature}.")
+
     batch_size, num_pomo = reward.shape
 
     # Sort by reward descending to get the optimal ranking
@@ -156,21 +175,14 @@ def sll_loss(
 
     if impl == "sll":
         # SLL: Softmax Listwise Loss (ListMLE-style)
-        # Max normalization for numerical stability
-        max_logp = logp.max(dim=1, keepdim=True).values
-        logp_normalized = logp - max_logp
-
-        # Gather in reward-ranked order
-        logp_rank = logp_normalized.gather(1, sorted_idx)
-
-        # Compute cumulative log-sum-exp
-        # Use cumsum of exponentials for stable computation
-        exp_logp = torch.exp(logp_rank / temperature)
-        cum_exp = exp_logp.cumsum(dim=1)
-        log_cum_exp = torch.log(cum_exp)
-
-        # Loss: mean over (logp_rank - log_cum_exp) for each position
-        loss = -torch.mean(logp_rank / temperature - log_cum_exp)
+        # Standard ListMLE uses the suffix partition:
+        #   sum_{j=i..P} exp(score_rank[j])
+        # rather than a prefix sum. The previous implementation used a forward
+        # cumsum, which optimizes the wrong ordering objective.
+        scaled_logp = logp / temperature
+        logp_rank = scaled_logp.gather(1, sorted_idx)
+        suffix_logsumexp = torch.logcumsumexp(logp_rank.flip(dims=[1]), dim=1).flip(dims=[1])
+        loss = -(logp_rank - suffix_logsumexp).mean()
 
     elif impl == "slim":
         # SLIM: Softmax Listwise with Instance-wise Margin

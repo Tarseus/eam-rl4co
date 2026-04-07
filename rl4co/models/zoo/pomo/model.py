@@ -66,7 +66,7 @@ class POMO(REINFORCE):
         loss_kwargs: Optional keyword args reserved for preference losses.
         pl_impl: Implementation choice for listwise loss, {"ptp", "stable"}.
         bopo_pair_mode: Pairing mode for BOPO loss, {"anchor_best", "all_pairs"}.
-        bopo_select_strategy: Selection strategy for BOPO loss, {"top_k", "quantile"}.
+        bopo_select_strategy: Selection strategy for BOPO loss, {"paper", "top_k", "quantile"}.
         bopo_select_k: Number of top solutions to select for BOPO loss.
         bopo_select_quantile: Quantile threshold for BOPO loss.
         sll_impl: Implementation variant for SLL/SLIM loss, {"sll", "slim", "listnet"}.
@@ -96,7 +96,7 @@ class POMO(REINFORCE):
         loss_kwargs: dict | None = None,
         pl_impl: str = "stable",
         bopo_pair_mode: str = "anchor_best",
-        bopo_select_strategy: str = "top_k",
+        bopo_select_strategy: str = "paper",
         bopo_select_k: int | None = None,
         bopo_select_quantile: float = 0.5,
         sll_impl: str = "sll",
@@ -235,6 +235,10 @@ class POMO(REINFORCE):
                     "return_sum_log_likelihood": not want_step_logp,
                 }
             )
+        elif phase == "train" and self.loss_type == "bopo_loss":
+            # BOPO uses mean log-prob per decoding step in the official code.
+            # Request actions so we can recover the rollout length cheaply here.
+            policy_kwargs.update({"return_actions": True})
         out = self.policy(td, self.env, **policy_kwargs)
 
         # Unbatchify reward to [batch_size, num_augment, num_starts].
@@ -334,6 +338,10 @@ class POMO(REINFORCE):
             policy_out.update({"loss": loss, "pl_loss": loss.detach()})
             return policy_out
         if self.loss_type == "bopo_loss":
+            actions = policy_out.get("actions")
+            sequence_length = None
+            if isinstance(actions, torch.Tensor):
+                sequence_length = torch.full_like(log_likelihood, float(actions.shape[-1]))
             loss, pair_count = bopo_loss(
                 reward,
                 log_likelihood,
@@ -342,6 +350,7 @@ class POMO(REINFORCE):
                 select_strategy=self.bopo_select_strategy,
                 select_k=self.bopo_select_k,
                 select_quantile=self.bopo_select_quantile,
+                sequence_length=sequence_length,
             )
             policy_out.update(
                 {
