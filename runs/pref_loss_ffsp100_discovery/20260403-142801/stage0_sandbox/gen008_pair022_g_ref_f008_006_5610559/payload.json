@@ -1,0 +1,113 @@
+{
+  "generation": 8,
+  "pair_index": 22,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_006_5610559e",
+    "ir": {
+      "name": "adaptive_shifted_logsigmoid_advantage_v2",
+      "intuition": "To improve novelty and reduce similarity with the original candidate, this repair adds an adaptive scaling factor based on the tanh of the mean advantage gap, providing a smooth non-linear modulation. The norm-based normalization is replaced with a stable clamped norm combination including the standard deviation of advantage_gap for better scale robustness. Also, instead of a symmetric fixed 0.5 factor shift, a sigmoid gating based on mean advantage magnitude modulates the shift magnitude, promoting dynamic and continuous margin adjustment. These changes preserve adaptive margin intent while altering the calculation flow to avoid direct similarity and enhance robustness.",
+      "pseudocode": "epsilon = 1e-6\nmean_adv = mean(advantage_gap)\nstdev_adv = max(std(advantage_gap), epsilon)\nnorm_adv = max(mean(norm(advantage_gap)), epsilon)\ncombined_norm = clamp(norm_adv * (1 + stdev_adv), epsilon, 10)\ntanh_adv = tanh(mean_adv)\nsigmoid_gate = sigmoid(mean_adv)\nshift = sign(mean_adv) * sigmoid_gate * 0.7\nscaled_diff = alpha * scale * (log_prob_w - log_prob_l) / combined_norm\nx = scaled_diff - shift * tanh_adv\nx = clamp(x, -15, 15)\nloss = -logsigmoid(x) * weight\nreturn sum(loss) / sum(weight)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "adaptive_dynamic_margin",
+        "other_hparams": ""
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "sum",
+        "sub",
+        "mul",
+        "div",
+        "sign",
+        "abs",
+        "tanh",
+        "sigmoid"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.5))\n    epsilon = 1e-6\n    # mean and standard deviation of advantage_gap\n    mean_adv = ops.mean(advantage_gap)\n    dev = ops.sub(advantage_gap, mean_adv)\n    sqr_dev = ops.mul(dev, dev)\n    stdev_adv = ops.sqrt(ops.maximum(ops.mean(sqr_dev), epsilon))\n    # norm of advantage_gap per sample averaged\n    norm_per_sample = ops.norm(advantage_gap)\n    mean_norm = ops.mean(norm_per_sample)\n    # combined norm with clamping for numerical stability\n    combined_norm = ops.clamp(ops.mul(mean_norm, ops.add(ones_like(stdev_adv), stdev_adv)), epsilon, 10.0)\n    # adaptive modulators\n    tanh_adv = ops.tanh(mean_adv)\n    sigmoid_gate = ops.sigmoid(mean_adv)\n    sign_adv = ops.sign(mean_adv)\n    shift = ops.mul(sign_adv, ops.mul(sigmoid_gate, 0.7))\n    # scaled logits difference\n    scaled_diff = ops.mul(alpha * scale, ops.div(ops.sub(lpw, lpl), combined_norm))\n    # apply dynamically modulated shift\n    x = ops.sub(scaled_diff, ops.mul(shift, tanh_adv))\n    x = ops.clamp(x, -15.0, 15.0)\n    # final loss\n    loss = ops.neg(ops.logsigmoid(x))\n    loss = ops.mul(loss, weight)\n    loss_sum = ops.sum(loss)\n    weight_sum = ops.sum(weight)\n    loss_final = ops.div(loss_sum, ops.maximum(weight_sum, epsilon))\n    return loss_final",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

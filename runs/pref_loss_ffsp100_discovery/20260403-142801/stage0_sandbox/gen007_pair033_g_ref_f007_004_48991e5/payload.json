@@ -1,0 +1,103 @@
+{
+  "generation": 7,
+  "pair_index": 33,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f007_004_48991e55",
+    "ir": {
+      "name": "advantage_gap_rank_weighted_hinge_loss",
+      "intuition": "Shift paradigm from margin-based probabilistic loss to a hinge loss based on rank differences, weighting pairs by a soft rank gap to emphasize pairs with larger ranking disagreements. Uses linear hinge penalty instead of logsigmoid and aggregates by weighted mean. This enforces a margin in score differences proportional to rank gap, encouraging clearer ordering with explicit margin constraints.",
+      "pseudocode": "rank_gap = ops.maximum(delta_rank, 1.0)\nmargin_term = margin * rank_gap\nscore_diff = log_prob_w - log_prob_l\nhinge_loss = ops.relu(margin_term - score_diff)\nweighted_loss = hinge_loss * weight\nfinal_loss = ops.mean(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_hinge",
+        "signal_family": "delta_rank",
+        "link_family": "relu",
+        "agg_family": "weighted_mean",
+        "constraint_family": "margin_enforced"
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "maximum",
+        "relu",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_rank = batch['delta_rank']\n    margin = float(extra.get('margin', 1.0))\n    rank_gap = ops.maximum(delta_rank, 1.0)\n    margin_term = ops.mul(margin, rank_gap)\n    score_diff = ops.sub(lpw, lpl)\n    hinge_loss = ops.relu(ops.sub(margin_term, score_diff))\n    weighted_loss = ops.mul(hinge_loss, weight)\n    return ops.mean(weighted_loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

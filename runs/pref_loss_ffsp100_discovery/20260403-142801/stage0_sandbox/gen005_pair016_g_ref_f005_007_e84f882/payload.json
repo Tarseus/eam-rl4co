@@ -1,0 +1,105 @@
+{
+  "generation": 5,
+  "pair_index": 16,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f005_007_e84f882d",
+    "ir": {
+      "name": "pairwise_rankgap_exp_weighted_softplus_loss",
+      "intuition": "This loss shifts paradigm to a rank-based signal by leveraging the rank gap between pairs, instead of advantage gap, and applies an exponential weighting to emphasize pairs with larger rank differences. It replaces logsigmoid with softplus for smoother gradients and uses a weighted mean aggregation, encouraging stronger discrimination for more significant rank gaps. This paradigm shift from advantage-gap margin to rank-gap weighted preference accommodates a more ordinal perspective of pairwise preferences.",
+      "pseudocode": "rank_diff = batch['delta_rank']\nlog_prob_w = batch['log_prob_w']\nlog_prob_l = batch['log_prob_l']\nweight = batch['weight']\n\n# Weight pairs exponentially by rank difference magnitude\nweights_scaled = weight * exp(abs(rank_diff))\n\ndiff = log_prob_w - log_prob_l\nloss_terms = softplus(-diff)\n\nloss = sum(loss_terms * weights_scaled) / sum(weights_scaled)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank",
+        "signal_family": "delta_rank",
+        "link_family": "softplus",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "exponential_weighting"
+      },
+      "operators_used": [
+        "abs",
+        "exp",
+        "softplus",
+        "mul",
+        "sub",
+        "sum",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_rank = batch['delta_rank']\n    abs_rank = ops.abs(delta_rank)\n    weights_scaled = ops.mul(weight, ops.exp(abs_rank))\n    diff = ops.sub(lpw, lpl)\n    loss_terms = ops.softplus(ops.neg(diff))\n    weighted_loss = ops.mul(loss_terms, weights_scaled)\n    total_weight = ops.sum(weights_scaled)\n    return ops.div(ops.sum(weighted_loss), total_weight)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
