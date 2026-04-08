@@ -84,6 +84,24 @@ def test_builder_new_prompt_builders_embed_parent_payload(monkeypatch, tmp_path)
     )
     assert "constraint_family" in constraint_prompt
 
+    reweight_prompt, _ = ops.build_structure_shift_prompt(
+        str(prompt_path),
+        parent=parent,
+        parent_fitness={"fitness": 1.0},
+        global_feedback={
+            "builder_search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "seed_weight_families": ["gap_linear", "gap_sigmoid"],
+                "allow_freeform_weight_family": True,
+            },
+            "llm_call": {"search_operator": "STRUCTURE_SHIFT"},
+        },
+    )
+    assert "REWEIGHT_ONLY_OPERATOR_SEMANTICS" in reweight_prompt
+    assert "Preserve `weight_family` and `constraint_family`" in reweight_prompt
+
 
 def test_operator_bank_expand_and_family_quota(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
@@ -243,3 +261,114 @@ def test_operator_contract_gates(monkeypatch):
     bad_ok2, bad_fail2 = loop._validate_loss_operator_contract(loss_parent, "LOSS_CONSTRAINT_INJECT", [loss_parent])
     assert bad_ok2 is False
     assert bad_fail2["stage"] == "operator_contract"
+
+
+def test_reweight_only_builder_operator_contracts(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    parent = PreferenceBuilderIR(
+        name="parent_gap_linear",
+        intuition="parent",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "gap_linear"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = gap\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n"
+        ),
+    )
+    paradigm_child = PreferenceBuilderIR(
+        name="child_gap_sigmoid",
+        intuition="child",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "sigmoid"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = ops.sigmoid(gap)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})\n"
+        ),
+    )
+    ok, fail = loop._validate_builder_operator_contract(
+        paradigm_child,
+        "BUILDER_PARADIGM_SHIFT",
+        [parent, parent],
+        search_space_cfg={"enabled": True, "mode": "reweight_only", "fixed_pair_builder": "all_pairs"},
+    )
+    assert ok is True
+    assert fail == {}
+
+    bad_structure = PreferenceBuilderIR(
+        name="bad_structure",
+        intuition="bad",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "sigmoid"],
+        code=paradigm_child.code,
+    )
+    ok2, fail2 = loop._validate_builder_operator_contract(
+        bad_structure,
+        "BUILDER_STRUCTURE_SHIFT",
+        [parent],
+        search_space_cfg={"enabled": True, "mode": "reweight_only", "fixed_pair_builder": "all_pairs"},
+    )
+    assert ok2 is False
+    assert fail2["reason"] == "weight_family_not_preserved"
+
+    constraint_child = PreferenceBuilderIR(
+        name="constraint_child",
+        intuition="constraint child",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "gap_linear_clamped_safe",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = ops.clamp(gap, 0.0, 10.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n"
+        ),
+    )
+    ok3, fail3 = loop._validate_builder_operator_contract(
+        constraint_child,
+        "BUILDER_CONSTRAINT_INJECT",
+        [parent],
+        search_space_cfg={"enabled": True, "mode": "reweight_only", "fixed_pair_builder": "all_pairs"},
+    )
+    assert ok3 is True
+    assert fail3 == {}

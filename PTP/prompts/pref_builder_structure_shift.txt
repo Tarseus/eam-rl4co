@@ -29,7 +29,10 @@ Hard constraints:
 - implementation_hint.mode must be "pairwise".
 - generated_builder must return a pairwise PrefBatch.
 - Emit all four family tags as non-empty strings.
-- cap_family must change from the parent.
+- If BUILDER_SEARCH_SPACE_CONSTRAINTS indicates reweight_only:
+  - preserve geometry_family, cap_family, weight_family, and constraint_family;
+  - rewrite normalization, clipping, rescaling, or other signal-organization structure instead of changing pair topology.
+- Otherwise cap_family must change from the parent.
 - Keep other families as stable as reasonably possible unless needed for correctness.
 - No imports, no filesystem/network, no randomness.
 - Use vectorized tensor ops only; no Python loops/comprehensions over pair tensors.

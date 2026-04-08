@@ -258,7 +258,7 @@ def test_reweight_only_freeform_prompt_and_seed_pool(monkeypatch):
     assert observed <= {"gap_linear", "gap_sigmoid"}
 
 
-def test_reweight_only_builder_operator_bank_remaps_structure_ops(monkeypatch):
+def test_reweight_only_builder_operator_bank_uses_five_search_classes(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
     import random
@@ -286,11 +286,11 @@ def test_reweight_only_builder_operator_bank_remaps_structure_ops(monkeypatch):
         side="builder",
     )
 
-    assert "PARADIGM_SHIFT" not in plan
-    assert "STRUCTURE_SHIFT" not in plan
-    assert "CONSTRAINT_INJECT" not in plan
-    assert plan.count("GEN") == 3
-    assert plan.count("TUNE") == 7
+    assert "GEN" not in plan
+    assert "MUTATE" not in plan
+    assert plan.count("PARADIGM_SHIFT") == 3
+    assert plan.count("STRUCTURE_SHIFT") == 3
+    assert plan.count("CONSTRAINT_INJECT") == 4
     assert plan.count("XOVER") == 1
 
 
