@@ -202,6 +202,94 @@ def _rank_gap(cost_a: torch.Tensor, cost_b: torch.Tensor) -> torch.Tensor:
     return cost_b - cost_a
 
 
+def _tensor_reduce_max(
+    x: torch.Tensor,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if dim is None:
+        return torch.max(x)
+    values, _ = torch.max(x, dim=int(dim), keepdim=bool(keepdim))
+    return values
+
+
+def _tensor_reduce_min(
+    x: torch.Tensor,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if dim is None:
+        return torch.min(x)
+    values, _ = torch.min(x, dim=int(dim), keepdim=bool(keepdim))
+    return values
+
+
+def _ops_max(
+    x: torch.Tensor,
+    other: torch.Tensor | float | int | None = None,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if other is not None:
+        if not isinstance(other, torch.Tensor):
+            other = torch.as_tensor(other, dtype=x.dtype, device=x.device)
+        return torch.maximum(x, other)
+    return _tensor_reduce_max(x, dim=dim, keepdim=keepdim)
+
+
+def _ops_min(
+    x: torch.Tensor,
+    other: torch.Tensor | float | int | None = None,
+    *,
+    dim: int | None = None,
+    keepdim: bool = False,
+) -> torch.Tensor:
+    if other is not None:
+        if not isinstance(other, torch.Tensor):
+            other = torch.as_tensor(other, dtype=x.dtype, device=x.device)
+        return torch.minimum(x, other)
+    return _tensor_reduce_min(x, dim=dim, keepdim=keepdim)
+
+
+def _ops_norm(
+    x: torch.Tensor,
+    p: float | int = 2,
+    dim: int | Sequence[int] | None = None,
+    keepdim: bool = False,
+    **kwargs: Any,
+) -> torch.Tensor:
+    if "ord" in kwargs and kwargs["ord"] is not None:
+        p = kwargs["ord"]
+    if "axis" in kwargs and kwargs["axis"] is not None:
+        dim = kwargs["axis"]
+    if "dim" in kwargs and kwargs["dim"] is not None:
+        dim = kwargs["dim"]
+    if "keepdims" in kwargs and kwargs["keepdims"] is not None:
+        keepdim = bool(kwargs["keepdims"])
+    if "keepdim" in kwargs and kwargs["keepdim"] is not None:
+        keepdim = bool(kwargs["keepdim"])
+    norm_kwargs: Dict[str, Any] = {"p": p}
+    if dim is not None:
+        norm_kwargs["dim"] = dim
+        norm_kwargs["keepdim"] = bool(keepdim)
+    return torch.norm(x, **norm_kwargs)
+
+
+def _ops_maximum(a: torch.Tensor, b: torch.Tensor | float | int) -> torch.Tensor:
+    if not isinstance(b, torch.Tensor):
+        b = torch.as_tensor(b, dtype=a.dtype, device=a.device)
+    return torch.maximum(a, b)
+
+
+def _ops_minimum(a: torch.Tensor, b: torch.Tensor | float | int) -> torch.Tensor:
+    if not isinstance(b, torch.Tensor):
+        b = torch.as_tensor(b, dtype=a.dtype, device=a.device)
+    return torch.minimum(a, b)
+
+
 def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
     return {
         "logsigmoid": F.logsigmoid,
@@ -228,6 +316,12 @@ def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
         "normalize": _safe_normalize,
         "zscore": _safe_zscore,
         "rank_gap": _rank_gap,
+        "max": _ops_max,
+        "min": _ops_min,
+        "maximum": _ops_maximum,
+        "minimum": _ops_minimum,
+        "sign": torch.sign,
+        "norm": _ops_norm,
     }
 
 
