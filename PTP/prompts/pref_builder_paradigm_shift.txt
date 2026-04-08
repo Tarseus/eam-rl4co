@@ -32,7 +32,11 @@ Hard constraints:
 - No imports, no filesystem/network, no randomness.
 - Use vectorized tensor ops only; no Python loops/comprehensions over pair tensors.
 - Emit all four family tags as non-empty strings.
-- geometry_family must change relative to the dominant parent pattern.
-- Also change at least one of cap_family or weight_family.
+- If BUILDER_SEARCH_SPACE_CONSTRAINTS indicates reweight_only:
+  - preserve the fixed pair template exactly;
+  - keep geometry_family and cap_family aligned with that fixed template;
+  - change weight_family relative to the dominant parent pattern.
+- Otherwise geometry_family must change relative to the dominant parent pattern.
+- Outside reweight_only, also change at least one of cap_family, weight_family, or constraint_family.
 - Do not make a tiny threshold tweak only; this must be a real paradigm change.
 - Prefer explicit pair geometry changes such as anchor-vs-band, sparse neighborhood, top-gap, rank-band, or disagreement-driven pairing.

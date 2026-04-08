@@ -2335,10 +2335,12 @@ def _pop_joint_gate_repair_reports(record: Mapping[str, Any] | None) -> List[Dic
 
 
 _LOSS_FINGERPRINT_CACHE: Dict[str, Dict[str, Any]] = {}
+_BUILDER_FINGERPRINT_CACHE: Dict[str, Dict[str, Any]] = {}
 
 _BUILDER_FAMILY_KEYS = (
     "geometry_family",
     "cap_family",
+    "weight_family",
     "constraint_family",
 )
 _LOSS_FAMILY_KEYS = (
@@ -2456,6 +2458,95 @@ def _loss_fingerprint(ir: FreeLossIR) -> Dict[str, Any]:
         "call_names_top": sorted(set(call_names))[:32],
     }
     _LOSS_FINGERPRINT_CACHE[sig] = fp
+    return fp
+
+
+def _builder_fingerprint(ir: PreferenceBuilderIR) -> Dict[str, Any]:
+    """Compute a compact structural fingerprint for builder novelty/contract checks."""
+
+    sig = _sig_pref_builder(ir)
+    cached = _BUILDER_FINGERPRINT_CACHE.get(sig)
+    if isinstance(cached, dict):
+        return cached
+
+    code = str(getattr(ir, "code", "") or "")
+    tokens: List[str] = []
+    call_names: List[str] = []
+
+    def _call_name(expr: ast.AST) -> str | None:
+        if isinstance(expr, ast.Name):
+            return str(expr.id)
+        if isinstance(expr, ast.Attribute):
+            parts: List[str] = []
+            cur: ast.AST | None = expr
+            while isinstance(cur, ast.Attribute):
+                parts.append(str(cur.attr))
+                cur = cur.value
+            if isinstance(cur, ast.Name):
+                parts.append(str(cur.id))
+            if parts:
+                return ".".join(reversed(parts))
+        return None
+
+    try:
+        tree = ast.parse(code)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                name = _call_name(node.func)
+                if name:
+                    tokens.append(f"call:{name}")
+                    call_names.append(name)
+            elif isinstance(node, ast.BinOp):
+                tokens.append(f"binop:{type(node.op).__name__}")
+            elif isinstance(node, ast.UnaryOp):
+                tokens.append(f"unop:{type(node.op).__name__}")
+            elif isinstance(node, ast.Compare):
+                for op in node.ops:
+                    tokens.append(f"cmp:{type(op).__name__}")
+            elif isinstance(node, ast.BoolOp):
+                tokens.append(f"bool:{type(node.op).__name__}")
+            elif isinstance(node, (ast.IfExp, ast.If)):
+                tokens.append("if")
+            elif isinstance(node, (ast.For, ast.While)):
+                tokens.append("loop")
+            elif isinstance(node, ast.Return):
+                tokens.append("return")
+    except Exception:  # noqa: BLE001
+        try:
+            keep_ops = {"+", "-", "*", "/", "**", "<", ">", "<=", ">=", "==", "!=", "%"}
+            for tok in tokenize.generate_tokens(io.StringIO(code).readline):
+                if tok.type in {
+                    tokenize.COMMENT,
+                    tokenize.NL,
+                    tokenize.NEWLINE,
+                    tokenize.INDENT,
+                    tokenize.DEDENT,
+                    tokenize.ENDMARKER,
+                }:
+                    continue
+                if tok.type in {tokenize.STRING, tokenize.NUMBER}:
+                    continue
+                if tok.type == tokenize.OP and tok.string not in keep_ops:
+                    continue
+                if tok.string:
+                    tokens.append(tok.string)
+        except Exception:  # noqa: BLE001
+            tokens = []
+
+    unigrams: set[str] = set(tokens)
+    bigrams: set[str] = set()
+    for a, b in zip(tokens, tokens[1:]):
+        bigrams.add(f"{a}->{b}")
+
+    call_set: set[str] = set(call_names)
+    fp = {
+        "sig": sig,
+        "token_unigrams": unigrams,
+        "token_bigrams": bigrams,
+        "call_names_set": call_set,
+        "call_names_top": sorted(set(call_names))[:32],
+    }
+    _BUILDER_FINGERPRINT_CACHE[sig] = fp
     return fp
 
 
@@ -3026,7 +3117,7 @@ def _builder_family_signature(ir_or_entry: Any) -> str:
         # Fallback for older checkpoints that only stored the signature string.
         return _maybe_coarsen_family_signature_str(
             ir_or_entry.get("family_signature"),
-            keep_axes=("geometry", "cap", "constraint"),
+            keep_axes=("geometry", "cap", "weight", "constraint"),
         )
     return _family_signature_from_tags(tags, ordered_keys=_BUILDER_FAMILY_KEYS)
 
@@ -3623,6 +3714,11 @@ def _normalize_operator_name(name: str, side: str) -> str:
     return mapping.get(raw, raw)
 
 
+def _is_reweight_only_search_space(search_space_cfg: Any) -> bool:
+    cfg = _normalize_builder_search_space_cfg(search_space_cfg)
+    return bool(cfg.get("enabled", False)) and str(cfg.get("mode")) == "reweight_only"
+
+
 def _expand_operator_bank(side_cfg: Mapping[str, Any], generation: int, rng: random.Random, *, side: str) -> List[str]:
     bank = side_cfg.get("operator_bank", {}) if isinstance(side_cfg, Mapping) else {}
     if not isinstance(bank, Mapping):
@@ -3638,11 +3734,11 @@ def _expand_operator_bank(side_cfg: Mapping[str, Any], generation: int, rng: ran
         if not isinstance(item, Mapping):
             continue
         op = _normalize_operator_name(str(item.get("name", "")), side=side)
-        if bool(search_space_cfg.get("enabled", False)) and str(search_space_cfg.get("mode")) == "reweight_only":
-            if op == "PARADIGM_SHIFT":
-                op = "GEN"
-            elif op in {"STRUCTURE_SHIFT", "CONSTRAINT_INJECT"}:
-                op = "TUNE"
+        if str(side) == "builder" and _is_reweight_only_search_space(search_space_cfg):
+            if op == "GEN":
+                op = "PARADIGM_SHIFT"
+            elif op == "MUTATE":
+                op = "STRUCTURE_SHIFT"
         if op in {"", "ELITE", "M3", "REPAIR"}:
             continue
         count = max(0, _safe_int(item.get("count", 0), 0))
@@ -5663,11 +5759,49 @@ def _operator_contract_failure(
     }
 
 
+def _builder_structure_differs(candidate: PreferenceBuilderIR, parent: PreferenceBuilderIR | None) -> bool:
+    if parent is None:
+        return True
+    cand_fp = _builder_fingerprint(candidate)
+    parent_fp = _builder_fingerprint(parent)
+    if cand_fp.get("token_bigrams") != parent_fp.get("token_bigrams"):
+        return True
+    if cand_fp.get("call_names_set") != parent_fp.get("call_names_set"):
+        return True
+    return list(getattr(candidate, "operators_used", []) or []) != list(getattr(parent, "operators_used", []) or [])
+
+
+def _builder_has_explicit_constraint_mechanism(ir: PreferenceBuilderIR) -> bool:
+    ops_used = {str(x or "").strip().lower() for x in (getattr(ir, "operators_used", []) or [])}
+    code = str(getattr(ir, "code", "") or "").lower()
+    markers = {
+        "clamp",
+        "clamp_min",
+        "clamp_max",
+        "topk",
+        "softmax",
+        "sigmoid",
+        "normalize",
+        "norm",
+        "where",
+        "nan_to_num",
+        "maximum",
+        "minimum",
+        "quantile",
+        "percentile",
+        "clip",
+    }
+    if ops_used & markers:
+        return True
+    return any(marker in code for marker in markers | {"eps", "denom", "tie", "dedup"})
+
+
 def _validate_builder_operator_contract(
     ir: PreferenceBuilderIR,
     op_type: str,
     parent_irs: Sequence[PreferenceBuilderIR],
     parent_entries: Sequence[Mapping[str, Any]] | None = None,
+    search_space_cfg: Mapping[str, Any] | None = None,
 ) -> Tuple[bool, Dict[str, Any]]:
     del parent_entries
     op = str(op_type or "").strip().upper()
@@ -5683,6 +5817,82 @@ def _validate_builder_operator_contract(
             cand_tags=cand_tags,
             required_change={"required_keys": list(_BUILDER_FAMILY_KEYS), "missing": missing},
         )
+    reweight_only = _is_reweight_only_search_space(search_space_cfg)
+    if reweight_only:
+        parent = parent_irs[0] if parent_irs else None
+        p_tags = _builder_family_tags(parent) if parent is not None else {}
+        maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
+        if op == "BUILDER_PARADIGM_SHIFT":
+            if _normalize_family_value(cand_tags.get("weight_family")) == _normalize_family_value(maj.get("weight_family")):
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="weight_family_not_changed",
+                    parent_tags=maj,
+                    cand_tags=cand_tags,
+                    required_change={"must_change": ["weight_family"], "must_preserve": ["geometry_family", "cap_family"]},
+                )
+            for key in ("geometry_family", "cap_family"):
+                if _normalize_family_value(cand_tags.get(key)) != _normalize_family_value(maj.get(key)):
+                    return False, _operator_contract_failure(
+                        op_type=op,
+                        reason=f"{key}_changed_under_reweight_only",
+                        parent_tags=maj,
+                        cand_tags=cand_tags,
+                        required_change={"must_change": ["weight_family"], "must_preserve": ["geometry_family", "cap_family"]},
+                    )
+            if not any(_builder_structure_differs(ir, parent_ir) for parent_ir in parent_irs):
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="structure_not_changed",
+                    parent_tags=[_builder_family_tags(p) for p in parent_irs],
+                    cand_tags=cand_tags,
+                    required_change={"must_change": ["weight_family"], "must_also_change": ["signal_organization"]},
+                )
+        elif op == "BUILDER_STRUCTURE_SHIFT":
+            for key in ("geometry_family", "cap_family", "weight_family", "constraint_family"):
+                if _normalize_family_value(cand_tags.get(key)) != _normalize_family_value(p_tags.get(key)):
+                    return False, _operator_contract_failure(
+                        op_type=op,
+                        reason=f"{key}_not_preserved",
+                        parent_tags=p_tags,
+                        cand_tags=cand_tags,
+                        required_change={"must_preserve": ["geometry_family", "cap_family", "weight_family", "constraint_family"], "must_change": ["signal_organization"]},
+                    )
+            if not _builder_structure_differs(ir, parent):
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="structure_not_changed",
+                    parent_tags=p_tags,
+                    cand_tags=cand_tags,
+                    required_change={"must_preserve": ["weight_family", "constraint_family"], "must_change": ["signal_organization"]},
+                )
+        elif op == "BUILDER_CONSTRAINT_INJECT":
+            for key in ("geometry_family", "cap_family", "weight_family"):
+                if _normalize_family_value(cand_tags.get(key)) != _normalize_family_value(p_tags.get(key)):
+                    return False, _operator_contract_failure(
+                        op_type=op,
+                        reason=f"{key}_not_preserved",
+                        parent_tags=p_tags,
+                        cand_tags=cand_tags,
+                        required_change={"must_preserve": ["geometry_family", "cap_family", "weight_family"], "must_change": ["constraint_family"]},
+                    )
+            if _normalize_family_value(cand_tags.get("constraint_family")) == _normalize_family_value(p_tags.get("constraint_family")):
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="constraint_family_not_changed",
+                    parent_tags=p_tags,
+                    cand_tags=cand_tags,
+                    required_change={"must_change": ["constraint_family"]},
+                )
+            if not _builder_has_explicit_constraint_mechanism(ir):
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="explicit_constraint_mechanism_missing",
+                    parent_tags=p_tags,
+                    cand_tags=cand_tags,
+                    required_change={"must_include": ["normalize/clamp/topk/tie-zone/denom-safeguard"]},
+                )
+        return True, {}
     if op == "BUILDER_PARADIGM_SHIFT":
         maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
         if _normalize_family_value(cand_tags.get("geometry_family")) == _normalize_family_value(maj.get("geometry_family")):
@@ -5691,10 +5901,11 @@ def _validate_builder_operator_contract(
                 reason="geometry_family_not_changed",
                 parent_tags=maj,
                 cand_tags=cand_tags,
-                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "constraint_family"]},
+                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "weight_family", "constraint_family"]},
             )
         if (
             _normalize_family_value(cand_tags.get("cap_family")) == _normalize_family_value(maj.get("cap_family"))
+            and _normalize_family_value(cand_tags.get("weight_family")) == _normalize_family_value(maj.get("weight_family"))
             and _normalize_family_value(cand_tags.get("constraint_family")) == _normalize_family_value(maj.get("constraint_family"))
         ):
             return False, _operator_contract_failure(
@@ -5702,7 +5913,7 @@ def _validate_builder_operator_contract(
                 reason="secondary_family_not_changed",
                 parent_tags=maj,
                 cand_tags=cand_tags,
-                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "constraint_family"]},
+                required_change={"must_change": ["geometry_family"], "must_also_change_one_of": ["cap_family", "weight_family", "constraint_family"]},
             )
     elif op == "BUILDER_STRUCTURE_SHIFT":
         parent = parent_irs[0] if parent_irs else None
@@ -5959,6 +6170,7 @@ def validate_builder_candidate(
         str(op_type or ""),
         list(parent_irs or []),
         list(parent_entries or []),
+        search_space_cfg=(gate_cfg.get("search_space", {}) if isinstance(gate_cfg, Mapping) else {}),
     )
     if not bool(contract_ok):
         return False, dict(contract_fail)
@@ -6285,7 +6497,12 @@ def _propose_builders_for_generation(
 
             llm_seed = int(rng.randint(0, 2**31 - 1))
             call_feedback = dict(global_feedback or {})
-            call_feedback["llm_call"] = {"side": "builder", "op_type": str(llm_op), "seed": llm_seed}
+            call_feedback["llm_call"] = {
+                "side": "builder",
+                "op_type": str(llm_op),
+                "search_operator": str(raw_op),
+                "seed": llm_seed,
+            }
             if llm_op == "PARADIGM_SHIFT":
                 call_feedback["llm_call"]["parent_family_shortage"] = bool(locals().get("shortage", False))
 

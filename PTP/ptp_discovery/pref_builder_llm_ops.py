@@ -105,6 +105,7 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
     if global_feedback is None:
         return prompt
     out = prompt
+    llm_call = global_feedback.get("llm_call") if isinstance(global_feedback, Mapping) else None
     search_space = global_feedback.get("builder_search_space") if isinstance(global_feedback, Mapping) else None
     if isinstance(search_space, Mapping):
         mode = str(search_space.get("mode", "") or "").strip().lower()
@@ -135,6 +136,43 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 )
             else:
                 out += f"- Allowed weight_family values: {json.dumps([str(x) for x in allowed_weight_families], ensure_ascii=False)}\n"
+            op_name = ""
+            if isinstance(llm_call, Mapping):
+                op_name = str(llm_call.get("search_operator") or llm_call.get("op_type") or "").strip().upper()
+            if op_name:
+                out += "\nREWEIGHT_ONLY_OPERATOR_SEMANTICS:\n"
+                if op_name == "PARADIGM_SHIFT":
+                    out += (
+                        "- This is a cross-family transfer step for weighting search.\n"
+                        "- Preserve the fixed pair template exactly.\n"
+                        "- Change `weight_family` relative to the dominant parent family so underrepresented paradigms can continue evolving.\n"
+                        "- Make a real weighting-form change, not just a scalar retune.\n"
+                    )
+                elif op_name == "STRUCTURE_SHIFT":
+                    out += (
+                        "- This is a signal-organization rewrite under the same successful weighting family.\n"
+                        "- Preserve `weight_family` and `constraint_family` unless correctness forces otherwise.\n"
+                        "- Rewrite normalization, clipping, rescaling, ranking, or gap-to-weight transformation structure.\n"
+                        "- Do not reduce this to a scalar-only tune.\n"
+                    )
+                elif op_name == "CONSTRAINT_INJECT":
+                    out += (
+                        "- This step should add explicit optimization/stability constraints while preserving the core weighting family.\n"
+                        "- Preserve `weight_family` and fixed pair topology.\n"
+                        "- Add concrete stabilizers such as normalization, denominator safeguards, clamp, topk caps, or tie-zone filtering.\n"
+                    )
+                elif op_name in {"XOVER", "E1"}:
+                    out += (
+                        "- This is crossover over existing weighting candidates.\n"
+                        "- Preserve the fixed pair template and combine complementary weighting ideas from multiple parents.\n"
+                        "- Reuse effective substructures already validated in the parents when possible.\n"
+                    )
+                elif op_name in {"TUNE", "M2"}:
+                    out += (
+                        "- This is local exploitation.\n"
+                        "- Keep the overall weighting logic the same and tune only local hyperparameters or smooth scalar transforms.\n"
+                        "- Avoid introducing a new weighting family unless it is absolutely necessary for correctness.\n"
+                    )
     return out + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 

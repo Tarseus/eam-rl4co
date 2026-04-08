@@ -30,6 +30,7 @@ Hard constraints:
 - generated_builder must return a pairwise PrefBatch.
 - Emit all four family tags as non-empty strings.
 - constraint_family must change from the parent.
+- If BUILDER_SEARCH_SPACE_CONSTRAINTS indicates reweight_only, preserve geometry_family, cap_family, and weight_family while adding the new constraint mechanism.
 - Code must include at least one explicit constraint operation such as tie-zone filtering, dedup, normalize, clamp, or topk cap.
 - No imports, no filesystem/network, no randomness.
 - Use vectorized tensor ops only; no Python loops/comprehensions over pair tensors.
