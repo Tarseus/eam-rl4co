@@ -71,6 +71,19 @@ def test_a2c():
     trainer.test(model)
 
 
+def test_trainer_max_epoch_alias():
+    trainer = RL4COTrainer(max_epoch=1, devices=1, accelerator=accelerator)
+    assert trainer.max_epochs == 1
+
+    trainer = RL4COTrainer(
+        max_epochs=1, max_epoch=1, devices=1, accelerator=accelerator
+    )
+    assert trainer.max_epochs == 1
+
+    with pytest.raises(ValueError, match="max_epoch"):
+        RL4COTrainer(max_epochs=2, max_epoch=1, devices=1, accelerator=accelerator)
+
+
 def test_ppo():
     env = TSPEnv(generator_params=dict(num_loc=20))
     policy = AttentionModelPolicy(env_name=env.name)
