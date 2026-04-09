@@ -60,6 +60,22 @@ class RL4COTrainer(Trainer):
         matmul_precision: str | int = "medium",
         **kwargs,
     ):
+        legacy_max_epoch = kwargs.pop("max_epoch", None)
+        if legacy_max_epoch is not None:
+            if max_epochs is None:
+                log.warning(
+                    "Received deprecated trainer argument `max_epoch`; using it as `max_epochs`."
+                )
+                max_epochs = legacy_max_epoch
+            elif legacy_max_epoch != max_epochs:
+                raise ValueError(
+                    "Received conflicting trainer arguments `max_epoch` and `max_epochs`."
+                )
+            else:
+                log.warning(
+                    "Received deprecated trainer argument `max_epoch`; ignoring it because `max_epochs` is already set."
+                )
+
         # Disable JIT profiling executor. This reduces memory and increases speed.
         # Reference: https://github.com/HazyResearch/safari/blob/111d2726e7e2b8d57726b7a8b932ad8a4b2ad660/train.py#LL124-L129C17
         if disable_profiling_executor:
