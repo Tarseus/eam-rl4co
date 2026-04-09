@@ -34,8 +34,10 @@ from rl4co.models.zoo import (
     PolyNet,
     SymNCO,
 )
+from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
 from rl4co.utils import RL4COTrainer
 from rl4co.utils.meta_trainer import ReptileCallback
+from rl4co.utils.test_utils import generate_env_data
 
 # Get env variable MAC_OS_GITHUB_RUNNER
 if "MAC_OS_GITHUB_RUNNER" in os.environ:
@@ -257,6 +259,23 @@ def test_pomo_po4cops_compat_po_loss_smoke():
     )
     trainer.fit(model)
     trainer.test(model)
+
+
+def test_po4cops_tsp_policy_supports_official_bopo_same_start():
+    env, x = generate_env_data("tsp", size=20, batch_size=2)
+    td = env.reset(x)
+    policy = PO4COPsTSPPolicy(
+        env_name=env.name,
+        start_node="same",
+        logit_clipping=10,
+        eval_type="hybrid",
+    )
+
+    out = policy(td, env, phase="train", num_starts=32, return_actions=True)
+
+    assert out["reward"].shape == (64,)
+    assert out["actions"].shape[0] == 64
+    assert (out["actions"][:, 0] == 0).all()
 
 
 def test_pomo_pref_pair_artifact_smoke(tmp_path):

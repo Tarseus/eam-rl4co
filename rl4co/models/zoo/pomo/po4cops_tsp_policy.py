@@ -272,6 +272,7 @@ class PO4COPsTSPPolicy(nn.Module):
         head_num: int = 8,
         ff_hidden_dim: int = 512,
         logit_clipping: float = 50.0,
+        start_node: str = "pomo",
         eval_type: str = "argmax",
         train_decode_type: str = "sampling",
         val_decode_type: str = "greedy",
@@ -283,6 +284,11 @@ class PO4COPsTSPPolicy(nn.Module):
             raise ValueError("PO4COPsTSPPolicy currently supports only TSP.")
 
         self.env_name = env_name
+        self.start_node = str(start_node).strip().lower()
+        if self.start_node not in {"same", "random", "pomo"}:
+            raise ValueError(
+                f"Unsupported start_node={start_node!r}; use 'same', 'random', or 'pomo'."
+            )
         self.eval_type = eval_type
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
@@ -308,6 +314,28 @@ class PO4COPsTSPPolicy(nn.Module):
         )
 
         self.encoded_nodes = None
+
+    def _select_initial_actions(
+        self,
+        td_base: TensorDict,
+        env,
+        num_starts: int,
+    ) -> torch.Tensor:
+        if self.start_node == "pomo":
+            return select_start_nodes(td_base, env, num_starts)
+
+        batch_size = td_base.shape[0]
+        num_loc = td_base["locs"].shape[1]
+        if self.start_node == "same":
+            return torch.zeros(batch_size * num_starts, dtype=torch.long, device=td_base.device)
+
+        starts = torch.randint(
+            low=0,
+            high=num_loc,
+            size=(batch_size, num_starts),
+            device=td_base.device,
+        )
+        return starts.transpose(0, 1).reshape(-1)
 
     def pre_forward(self, reset_td: TensorDict) -> None:
         self.encoded_nodes = self.encoder(reset_td["locs"])
@@ -336,7 +364,7 @@ class PO4COPsTSPPolicy(nn.Module):
 
         # Environment rollout still uses flattened multistart batch [B*S, ...]
         td_flat = batchify(td_base, num_starts)
-        first_action_flat = select_start_nodes(td_base, env, num_starts)
+        first_action_flat = self._select_initial_actions(td_base, env, num_starts)
         td_flat.set("action", first_action_flat)
         td_flat = env.step(td_flat)["next"]
 
