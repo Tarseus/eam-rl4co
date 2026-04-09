@@ -1,5 +1,6 @@
 # @package _global_
-# POMO with BOPO loss for TSP 100
+# BOPO official TSP100 setting matched to `BOPO/TSP/train_n100.py`
+# within the RL4CO training stack.
 
 defaults:
   - override /model: pomo.yaml
@@ -19,35 +20,36 @@ env:
 
 model:
   loss_type: bopo_loss
-  alpha: 0.05
+  alpha: 1.0
   # BOPO-specific parameters
   bopo_pair_mode: anchor_best
   bopo_select_strategy: paper
-  bopo_select_k: 10
+  bopo_select_k: 16
   bopo_select_quantile: 0.5
-  num_starts: 100
-  batch_size: 64
+  num_starts: 256
+  batch_size: 48
   train_data_size: 100000
   val_data_size: 10000
   test_data_size: 10000
   optimizer: Adam
   optimizer_kwargs:
-    lr: 3e-4
+    lr: 1e-4
     weight_decay: 1e-6
   lr_scheduler: MultiStepLR
   lr_scheduler_kwargs:
     milestones: [3001]
-    gamma: 0.2
+    gamma: 0.1
   policy_kwargs:
     po4cops_compat: true
+    start_node: same
     embed_dim: 128
     num_encoder_layers: 6
     decoder_layer_num: 1
     qkv_dim: 16
     num_heads: 8
     feedforward_hidden: 512
-    tanh_clipping: 50
-    eval_type: argmax
+    tanh_clipping: 10
+    eval_type: hybrid
     val_decode_type: greedy
     test_decode_type: greedy
   metrics:
@@ -56,9 +58,9 @@ model:
     test: ${model.metrics.val}
 
 trainer:
-  max_epochs: 2010
+  max_epochs: 2100
   accelerator: gpu
-  devices: [1]
+  devices: [0]
   strategy: auto
   precision: 32-true
   gradient_clip_val: null
