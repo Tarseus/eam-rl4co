@@ -60,6 +60,21 @@ def _multi_head_attention(
     return out_concat
 
 
+def _select_actions_from_probs(
+    probs: torch.Tensor,
+    use_sampling: bool,
+    use_hybrid: bool,
+) -> torch.Tensor:
+    if use_sampling:
+        selected = probs.reshape(-1, probs.size(-1)).multinomial(1).squeeze(-1)
+        selected = selected.view(probs.size(0), probs.size(1))
+        if use_hybrid and selected.size(1) > 0:
+            # Keep one deterministic greedy trajectory in the sampled pool.
+            selected[:, 0] = probs[:, 0].argmax(dim=-1)
+        return selected
+    return probs.argmax(dim=2)
+
+
 class _AddAndNorm(nn.Module):
     def __init__(self, embedding_dim: int):
         super().__init__()
@@ -289,7 +304,7 @@ class PO4COPsTSPPolicy(nn.Module):
             raise ValueError(
                 f"Unsupported start_node={start_node!r}; use 'same', 'random', or 'pomo'."
             )
-        self.eval_type = eval_type
+        self.eval_type = str(eval_type).strip().lower()
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
@@ -380,8 +395,13 @@ class PO4COPsTSPPolicy(nn.Module):
         decode_type = getattr(self, f"{phase}_decode_type", "sampling")
         if decode_type.startswith("multistart_"):
             decode_type = decode_type[len("multistart_") :]
-        use_sampling = (phase == "train") or (decode_type == "sampling") or (
-            decode_type == "softmax"
+        decode_type = str(decode_type).strip().lower()
+        use_hybrid = self.eval_type == "hybrid" or decode_type == "hybrid"
+        use_sampling = (
+            (phase == "train")
+            or (decode_type == "sampling")
+            or (decode_type == "softmax")
+            or use_hybrid
         )
 
         done = td_flat["done"]
@@ -397,12 +417,7 @@ class PO4COPsTSPPolicy(nn.Module):
             )
             probs = self.decoder(encoded_last_node, ninf_mask)
 
-            if use_sampling:
-                selected = probs.reshape(-1, probs.size(-1)).multinomial(1).squeeze(-1)
-                selected = selected.view(probs.size(0), probs.size(1))
-            else:
-                selected = probs.argmax(dim=2)
-
+            selected = _select_actions_from_probs(probs, use_sampling, use_hybrid)
             prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1).clamp_min(1e-12)
             log_probs.append(prob.log())
             if return_entropy:
