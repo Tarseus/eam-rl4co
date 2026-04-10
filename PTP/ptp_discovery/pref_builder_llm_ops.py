@@ -14,6 +14,15 @@ from .pref_builder_ir import PreferenceBuilderIR, ir_from_json as pref_builder_i
 
 LOGGER = logging.getLogger(__name__)
 
+_BUILDER_OPTIONAL_FEATURE_KEYS = {
+    "seq_len",
+    "log_prob_mean",
+    "advantage",
+    "entropy",
+    "entropy_mean",
+    "log_prob_step",
+}
+
 
 def _sha1(text: str) -> str:
     return hashlib.sha1(str(text).encode("utf-8")).hexdigest()
@@ -101,6 +110,52 @@ def _parse_pref_builder_from_text(text: str) -> PreferenceBuilderIR:
     return pref_builder_ir_from_json(obj)
 
 
+def build_runtime_prompt_context(
+    *,
+    loss_observables: Sequence[str] | None,
+    mode: str = "pairwise",
+) -> Mapping[str, Any]:
+    mode_norm = str(mode or "pairwise").strip().lower() or "pairwise"
+    observable_names = [str(v).strip() for v in (loss_observables or []) if str(v).strip()]
+    observable_set = set(observable_names)
+
+    base_keys = ["objective", "log_prob", "obj_z", "rank", "regret"]
+    available = set(base_keys)
+    preferred = set(base_keys)
+    blocked = set()
+
+    for key in sorted(_BUILDER_OPTIONAL_FEATURE_KEYS):
+        if key in observable_set:
+            available.add(key)
+        else:
+            blocked.add(key)
+
+    return {
+        "mode": mode_norm,
+        "configured_loss_observables": observable_names,
+        "available_keys": sorted(available),
+        "preferred_cheap_keys": sorted(preferred),
+        "blocked_optional_keys": sorted(blocked),
+        "notes": [
+            "implementation_hint.expects and required feature_cache[...] access must stay within available_keys",
+            "optional signals should be accessed with feature_cache.get(..., fallback)",
+            "prefer objective/log_prob/obj_z/rank/regret unless an optional observable is explicitly available",
+        ],
+    }
+
+
+def _append_prompt_context_block(prompt: str, prompt_context: Mapping[str, Any] | None) -> str:
+    if not prompt_context:
+        return prompt
+    return (
+        prompt
+        + "\n\nRUNTIME_CONTEXT_JSON:\n"
+        + json.dumps(dict(prompt_context), indent=2, ensure_ascii=False)
+        + "\n\nFollow RUNTIME_CONTEXT_JSON strictly. Do not require keys listed in "
+        + "`blocked_optional_keys`."
+    )
+
+
 def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | None) -> str:
     if global_feedback is None:
         return prompt
@@ -122,10 +177,13 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 "\n\nBUILDER_SEARCH_SPACE_CONSTRAINTS:\n"
                 "- Search mode is reweight_only.\n"
                 f"- You must preserve the pair construction of the fixed template `{fixed_pair_builder}`.\n"
+                "- Fixed all-pair topology preserves the maximum amount of pair information; do not throw that away.\n"
                 "- Do not change pair topology, candidate selection, coverage pattern, or pair capping logic.\n"
                 "- Your only substantive degree of freedom is the nonnegative pair weight function.\n"
                 "- Keep pair_idx identical to the fixed template and modify only `weight` plus metadata/hyperparameters.\n"
                 "- Weight must be finite, nonnegative, vectorized, and instance-local.\n"
+                "- Use weighting to reshape the per-instance pair distribution with full-pool context and instance-local normalization.\n"
+                "- This is not redundant with loss-only search: the downstream loss batch is flattened and does not carry `b_idx`, so it cannot reconstruct instance-local pair distributions or per-instance pool statistics.\n"
                 "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
             )
             if allow_freeform_weight_family:
@@ -180,8 +238,10 @@ def build_generation_prompt(
     generation_prompt_path: str,
     *,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(generation_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     prompt = _append_global_feedback(prompt, global_feedback)
     return prompt, _sha1(prompt)
 
@@ -192,8 +252,10 @@ def build_crossover_prompt(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(crossover_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -222,8 +284,10 @@ def build_e2_prompt(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(e2_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -252,8 +316,10 @@ def build_mutation_prompt(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(mutation_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     blob = {
         "name": parent.name,
@@ -275,8 +341,10 @@ def build_m2_prompt(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(m2_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     blob = {
         "name": parent.name,
@@ -298,8 +366,10 @@ def build_paradigm_shift_prompt(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     blobs = []
     for idx, parent in enumerate(parents):
         metrics: Mapping[str, Any] = {}
@@ -328,8 +398,10 @@ def build_structure_shift_prompt(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     blob = {
         "name": parent.name,
@@ -351,8 +423,10 @@ def build_constraint_inject_prompt(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     metrics: Mapping[str, Any] = parent_fitness or {}
     blob = {
         "name": parent.name,
@@ -374,8 +448,10 @@ def build_m3_prompt(
     candidate: PreferenceBuilderIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(m3_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     payload = {
         "candidate": {
             "name": candidate.name,
@@ -398,8 +474,10 @@ def build_repair_prompt(
     failed_ir: PreferenceBuilderIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[str, str]:
     prompt = _read_prompt(repair_prompt_path)
+    prompt = _append_prompt_context_block(prompt, prompt_context)
     payload = {
         "candidate": {
             "name": failed_ir.name,
@@ -421,9 +499,14 @@ def generate_pref_builder_candidate(
     *,
     operator_whitelist: Sequence[str],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     del operator_whitelist
-    prompt, _ = build_generation_prompt(generation_prompt_path, global_feedback=global_feedback)
+    prompt, _ = build_generation_prompt(
+        generation_prompt_path,
+        global_feedback=global_feedback,
+        prompt_context=prompt_context,
+    )
     raw = _call_llm(prompt, llm_op="E1_GENERATE", prompt_path=generation_prompt_path)
     json_str = _extract_json_object(raw)
     return _parse_pref_builder_from_text(json_str)
@@ -434,12 +517,14 @@ def crossover_pref_builder(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_crossover_prompt(
         crossover_prompt_path,
         parents=parents,
         parents_fitness=parents_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="E1", prompt_path=crossover_prompt_path)
     json_str = _extract_json_object(raw)
@@ -451,12 +536,14 @@ def mutate_pref_builder(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_mutation_prompt(
         mutation_prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="M1", prompt_path=mutation_prompt_path)
     json_str = _extract_json_object(raw)
@@ -468,12 +555,14 @@ def e2_pref_builder(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_e2_prompt(
         e2_prompt_path,
         parents=parents,
         parents_fitness=parents_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="E2", prompt_path=e2_prompt_path)
     json_str = _extract_json_object(raw)
@@ -485,12 +574,14 @@ def m2_tune_builder(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_m2_prompt(
         m2_prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="M2", prompt_path=m2_prompt_path)
     json_str = _extract_json_object(raw)
@@ -502,12 +593,14 @@ def paradigm_shift_builder(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_paradigm_shift_prompt(
         prompt_path,
         parents=parents,
         parents_fitness=parents_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="BUILDER_PARADIGM_SHIFT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
@@ -519,12 +612,14 @@ def structure_shift_builder(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_structure_shift_prompt(
         prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="BUILDER_STRUCTURE_SHIFT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
@@ -536,12 +631,14 @@ def constraint_inject_builder(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_constraint_inject_prompt(
         prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="BUILDER_CONSTRAINT_INJECT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
@@ -553,12 +650,14 @@ def m3_simplify_builder(
     candidate: PreferenceBuilderIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_m3_prompt(
         m3_prompt_path,
         candidate=candidate,
         failure_reason=failure_reason,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="M3", prompt_path=m3_prompt_path)
     json_str = _extract_json_object(raw)
@@ -572,12 +671,14 @@ def repair_pref_builder(
     failed_ir: PreferenceBuilderIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> PreferenceBuilderIR:
     prompt, _ = build_repair_prompt(
         repair_prompt_path,
         failed_ir=failed_ir,
         failure_reason=failure_reason,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="REPAIR", prompt_path=repair_prompt_path)
     json_str = _extract_json_object(raw)
@@ -591,8 +692,13 @@ def generate_pref_builder_candidate_with_meta(
     *,
     operator_whitelist: Sequence[str],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
-    prompt, prompt_sha1 = build_generation_prompt(generation_prompt_path, global_feedback=global_feedback)
+    prompt, prompt_sha1 = build_generation_prompt(
+        generation_prompt_path,
+        global_feedback=global_feedback,
+        prompt_context=prompt_context,
+    )
     raw = _call_llm(prompt, llm_op="E1_GENERATE", prompt_path=generation_prompt_path)
     json_str = _extract_json_object(raw)
     ir = _parse_pref_builder_from_text(json_str)
@@ -612,12 +718,14 @@ def crossover_pref_builder_with_meta(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_crossover_prompt(
         crossover_prompt_path,
         parents=parents,
         parents_fitness=parents_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="E1", prompt_path=crossover_prompt_path)
     json_str = _extract_json_object(raw)
@@ -638,12 +746,14 @@ def e2_pref_builder_with_meta(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_e2_prompt(
         e2_prompt_path,
         parents=parents,
         parents_fitness=parents_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="E2", prompt_path=e2_prompt_path)
     json_str = _extract_json_object(raw)
@@ -664,12 +774,14 @@ def mutate_pref_builder_with_meta(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_mutation_prompt(
         mutation_prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="M1", prompt_path=mutation_prompt_path)
     json_str = _extract_json_object(raw)
@@ -690,12 +802,14 @@ def m2_tune_builder_with_meta(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_m2_prompt(
         m2_prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="M2", prompt_path=m2_prompt_path)
     json_str = _extract_json_object(raw)
@@ -716,12 +830,14 @@ def paradigm_shift_builder_with_meta(
     parents: Sequence[PreferenceBuilderIR],
     parents_fitness: Sequence[Mapping[str, Any]] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_paradigm_shift_prompt(
         prompt_path,
         parents=parents,
         parents_fitness=parents_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="BUILDER_PARADIGM_SHIFT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
@@ -742,12 +858,14 @@ def structure_shift_builder_with_meta(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_structure_shift_prompt(
         prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="BUILDER_STRUCTURE_SHIFT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
@@ -768,12 +886,14 @@ def constraint_inject_builder_with_meta(
     parent: PreferenceBuilderIR,
     parent_fitness: Mapping[str, Any] | None = None,
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_constraint_inject_prompt(
         prompt_path,
         parent=parent,
         parent_fitness=parent_fitness,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="BUILDER_CONSTRAINT_INJECT", prompt_path=prompt_path)
     json_str = _extract_json_object(raw)
@@ -794,12 +914,14 @@ def m3_simplify_builder_with_meta(
     candidate: PreferenceBuilderIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_m3_prompt(
         m3_prompt_path,
         candidate=candidate,
         failure_reason=failure_reason,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="M3", prompt_path=m3_prompt_path)
     json_str = _extract_json_object(raw)
@@ -821,12 +943,14 @@ def repair_pref_builder_with_meta(
     failed_ir: PreferenceBuilderIR,
     failure_reason: Mapping[str, Any],
     global_feedback: Mapping[str, Any] | None = None,
+    prompt_context: Mapping[str, Any] | None = None,
 ) -> tuple[PreferenceBuilderIR, Mapping[str, Any]]:
     prompt, prompt_sha1 = build_repair_prompt(
         repair_prompt_path,
         failed_ir=failed_ir,
         failure_reason=failure_reason,
         global_feedback=global_feedback,
+        prompt_context=prompt_context,
     )
     raw = _call_llm(prompt, llm_op="REPAIR", prompt_path=repair_prompt_path)
     json_str = _extract_json_object(raw)

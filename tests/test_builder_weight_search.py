@@ -5,6 +5,8 @@ import logging
 import random
 from pathlib import Path
 
+import torch
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -258,6 +260,99 @@ def test_reweight_only_freeform_prompt_and_seed_pool(monkeypatch):
     assert observed <= {"gap_linear", "gap_sigmoid"}
 
 
+def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+
+    ctx = builder_ops.build_runtime_prompt_context(
+        loss_observables=("seq_len",),
+        mode="pairwise",
+    )
+
+    assert set(ctx["preferred_cheap_keys"]) == {"log_prob", "obj_z", "objective", "rank", "regret"}
+    assert "seq_len" in set(ctx["available_keys"])
+    assert "seq_len" not in set(ctx["preferred_cheap_keys"])
+    assert "entropy" in set(ctx["blocked_optional_keys"])
+    assert "log_prob_step" in set(ctx["blocked_optional_keys"])
+
+    prompt_path = _repo_root() / "PTP" / "prompts" / "pref_builder_generation.txt"
+    prompt, _ = builder_ops.build_generation_prompt(
+        str(prompt_path),
+        global_feedback={
+            "builder_search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "allow_freeform_weight_family": True,
+                "seed_weight_families": ["gap_rank_blend"],
+            }
+        },
+        prompt_context=ctx,
+    )
+
+    assert "RUNTIME_CONTEXT_JSON" in prompt
+    assert "objective" in prompt
+    assert "obj_z" in prompt
+    assert "rank" in prompt
+    assert "regret" in prompt
+    assert "loss batch is flattened and does not carry `b_idx`" in prompt
+
+
+def test_builtin_multi_signal_reweight_builders_preserve_all_pairs(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_compiler import compile_preference_builder
+
+    feature_cache = loop._dummy_feature_cache(batch_size=4, k=8, variant="visible")
+    objective = feature_cache["objective"]
+    template_mask = objective[:, :, None] < objective[:, None, :]
+    template_pair_idx = template_mask.nonzero(as_tuple=True)
+
+    families = {
+        "gap_rank_blend": "gap_rank",
+        "gap_regret_blend": "gap_regret",
+        "margin_rank_blend": "margin_rank",
+        "margin_regret_blend": "margin_regret",
+        "gap_bandpass": "gap_bandpass",
+    }
+
+    for family, signal_family in families.items():
+        cfg = loop._normalize_builder_search_space_cfg(
+            {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "seed_weight_families": [family],
+                "allow_uniform_none": False,
+            }
+        )
+        rng = random.Random(0)
+        rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+        ir = loop._make_builtin_builder_irs(rng, 1)[0]
+        assert ir.hyperparams["weight_family"] == family
+        assert ir.hyperparams["signal_family"] == signal_family
+
+        compiled = compile_preference_builder(ir)
+        pref_batch = compiled.build_fn(feature_cache, {})
+        assert pref_batch.weight is not None
+        assert torch.isfinite(pref_batch.weight).all().item()
+        assert bool((pref_batch.weight >= 0).all().item())
+
+        built_pair_idx = pref_batch.pair_idx
+        assert built_pair_idx is not None
+        for built, expected in zip(built_pair_idx, template_pair_idx):
+            assert torch.equal(built, expected)
+
+        b_idx = built_pair_idx[0]
+        for batch_id in range(int(objective.shape[0])):
+            mask = b_idx == batch_id
+            assert bool(mask.any().item())
+            mean_weight = pref_batch.weight[mask].mean()
+            assert torch.isclose(mean_weight, torch.tensor(1.0, dtype=mean_weight.dtype), atol=1e-4, rtol=1e-4).item()
+
+
 def test_reweight_only_builder_operator_bank_uses_five_search_classes(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
@@ -342,5 +437,5 @@ def test_builder_llm_exception_is_logged(monkeypatch, caplog):
 
     assert out == []
     assert "Builder LLM proposal failed at gen=0" in caplog.text
-    assert "OPENAI_API_KEY is not set" in caplog.text
+    assert ("OPENAI_API_KEY is not set" in caplog.text) or ("openai package is not installed" in caplog.text)
     assert "Builder generation 0 produced zero valid proposals while llm_init_only=true" in caplog.text
