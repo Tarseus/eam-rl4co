@@ -42,7 +42,10 @@ model:
     gamma: 0.2
   policy_kwargs:
     po4cops_compat: true
-    start_node: same
+    # `same` matches the official BOPO TSP script, but it is unstable with this
+    # RL4CO/PO4COPs decoder. Use POMO-style starts to keep the candidate pool
+    # diverse and restore stable learning.
+    start_node: pomo
     embed_dim: 128
     num_encoder_layers: 6
     decoder_layer_num: 1
