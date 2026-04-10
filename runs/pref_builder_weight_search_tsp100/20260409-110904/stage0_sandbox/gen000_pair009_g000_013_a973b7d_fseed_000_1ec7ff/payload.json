@@ -1,0 +1,110 @@
+{
+  "generation": 0,
+  "pair_index": 9,
+  "g_entry": {
+    "id": "g000_013_a973b7d1",
+    "ir": {
+      "name": "builder_all_pairs_gap_square_root_002",
+      "intuition": "rule_based:all_pairs:reweight:gap_sqrt emphasizes moderate gaps with a square root weighting",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_square_root",
+        "constraint_family": "fixed_pair_reweight_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "sqrt",
+        "clamp",
+        "div"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root'})\n    gap_clamped = gap.clamp_min(0.0)\n    weight_beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = torch.sqrt(gap_clamped) * weight_beta\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_1ec7ffff",
+    "ir": {
+      "name": "loss_logsigmoid_004_cost_shifted_sum_normalized_repaired",
+      "intuition": "Removed the additive offset term that violated affine invariance and replaced it with a purely multiplicative interaction between log_prob difference and normalized cost gap. This ensures the loss respects scale and shift invariance by depending only on the relative difference (lpw - lpl) scaled by a normalized cost gap factor rather than subtracting a fixed offset proportional to the cost gap. Clamping is preserved for numerical stability.",
+      "pseudocode": "gap = cost_b - cost_a\nnorm_gap = gap / (1 + abs(gap))\nmargin = (lpw - lpl) * (1 - beta * norm_gap)\nx = alpha * scale * margin\nlosses = -logsigmoid(clamp(x, -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = sum(weighted_losses) / (sum(weight) + eps)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "scale_invariance"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "sum",
+        "add",
+        "sub",
+        "abs",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('beta', 0.05))\n    gap = cost_b - cost_a\n    norm_gap = gap / (1.0 + ops.abs(gap))\n    margin = (lpw - lpl) * (1.0 - beta * norm_gap)\n    x = alpha * scale * margin\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    loss = ops.sum(weighted_losses) / norm_factor\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -1,29 +1,31 @@
 {
-  "generation": 5,
-  "index": 1,
-  "id": "g005_001_b8692a22",
-  "signature": "b8692a229f5067f210125f89355e3e0f9d25abfe",
-  "family_signature": "geometry=pairwise|cap=pairwise_cap|constraint=scale_invariance",
-  "origin": "E1",
-  "origin_base": "E1",
-  "op_type": "E1_GENERATE",
-  "parents": [],
+  "generation": 9,
+  "index": 6,
+  "id": "g009_006_86535891",
+  "signature": "86535891ea14d5004e3371a1b2c01acf18a2d4b3",
+  "family_signature": "geometry=pairwise|cap=none|constraint=none",
+  "origin": "M2",
+  "origin_base": "M2",
+  "op_type": "M2",
+  "parents": [
+    "g007_008_7b4385e7"
+  ],
   "attempt": 0,
-  "prompt_sha1": "0c442a4a852ebd4c56d1a00a2f16d6b9f747fc41",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_generation.txt",
-  "llm_seed": 1099085600,
+  "prompt_sha1": "a4c4e1633658d00779af8563f8a1df709f12c5ef",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+  "llm_seed": 1956170080,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
-      "llm_op": "E1_GENERATE",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_generation.txt",
-      "prompt_sha1": "0c442a4a852ebd4c56d1a00a2f16d6b9f747fc41"
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "prompt_sha1": "a4c4e1633658d00779af8563f8a1df709f12c5ef"
     }
   ],
   "ir": {
-    "name": "reweighted_scalar_pref",
-    "intuition": "Adjusts pairwise preference weights by scaling a fixed indicator with a configurable non-negative scalar, enabling dynamic emphasis control while preserving the original pair topology.",
+    "name": "reweighted_scalar_pref_fixed",
+    "intuition": "Adjusts the preference weights by a configurable scalar constrained between 0 and 10, optimizing the influence of pairwise preferences without altering pair structure, to refine weighting stability and effectiveness.",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -34,15 +36,17 @@
     },
     "hyperparams": {
       "geometry_family": "pairwise",
-      "cap_family": "pairwise_cap",
-      "weight_family": "learned_scalar",
-      "constraint_family": "scale_invariance"
+      "cap_family": "none",
+      "weight_family": "scalar",
+      "constraint_family": "none"
     },
     "operators_used": [
       "nonzero",
-      "mul"
+      "clamp",
+      "mul",
+      "pairwise_mask"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref', 'weight_family': 'learned_scalar'}\n    )"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0]\n    weight_scalar = max(0.0, min(weight_scalar, 10.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_fixed', 'weight_family': 'scalar'}\n    )"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -80,7 +84,7 @@
     "memory_metric_available": false,
     "memory_device": "cpu"
   },
-  "fitness": -0.014256653976440159,
+  "fitness": -0.01193125190734845,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
@@ -89,14 +93,14 @@
       0
     ]
   },
-  "builder_perf": -0.014256653976440159,
+  "builder_perf": -0.01193125190734845,
   "builder_cost": 960.0,
   "builder_feasible": true,
-  "builder_threshold": -0.014256653976440159,
-  "builder_best_perf": -0.014256653976440159,
+  "builder_threshold": -0.01193125190734845,
+  "builder_best_perf": -0.01193125190734845,
   "selection_sort_key": [
     0.0,
     960.0,
-    -0.014256653976440159
+    -0.01193125190734845
   ]
 }

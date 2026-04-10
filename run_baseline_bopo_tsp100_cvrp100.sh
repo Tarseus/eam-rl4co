@@ -29,12 +29,12 @@ RUN_ROOT="${ROOT_DIR}/logs/train/runs/tsp100_cvrp100_bopo_${TS}"
 mkdir -p "$RUN_ROOT"
 
 EXPERIMENT_KEYS=(
-  "tsp100_bopo"
+#   "tsp100_bopo"
   "cvrp100_bopo"
 )
 
 EXPERIMENT_CONFIGS=(
-  "routing/pomo-bopo-tsp100"
+#   "routing/pomo-bopo-tsp100"
   "routing/pomo-bopo-cvrp100"
 )
 

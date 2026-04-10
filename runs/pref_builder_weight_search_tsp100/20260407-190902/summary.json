@@ -20,7 +20,7 @@
     "stage2_micro_unroll": false,
     "stage3_high_fidelity": true
   },
-  "last_generation": 5,
+  "last_generation": 9,
   "best_so_far": {
     "score": -0.02145215148925761,
     "builder_id": "g_ref",
@@ -2616,6 +2616,1075 @@
         -0.008048947143554308
       ],
       "generation": 5,
+      "phase": "builder"
+    },
+    "g006_008_86e16da3": {
+      "builder_id": "g006_008_86e16da3",
+      "perf": -0.005508515167236272,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_008_86e16da3",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.005508515167236272,
+        "final_score": -0.005508515167236272,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "scalar_weight_pref",
+          "intuition": "Constructs preference pairs with weights scaled by a learnable scalar parameter, allowing the model to dynamically emphasize or de-emphasize pairs while maintaining the original pairwise structure. This approach leverages a single scalar to modulate importance, providing flexible control over preference influence.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "pairwise_cap",
+            "weight_family": "learned_scalar",
+            "constraint_family": "scale_invariance"
+          },
+          "operators_used": [
+            "nonzero",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'scalar_weight_pref', 'weight_family': 'learned_scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01365266647338892,
+      "threshold": -0.01365266647338892,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.005508515167236272
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_002_af1fde6e": {
+      "builder_id": "g006_002_af1fde6e",
+      "perf": -0.012633619308471733,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_002_af1fde6e",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.012633619308471733,
+        "final_score": -0.012633619308471733,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "robust_reweight_pref",
+          "intuition": "Combines the stable scalar reweighting approach with an emphasis on scale invariance by incorporating a configurable non-negative weight scalar, ensuring robust preference weighting that maintains pair topology and scale invariance under reweight_only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "pairwise_cap",
+            "weight_family": "gap_linear",
+            "constraint_family": "scale_invariance"
+          },
+          "operators_used": [
+            "nonzero",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scale = float(extra.get('weight_tau', 2.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scale\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'robust_reweight_pref', 'weight_family': 'gap_linear'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01365266647338892,
+      "threshold": -0.01365266647338892,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.012633619308471733
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_007_1496ab5e": {
+      "builder_id": "g006_007_1496ab5e",
+      "perf": -0.008364743423461718,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_007_1496ab5e",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.008364743423461718,
+        "final_score": -0.008364743423461718,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "robust_weighted_pref",
+          "intuition": "Combines the stable pairwise structure from all_pairs with a learnable, scalable weight function that emphasizes or de-emphasizes preference pairs based on an extra hyperparameter. This approach maintains simplicity, adheres to reweight_only constraints, and introduces a flexible, robust weighting mechanism that improves preference modeling stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "gap_linear",
+            "constraint_family": "scale_invariance"
+          },
+          "operators_used": [
+            "nonzero",
+            "tensor",
+            "mul",
+            "new_ones"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scale = float(extra.get('weight_beta', 1.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scale\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'robust_weighted_pref', 'weight_family': 'gap_linear'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01365266647338892,
+      "threshold": -0.01365266647338892,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.008364743423461718
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_001_c32991f5": {
+      "builder_id": "g006_001_c32991f5",
+      "perf": -0.01365266647338892,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_001_c32991f5",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.01365266647338892,
+        "final_score": -0.01365266647338892,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_no_import_fixed",
+          "intuition": "Scales pairwise preference weights by a configurable non-negative scalar clamped between 0 and 10, preserving pair topology without imports and ensuring stable weighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {},
+          "operators_used": [],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0] without imports\n    weight_scalar = weight_scalar if weight_scalar >= 0.0 else 0.0\n    weight_scalar = weight_scalar if weight_scalar <= 10.0 else 10.0\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_no_import_fixed', 'weight_family': 'learned_scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.01365266647338892,
+      "threshold": -0.01365266647338892,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.01365266647338892
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_004_6c5e4119": {
+      "builder_id": "g006_004_6c5e4119",
+      "perf": -0.00888123245239214,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_004_6c5e4119",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.00888123245239214,
+        "final_score": -0.00888123245239214,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_simple_fixed",
+          "intuition": "Constructs pairwise preferences by selecting pairs where the objective of the winner is strictly less than the loser, assigning a configurable non-negative scalar weight uniformly to all pairs to enable stable and simple preference scaling without changing pair topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {},
+          "operators_used": [],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    weight_scalar = max(weight_scalar, 0.0)  # ensure nonnegative\n    weight = objective.new_ones(b_idx.shape[0]) * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_simple_fixed', 'weight_family': 'uniform_none'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01365266647338892,
+      "threshold": -0.01365266647338892,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.00888123245239214
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_009_7ac19fbd": {
+      "builder_id": "g006_009_7ac19fbd",
+      "perf": -0.012900869369506296,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_009_7ac19fbd",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.012900869369506296,
+        "final_score": -0.012900869369506296,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_v5",
+          "intuition": "Refines pairwise preference weighting by scaling a fixed indicator with a configurable nonnegative scalar, allowing emphasis adjustment while maintaining original pair topology. Slightly increased the default weight scalar for more pronounced weighting effects.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "pairwise_cap",
+            "weight_family": "learned_scalar",
+            "constraint_family": "scale_invariance"
+          },
+          "operators_used": [
+            "nonzero",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.2))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_v5', 'weight_family': 'learned_scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01365266647338892,
+      "threshold": -0.01365266647338892,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.012900869369506296
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g007_011_01eccdd7": {
+      "builder_id": "g007_011_01eccdd7",
+      "perf": -0.010008261489867998,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_011_01eccdd7",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.010008261489867998,
+        "final_score": -0.010008261489867998,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_fixed",
+          "intuition": "Adjusts pairwise preference weights by a configurable scalar parameter, with a broader range to allow more flexible emphasis or de-emphasis of pairs, while maintaining pair topology. The scalar is clamped between 0 and 20 to prevent instability and ensure stable weighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "gap_linear",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "tensor",
+            "mul",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 20.0]\n    weight_scalar = max(0.0, min(weight_scalar, 20.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_fixed', 'weight_family': 'learned_scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01392745704650844,
+      "threshold": -0.01392745704650844,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.010008261489867998
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_013_3f42af3b": {
+      "builder_id": "g007_013_3f42af3b",
+      "perf": -0.011986605072021206,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_013_3f42af3b",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.011986605072021206,
+        "final_score": -0.011986605072021206,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweight_scale_invariant",
+          "intuition": "In reweight_only mode, tuning only the weights, increasing the weight scaling hyperparameter allows the model to emphasize preference pairs without altering the fixed pair topology. Slightly higher weight_tau (e.g., 2.5) provides stronger influence while maintaining scale invariance and avoiding overly large values that could destabilize training.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise_geometry",
+            "cap_family": "pairwise_cap",
+            "weight_family": "gap_linear",
+            "constraint_family": "scale_invariance"
+          },
+          "operators_used": [
+            "nonzero",
+            "tensor_mul",
+            "tensor_cast"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scale = float(extra.get('weight_tau', 2.5))\n    # Clamp weight_scale to [0.0, 10.0]\n    weight_scale = max(0.0, min(weight_scale, 10.0))\n    weight = objective.new_ones(b_idx.shape[0]) * weight_scale\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweight_scale_invariant', 'weight_family': 'gap_linear'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01392745704650844,
+      "threshold": -0.01392745704650844,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.011986605072021206
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_003_dee5537c": {
+      "builder_id": "g007_003_dee5537c",
+      "perf": -0.0034789947509761276,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_003_dee5537c",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0034789947509761276,
+        "final_score": -0.0034789947509761276,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_fixed_threshold",
+          "intuition": "Adjusts pairwise weights by scaling with a normalized gap, capped at a maximum scalar to prevent overly large weights, ensuring stable and interpretable preference influence in reweight-only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "fixed_pair_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Configurable parameters\n    gap_threshold = float(extra.get('gap_threshold', 0.2))\n    max_weight_scalar = float(extra.get('max_weight_scalar', 5.0))\n    # Compute gap: cost difference\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Normalize gap for stability\n    norm_gap = ops.clamp(gap / (gap_threshold + 1e-8), 0.0, max_weight_scalar)\n    # Compute weight: scaled by normalized gap, capped at max_weight_scalar\n    weight = ops.maximum(norm_gap, 0.0)\n    # Return pair index and weight\n    pair_idx = (b_idx, winner_idx, loser_idx)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=pair_idx,\n        weight=weight,\n        meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01392745704650844,
+      "threshold": -0.01392745704650844,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0034789947509761276
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_008_7b4385e7": {
+      "builder_id": "g007_008_7b4385e7",
+      "perf": -0.01392745704650844,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_008_7b4385e7",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.01392745704650844,
+        "final_score": -0.01392745704650844,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_no_import_fixed",
+          "intuition": "Scales pairwise preference weights by a configurable non-negative scalar clamped between 0 and 10, preserving pair topology without imports and ensuring stable weighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0] without imports\n    weight_scalar = weight_scalar if weight_scalar >= 0.0 else 0.0\n    weight_scalar = weight_scalar if weight_scalar <= 10.0 else 10.0\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_no_import_fixed', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.01392745704650844,
+      "threshold": -0.01392745704650844,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.01392745704650844
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_005_5438aa55": {
+      "builder_id": "g007_005_5438aa55",
+      "perf": -0.011607720947265587,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_005_5438aa55",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.011607720947265587,
+        "final_score": -0.011607720947265587,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_no_import_fixed",
+          "intuition": "Scales pairwise preference weights by a configurable non-negative scalar clamped between 0 and 10, preserving pair topology without imports and ensuring stable weighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "stability"
+          },
+          "operators_used": [
+            "masking",
+            "nonzero",
+            "tensor_clamp",
+            "tensor_multiply"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0] without imports\n    weight_scalar = weight_scalar if weight_scalar >= 0.0 else 0.0\n    weight_scalar = weight_scalar if weight_scalar <= 10.0 else 10.0\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_no_import_fixed', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01392745704650844,
+      "threshold": -0.01392745704650844,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.011607720947265587
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_007_24cfb8b3": {
+      "builder_id": "g007_007_24cfb8b3",
+      "perf": -0.005021532058715472,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_007_24cfb8b3",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.005021532058715472,
+        "final_score": -0.005021532058715472,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_no_import_fixed",
+          "intuition": "Scales pairwise preference weights by a configurable non-negative scalar clamped between 0 and 10, preserving pair topology without imports and ensuring stable weighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar_multiplier",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0]\n    weight_scalar = max(0.0, min(10.0, weight_scalar))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_no_import_fixed', 'weight_family': 'scalar_multiplier'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01392745704650844,
+      "threshold": -0.01392745704650844,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.005021532058715472
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g008_000_d41f3c96": {
+      "builder_id": "g008_000_d41f3c96",
+      "perf": -0.011984547042846572,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_000_d41f3c96",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.011984547042846572,
+        "final_score": -0.011984547042846572,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_fixed",
+          "intuition": "Constructs pairwise preference pairs based on the objective tensor and scales their weights via a configurable scalar parameter, enabling stable and interpretable reweighting while maintaining pair topology. Uses tensor masking and clamping to ensure weights are within desired bounds.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0] without imports\n    weight_scalar = weight_scalar if weight_scalar >= 0.0 else 0.0\n    weight_scalar = weight_scalar if weight_scalar <= 10.0 else 10.0\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_fixed', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.011984547042846572,
+      "threshold": -0.011984547042846572,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.011984547042846572
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g008_004_ee950932": {
+      "builder_id": "g008_004_ee950932",
+      "perf": -0.00485773010253876,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_004_ee950932",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.00485773010253876,
+        "final_score": -0.00485773010253876,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_no_import_fixed_v2",
+          "intuition": "Adjusts pairwise preference weights using a scalar multiplier hyperparameter capped at 10.0, ensuring stable and nonnegative weights while preserving pair topology. This tuning allows dynamic emphasis on preference pairs while maintaining computational simplicity and stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar_multiplier",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.5))\n    # Clamp weight_scalar between 0.0 and 10.0\n    weight_scalar = max(0.0, min(10.0, weight_scalar))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_no_import_fixed_v2', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.011984547042846572,
+      "threshold": -0.011984547042846572,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.00485773010253876
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g008_002_9d38fea1": {
+      "builder_id": "g008_002_9d38fea1",
+      "perf": -0.011769633483886377,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_002_9d38fea1",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.011769633483886377,
+        "final_score": -0.011769633483886377,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "robust_weighted_pref_simple",
+          "intuition": "Combines the stable pairwise structure with a flexible, scale-invariant weight function that emphasizes preferences based on a configurable scalar, ensuring robustness and simplicity in reweight-only optimization.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "gap_linear",
+            "constraint_family": "scale_invariance"
+          },
+          "operators_used": [
+            "nonzero",
+            "tensor_mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_beta', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0]\n    weight_scalar = max(0.0, min(weight_scalar, 10.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'robust_weighted_pref_simple', 'weight_family': 'gap_linear'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.011984547042846572,
+      "threshold": -0.011984547042846572,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.011769633483886377
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g008_007_361f09f9": {
+      "builder_id": "g008_007_361f09f9",
+      "perf": -0.010493188858032187,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_007_361f09f9",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.010493188858032187,
+        "final_score": -0.010493188858032187,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_throttled",
+          "intuition": "Adjusts pairwise preference weights dynamically with a configurable scalar constrained between 0 and 5 for enhanced stability and control over weighting influence, preserving pair topology while preventing excessively large weights.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 5.0]\n    weight_scalar = max(0.0, min(weight_scalar, 5.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_throttled', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.011984547042846572,
+      "threshold": -0.011984547042846572,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.010493188858032187
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g009_006_86535891": {
+      "builder_id": "g009_006_86535891",
+      "perf": -0.01193125190734845,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_006_86535891",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.01193125190734845,
+        "final_score": -0.01193125190734845,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_fixed",
+          "intuition": "Adjusts the preference weights by a configurable scalar constrained between 0 and 10, optimizing the influence of pairwise preferences without altering pair structure, to refine weighting stability and effectiveness.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 10.0]\n    weight_scalar = max(0.0, min(weight_scalar, 10.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_fixed', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.01193125190734845,
+      "threshold": -0.01193125190734845,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.01193125190734845
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_002_ecb91496": {
+      "builder_id": "g009_002_ecb91496",
+      "perf": -0.011626728439330769,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_002_ecb91496",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.011626728439330769,
+        "final_score": -0.011626728439330769,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_v5",
+          "intuition": "Adjusts preference pair weights by a configurable scalar bounded between 0 and 15, ensuring stable and controlled weighting without changing pair topology. The increased upper bound allows more emphasis when desired, while maintaining flexibility.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 15.0]\n    weight_scalar = max(0.0, min(weight_scalar, 15.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_v5', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01193125190734845,
+      "threshold": -0.01193125190734845,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.011626728439330769
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_007_16bd0342": {
+      "builder_id": "g009_007_16bd0342",
+      "perf": -0.009107062530517407,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_007_16bd0342",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.009107062530517407,
+        "final_score": -0.009107062530517407,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_scalar_pref_no_import_fixed_v2",
+          "intuition": "Adjusts the scalar weight for pairwise preferences with a higher maximum cap to explore larger weightings, potentially improving preference calibration while maintaining pair topology and stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "pairwise",
+            "cap_family": "none",
+            "weight_family": "scalar",
+            "constraint_family": "none"
+          },
+          "operators_used": [
+            "nonzero",
+            "clamp",
+            "mul",
+            "pairwise_mask"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    weight_scalar = float(extra.get('weight_scalar', 1.0))\n    # Clamp weight_scalar to [0.0, 15.0] for increased flexibility\n    weight_scalar = max(0.0, min(weight_scalar, 15.0))\n    base_weight = objective.new_ones(b_idx.shape[0])\n    weight = base_weight * weight_scalar\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.long(), winner_idx.long(), loser_idx.long()),\n        weight=weight,\n        meta={'builder': 'reweighted_scalar_pref_no_import_fixed_v2', 'weight_family': 'scalar'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.01193125190734845,
+      "threshold": -0.01193125190734845,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.009107062530517407
+      ],
+      "generation": 9,
       "phase": "builder"
     }
   },
