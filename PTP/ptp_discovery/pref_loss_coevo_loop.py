@@ -2356,6 +2356,11 @@ _BUILDER_WEIGHT_FAMILIES = {
     "gap_softmax",
     "gap_sigmoid",
     "gap_square",
+    "gap_rank_blend",
+    "gap_regret_blend",
+    "margin_rank_blend",
+    "margin_regret_blend",
+    "gap_bandpass",
 }
 
 
@@ -2578,7 +2583,18 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     if fixed_pair_builder not in {"all_pairs", "anchor_best"}:
         fixed_pair_builder = "all_pairs"
 
-    default_families = ["uniform_none", "gap_linear", "gap_softmax", "gap_sigmoid", "gap_square"]
+    default_families = [
+        "uniform_none",
+        "gap_linear",
+        "gap_softmax",
+        "gap_sigmoid",
+        "gap_square",
+        "gap_rank_blend",
+        "gap_regret_blend",
+        "margin_rank_blend",
+        "margin_regret_blend",
+        "gap_bandpass",
+    ]
     allow_uniform_none = bool(cfg.get("allow_uniform_none", True))
     allow_freeform_weight_family = bool(cfg.get("allow_freeform_weight_family", False))
 
@@ -5039,25 +5055,38 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
     def _make_reweight_builder_ir(*, kind: str, weight_family: str, index: int) -> PreferenceBuilderIR:
         builder_label = f"{kind}_{weight_family}"
         template_code = _fixed_pair_template_code(kind)
+        helper_lines = [
+            "    clamp_lo = 0.25",
+            "    clamp_hi = 4.0",
+            "    batch_size = int(objective.shape[0])",
+            "    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=batch_size).to(dtype=objective.dtype)",
+            "    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)",
+            "    mean_raw = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
+            "    mean_raw.index_add_(0, b_idx, raw)",
+            "    mean_raw = mean_raw / counts.clamp_min(1.0)",
+            "    weight = raw / mean_raw[b_idx].clamp_min(eps)",
+            "    weight = weight.clamp(clamp_lo, clamp_hi)",
+            "    mean_weight = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
+            "    mean_weight.index_add_(0, b_idx, weight)",
+            "    mean_weight = mean_weight / counts.clamp_min(1.0)",
+            "    weight = weight / mean_weight[b_idx].clamp_min(eps)",
+        ]
         base_lines = [
             "def generated_builder(feature_cache, extra):",
             "    objective = feature_cache['objective']",
+            "    log_prob = feature_cache['log_prob']",
             template_code.rstrip("\n"),
             "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]",
             "    pair_count = int(b_idx.numel())",
             "    if pair_count <= 0:",
             f"        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={{'builder': '{kind}', 'weight_family': '{weight_family}'}})",
+            "    eps = 1e-6",
         ]
         if weight_family == "uniform_none":
             base_lines.append(
                 f"    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={{'builder': '{kind}', 'weight_family': '{weight_family}'}})"
             )
         else:
-            base_lines.extend(
-                [
-                    "    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)",
-                ]
-            )
             if weight_family == "gap_linear":
                 base_lines.append("    raw = gap.clamp_min(0.0)")
             elif weight_family == "gap_softmax":
@@ -5075,37 +5104,106 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
                         "    raw = torch.sigmoid(beta * gap)",
                     ]
                 )
-            else:
+            elif weight_family == "gap_square":
                 base_lines.append("    raw = gap.clamp_min(0.0).pow(2)")
+            elif weight_family == "gap_rank_blend":
+                base_lines.extend(
+                    [
+                        "    rank = feature_cache['rank']",
+                        "    lambda_rank = float(extra.get('lambda_rank', 1.0))",
+                        "    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]",
+                        "    raw = torch.sqrt(gap.clamp_min(0.0)) * (1.0 + lambda_rank * rank_span)",
+                    ]
+                )
+            elif weight_family == "gap_regret_blend":
+                base_lines.extend(
+                    [
+                        "    regret = feature_cache['regret']",
+                        "    lambda_regret = float(extra.get('lambda_regret', 1.0))",
+                        "    regret_span = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]",
+                        "    gap_mean = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)",
+                        "    counts_gap = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)",
+                        "    gap_mean.index_add_(0, b_idx, gap.clamp_min(0.0))",
+                        "    gap_mean = gap_mean / counts_gap.clamp_min(1.0)",
+                        "    gap_scale = gap / gap_mean[b_idx].clamp_min(eps)",
+                        "    raw = torch.sqrt(gap_scale.clamp_min(0.0)) * (1.0 + lambda_regret * regret_span)",
+                    ]
+                )
+            elif weight_family == "margin_rank_blend":
+                base_lines.extend(
+                    [
+                        "    rank = feature_cache['rank']",
+                        "    beta_rank = float(extra.get('beta_rank', 4.0))",
+                        "    gamma = float(extra.get('gamma', 0.5))",
+                        "    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()",
+                        "    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]",
+                        "    raw = torch.sigmoid(beta_rank * rank_span) / (margin_abs + eps).pow(gamma)",
+                    ]
+                )
+            elif weight_family == "margin_regret_blend":
+                base_lines.extend(
+                    [
+                        "    regret = feature_cache['regret']",
+                        "    lambda_regret = float(extra.get('lambda_regret', 1.0))",
+                        "    gamma = float(extra.get('gamma', 0.5))",
+                        "    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()",
+                        "    regret_span = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]",
+                        "    raw = (1.0 + lambda_regret * regret_span) / (margin_abs + eps).pow(gamma)",
+                    ]
+                )
+            elif weight_family == "gap_bandpass":
+                base_lines.extend(
+                    [
+                        "    center = float(extra.get('center', 0.5))",
+                        "    beta_band = float(extra.get('beta_band', 4.0))",
+                        "    gap_pos = gap.clamp_min(0.0)",
+                        "    gap_min = torch.full((int(objective.shape[0]),), float('inf'), dtype=objective.dtype, device=objective.device)",
+                        "    gap_max = torch.full((int(objective.shape[0]),), float('-inf'), dtype=objective.dtype, device=objective.device)",
+                        "    gap_min.scatter_reduce_(0, b_idx, gap_pos, reduce='amin', include_self=True)",
+                        "    gap_max.scatter_reduce_(0, b_idx, gap_pos, reduce='amax', include_self=True)",
+                        "    gap_min = torch.where(torch.isfinite(gap_min), gap_min, torch.zeros_like(gap_min))",
+                        "    gap_max = torch.where(torch.isfinite(gap_max), gap_max, torch.zeros_like(gap_max))",
+                        "    gap_unit = (gap_pos - gap_min[b_idx]) / (gap_max[b_idx] - gap_min[b_idx] + eps)",
+                        "    raw = torch.exp(-beta_band * (gap_unit - center).abs())",
+                    ]
+                )
+            else:
+                base_lines.append("    raw = gap.clamp_min(0.0)")
             base_lines.extend(
-                [
-                    "    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)",
-                    "    denom.index_add_(0, b_idx, raw)",
-                    "    norm = denom[b_idx].clamp_min(1e-6)",
-                    "    weight = raw / norm",
-                    "    weight = weight * counts[b_idx].clamp_min(1.0)",
-                    "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta="
-                    + f"{{'builder': '{kind}', 'weight_family': '{weight_family}'}})",
-                ]
+                helper_lines
+            )
+            base_lines.append(
+                "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta="
+                + f"{{'builder': '{kind}', 'weight_family': '{weight_family}'}})"
             )
         code = "\n".join(base_lines) + "\n"
+        hyperparams = {
+            "geometry_family": ("anchor_star" if kind == "anchor_best" else "dense_all_pairs"),
+            "cap_family": ("anchor_single" if kind == "anchor_best" else "uncapped_full"),
+            "weight_family": str(weight_family),
+            "constraint_family": "fixed_pair_reweight_only",
+        }
+        signal_family = {
+            "gap_rank_blend": "gap_rank",
+            "gap_regret_blend": "gap_regret",
+            "margin_rank_blend": "margin_rank",
+            "margin_regret_blend": "margin_regret",
+            "gap_bandpass": "gap_bandpass",
+        }.get(str(weight_family))
+        if signal_family is not None:
+            hyperparams["signal_family"] = str(signal_family)
         return PreferenceBuilderIR(
             name=f"builder_{builder_label}_{index:03d}",
             intuition=f"rule_based:{kind}:reweight:{weight_family}",
             implementation_hint=_hint(),
-            hyperparams={
-                "geometry_family": ("anchor_star" if kind == "anchor_best" else "dense_all_pairs"),
-                "cap_family": ("anchor_single" if kind == "anchor_best" else "uncapped_full"),
-                "weight_family": str(weight_family),
-                "constraint_family": "fixed_pair_reweight_only",
-            },
+            hyperparams=hyperparams,
             operators_used=[kind, weight_family],
             code=code,
         )
 
     def _hint() -> PreferenceBuilderImplementationHint:
         return PreferenceBuilderImplementationHint(
-            expects=["objective", "log_prob"],
+            expects=["objective", "log_prob", "obj_z", "rank", "regret"],
             returns="PrefBatch",
             mode="pairwise",
         )
@@ -6189,6 +6287,7 @@ def _repair_builder_candidate_loop(
     parent_entries: Sequence[Mapping[str, Any]] | None = None,
     llm_prompts: Mapping[str, str],
     global_feedback: Mapping[str, Any] | None,
+    prompt_context: Mapping[str, Any] | None,
     max_attempts: int,
     simplify_first: bool = True,
 ) -> Tuple[PreferenceBuilderIR | None, Dict[str, Any]]:
@@ -6221,6 +6320,7 @@ def _repair_builder_candidate_loop(
                     candidate=candidate,
                     failure_reason=last_fail,
                     global_feedback=fb,
+                    prompt_context=prompt_context,
                 )
                 candidate = simplified
                 attempts.append({"attempt": int(attempt), "op": "M3", **dict(m3_meta)})
@@ -6233,6 +6333,7 @@ def _repair_builder_candidate_loop(
                 failed_ir=candidate,
                 failure_reason=last_fail,
                 global_feedback=fb,
+                prompt_context=prompt_context,
             )
             attempts.append({"attempt": int(attempt), "op": "REPAIR", **dict(rep_meta)})
         except Exception as exc:  # noqa: BLE001
@@ -6272,6 +6373,11 @@ def _propose_builders_for_generation(
 
     pop_g = max(int(pop_g), 1)
     out: List[Dict[str, Any]] = []
+    builder_prompt_context = None
+    if isinstance(llm_cfg, Mapping):
+        raw_prompt_context = llm_cfg.get("builder_prompt_context")
+        if isinstance(raw_prompt_context, Mapping):
+            builder_prompt_context = dict(raw_prompt_context)
 
     parent_pool: List[Mapping[str, Any]] = []
     for src in (elites_g, diverse_elites_g):
@@ -6515,6 +6621,7 @@ def _propose_builders_for_generation(
                         p_gen,
                         operator_whitelist=operator_whitelist,
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "E1"
                     op_type = "E1_GENERATE"
@@ -6527,6 +6634,7 @@ def _propose_builders_for_generation(
                         parents=parents_ir,
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "E1"
                     op_type = "E1"
@@ -6538,6 +6646,7 @@ def _propose_builders_for_generation(
                         parents=parents_ir,
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "E2"
                     op_type = "E2"
@@ -6549,6 +6658,7 @@ def _propose_builders_for_generation(
                         parents=parents_ir,
                         parents_fitness=parents_fit,
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "PARADIGM_SHIFT"
                     op_type = "BUILDER_PARADIGM_SHIFT"
@@ -6560,6 +6670,7 @@ def _propose_builders_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "STRUCTURE_SHIFT"
                     op_type = "BUILDER_STRUCTURE_SHIFT"
@@ -6571,6 +6682,7 @@ def _propose_builders_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "CONSTRAINT_INJECT"
                     op_type = "BUILDER_CONSTRAINT_INJECT"
@@ -6582,6 +6694,7 @@ def _propose_builders_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "M2"
                     op_type = "M2"
@@ -6593,6 +6706,7 @@ def _propose_builders_for_generation(
                         parent=parents_ir[0],
                         parent_fitness=parents_fit[0],
                         global_feedback=call_feedback,
+                        prompt_context=builder_prompt_context,
                     )
                     base_origin = "M1"
                     op_type = "M1"
@@ -6661,6 +6775,7 @@ def _propose_builders_for_generation(
                     parent_entries=parent_entries_used,
                     llm_prompts={"builder_m3": p_m3, "builder_repair": p_rep},
                     global_feedback=call_feedback,
+                    prompt_context=builder_prompt_context,
                     max_attempts=max(0, int(repair_attempts)),
                     simplify_first=bool(repair_cfg.get("simplify_first", True)),
                 )
@@ -10574,6 +10689,10 @@ def run_pref_loss_coevo(
         loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
         mode="pairwise",
     )
+    builder_prompt_context = builder_llm_ops.build_runtime_prompt_context(
+        loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
+        mode="pairwise",
+    )
     llm_prompts_defaults = {
         "builder_generation": "PTP/prompts/pref_builder_generation.txt",
         "builder_crossover": "PTP/prompts/pref_builder_crossover.txt",
@@ -10692,6 +10811,8 @@ def run_pref_loss_coevo(
         "enabled": bool(llm_enabled),
         "offline_mode": bool(llm_offline_mode),
         "prompts": dict(llm_prompts),
+        "builder_prompt_context": dict(builder_prompt_context),
+        "loss_prompt_context": dict(loss_prompt_context),
         "builder_gate": {
             "min_pairs": int(cfg_yaml.get("builder_min_pairs", 1) or 1),
             "min_coverage": float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
