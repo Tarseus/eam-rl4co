@@ -53,7 +53,7 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  seed_weight_families: [uniform_none, gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
   allow_freeform_weight_family: true
   allow_uniform_none: true
 
@@ -187,7 +187,7 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    seed_weight_families: [uniform_none, gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
     allow_freeform_weight_family: true
     allow_uniform_none: true
   operator_bank:
