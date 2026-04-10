@@ -9350,3 +9350,213 @@ torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 18.00 MiB. GPU 6 h
 [2026-04-10 01:46:04,133][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-10 01:47:34,696][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-10 01:50:52,252][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 10:43:46,520][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 10:43:46,529][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 10:43:46,593][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-04-10 10:43:47,338][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 10:43:47,447][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 10:43:47,447][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 10:43:47,447][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 10:43:47,450][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 10:43:47,450][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-04-10 10:43:47,451][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 10:43:47,463][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 10:43:47,464][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 10:43:47,464][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 10:43:47,466][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 10:43:47,469][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 10:43:47,475][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "C:\Python312\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 92, in _call_target
+    return _target_(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "E:\CAS\preference finder\pre-finder\rl4co\utils\trainer.py", line 125, in __init__
+    super().__init__(
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\utilities\argparse.py", line 70, in insert_env_defaults
+    return fn(self, **kwargs)
+           ^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 431, in __init__
+    self._callback_connector.on_trainer_init(
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\connectors\callback_connector.py", line 73, in on_trainer_init
+    self._configure_progress_bar(enable_progress_bar)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\connectors\callback_connector.py", line 133, in _configure_progress_bar
+    raise MisconfigurationException(
+lightning.fabric.utilities.exceptions.MisconfigurationException: Trainer was configured with `enable_progress_bar=False` but found `RichProgressBar` in callbacks list.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "E:\CAS\preference finder\pre-finder\rl4co\utils\utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "E:\CAS\preference finder\pre-finder\rl4co\tasks\train.py", line 53, in run
+    trainer: RL4COTrainer = hydra.utils.instantiate(
+                            ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 226, in instantiate
+    return instantiate_node(
+           ^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 347, in instantiate_node
+    return _call_target(_target_, partial, args, kwargs, full_key)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\hydra\_internal\instantiate\_instantiate2.py", line 97, in _call_target
+    raise InstantiationException(msg) from e
+hydra.errors.InstantiationException: Error in call to target 'rl4co.utils.trainer.RL4COTrainer':
+MisconfigurationException('Trainer was configured with `enable_progress_bar=False` but found `RichProgressBar` in callbacks list.')
+full_key: trainer
+[2026-04-10 10:43:47,478][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\smoke_bopo_stable_tsp_
+[2026-04-10 10:43:47,478][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-10 10:44:10,085][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 10:44:10,092][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 10:44:10,156][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-04-10 10:44:10,903][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 10:44:11,020][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 10:44:11,020][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 10:44:11,021][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 10:44:11,023][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 10:44:11,023][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2026-04-10 10:44:11,024][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 10:44:11,025][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 10:44:11,026][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 10:44:11,026][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 10:44:11,027][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 10:44:11,030][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 10:44:11,049][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 10:44:11,069][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 10:44:11,082][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 10:44:11,082][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 10:44:11,098][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 10:44:11,098][rl4co.envs.common.base][INFO] - Loading val dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_val_seed4321.npz
+[2026-04-10 10:44:11,126][rl4co.envs.common.base][INFO] - Loading test dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_test_seed1234.npz
+[2026-04-10 10:44:11,171][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 10:44:11,172][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 10:44:11,215][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "E:\CAS\preference finder\pre-finder\rl4co\utils\utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "E:\CAS\preference finder\pre-finder\rl4co\tasks\train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "E:\CAS\preference finder\pre-finder\rl4co\utils\trainer.py", line 162, in fit
+    super().fit(
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 544, in fit
+    call._call_and_handle_interrupt(
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\call.py", line 44, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 580, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 987, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 1031, in _run_stage
+    self._run_sanity_check()
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 1057, in _run_sanity_check
+    call._call_callback_hooks(self, "on_sanity_check_start")
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\call.py", line 208, in _call_callback_hooks
+    fn(trainer, trainer.lightning_module, *args, **kwargs)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\callbacks\progress\rich_progress.py", line 384, in on_sanity_check_start
+    self._init_progress(trainer)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\callbacks\progress\rich_progress.py", line 344, in _init_progress
+    self._console.clear_live()
+  File "C:\Python312\Lib\site-packages\rich\console.py", line 847, in clear_live
+    self._live_stack.pop()
+IndexError: pop from empty list
+[2026-04-10 10:44:11,219][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\smoke_bopo_stable_tsp_
+[2026-04-10 10:44:11,220][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-10 10:44:32,674][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 10:44:32,680][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 10:44:32,743][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-04-10 10:44:33,482][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 10:44:33,608][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 10:44:33,609][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 10:44:33,609][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 10:44:33,612][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 10:44:33,612][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 10:44:33,614][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 10:44:33,614][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 10:44:33,614][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 10:44:33,615][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 10:44:33,618][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 10:44:33,638][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 10:44:33,667][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 10:44:33,672][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 10:44:33,672][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 10:44:33,683][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 10:44:33,684][rl4co.envs.common.base][INFO] - Loading val dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_val_seed4321.npz
+[2026-04-10 10:44:33,709][rl4co.envs.common.base][INFO] - Loading test dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_test_seed1234.npz
+[2026-04-10 10:44:33,752][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 10:44:33,752][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 10:44:34,186][rl4co.tasks.train][INFO] - Starting testing!
+[2026-04-10 10:44:34,190][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 10:44:34,190][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 10:44:34,203][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 10:44:34,203][rl4co.envs.common.base][INFO] - Loading val dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_val_seed4321.npz
+[2026-04-10 10:44:34,231][rl4co.envs.common.base][INFO] - Loading test dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_test_seed1234.npz
+[2026-04-10 10:44:34,294][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "E:\CAS\preference finder\pre-finder\rl4co\utils\utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "E:\CAS\preference finder\pre-finder\rl4co\tasks\train.py", line 87, in run
+    trainer.test(model=model, ckpt_path=ckpt_path)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 754, in test
+    return call._call_and_handle_interrupt(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\call.py", line 44, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 794, in _test_impl
+    results = self._run(model, ckpt_path=ckpt_path)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\trainer.py", line 956, in _run
+    self._checkpoint_connector._restore_modules_and_callbacks(ckpt_path)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\connectors\checkpoint_connector.py", line 397, in _restore_modules_and_callbacks
+    self.resume_start(checkpoint_path)
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\trainer\connectors\checkpoint_connector.py", line 79, in resume_start
+    loaded_checkpoint = self.trainer.strategy.load_checkpoint(checkpoint_path)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\pytorch\strategies\strategy.py", line 368, in load_checkpoint
+    return self.checkpoint_io.load_checkpoint(checkpoint_path)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\fabric\plugins\io\torch_io.py", line 83, in load_checkpoint
+    return pl_load(path, map_location=map_location)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\lightning\fabric\utilities\cloud_io.py", line 57, in _load
+    return torch.load(f, map_location=map_location)  # type: ignore[arg-type]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python312\Lib\site-packages\torch\serialization.py", line 1529, in load
+    raise pickle.UnpicklingError(_get_wo_message(str(e))) from None
+_pickle.UnpicklingError: Weights only load failed. This file can still be loaded, to do so you have two options, [1mdo those steps only if you trust the source of the checkpoint[0m. 
+	(1) In PyTorch 2.6, we changed the default value of the `weights_only` argument in `torch.load` from `False` to `True`. Re-running `torch.load` with `weights_only` set to `False` will likely succeed, but it can result in arbitrary code execution. Do it only if you got the file from a trusted source.
+	(2) Alternatively, to load with `weights_only=True` please check the recommended steps in the following error message.
+	WeightsUnpickler error: Unsupported global: GLOBAL rl4co.envs.routing.tsp.env.TSPEnv was not an allowed global by default. Please use `torch.serialization.add_safe_globals([rl4co.envs.routing.tsp.env.TSPEnv])` or the `torch.serialization.safe_globals([rl4co.envs.routing.tsp.env.TSPEnv])` context manager to allowlist this global if you trust this class/function.
+
+Check the documentation of torch.load to learn more about types accepted by default with weights_only https://pytorch.org/docs/stable/generated/torch.load.html.
+[2026-04-10 10:44:34,300][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\smoke_bopo_stable_tsp_
+[2026-04-10 10:44:34,301][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-10 10:45:05,289][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 10:45:05,297][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 10:45:05,349][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-04-10 10:45:06,157][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 10:45:06,281][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 10:45:06,281][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 10:45:06,281][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 10:45:06,283][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 10:45:06,284][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 10:45:06,285][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 10:45:06,286][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 10:45:06,286][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 10:45:06,287][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 10:45:06,291][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 10:45:06,312][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 10:45:06,324][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 10:45:06,329][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 10:45:06,329][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 10:45:06,342][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 10:45:06,343][rl4co.envs.common.base][INFO] - Loading val dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_val_seed4321.npz
+[2026-04-10 10:45:06,367][rl4co.envs.common.base][INFO] - Loading test dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_test_seed1234.npz
+[2026-04-10 10:45:06,405][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 10:45:06,405][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 10:45:06,869][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\smoke_bopo_stable_tsp_trainonly_
+[2026-04-10 10:45:06,869][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-10 10:45:14,122][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...

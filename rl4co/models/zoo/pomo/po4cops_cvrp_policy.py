@@ -13,6 +13,7 @@ from rl4co.models.zoo.pomo.po4cops_tsp_policy import (
     _get_encoding,
     _multi_head_attention,
     _reshape_by_heads,
+    _select_actions_from_probs,
 )
 from rl4co.utils.ops import batchify, select_start_nodes, unbatchify
 
@@ -183,7 +184,7 @@ class PO4COPsCVRPPolicy(nn.Module):
             raise ValueError("PO4COPsCVRPPolicy currently supports only CVRP.")
 
         self.env_name = env_name
-        self.eval_type = eval_type
+        self.eval_type = str(eval_type).strip().lower()
         self.train_decode_type = train_decode_type
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
@@ -268,8 +269,13 @@ class PO4COPsCVRPPolicy(nn.Module):
         decode_type = getattr(self, f"{phase}_decode_type", "sampling")
         if decode_type.startswith("multistart_"):
             decode_type = decode_type[len("multistart_") :]
-        use_sampling = (phase == "train") or (decode_type == "sampling") or (
-            decode_type == "softmax"
+        decode_type = str(decode_type).strip().lower()
+        use_hybrid = self.eval_type == "hybrid" or decode_type == "hybrid"
+        use_sampling = (
+            (phase == "train")
+            or (decode_type == "sampling")
+            or (decode_type == "softmax")
+            or use_hybrid
         )
 
         done = td_flat["done"]
@@ -290,8 +296,7 @@ class PO4COPsCVRPPolicy(nn.Module):
 
             if use_sampling:
                 while True:
-                    selected = probs.reshape(-1, probs.size(-1)).multinomial(1).squeeze(-1)
-                    selected = selected.view(probs.size(0), probs.size(1))
+                    selected = _select_actions_from_probs(probs, use_sampling, use_hybrid)
                     prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1)
                     if (prob > 0).all():
                         break

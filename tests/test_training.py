@@ -3,6 +3,7 @@ import sys
 import json
 
 import pytest
+import torch
 
 from rl4co.envs import (
     ATSPEnv,
@@ -34,7 +35,10 @@ from rl4co.models.zoo import (
     PolyNet,
     SymNCO,
 )
-from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
+from rl4co.models.zoo.pomo.po4cops_tsp_policy import (
+    PO4COPsTSPPolicy,
+    _select_actions_from_probs,
+)
 from rl4co.utils import RL4COTrainer
 from rl4co.utils.meta_trainer import ReptileCallback
 from rl4co.utils.test_utils import generate_env_data
@@ -289,6 +293,20 @@ def test_po4cops_tsp_policy_supports_official_bopo_same_start():
     assert out["reward"].shape == (64,)
     assert out["actions"].shape[0] == 64
     assert (out["actions"][:, 0] == 0).all()
+
+
+def test_po4cops_tsp_hybrid_keeps_one_greedy_line():
+    probs = torch.tensor(
+        [
+            [[0.1, 0.7, 0.2], [0.8, 0.1, 0.1], [0.3, 0.2, 0.5]],
+            [[0.4, 0.1, 0.5], [0.2, 0.6, 0.2], [0.1, 0.3, 0.6]],
+        ]
+    )
+
+    selected = _select_actions_from_probs(probs, use_sampling=True, use_hybrid=True)
+
+    assert selected.shape == probs.shape[:2]
+    assert selected[:, 0].equal(probs[:, 0].argmax(dim=-1))
 
 
 def test_pomo_pref_pair_artifact_smoke(tmp_path):
