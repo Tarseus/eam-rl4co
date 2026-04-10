@@ -20,7 +20,7 @@
     "stage2_micro_unroll": false,
     "stage3_high_fidelity": true
   },
-  "last_generation": 4,
+  "last_generation": 5,
   "best_so_far": {
     "score": -0.02145215148925761,
     "builder_id": "g_ref",
@@ -2101,6 +2101,241 @@
         0.00935317687988313
       ],
       "generation": 4,
+      "phase": "builder"
+    },
+    "g005_011_39b4ef8f": {
+      "builder_id": "g005_011_39b4ef8f",
+      "perf": -0.0038724731445309857,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_011_39b4ef8f",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0038724731445309857,
+        "final_score": -0.0038724731445309857,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_exp_scaled_reweight",
+          "intuition": "Uses an exponential gap weighting that emphasizes larger gaps smoothly with scaling, preserving all_pairs topology and normalized weights with clamping to enhance numerical stability in reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_exponential_scaled",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped * beta).exp()\n    # Clamp to avoid extreme weights\n    weight_clamped = weight_raw.clamp(min=0.05, max=10.0)\n    # Normalize weights per batch instance to sum to number of pairs in instance\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_clamped)\n    norm = denom[b_idx].clamp_min(1e-8)\n    weight_normalized = weight_clamped / norm * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight_normalized, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0038724731445309857
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_009_deaf63a4": {
+      "builder_id": "g005_009_deaf63a4",
+      "perf": -0.006177390670775829,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_009_deaf63a4",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.006177390670775829,
+        "final_score": -0.006177390670775829,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_softmax_clamped_reweight",
+          "intuition": "Apply a softmax weighting over all pairs' gap values per batch instance with clamping for numerical stability, preserving all_pairs pair geometry in reweight_only mode",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "exp",
+            "clamp",
+            "div",
+            "index_add_"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Clamp gaps to stabilize exponentials\n    gap_clamped = gap.clamp(min=0.0, max=10.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    scaled_gap = gap_clamped * beta\n    weight_raw = torch.exp(scaled_gap)\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.006177390670775829
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_014_18de7c08": {
+      "builder_id": "g005_014_18de7c08",
+      "perf": -0.003103571701049468,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_014_18de7c08",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.003103571701049468,
+        "final_score": -0.003103571701049468,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_sqrt_normalized_reweight",
+          "intuition": "Preserves gap_square_root weighting with refined per-batch normalization and soft weight scaling for stable reweighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square_root",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sqrt",
+            "clamp",
+            "div",
+            "pow"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    weight_beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = torch.sqrt(gap_clamped) * weight_beta\n    # Compute count of pairs per batch\n    counts = torch.bincount(b_idx.to(torch.int64), minlength=objective.shape[0]).to(dtype=objective.dtype)\n    # Sum raw weights per batch\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    # Normalized weight with softplus-like smoothing to avoid extreme ratios\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight_normed = weight_raw / norm\n    # Scale weights softly by counts to reflect batch support, raised to a fractional power for smoothing\n    count_scaled = counts[b_idx].clamp_min(1.0).pow(0.75)\n    weight = weight_normed * count_scaled\n    # Clamp final weights for stability\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.003103571701049468
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_006_3f04446a": {
+      "builder_id": "g005_006_3f04446a",
+      "perf": 0.009840421676635902,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_006_3f04446a",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.009840421676635902,
+        "final_score": 0.009840421676635902,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_quad_clamped_reweight",
+          "intuition": "Shift from sqrt gap weighting to quadratic gap weighting with strict clamping to emphasize larger cost differences more sharply while preserving all_pairs topology and stability",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_quadratic",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "pow",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_quad_clamped_reweight', 'weight_family': 'gap_quadratic', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0).clamp_max(5.0)\n    weight_beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped ** 2) * weight_beta\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    weight = weight.clamp(min=0.0, max=10.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_quad_clamped_reweight', 'weight_family': 'gap_quadratic', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.009840421676635902
+      ],
+      "generation": 5,
       "phase": "builder"
     }
   },

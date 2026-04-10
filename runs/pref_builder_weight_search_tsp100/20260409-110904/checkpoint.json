@@ -1,7 +1,7 @@
 {
   "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml",
   "seed": 1234,
-  "next_generation": 5,
+  "next_generation": 6,
   "preset": "simple",
   "search_mode": "builder_only",
   "alternating_schedule": {
@@ -2102,6 +2102,241 @@
       ],
       "generation": 4,
       "phase": "builder"
+    },
+    "g005_011_39b4ef8f": {
+      "builder_id": "g005_011_39b4ef8f",
+      "perf": -0.0038724731445309857,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_011_39b4ef8f",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0038724731445309857,
+        "final_score": -0.0038724731445309857,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_exp_scaled_reweight",
+          "intuition": "Uses an exponential gap weighting that emphasizes larger gaps smoothly with scaling, preserving all_pairs topology and normalized weights with clamping to enhance numerical stability in reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_exponential_scaled",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped * beta).exp()\n    # Clamp to avoid extreme weights\n    weight_clamped = weight_raw.clamp(min=0.05, max=10.0)\n    # Normalize weights per batch instance to sum to number of pairs in instance\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_clamped)\n    norm = denom[b_idx].clamp_min(1e-8)\n    weight_normalized = weight_clamped / norm * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight_normalized, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0038724731445309857
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_009_deaf63a4": {
+      "builder_id": "g005_009_deaf63a4",
+      "perf": -0.006177390670775829,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_009_deaf63a4",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.006177390670775829,
+        "final_score": -0.006177390670775829,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_softmax_clamped_reweight",
+          "intuition": "Apply a softmax weighting over all pairs' gap values per batch instance with clamping for numerical stability, preserving all_pairs pair geometry in reweight_only mode",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "exp",
+            "clamp",
+            "div",
+            "index_add_"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Clamp gaps to stabilize exponentials\n    gap_clamped = gap.clamp(min=0.0, max=10.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    scaled_gap = gap_clamped * beta\n    weight_raw = torch.exp(scaled_gap)\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.006177390670775829
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_014_18de7c08": {
+      "builder_id": "g005_014_18de7c08",
+      "perf": -0.003103571701049468,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_014_18de7c08",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.003103571701049468,
+        "final_score": -0.003103571701049468,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_sqrt_normalized_reweight",
+          "intuition": "Preserves gap_square_root weighting with refined per-batch normalization and soft weight scaling for stable reweighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square_root",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sqrt",
+            "clamp",
+            "div",
+            "pow"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    weight_beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = torch.sqrt(gap_clamped) * weight_beta\n    # Compute count of pairs per batch\n    counts = torch.bincount(b_idx.to(torch.int64), minlength=objective.shape[0]).to(dtype=objective.dtype)\n    # Sum raw weights per batch\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    # Normalized weight with softplus-like smoothing to avoid extreme ratios\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight_normed = weight_raw / norm\n    # Scale weights softly by counts to reflect batch support, raised to a fractional power for smoothing\n    count_scaled = counts[b_idx].clamp_min(1.0).pow(0.75)\n    weight = weight_normed * count_scaled\n    # Clamp final weights for stability\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.003103571701049468
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_006_3f04446a": {
+      "builder_id": "g005_006_3f04446a",
+      "perf": 0.009840421676635902,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_006_3f04446a",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.009840421676635902,
+        "final_score": 0.009840421676635902,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_quad_clamped_reweight",
+          "intuition": "Shift from sqrt gap weighting to quadratic gap weighting with strict clamping to emphasize larger cost differences more sharply while preserving all_pairs topology and stability",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_quadratic",
+            "constraint_family": "clamped_weights_reweight_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "pow",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_quad_clamped_reweight', 'weight_family': 'gap_quadratic', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0).clamp_max(5.0)\n    weight_beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped ** 2) * weight_beta\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    weight = weight.clamp(min=0.0, max=10.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_quad_clamped_reweight', 'weight_family': 'gap_quadratic', 'constraint_family': 'clamped_weights_reweight_only'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.006177390670775829,
+      "threshold": -0.006177390670775829,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.009840421676635902
+      ],
+      "generation": 5,
+      "phase": "builder"
     }
   },
   "best_score": -0.02145215148925761,
@@ -2537,11 +2772,60 @@
         "eval_budget_signature": "4cca2a2fd7c2917c",
         "reference_score": -0.02145215148925761
       }
+    ],
+    "g005_011_39b4ef8f::fseed_000_1ec7ffff": [
+      {
+        "generation": 5,
+        "pair_index": 1,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": -0.0038724731445309857,
+        "eval_budget_signature": "4cca2a2fd7c2917c",
+        "reference_score": -0.02145215148925761
+      }
+    ],
+    "g005_009_deaf63a4::fseed_000_1ec7ffff": [
+      {
+        "generation": 5,
+        "pair_index": 4,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": -0.006177390670775829,
+        "eval_budget_signature": "4cca2a2fd7c2917c",
+        "reference_score": -0.02145215148925761
+      }
+    ],
+    "g005_014_18de7c08::fseed_000_1ec7ffff": [
+      {
+        "generation": 5,
+        "pair_index": 5,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": -0.003103571701049468,
+        "eval_budget_signature": "4cca2a2fd7c2917c",
+        "reference_score": -0.02145215148925761
+      }
+    ],
+    "g005_006_3f04446a::fseed_000_1ec7ffff": [
+      {
+        "generation": 5,
+        "pair_index": 11,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.009840421676635902,
+        "eval_budget_signature": "4cca2a2fd7c2917c",
+        "reference_score": -0.02145215148925761
+      }
     ]
   },
-  "rng_state_b64": "gASVhQ4AAAAAAABLAyhK2uwcLUo2uttoigXCiaDRAErQoXwpigXmUMPQAIoFklLC3wCKBcIofu0AigV+G8LHAIoF5LQ+yABKUnYPbkq+uAACStOJNC6KBc9s4/QAShxG3CuKBalzwfcAigVgUobRAIoFw9iajQCKBfZ0UdUAigVS4nKqAErZmacESqSaRRxKRAmKTIoF5FU98QCKBTePvqIAigVeIEfDAIoFf64nkABKZxLwGooFnGNblABKMKDXEkpxMj4bigWWQtPpAEpE+IxsSmWD+G+KBaMcveQAigV57d7JAIoF4ypm/ACKBamTyL0AigXhgpf3AIoFe9lPtwCKBcczztcASjRVLkeKBV+Y+vwASjWuWGlK4+BHJooFDnXtnwCKBUkVg5MASspUTBRKr/RdQErOIyM6Sg7GEm+KBUr7h8EASi8JZ39KoWhfN0ovLslfigXbP/WIAErBSHtTShGYAW5KmxJKXkrTsOE4SnDYmiCKBVbZjsoAigVwLGjqAEoglCg0igWXnBWTAIoF8Z9c/QCKBVqayr0ASndIwWaKBd7PIOYAigU+skTUAIoFOOWfgQBKY67zM4oFT8ZMtgBK6pbyfYoFoLtH2wBKBBT1WkoGqm8VStPjIFJK2jy/CUrPE/pcSnZ+lBGKBUNx3vAAigXDHWztAIoFAiKihwCKBT+FIdAASk5GLjZKZHmgNooF84Hz5ABKdSP8Q4oFdEWq1wBK57NpMooFNKN8gwBK/WbfAEpoWdkkigWwjknsAIoF5VXU3QBKs0paLko+9fV6igX+HNGhAErrtjoWSung5kBKubNuDIoFMEvFjQCKBT6kGPgAigUkSIH7AIoFqVwG+QBKx5u8U0rFG20PSjvoYVVKhcobYIoFd/zDzABK72EIZYoFOuaHygCKBYS2dJAASmSTaDuKBfUGL8kAigVQM5HTAIoFZ6qlugCKBRVxn8UASt8mxGGKBSrkFOwASlCJxSpKXk13FUp68jgRSlwpdDdKbaF7TooFcM308ACKBZutiuAAigVcxVjoAIoF4qa85ABKfzBobkqbGb44SiCoCFGKBeVcHrUAigXOZ1XLAIoFJX1yowCKBQKnfpsASttzrw1K063tRooFLnqG0QBKU+jIFkqQ8GETigVFc/WjAIoFEb+lqQCKBYt/xpcASozPlm+KBZHJVKgASvSn635KHlpec4oFOu5yzQCKBYr36bkASoZDqTlKe2ggFooFj0VznQBKpxxKEUrAGipRSllVew1KnaILNErUg+RwSrNJxz6KBTK+II0ASr6uLUyKBQy9s+kAigWI9p6kAIoFiybsxgBKfmEmNUpeDdAcSujQs3FK51kgO0pzwSQ5Snu46EhKhxirLooFZ9SD+ACKBRSXg+wAigW9WZjtAEqx/N4xSgiG3F6KBQ0TNZcAigXTxcbmAEo7WVNFStGsLC1KUhSreIoFy5IvkABKi48wd0pRaRg0igXsG03LAEq2aIgsSn4Fy3aKBX1+legAigUCmlOAAIoFfgi/xACKBX4CC9kAigWvZzv+AEpqUqtjigVZG97AAEpO95UzSijqNhNK6k2bT0qHSrZPigVF66GcAIoF52kyggCKBW8m7vAASq1NGm1KTUnCEYoF6YoI9ACKBcHwFuAASu7L1SFKEkRFIUqvAm5bigXH5YPfAIoF5eJdoABK/E14c4oFw4WOgQBKJHfQcooFYyfU9QBKjXLvVYoFHH8BzgBKks0hTkrExkwaigWqlDyKAEqLpW5XSv/ycXlKntN0Y4oFFGfxygBKg8b9U4oF7AhKqABKGI5bQkqfJ6MeigXlGv+3AIoFHP0N+QBKhjgBQUq0nlovigVgC1zBAIoFp0oHvgCKBX3Vg7UAigW6FHeqAIoFKK2mrACKBYySZ60ASmWk+ReKBUKt4M8ASlodNkqKBQD0HrIAShVYIFJKE7MYO4oFugXNvgBKCVp8WYoFCngT7wBKCEUddkqq4YgMSm/wDE+KBSPferAAigUoK4S3AErpoYZrigWvGpTbAIoFuyDzxABK1eHjYko8COkJSo48Zj5KgwK7QUq5IrFASoKwUUyKBcrNAb8AigUP3wHlAEqRnqNmSnFF6XeKBQX6VNYASpHkCj6KBXTxELkAigUZNsXtAEq8u+BgigUcSAr1AEqyOe1XSmVeWXuKBagKqpgAigWJ+Bu/AEoz89szigXN4MP2AIoFad/Z3gBKsAHcMkq0be0/SoTQfB6KBTCtGuoASqHgSzdKEdyiMUqnAt8figVA767DAErg5WM1igWFMdLxAIoFAC5M6gCKBdZEP9sAigVeSJKwAEq+eABoigWx2pbQAIoFcNSNoABKXHG4EUo9mHQjSpNz/z2KBWP50OUAigVfUZDmAEpOdX0FSii2tkSKBcSzRJ4AigV5dCPkAErjWAM+igWGgtzBAEpeCjBtSiHoX1tKOeG7Xkp9wro+igWjN3KJAIoF+iB/lgBKBObZD4oFVAlF2wCKBdo2NsIAigVnmBPDAIoFOfmKwgBKp9ghA0ovYkk7igWD30vmAEr2NXE1igV9OX7iAErRsMJVigUVk2X1AIoFq5pV4QCKBXcNiakAigU8/FToAEojvRp/St76h1JK3G+1fIoFuKHjnwBKUgEXS4oFCpFw7gBKP++CZUowvvwXSspE+kBK92cefIoFhtc45wCKBcJHsMoAigVdEa+XAErlu/VBSirmPF9KuwGbV0pC9CF0SoM6uTuKBcx3CMgASu8LUEWKBX9pJvgAigWe2MDJAIoFwu2ZkQCKBTRuYaAAigUba9jdAIoFZpRI3ABKyUSlM0oYVF9CSqNWkCRKLvOZbEqTNdFYigVjig7dAEoIh3NYSgAczS6KBS6QK5QASkv/KlRKSDQKc0oXB+N3igXZvV+lAIoFxLkkygBKTE8pCYoF3uf/lQCKBZojrPYASoPOIWtKjh2wMUr8sHoxigUiMa6UAEpwcCZEigVGXVuxAEp6wQk1SokjrhhKFB64YkpmDQ8eigV3pku8AErF8pQqSqJgAhZK5vEbDIoFALLepgCKBfbUINEASjXAYnlKmk/rG4oF2+Zc9ABK6XNyf4oFrEkT/gCKBZK6J/MAigUQ7Tm3AIoFMuHhjQBKICA2DooFwrP+wABKXEbKJYoFZXtNhQBKBXe4ZIoFQRxfhACKBXzmV4AASqSDcFOKBb1PeboAigWwhDX3AIoF4yXGvQBKcxLOdooF1Yi43gBKFquxZEriolUBSvlgfzJKcK/yM4oFqrp5vgCKBVCOFNMASkac/A9K5QIJf4oFiJ4KvQCKBb/xEu4AigWABgfyAErf+oFCigWQ2W7tAEpsymhtSjaL2yhKjCvsJIoFYmpUtACKBebrlsAASie99G5K5yu8MooFayXurgBKN0NQDYoFm9MNwwBKKmNnNEpKcL0FigVTz46fAIoFAmEC0gBKdaDaH0omy+doigXMl3WOAErQacURSuE7eR9Kw4FCIEpAaS52SlxxD0aKBfqz1eUASuG4iACKBXGVIvsASts6t0JKc/hFS4oFIuSm2ABK15DwTUpwJlkqSkYbqXpKHXRNLEoTHUM5igWYId/EAIoFOzwtyACKBZKxTuQAigVmQ62BAIoF+b0QmwCKBbu69JUASmNsOUaKBQyEYsAAigXhGjPyAIoFHlVPhgCKBelPq5sASrJ7pyZKGShcOYoFlHMohwBKp1iXDUpLIVoXigXCTUyRAEqF8VRFStJWKyJKaztjEUrP4ogWigXmL3S5AEpryso9igXU6Tm7AIoF4Eq49wBKE1W/R0q9ubRTSuCqMCyKBbxbLpwASvgFZVtKzhjocooF4g+NrgBKWg+2Gkr8ZYwgStPiQhaKBZFYfdUASo1W9xFKo96nDYoFw9khhABK+BKka0oUjspQStAUfDyKBagZjqsASuEWjjWKBfCzc6EASmGClTWKBZ/h7ekAigVYPxGZAIoFX79yuQBKepcxIYoF86uS/QCKBRUA6fYAShv/7gZKYyA0UIoFNFoVigCKBSxB3KUASoC2yEdKt7kIV0qhQfJTigUDKLWXAIoFwW/H/wCKBb3eoMsASl35XFSKBQS6lcEAigUNgfqvAEqKM40dStD5f1SKBaQxsugAigXri5ngAEquq0AkigVfkDyZAErOKaA2igU+0lPDAIoFIjn9vwCKBc/0suUASmrlRkOKBcO+35YAigWAswLVAEq4hDUvSoetPCFK9LlcIUoymcMtigWqfSGGAIoFBEZpsQBK6h/1AooFdObwigBKBvHMGIoFbDcSxACKBS4b8t8AigWfkDTPAIoFgs0ZmABKtFtVMEoHdSYTigXiCf/JAErpST0rSjhbGnpKTqs1b0ovqmsESn6OdBtKZvswRIoFXhuBuwBKfRWxJkrNw8ZKigXAjSL8AIoFv3wftgBKFZPAGYoFsHww4ABKcD9mJooF5PdL9gCKBfspyPIASoahVHJKGTRDIUp6rRkHSv6nRjhKBGzsFYoFInaypACKBY9QNe0ASpldPBZKRXuwFIoFbW5K+QCKBSrLnO4ASqaTywmKBRCuOO8AigVj4ZHMAErx/mg4SluE0HSKBZMDFYgASqaSIkNK87RKNYoFWmU0lQCKBdPvBqgASkogHXWKBTHI8tsASt2lfyaKBekT1uYAigXoCmbiAIoFivVUpQCKBeeZCvcASmiSkDxKQzxeNIoFEk8kygCKBYTLvJ8ASukiex9KgAfOMko3PKFCigUEh+WXAEqsaO11igW0VfWJAEpUE24SSmdEVDCKBRwbp4IASncpuyqKBbF3oLUASprqo11KkM0TZYoFbbHDqgCKBZvGPuwASg8hnV2KBfPCxN4ASkyLu2ZKI0VsIooFDsdDzgBKFu3IbUojeBN2igXqXJP1AEo7wfUlSv+7hz+KBQJvYYcASixzNR+KBba0LOQASo+QZT9KSQbjUkpoATYyS5J0lE6HlC4=",
+  "rng_state_b64": "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",
   "seen_g": [
     "01b3d16f71f52da58c3e5871c823c6142a7a3e61",
+    "0672f6b46a9a7e1a7d172ddcb150f24eaa50606f",
     "0f3b49337eb7709dae5b5c9a21401d84799a7a07",
     "11657900cea3ad1ae9b90a007afce9b3015e9ccb",
     "138975e7bbe373a57089177df703c1523d36aac1",
@@ -2549,14 +2833,20 @@
     "148bf610a69bf01b167ebc49ffecf7d5bf24af01",
     "1563f67bc415bc3fa2f89efb1ecf8cdf056bd859",
     "18b35e3661e3e0de35abfeb15a44e19371b3c75a",
+    "18de7c088c0b2b372501b02661ff2fcc416c164a",
     "1ace5ff3df9caafc6e5d11d42178c62963871a69",
     "243adbcc35fdc0c7e8c519fbad0f2c7a86b608ec",
     "2701fd62d1dc1b2981c25c48e0b5ffc721f48672",
     "284c10e3d8fba5b07045200b8a50a131e431674c",
     "32547ce024479f3f8d7ed5b8be26fa9c55cc5bf8",
+    "34ca5cd4234b54de4566db2558b9a4c0858fdd6e",
+    "35cd6b3e8b33787db8f7ec5d87bcfdde5c616f38",
+    "35e954e14fe7abaa913b09870b39782ec839e3f7",
     "3676dc3167a46a3f1bf19ebd0eed3da823ac50e7",
     "37a3e4e3bb17738a461e1627ae17c12083925381",
+    "39b4ef8fd4ff626c9d3eced9bbf8e08d7aa7ae36",
     "3ebfbdc915a84bfff6dca9cf3ec4ce42bf13f39f",
+    "3f04446a0311558e22b5c6aa81b05f48aa34857d",
     "3fd6981cc4ade5d30c845c3cdcef3cd65487eec6",
     "4470794b2e2a6d86f2243e4e47c0ccb9e1310ba5",
     "44919cfc3b1f04759acc18364fa90fdabd85c2bb",
@@ -2573,6 +2863,7 @@
     "610a87bde06cc490f75146908e169e8e3be6f907",
     "63d9a981bd16581823411088754b7c9f9fdaa4c6",
     "6420370dce220756ef4273a4f62fa8cda506a175",
+    "6a046721b93d99f3938cb6880ed404d1afd78061",
     "6c13d96b702e22df53bd5c78fdc8ad80cb0f826c",
     "718d3654bfe2d08b94153df7e9d65a8c68a59103",
     "750e80672d0b472ce431c624627bd9ea0f80dc52",
@@ -2580,6 +2871,7 @@
     "7d4a3ee59eb00e38a073e30a12ff8aee9eb5984d",
     "7d896d1fa44a76ad68748fc7dad2166f32bfab15",
     "801f026271b28fbc4f6155137e25fd82d2bf81ba",
+    "81e2fafff2ea08c66ff02c15cca8220b1acc90a1",
     "86008b503c91660ff5fdbd2589b421a25924165f",
     "891fb91f2b9c3459d4c4c8cd265c5322b128293b",
     "8b7e3815c5dade0785c34ae151584951a22e1d1e",
@@ -2588,6 +2880,7 @@
     "9ce98a31b6fb98d224d385d254f2011ad02c37f9",
     "a0c26e9241c43eae871acb7f6cea824c39799a16",
     "a18123794c6289a06c74a83044f5e4c97f76ffe0",
+    "a5b6e097c3eefd547c3bf62e5be54547921e4d26",
     "a74661f7fcacaa1bc3da7d2f3232ace39216157d",
     "a78288a73751b247ff7e0c69cab64bb2fbd0e519",
     "a973b7d15a5edcf31da2b5594383167f7a56902e",
@@ -2602,16 +2895,21 @@
     "c28cfc3fa99cefaad9fce62569074eae73b51d00",
     "c8083669c3e5e7bdbd92b46f1a882150b48c994b",
     "cf4c179d71873b0b7dcfd0d29c6b8c1f7be1017f",
+    "d0023a223741c6caf33b4be58bafae4beebf4231",
     "d266a2ad6348e2dc415ab9cd1eaf1a32a14166ae",
     "d3c914433b99a977dc0b0772e898dd1f99c4f175",
     "d5b11e898efa7cd27c9285b51b191af90b5f22a2",
     "d78c442be6e7ea990c11f924eca941afda4432bb",
     "d8b13fbc4bf1dc0fcbd8ab4563a9eaff9bf717f1",
     "dabd1f73bef97cb70f2b4225a7c3f5f1ff9262b9",
+    "db65b766676ec6fbe2b2094eaeaf16462b472844",
+    "deaf63a49589d811ba4082c270f035af6ea018c8",
     "e0618f2f1572a5a723aa861d634352d4bb1f274b",
     "e2c7bfea1afd1a335f93360887d3088a550789ec",
     "eef881461fe08bc488441ba28e77899841c7ab35",
+    "f17f167d48c68ad1c6a7e47a222d817305dc2840",
     "f83223c41ab192ca1108ac502a52618065caf6bd",
+    "f909fb57a7a16bd0d223587f8a2da709dedefdba",
     "fc60d9132e8a43d4fecb0cfad69ebccf7e2ea63f",
     "fd6cc9903bfa5f245e572adfc265477065ee5bb2"
   ],
@@ -2705,7 +3003,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": -0.009700476455688278,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -2723,6 +3021,118 @@
         0.0,
         960.0,
         -0.009700476455688278
+      ]
+    },
+    {
+      "generation": 5,
+      "index": 9,
+      "id": "g005_009_deaf63a4",
+      "signature": "deaf63a49589d811ba4082c270f035af6ea018c8",
+      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamped_weights_reweight_only",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "BUILDER_PARADIGM_SHIFT",
+      "parents": [
+        "g000_011_4695a4ba",
+        "g001_010_a74661f7",
+        "g004_007_6c13d96b",
+        "g000_004_d3c91443",
+        "g002_006_e2c7bfea"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "5c8653c3d20a9da48eae27e722a47c26c21ba119",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "llm_seed": 1745773079,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "BUILDER_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+          "prompt_sha1": "5c8653c3d20a9da48eae27e722a47c26c21ba119"
+        }
+      ],
+      "ir": {
+        "name": "all_pairs_gap_softmax_clamped_reweight",
+        "intuition": "Apply a softmax weighting over all pairs' gap values per batch instance with clamping for numerical stability, preserving all_pairs pair geometry in reweight_only mode",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_softmax",
+          "constraint_family": "clamped_weights_reweight_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "sub",
+          "exp",
+          "clamp",
+          "div",
+          "index_add_"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Clamp gaps to stabilize exponentials\n    gap_clamped = gap.clamp(min=0.0, max=10.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    scaled_gap = gap_clamped * beta\n    weight_raw = torch.exp(scaled_gap)\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "fitness": -0.006177390670775829,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "builder_perf": -0.006177390670775829,
+      "builder_cost": 960.0,
+      "builder_feasible": true,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.006177390670775829
       ]
     },
     {
@@ -2817,7 +3227,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": -0.007731064605712934,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -2835,6 +3245,116 @@
         1.0,
         960.0,
         -0.007731064605712934
+      ]
+    },
+    {
+      "generation": 5,
+      "index": 11,
+      "id": "g005_011_39b4ef8f",
+      "signature": "39b4ef8fd4ff626c9d3eced9bbf8e08d7aa7ae36",
+      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_exponential_scaled|constraint=clamped_weights_reweight_only",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "BUILDER_PARADIGM_SHIFT",
+      "parents": [
+        "g002_006_e2c7bfea",
+        "g001_010_a74661f7",
+        "g004_007_6c13d96b",
+        "g000_005_5ea16c4f",
+        "g004_009_243adbcc"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "65fb5203197aaadec67031a30794f4c8a1cc4176",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "llm_seed": 945444120,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "BUILDER_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+          "prompt_sha1": "65fb5203197aaadec67031a30794f4c8a1cc4176"
+        }
+      ],
+      "ir": {
+        "name": "all_pairs_gap_exp_scaled_reweight",
+        "intuition": "Uses an exponential gap weighting that emphasizes larger gaps smoothly with scaling, preserving all_pairs topology and normalized weights with clamping to enhance numerical stability in reweight_only mode.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_exponential_scaled",
+          "constraint_family": "clamped_weights_reweight_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "exp",
+          "clamp",
+          "div"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped * beta).exp()\n    # Clamp to avoid extreme weights\n    weight_clamped = weight_raw.clamp(min=0.05, max=10.0)\n    # Normalize weights per batch instance to sum to number of pairs in instance\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_clamped)\n    norm = denom[b_idx].clamp_min(1e-8)\n    weight_normalized = weight_clamped / norm * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight_normalized, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "fitness": -0.0038724731445309857,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "builder_perf": -0.0038724731445309857,
+      "builder_cost": 960.0,
+      "builder_feasible": false,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0038724731445309857
       ]
     },
     {
@@ -2935,8 +3455,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3044,8 +3564,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3149,8 +3669,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3250,7 +3770,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -3372,8 +3892,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3471,7 +3991,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -3483,8 +4003,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.005330185699462753,
-      "builder_best_perf": -0.005330185699462753,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3581,7 +4101,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -3691,7 +4211,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -3703,8 +4223,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.005330185699462753,
-      "builder_best_perf": -0.005330185699462753,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3796,7 +4316,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -3808,8 +4328,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.005330185699462753,
-      "builder_best_perf": -0.005330185699462753,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -3903,7 +4423,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -3915,8 +4435,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009170650482177578,
-      "builder_best_perf": -0.009170650482177578,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -4024,8 +4544,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -4082,218 +4602,6 @@
           "div"
         ],
         "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root'})\n    gap_clamped = gap.clamp_min(0.0)\n    weight_beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = torch.sqrt(gap_clamped) * weight_beta\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_root'})"
-      },
-      "compile_ok": true,
-      "compile_reason": "ok",
-      "builder_static_ok": true,
-      "builder_static_reason": "ok",
-      "builder_static_trace": {
-        "failed_gate": null,
-        "checks": [
-          {
-            "metric_name": "pair_count",
-            "observed_value": 960,
-            "threshold": 1,
-            "direction": ">="
-          },
-          {
-            "metric_name": "coverage",
-            "observed_value": 1.0,
-            "threshold": 0.0,
-            "direction": ">="
-          },
-          {
-            "metric_name": "max_pairs_per_instance",
-            "observed_value": 120,
-            "threshold": 8192,
-            "direction": "<="
-          },
-          {
-            "metric_name": "semantic_pass_rate",
-            "observed_value": 1.0,
-            "threshold": 1.0,
-            "direction": ">="
-          }
-        ],
-        "builder_pref_cache_hit": false,
-        "memory_metric_available": false,
-        "memory_device": "cpu"
-      },
-      "fitness": Infinity,
-      "descriptor": {
-        "x": 0.0,
-        "y": 0.0,
-        "cell": [
-          0,
-          0
-        ]
-      },
-      "builder_perf": 0.0,
-      "builder_cost": 960.0,
-      "builder_feasible": false,
-      "builder_threshold": -0.009170650482177578,
-      "builder_best_perf": -0.009170650482177578,
-      "selection_sort_key": [
-        1.0,
-        960.0,
-        0.0
-      ]
-    },
-    {
-      "generation": 0,
-      "index": 2,
-      "id": "g000_002_51625ef3",
-      "signature": "51625ef35fabded8b5958949b741da5335381173",
-      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid|constraint=fixed_pair_reweight_only",
-      "origin": "M2",
-      "origin_base": "M2",
-      "op_type": "M2",
-      "parents": [
-        "bootstrap_g_001"
-      ],
-      "attempt": 0,
-      "prompt_sha1": "2a761eb128b4128b446344ca32231dfe5fe5a968",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
-      "llm_seed": 2001019095,
-      "history": [
-        {
-          "attempt": 0,
-          "side": "builder",
-          "llm_op": "M2",
-          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
-          "prompt_sha1": "2a761eb128b4128b446344ca32231dfe5fe5a968"
-        }
-      ],
-      "ir": {
-        "name": "builder_all_pairs_gap_sigmoid_tuned",
-        "intuition": "Reduced the gap_sigmoid weight scaling to improve stability and focus on meaningful differences, while maintaining the original reweighting approach. Tuned beta parameter to control the sigmoid steepness for better sensitivity to small score gaps.",
-        "implementation_hint": {
-          "expects": [
-            "objective",
-            "log_prob"
-          ],
-          "returns": "PrefBatch",
-          "mode": "pairwise"
-        },
-        "hyperparams": {
-          "geometry_family": "dense_all_pairs",
-          "cap_family": "uncapped_full",
-          "weight_family": "gap_sigmoid",
-          "constraint_family": "fixed_pair_reweight_only"
-        },
-        "operators_used": [
-          "all_pairs",
-          "gap_sigmoid"
-        ],
-        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    beta = float(extra.get('weight_beta', 0.8))\n    raw = torch.sigmoid(beta * gap)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})"
-      },
-      "compile_ok": true,
-      "compile_reason": "ok",
-      "builder_static_ok": true,
-      "builder_static_reason": "ok",
-      "builder_static_trace": {
-        "failed_gate": null,
-        "checks": [
-          {
-            "metric_name": "pair_count",
-            "observed_value": 960,
-            "threshold": 1,
-            "direction": ">="
-          },
-          {
-            "metric_name": "coverage",
-            "observed_value": 1.0,
-            "threshold": 0.0,
-            "direction": ">="
-          },
-          {
-            "metric_name": "max_pairs_per_instance",
-            "observed_value": 120,
-            "threshold": 8192,
-            "direction": "<="
-          },
-          {
-            "metric_name": "semantic_pass_rate",
-            "observed_value": 1.0,
-            "threshold": 1.0,
-            "direction": ">="
-          }
-        ],
-        "builder_pref_cache_hit": false,
-        "memory_metric_available": false,
-        "memory_device": "cpu"
-      },
-      "fitness": Infinity,
-      "descriptor": {
-        "x": 0.0,
-        "y": 0.0,
-        "cell": [
-          0,
-          0
-        ]
-      },
-      "builder_perf": 0.0,
-      "builder_cost": 960.0,
-      "builder_feasible": false,
-      "builder_threshold": -0.005330185699462753,
-      "builder_best_perf": -0.005330185699462753,
-      "selection_sort_key": [
-        1.0,
-        960.0,
-        0.0
-      ]
-    },
-    {
-      "generation": 0,
-      "index": 4,
-      "id": "g000_004_d3c91443",
-      "signature": "d3c914433b99a977dc0b0772e898dd1f99c4f175",
-      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square|constraint=fixed_pair_reweight_only",
-      "origin": "PARADIGM_SHIFT",
-      "origin_base": "PARADIGM_SHIFT",
-      "op_type": "BUILDER_PARADIGM_SHIFT",
-      "parents": [
-        "bootstrap_g_000",
-        "bootstrap_g_001"
-      ],
-      "attempt": 0,
-      "prompt_sha1": "8a091df805ce690ce3bf56f4ad0015f36c9a13db",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-      "llm_seed": 197419547,
-      "history": [
-        {
-          "attempt": 0,
-          "side": "builder",
-          "llm_op": "BUILDER_PARADIGM_SHIFT",
-          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-          "prompt_sha1": "8a091df805ce690ce3bf56f4ad0015f36c9a13db"
-        }
-      ],
-      "ir": {
-        "name": "builder_all_pairs_gap_square",
-        "intuition": "reweight all pairs by squared gap normalized for load balancing",
-        "implementation_hint": {
-          "expects": [
-            "objective",
-            "log_prob"
-          ],
-          "returns": "PrefBatch",
-          "mode": "pairwise"
-        },
-        "hyperparams": {
-          "geometry_family": "dense_all_pairs",
-          "cap_family": "uncapped_full",
-          "weight_family": "gap_square",
-          "constraint_family": "fixed_pair_reweight_only"
-        },
-        "operators_used": [
-          "all_pairs",
-          "pow",
-          "bincount",
-          "index_add_",
-          "clamp"
-        ],
-        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    counts = torch.bincount(b_idx.to(torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    beta = float(extra.get('weight_beta', 1.0))\n    raw = torch.pow(gap.clamp(min=0), 2) * beta\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})"
       },
       "compile_ok": true,
       "compile_reason": "ok",
@@ -4513,7 +4821,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": -0.009700476455688278,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -4531,6 +4839,118 @@
         0.0,
         960.0,
         -0.009700476455688278
+      ]
+    },
+    {
+      "generation": 5,
+      "index": 9,
+      "id": "g005_009_deaf63a4",
+      "signature": "deaf63a49589d811ba4082c270f035af6ea018c8",
+      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamped_weights_reweight_only",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "BUILDER_PARADIGM_SHIFT",
+      "parents": [
+        "g000_011_4695a4ba",
+        "g001_010_a74661f7",
+        "g004_007_6c13d96b",
+        "g000_004_d3c91443",
+        "g002_006_e2c7bfea"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "5c8653c3d20a9da48eae27e722a47c26c21ba119",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "llm_seed": 1745773079,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "BUILDER_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+          "prompt_sha1": "5c8653c3d20a9da48eae27e722a47c26c21ba119"
+        }
+      ],
+      "ir": {
+        "name": "all_pairs_gap_softmax_clamped_reweight",
+        "intuition": "Apply a softmax weighting over all pairs' gap values per batch instance with clamping for numerical stability, preserving all_pairs pair geometry in reweight_only mode",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_softmax",
+          "constraint_family": "clamped_weights_reweight_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "sub",
+          "exp",
+          "clamp",
+          "div",
+          "index_add_"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Clamp gaps to stabilize exponentials\n    gap_clamped = gap.clamp(min=0.0, max=10.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    scaled_gap = gap_clamped * beta\n    weight_raw = torch.exp(scaled_gap)\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "fitness": -0.006177390670775829,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "builder_perf": -0.006177390670775829,
+      "builder_cost": 960.0,
+      "builder_feasible": true,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.006177390670775829
       ]
     },
     {
@@ -4625,7 +5045,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": -0.007731064605712934,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -4643,6 +5063,116 @@
         1.0,
         960.0,
         -0.007731064605712934
+      ]
+    },
+    {
+      "generation": 5,
+      "index": 11,
+      "id": "g005_011_39b4ef8f",
+      "signature": "39b4ef8fd4ff626c9d3eced9bbf8e08d7aa7ae36",
+      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_exponential_scaled|constraint=clamped_weights_reweight_only",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "BUILDER_PARADIGM_SHIFT",
+      "parents": [
+        "g002_006_e2c7bfea",
+        "g001_010_a74661f7",
+        "g004_007_6c13d96b",
+        "g000_005_5ea16c4f",
+        "g004_009_243adbcc"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "65fb5203197aaadec67031a30794f4c8a1cc4176",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "llm_seed": 945444120,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "BUILDER_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+          "prompt_sha1": "65fb5203197aaadec67031a30794f4c8a1cc4176"
+        }
+      ],
+      "ir": {
+        "name": "all_pairs_gap_exp_scaled_reweight",
+        "intuition": "Uses an exponential gap weighting that emphasizes larger gaps smoothly with scaling, preserving all_pairs topology and normalized weights with clamping to enhance numerical stability in reweight_only mode.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_exponential_scaled",
+          "constraint_family": "clamped_weights_reweight_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "exp",
+          "clamp",
+          "div"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped * beta).exp()\n    # Clamp to avoid extreme weights\n    weight_clamped = weight_raw.clamp(min=0.05, max=10.0)\n    # Normalize weights per batch instance to sum to number of pairs in instance\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_clamped)\n    norm = denom[b_idx].clamp_min(1e-8)\n    weight_normalized = weight_clamped / norm * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight_normalized, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "fitness": -0.0038724731445309857,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "builder_perf": -0.0038724731445309857,
+      "builder_cost": 960.0,
+      "builder_feasible": false,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0038724731445309857
       ]
     },
     {
@@ -4743,8 +5273,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -4852,8 +5382,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -4957,8 +5487,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -5058,227 +5588,6 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
-      "descriptor": {
-        "x": 0.0,
-        "y": 0.0,
-        "cell": [
-          0,
-          0
-        ]
-      },
-      "builder_perf": 0.0,
-      "builder_cost": 960.0,
-      "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
-      "selection_sort_key": [
-        1.0,
-        960.0,
-        0.0
-      ]
-    },
-    {
-      "generation": 2,
-      "index": 2,
-      "id": "g002_002_750e8067",
-      "signature": "750e80672d0b472ce431c624627bd9ea0f80dc52",
-      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamped_weights_reweight_only",
-      "origin": "PARADIGM_SHIFT",
-      "origin_base": "PARADIGM_SHIFT",
-      "op_type": "BUILDER_PARADIGM_SHIFT",
-      "parents": [
-        "g001_008_a0c26e92",
-        "g000_001_abc7a89c",
-        "g000_011_4695a4ba",
-        "g000_007_4470794b",
-        "g000_002_51625ef3"
-      ],
-      "attempt": 0,
-      "prompt_sha1": "2f4a0e21b2486dccc0490c45c9e46392b9d60d4a",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-      "llm_seed": 1402320432,
-      "history": [
-        {
-          "attempt": 0,
-          "side": "builder",
-          "llm_op": "BUILDER_PARADIGM_SHIFT",
-          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-          "prompt_sha1": "2f4a0e21b2486dccc0490c45c9e46392b9d60d4a"
-        }
-      ],
-      "ir": {
-        "name": "builder_all_pairs_gap_linear_003",
-        "intuition": "Reweight all pairs with a simple linear scaled positive gap emphasizing larger margins",
-        "implementation_hint": {
-          "expects": [
-            "objective",
-            "log_prob"
-          ],
-          "returns": "PrefBatch",
-          "mode": "pairwise"
-        },
-        "hyperparams": {
-          "geometry_family": "dense_all_pairs",
-          "cap_family": "uncapped_full",
-          "weight_family": "gap_linear",
-          "constraint_family": "clamped_weights_reweight_only"
-        },
-        "operators_used": [
-          "all_pairs",
-          "sub",
-          "clamp",
-          "mul"
-        ],
-        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = gap * beta\n    weight = weight_raw.clamp(min=0.05, max=10.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamped_weights_reweight_only'})"
-      },
-      "compile_ok": true,
-      "compile_reason": "ok",
-      "builder_static_ok": true,
-      "builder_static_reason": "ok",
-      "builder_static_trace": {
-        "failed_gate": null,
-        "checks": [
-          {
-            "metric_name": "pair_count",
-            "observed_value": 960,
-            "threshold": 1,
-            "direction": ">="
-          },
-          {
-            "metric_name": "coverage",
-            "observed_value": 1.0,
-            "threshold": 0.0,
-            "direction": ">="
-          },
-          {
-            "metric_name": "max_pairs_per_instance",
-            "observed_value": 120,
-            "threshold": 8192,
-            "direction": "<="
-          },
-          {
-            "metric_name": "semantic_pass_rate",
-            "observed_value": 1.0,
-            "threshold": 1.0,
-            "direction": ">="
-          }
-        ],
-        "builder_pref_cache_hit": false,
-        "memory_metric_available": false,
-        "memory_device": "cpu"
-      },
-      "fitness": 0.0,
-      "descriptor": {
-        "x": 0.0,
-        "y": 0.0,
-        "cell": [
-          0,
-          0
-        ]
-      },
-      "builder_perf": 0.0,
-      "builder_cost": 960.0,
-      "builder_feasible": false,
-      "builder_threshold": -0.009700476455688278,
-      "builder_best_perf": -0.009700476455688278,
-      "selection_sort_key": [
-        1.0,
-        960.0,
-        0.0
-      ]
-    },
-    {
-      "generation": 1,
-      "index": 8,
-      "id": "g001_008_a0c26e92",
-      "signature": "a0c26e9241c43eae871acb7f6cea824c39799a16",
-      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid_scaled|constraint=clamped_weights_reweight_only",
-      "origin": "PARADIGM_SHIFT",
-      "origin_base": "PARADIGM_SHIFT",
-      "op_type": "BUILDER_PARADIGM_SHIFT",
-      "parents": [
-        "g000_003_c8083669",
-        "g000_012_d266a2ad",
-        "g000_007_4470794b",
-        "g000_009_4d91ab08",
-        "g000_011_4695a4ba"
-      ],
-      "attempt": 0,
-      "prompt_sha1": "d31d6c93cca88bec9b43620d981ac6a58d33d5b5",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-      "llm_seed": 1488128396,
-      "history": [
-        {
-          "attempt": 0,
-          "side": "builder",
-          "llm_op": "BUILDER_PARADIGM_SHIFT",
-          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-          "prompt_sha1": "d31d6c93cca88bec9b43620d981ac6a58d33d5b5"
-        }
-      ],
-      "ir": {
-        "name": "builder_all_pairs_gap_sigmoid_scaled_001",
-        "intuition": "Reweight all pairs using a scaled sigmoid of the gap emphasizing mid-range differences",
-        "implementation_hint": {
-          "expects": [
-            "objective",
-            "log_prob"
-          ],
-          "returns": "PrefBatch",
-          "mode": "pairwise"
-        },
-        "hyperparams": {
-          "geometry_family": "dense_all_pairs",
-          "cap_family": "uncapped_full",
-          "weight_family": "gap_sigmoid_scaled",
-          "constraint_family": "clamped_weights_reweight_only"
-        },
-        "operators_used": [
-          "all_pairs",
-          "sigmoid",
-          "clamp",
-          "sub",
-          "mul"
-        ],
-        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 5.0))\n    # Apply sigmoid scaled and shifted so weights emphasize mid-size gaps\n    weight_raw = (gap * beta).sigmoid()\n    weight = weight_raw.clamp(min=0.05, max=10.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled', 'constraint_family': 'clamped_weights_reweight_only'})"
-      },
-      "compile_ok": true,
-      "compile_reason": "ok",
-      "builder_static_ok": true,
-      "builder_static_reason": "ok",
-      "builder_static_trace": {
-        "failed_gate": null,
-        "checks": [
-          {
-            "metric_name": "pair_count",
-            "observed_value": 960,
-            "threshold": 1,
-            "direction": ">="
-          },
-          {
-            "metric_name": "coverage",
-            "observed_value": 1.0,
-            "threshold": 0.0,
-            "direction": ">="
-          },
-          {
-            "metric_name": "max_pairs_per_instance",
-            "observed_value": 120,
-            "threshold": 8192,
-            "direction": "<="
-          },
-          {
-            "metric_name": "semantic_pass_rate",
-            "observed_value": 1.0,
-            "threshold": 1.0,
-            "direction": ">="
-          }
-        ],
-        "builder_pref_cache_hit": false,
-        "memory_metric_available": false,
-        "memory_device": "cpu"
-      },
       "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
@@ -5291,8 +5600,8 @@
       "builder_perf": 0.0,
       "builder_cost": 960.0,
       "builder_feasible": false,
-      "builder_threshold": -0.005330185699462753,
-      "builder_best_perf": -0.005330185699462753,
+      "builder_threshold": -0.009700476455688278,
+      "builder_best_perf": -0.009700476455688278,
       "selection_sort_key": [
         1.0,
         960.0,
@@ -5860,6 +6169,118 @@
         0.0,
         960.0,
         -0.00909238548278779
+      ]
+    },
+    {
+      "generation": 5,
+      "index": 9,
+      "id": "g005_009_deaf63a4",
+      "signature": "deaf63a49589d811ba4082c270f035af6ea018c8",
+      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamped_weights_reweight_only",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "BUILDER_PARADIGM_SHIFT",
+      "parents": [
+        "g000_011_4695a4ba",
+        "g001_010_a74661f7",
+        "g004_007_6c13d96b",
+        "g000_004_d3c91443",
+        "g002_006_e2c7bfea"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "5c8653c3d20a9da48eae27e722a47c26c21ba119",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "llm_seed": 1745773079,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "BUILDER_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+          "prompt_sha1": "5c8653c3d20a9da48eae27e722a47c26c21ba119"
+        }
+      ],
+      "ir": {
+        "name": "all_pairs_gap_softmax_clamped_reweight",
+        "intuition": "Apply a softmax weighting over all pairs' gap values per batch instance with clamping for numerical stability, preserving all_pairs pair geometry in reweight_only mode",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_softmax",
+          "constraint_family": "clamped_weights_reweight_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "sub",
+          "exp",
+          "clamp",
+          "div",
+          "index_add_"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Clamp gaps to stabilize exponentials\n    gap_clamped = gap.clamp(min=0.0, max=10.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    scaled_gap = gap_clamped * beta\n    weight_raw = torch.exp(scaled_gap)\n    denom = torch.zeros(objective.shape[0], dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = weight_raw / norm\n    weight = weight.clamp(min=0.0, max=5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax', 'constraint_family': 'clamped_weights_reweight_only'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "fitness": -0.006177390670775829,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "builder_perf": -0.006177390670775829,
+      "builder_cost": 960.0,
+      "builder_feasible": true,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.006177390670775829
       ]
     },
     {
@@ -6837,6 +7258,116 @@
       ]
     },
     {
+      "generation": 5,
+      "index": 11,
+      "id": "g005_011_39b4ef8f",
+      "signature": "39b4ef8fd4ff626c9d3eced9bbf8e08d7aa7ae36",
+      "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_exponential_scaled|constraint=clamped_weights_reweight_only",
+      "origin": "PARADIGM_SHIFT",
+      "origin_base": "PARADIGM_SHIFT",
+      "op_type": "BUILDER_PARADIGM_SHIFT",
+      "parents": [
+        "g002_006_e2c7bfea",
+        "g001_010_a74661f7",
+        "g004_007_6c13d96b",
+        "g000_005_5ea16c4f",
+        "g004_009_243adbcc"
+      ],
+      "attempt": 0,
+      "prompt_sha1": "65fb5203197aaadec67031a30794f4c8a1cc4176",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "llm_seed": 945444120,
+      "history": [
+        {
+          "attempt": 0,
+          "side": "builder",
+          "llm_op": "BUILDER_PARADIGM_SHIFT",
+          "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+          "prompt_sha1": "65fb5203197aaadec67031a30794f4c8a1cc4176"
+        }
+      ],
+      "ir": {
+        "name": "all_pairs_gap_exp_scaled_reweight",
+        "intuition": "Uses an exponential gap weighting that emphasizes larger gaps smoothly with scaling, preserving all_pairs topology and normalized weights with clamping to enhance numerical stability in reweight_only mode.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_exponential_scaled",
+          "constraint_family": "clamped_weights_reweight_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "exp",
+          "clamp",
+          "div"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp_min(0.0)\n    beta = float(extra.get('weight_beta', 1.0))\n    weight_raw = (gap_clamped * beta).exp()\n    # Clamp to avoid extreme weights\n    weight_clamped = weight_raw.clamp(min=0.05, max=10.0)\n    # Normalize weights per batch instance to sum to number of pairs in instance\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, weight_clamped)\n    norm = denom[b_idx].clamp_min(1e-8)\n    weight_normalized = weight_clamped / norm * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight_normalized, meta={'builder': 'all_pairs_gap_exp_scaled_reweight', 'weight_family': 'gap_exponential_scaled', 'constraint_family': 'clamped_weights_reweight_only'})"
+      },
+      "compile_ok": true,
+      "compile_reason": "ok",
+      "builder_static_ok": true,
+      "builder_static_reason": "ok",
+      "builder_static_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "fitness": -0.0038724731445309857,
+      "descriptor": {
+        "x": 0.0,
+        "y": 0.0,
+        "cell": [
+          0,
+          0
+        ]
+      },
+      "builder_perf": -0.0038724731445309857,
+      "builder_cost": 960.0,
+      "builder_feasible": false,
+      "builder_threshold": -0.006177390670775829,
+      "builder_best_perf": -0.006177390670775829,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0038724731445309857
+      ]
+    },
+    {
       "generation": 0,
       "index": 2,
       "id": "g000_002_51625ef3",
@@ -7434,7 +7965,7 @@
     ]
   },
   "archive_f": {},
-  "stagnation_generations": 5,
+  "stagnation_generations": 6,
   "schema_version": 1,
-  "saved_at": "2026-04-10 05:36:24"
+  "saved_at": "2026-04-10 08:53:57"
 }
