@@ -9767,3 +9767,29 @@ torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 4 h
 [2026-04-10 05:45:19,797][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-10 06:01:22,405][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-10 06:02:52,189][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 14:23:20,427][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 14:23:20,434][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 14:23:20,504][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-04-10 14:23:21,406][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 14:23:21,564][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 14:23:21,565][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 14:23:21,565][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 14:23:21,567][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 14:23:21,568][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 14:23:21,570][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 14:23:21,571][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 14:23:21,571][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 14:23:21,572][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 14:23:21,577][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 14:23:21,605][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 14:23:21,618][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 14:23:21,629][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 14:23:21,629][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 14:23:21,662][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 14:23:21,663][rl4co.envs.common.base][INFO] - Loading val dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_val_seed4321.npz
+[2026-04-10 14:23:21,794][rl4co.envs.common.base][INFO] - Loading test dataset from E:\CAS\preference finder\pre-finder/data/tsp\tsp20_test_seed1234.npz
+[2026-04-10 14:23:21,926][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 14:23:21,927][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 14:23:22,651][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\smoke_bopo_tsp_pomo_start_
+[2026-04-10 14:23:22,652][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-10 14:23:30,727][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
