@@ -9560,3 +9560,210 @@ Check the documentation of torch.load to learn more about types accepted by defa
 [2026-04-10 10:45:06,869][rl4co.utils.utils][INFO] - Output dir: E:\CAS\preference finder\pre-finder\logs\train\runs\smoke_bopo_stable_tsp_trainonly_
 [2026-04-10 10:45:06,869][rl4co.utils.utils][INFO] - Closing loggers...
 [2026-04-10 10:45:14,122][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
+[2026-04-10 02:48:33,318][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 02:48:33,321][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 02:48:33,360][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.CVRPEnv>
+[2026-04-10 02:48:37,269][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 02:48:37,576][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 02:48:37,576][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 02:48:37,576][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 02:48:37,580][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 02:48:37,580][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 02:48:37,581][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 02:48:37,582][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 02:48:37,582][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 02:48:37,583][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 02:48:37,587][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 02:48:37,594][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 02:48:37,596][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 02:48:37,617][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 02:48:37,617][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 02:48:37,618][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 02:48:39,379][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/vrp/vrp100_val_seed4321.npz
+[2026-04-10 02:48:39,474][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/vrp/vrp100_test_seed1234.npz
+[2026-04-10 02:48:41,138][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 02:48:41,139][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 02:48:44,513][rl4co.utils.utils][ERROR] - 
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/utils.py", line 41, in wrap
+    metric_dict, object_dict = task_func(cfg=cfg)
+                               ^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/tasks/train.py", line 77, in run
+    trainer.fit(model=model, ckpt_path=cfg.get("ckpt_path"))
+  File "/data1/gushengda/eam-rl4co/rl4co/utils/trainer.py", line 162, in fit
+    super().fit(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 539, in fit
+    call._call_and_handle_interrupt(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 575, in _fit_impl
+    self._run(model, ckpt_path=ckpt_path)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 982, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/trainer.py", line 1026, in _run_stage
+    self.fit_loop.run()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/fit_loop.py", line 216, in run
+    self.advance()
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/fit_loop.py", line 455, in advance
+    self.epoch_loop.run(self._data_fetcher)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/training_epoch_loop.py", line 150, in run
+    self.advance(data_fetcher)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/training_epoch_loop.py", line 320, in advance
+    batch_output = self.automatic_optimization.run(trainer.optimizers[0], batch_idx, kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/optimization/automatic.py", line 192, in run
+    self._optimizer_step(batch_idx, closure)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/optimization/automatic.py", line 270, in _optimizer_step
+    call._call_lightning_module_hook(
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 171, in _call_lightning_module_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/core/module.py", line 1302, in optimizer_step
+    optimizer.step(closure=optimizer_closure)
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/core/optimizer.py", line 154, in step
+    step_output = self._strategy.optimizer_step(self._optimizer, closure, **kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 239, in optimizer_step
+    return self.precision_plugin.optimizer_step(optimizer, model=model, closure=closure, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/plugins/precision/precision.py", line 123, in optimizer_step
+    return optimizer.step(closure=closure, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/optim/lr_scheduler.py", line 137, in wrapper
+    return func.__get__(opt, opt.__class__)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/optim/optimizer.py", line 487, in wrapper
+    out = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/optim/optimizer.py", line 91, in _use_grad
+    ret = func(self, *args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/optim/adam.py", line 202, in step
+    loss = closure()
+           ^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/plugins/precision/precision.py", line 109, in _wrap_closure
+    closure_result = closure()
+                     ^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/optimization/automatic.py", line 146, in __call__
+    self._result = self.closure(*args, **kwargs)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/utils/_contextlib.py", line 116, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/optimization/automatic.py", line 131, in closure
+    step_output = self._step_fn()
+                  ^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/loops/optimization/automatic.py", line 319, in _training_step
+    training_step_output = call._call_strategy_hook(trainer, "training_step", *kwargs.values())
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/trainer/call.py", line 323, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/lightning/pytorch/strategies/strategy.py", line 391, in training_step
+    return self.lightning_module.training_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/rl/common/base.py", line 258, in training_step
+    return self.shared_step(batch, batch_idx, phase="train")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/model.py", line 242, in shared_step
+    out = self.policy(td, self.env, **policy_kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_cvrp_policy.py", line 295, in forward
+    probs = self.decoder(encoded_last_node, remaining_load, ninf_mask)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_cvrp_policy.py", line 159, in forward
+    out = layer(out, load, ninf_mask)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1736, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1747, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_cvrp_policy.py", line 83, in forward
+    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 52, in _multi_head_attention
+    score_scaled = score_scaled + rank3_ninf_mask[:, None, :, :].expand(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 4 has a total capacity of 23.69 GiB of which 12.94 MiB is free. Process 121026 has 20.82 GiB memory in use. Including non-PyTorch memory, this process has 2.86 GiB memory in use. Of the allocated memory 1.53 GiB is allocated by PyTorch, and 94.40 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[2026-04-10 02:48:44,527][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/tsp100_cvrp100_bopo_20260410-024829/cvrp100_bopo
+[2026-04-10 02:48:44,527][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-10 02:49:09,730][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 02:49:09,733][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 02:49:09,753][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-10 02:49:09,756][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-10 02:49:09,772][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.CVRPEnv>
+[2026-04-10 02:49:09,798][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.TSPEnv>
+[2026-04-10 02:49:13,850][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 02:49:13,851][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-10 02:49:14,183][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 02:49:14,183][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 02:49:14,183][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 02:49:14,189][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 02:49:14,189][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 02:49:14,190][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 02:49:14,191][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 02:49:14,191][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 02:49:14,192][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 02:49:14,196][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 02:49:14,206][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 02:49:14,208][rl4co.data.transforms][INFO] - Features not passed, defaulting to 'locs'
+[2026-04-10 02:49:14,209][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 02:49:14,209][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-10 02:49:14,209][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-10 02:49:14,214][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-10 02:49:14,215][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-10 02:49:14,215][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.LearningRateMonitor>
+[2026-04-10 02:49:14,216][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-10 02:49:14,216][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-10 02:49:14,217][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-10 02:49:14,220][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-10 02:49:14,228][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-10 02:49:14,230][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-10 02:49:14,231][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 02:49:14,231][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 02:49:14,232][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 02:49:14,250][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-10 02:49:14,250][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-10 02:49:14,251][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-10 02:49:14,877][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_val_seed4321.npz
+[2026-04-10 02:49:14,923][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz
+[2026-04-10 02:49:16,103][rl4co.envs.common.base][INFO] - Loading val dataset from /data1/gushengda/eam-rl4co/data/vrp/vrp100_val_seed4321.npz
+[2026-04-10 02:49:16,199][rl4co.envs.common.base][INFO] - Loading test dataset from /data1/gushengda/eam-rl4co/data/vrp/vrp100_test_seed1234.npz
+[2026-04-10 02:49:16,709][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 02:49:16,711][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 02:49:17,912][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-10 02:49:17,913][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-10 03:07:11,117][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 03:11:57,351][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 03:24:39,634][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 03:39:24,790][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 03:42:09,475][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 03:59:39,041][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 04:07:09,192][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 04:17:10,905][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 04:34:50,112][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 04:35:04,586][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 04:52:29,690][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 05:04:03,560][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 05:10:09,468][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 05:27:48,236][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 05:33:08,588][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 05:45:19,797][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 06:01:22,405][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-10 06:02:52,189][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...

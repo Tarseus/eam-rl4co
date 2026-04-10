@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
-GPU_IDS_RAW="${GPU_IDS:-4 6}"
+GPU_IDS_RAW="${GPU_IDS:-3 5}"
 
 IFS=' ' read -r -a GPU_IDS <<< "$GPU_IDS_RAW"
 if [[ "${#GPU_IDS[@]}" -ne 2 ]]; then
@@ -29,12 +29,12 @@ RUN_ROOT="${ROOT_DIR}/logs/train/runs/tsp100_cvrp100_bopo_${TS}"
 mkdir -p "$RUN_ROOT"
 
 EXPERIMENT_KEYS=(
-#   "tsp100_bopo"
+  "tsp100_bopo"
   "cvrp100_bopo"
 )
 
 EXPERIMENT_CONFIGS=(
-#   "routing/pomo-bopo-tsp100"
+  "routing/pomo-bopo-tsp100"
   "routing/pomo-bopo-cvrp100"
 )
 
