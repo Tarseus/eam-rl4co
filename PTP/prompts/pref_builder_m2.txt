@@ -38,3 +38,6 @@ Hard constraints:
 
 If you receive BUILDER_SEARCH_SPACE_CONSTRAINTS, follow them strictly.
 When reweight_only is active, keep pair_idx unchanged and tune only weight-related hyperparameters or formulas.
+If reweight_only is active and normalization mode is `none`, do not introduce per-instance weight mean/sum normalization.
+Under reweight_only, preserve geometry_family, cap_family, weight_family, and constraint_family.
+Good tuning targets are beta, gamma, tau, band edges, clamp bounds, and denominator eps.
