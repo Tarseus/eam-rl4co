@@ -162,6 +162,7 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
     out = prompt
     llm_call = global_feedback.get("llm_call") if isinstance(global_feedback, Mapping) else None
     search_space = global_feedback.get("builder_search_space") if isinstance(global_feedback, Mapping) else None
+    builder_search = global_feedback.get("builder_search") if isinstance(global_feedback, Mapping) else None
     if isinstance(search_space, Mapping):
         mode = str(search_space.get("mode", "") or "").strip().lower()
         if mode == "reweight_only":
@@ -240,13 +241,38 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                         "- This is crossover over existing weighting candidates.\n"
                         "- Preserve the fixed pair template and combine complementary weighting ideas from multiple parents.\n"
                         "- Reuse effective substructures already validated in the parents when possible.\n"
+                        "- Good crossover moves include combining one parent's primary signal with another parent's monotone transform, clamp schedule, or denominator safeguard.\n"
+                        "- Do not collapse distinct parent ideas into a generic normalized average.\n"
                     )
                 elif op_name in {"TUNE", "M2"}:
                     out += (
                         "- This is local exploitation.\n"
-                        "- Keep the overall weighting logic the same and tune only local hyperparameters or smooth scalar transforms.\n"
-                        "- Avoid introducing a new weighting family unless it is absolutely necessary for correctness.\n"
+                        "- Keep the overall weighting logic and family tags the same.\n"
+                        "- Tune only local weighting hyperparameters or smooth scalar transforms such as beta/gamma/tau/band edges/clamp bounds/eps.\n"
+                        "- Avoid introducing a new weighting family, new pair topology, or new normalization scheme unless it is absolutely necessary for correctness.\n"
                     )
+                elif op_name == "M3":
+                    out += (
+                        "- This is simplify/stabilize for weighting search.\n"
+                        "- Preserve the parent weighting family and fixed pair topology unless the failure reason proves they are invalid.\n"
+                        "- Simplify fragile algebra, denominator handling, and clipping without falling back to per-instance weight normalization when normalization mode is `none`.\n"
+                    )
+                elif op_name == "REPAIR":
+                    out += (
+                        "- This is a repair pass for weighting search.\n"
+                        "- Preserve the intended weighting family, family tags, and fixed pair topology while fixing only the reported failure.\n"
+                        "- Do not reintroduce per-instance weight mean/sum normalization when normalization mode is `none`.\n"
+                    )
+    if isinstance(builder_search, Mapping) and bool(builder_search.get("explore_mode", False)):
+        avoid_families = builder_search.get("avoid_families", [])
+        if not isinstance(avoid_families, (list, tuple)):
+            avoid_families = []
+        out += (
+            "\n\nBUILDER_EXPLORATION_GUIDANCE:\n"
+            f"- explore_mode is active after {int(builder_search.get('stagnation_generations', 0) or 0)} stagnant generation(s).\n"
+            f"- Avoid dominant weighting-family patterns when possible: {json.dumps([str(x) for x in avoid_families[:12]], ensure_ascii=False)}\n"
+            "- Prefer genuine weighting-family changes or signal-organization rewrites over tiny scalar retunes.\n"
+        )
     return out + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 

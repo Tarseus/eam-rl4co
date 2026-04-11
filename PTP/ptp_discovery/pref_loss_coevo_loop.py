@@ -3304,6 +3304,73 @@ def _check_loss_novelty(
     return True, {"max_similarity": float(best), "best_similarity_parts": dict(best_parts), "neighbors": top}
 
 
+def _check_builder_novelty(
+    *,
+    candidate: PreferenceBuilderIR,
+    bank: Sequence[Mapping[str, Any]],
+    max_similarity: float,
+    neighbors: int = 3,
+) -> tuple[bool, Dict[str, Any]]:
+    """Return (ok, meta_or_failure_payload) for builder novelty."""
+
+    if not bank:
+        return True, {"max_similarity": 0.0, "neighbors": []}
+
+    cand_fp = _builder_fingerprint(candidate)
+    cand_bigrams = cand_fp.get("token_bigrams") or set()
+    cand_unigrams = cand_fp.get("token_unigrams") or set()
+    cand_calls = cand_fp.get("call_names_set") or set()
+    if not isinstance(cand_bigrams, set):
+        cand_bigrams = set()
+    if not isinstance(cand_unigrams, set):
+        cand_unigrams = set()
+    if not isinstance(cand_calls, set):
+        cand_calls = set()
+
+    scored: List[Dict[str, Any]] = []
+    best = 0.0
+    best_parts = {"bigram": 0.0, "unigram": 0.0, "call": 0.0}
+    for e in bank:
+        bt = e.get("token_bigrams")
+        ut = e.get("token_unigrams")
+        ct = e.get("call_names_set")
+        if not isinstance(bt, set) or not isinstance(ut, set) or not isinstance(ct, set):
+            continue
+        sim_big = _jaccard(cand_bigrams, bt)
+        sim_uni = _jaccard(cand_unigrams, ut)
+        sim_call = _jaccard(cand_calls, ct)
+        sim = float(max(sim_big, sim_uni, sim_call))
+        if sim > best:
+            best = float(sim)
+            best_parts = {"bigram": float(sim_big), "unigram": float(sim_uni), "call": float(sim_call)}
+        scored.append(
+            {
+                "sig": str(e.get("sig", "")),
+                "name": str(e.get("name", "")),
+                "similarity": float(sim),
+                "similarity_parts": {"bigram": float(sim_big), "unigram": float(sim_uni), "call": float(sim_call)},
+                "call_names_top": list(e.get("call_names_top") or [])[:16],
+            }
+        )
+
+    scored.sort(key=lambda x: float(x.get("similarity", 0.0)), reverse=True)
+    top = scored[: max(1, int(neighbors))]
+
+    if float(best) >= float(max_similarity):
+        return (
+            False,
+            {
+                "stage": "novelty",
+                "max_similarity": float(max_similarity),
+                "best_similarity": float(best),
+                "best_similarity_parts": dict(best_parts),
+                "too_similar_to": top,
+            },
+        )
+
+    return True, {"max_similarity": float(best), "best_similarity_parts": dict(best_parts), "neighbors": top}
+
+
 def _select_elites_by_family(
     *,
     ranked: Sequence[Mapping[str, Any]],
@@ -5918,6 +5985,35 @@ def _builder_has_explicit_constraint_mechanism(ir: PreferenceBuilderIR) -> bool:
     return any(marker in code for marker in markers | {"eps", "denom", "tie", "dedup"})
 
 
+def _builder_uses_instance_weight_normalization(ir: PreferenceBuilderIR) -> bool:
+    ops_used = {str(x or "").strip().lower() for x in (getattr(ir, "operators_used", []) or [])}
+    tags = {str(k): str(v).strip().lower() for k, v in (_builder_family_tags(ir) or {}).items()}
+    constraint_family = tags.get("constraint_family", "")
+    if constraint_family in {"clamped_instance_norm", "instance_norm", "normalized_clamp"}:
+        return True
+    if {"normalize", "norm"} & ops_used:
+        return True
+    code = str(getattr(ir, "code", "") or "").lower()
+    markers = (
+        "mean_raw",
+        "mean_weight",
+        "sum_raw",
+        "sum_weight",
+        "mean_clipped",
+        "mean_bandpass",
+        "mean_norm",
+        "counts.clamp_min(1.0)",
+    )
+    if any(marker in code for marker in markers):
+        return True
+    suspicious_pairs = (
+        ("index_add_", " / "),
+        ("bincount", " / "),
+        ("index_add_", ".clamp_min(eps)"),
+    )
+    return any(a in code and b in code for a, b in suspicious_pairs)
+
+
 def _validate_builder_operator_contract(
     ir: PreferenceBuilderIR,
     op_type: str,
@@ -5927,7 +6023,7 @@ def _validate_builder_operator_contract(
 ) -> Tuple[bool, Dict[str, Any]]:
     del parent_entries
     op = str(op_type or "").strip().upper()
-    if op not in {"BUILDER_PARADIGM_SHIFT", "BUILDER_STRUCTURE_SHIFT", "BUILDER_CONSTRAINT_INJECT"}:
+    if op not in {"BUILDER_PARADIGM_SHIFT", "BUILDER_STRUCTURE_SHIFT", "BUILDER_CONSTRAINT_INJECT", "M2"}:
         return True, {}
     cand_tags = _builder_family_tags(ir)
     missing = _missing_required_family_tags(cand_tags, keys=_BUILDER_FAMILY_KEYS)
@@ -5941,6 +6037,15 @@ def _validate_builder_operator_contract(
         )
     reweight_only = _is_reweight_only_search_space(search_space_cfg)
     if reweight_only:
+        pair_weight_normalization = str(search_space_cfg.get("pair_weight_normalization", "instance_mean") or "instance_mean")
+        if pair_weight_normalization == "none" and _builder_uses_instance_weight_normalization(ir):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="instance_weight_normalization_forbidden",
+                parent_tags=[_builder_family_tags(p) for p in parent_irs],
+                cand_tags=cand_tags,
+                required_change={"must_not_include": ["per-instance weight mean/sum normalization"], "normalization_mode": "none"},
+            )
         parent = parent_irs[0] if parent_irs else None
         p_tags = _builder_family_tags(parent) if parent is not None else {}
         maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
@@ -6014,6 +6119,16 @@ def _validate_builder_operator_contract(
                     cand_tags=cand_tags,
                     required_change={"must_include": ["normalize/clamp/topk/tie-zone/denom-safeguard"]},
                 )
+        elif op == "M2":
+            for key in ("geometry_family", "cap_family", "weight_family", "constraint_family"):
+                if _normalize_family_value(cand_tags.get(key)) != _normalize_family_value(p_tags.get(key)):
+                    return False, _operator_contract_failure(
+                        op_type=op,
+                        reason=f"{key}_not_preserved",
+                        parent_tags=p_tags,
+                        cand_tags=cand_tags,
+                        required_change={"must_preserve": ["geometry_family", "cap_family", "weight_family", "constraint_family"], "must_change": ["local_weight_hyperparameters_only"]},
+                    )
         return True, {}
     if op == "BUILDER_PARADIGM_SHIFT":
         maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
@@ -6150,6 +6265,17 @@ def _validate_builder_search_space_contract(
                 "fixed_pair_builder": str(search_space_cfg.get("fixed_pair_builder", "all_pairs")),
                 "candidate_pairs": int(cand_b.numel()),
                 "reference_pairs": int(ref_b.numel()),
+            },
+        )
+    pair_weight_normalization = str(search_space_cfg.get("pair_weight_normalization", "instance_mean") or "instance_mean")
+    if pair_weight_normalization == "none" and _builder_uses_instance_weight_normalization(compiled.ir):
+        return False, _builder_failure_report(
+            stage="search_space",
+            reason="instance_weight_normalization_forbidden",
+            trace={
+                "failed_gate": "SearchSpace",
+                "failure_kind": "instance_weight_normalization_forbidden",
+                "normalization_mode": "none",
             },
         )
     return True, {}
@@ -6314,6 +6440,9 @@ def _repair_builder_candidate_loop(
     prompt_context: Mapping[str, Any] | None,
     max_attempts: int,
     simplify_first: bool = True,
+    novelty_bank: Sequence[Mapping[str, Any]] | None = None,
+    novelty_max_similarity: float | None = None,
+    novelty_neighbors: int = 3,
 ) -> Tuple[PreferenceBuilderIR | None, Dict[str, Any]]:
     """Attempt to repair a failing builder candidate via LLM, re-validating each attempt.
 
@@ -6329,6 +6458,7 @@ def _repair_builder_candidate_loop(
     last_fail = dict(failure_report)
     attempts: List[Dict[str, Any]] = []
     current = ir
+    novelty_meta: Dict[str, Any] | None = None
     for attempt in range(max(0, int(max_attempts))):
         try:
             fb = dict(global_feedback or {})
@@ -6372,8 +6502,20 @@ def _repair_builder_candidate_loop(
             parent_irs=parent_irs,
             parent_entries=parent_entries,
         )
+        if ok and novelty_bank is not None and novelty_max_similarity is not None:
+            nov_ok, nov_payload = _check_builder_novelty(
+                candidate=repaired,
+                bank=novelty_bank,
+                max_similarity=float(novelty_max_similarity),
+                neighbors=int(novelty_neighbors),
+            )
+            if not bool(nov_ok):
+                last_fail = dict(nov_payload)
+                current = repaired
+                continue
+            novelty_meta = dict(nov_payload)
         if ok:
-            return repaired, {"attempts": attempts, "repaired": True}
+            return repaired, {"attempts": attempts, "repaired": True, "novelty": novelty_meta}
         last_fail = dict(fail2)
         current = repaired
 
@@ -6459,6 +6601,19 @@ def _propose_builders_for_generation(
         repair_on_fail = bool(repair_cfg.get("enabled", builder_cfg.get("repair_on_failure", True)))
         repair_attempts = int(repair_cfg.get("max_attempts", builder_cfg.get("repair_attempts", 1)) or 1)
         family_div_cfg = _normalize_family_diversity_cfg(builder_cfg.get("family_diversity", {}))
+        novelty_cfg = builder_cfg.get("novelty", {}) or {}
+        if not isinstance(novelty_cfg, dict):
+            novelty_cfg = {}
+        novelty_enabled = bool(novelty_cfg.get("enabled", False))
+        novelty_max_sim = float(novelty_cfg.get("max_similarity", 1.0) or 1.0)
+        novelty_neighbors = int(novelty_cfg.get("neighbors", 3) or 3)
+        novelty_apply_to_elites = bool(novelty_cfg.get("apply_to_elites", False))
+        explore_cfg = builder_cfg.get("exploration", {}) or {}
+        if not isinstance(explore_cfg, dict):
+            explore_cfg = {}
+        explore_enabled = bool(explore_cfg.get("enabled", False))
+        explore_replace_p = float(explore_cfg.get("replace_p", 0.7) or 0.7)
+        explore_mode = bool((global_feedback or {}).get("builder_search", {}).get("explore_mode", False))
 
         prompts = llm_root.get("prompts", builder_cfg.get("prompts", {})) or {}
         if not isinstance(prompts, dict):
@@ -6554,11 +6709,46 @@ def _propose_builders_for_generation(
                     break
         ranked_parents.sort(key=lambda x: _stored_selection_sort_key(x[3], fallback_key="fitness"))
 
+        novelty_bank: List[Dict[str, Any]] = []
+        novelty_seen: set[str] = set()
+
+        def _bank_add_builder(ir_in: PreferenceBuilderIR) -> None:
+            try:
+                fp = _builder_fingerprint(ir_in)
+                sig0 = str(fp.get("sig", "")) or _sig_pref_builder(ir_in)
+                if sig0 in novelty_seen:
+                    return
+                novelty_seen.add(sig0)
+                novelty_bank.append({"sig": sig0, "name": str(getattr(ir_in, "name", "") or ""), **fp})
+            except Exception:  # noqa: BLE001
+                return
+
+        for carried in out:
+            if isinstance(carried, dict) and isinstance(carried.get("ir"), PreferenceBuilderIR):
+                _bank_add_builder(carried["ir"])
+        for _, _, pir, _ in ranked_parents:
+            _bank_add_builder(pir)
+
         # Operator plan: either explicit counts (preferred) or legacy budget+random choice.
         def _op_plan() -> List[str]:
             init = int(generation) <= 0
             plan = _expand_operator_bank(builder_cfg, int(generation), rng, side="builder")
             if plan:
+                if explore_enabled and explore_mode:
+                    plan2: List[str] = []
+                    for op in plan:
+                        op_norm = _normalize_operator_name(str(op).strip().upper(), side="builder")
+                        if _is_reweight_only_search_space(search_space_cfg):
+                            if op_norm in {"STRUCTURE_SHIFT", "TUNE", "M2"} and rng.random() < float(explore_replace_p):
+                                plan2.append("PARADIGM_SHIFT")
+                            else:
+                                plan2.append(op_norm)
+                        else:
+                            if op_norm in {"E2", "M2", "GEN", "TUNE"} and rng.random() < float(explore_replace_p):
+                                plan2.append("XOVER")
+                            else:
+                                plan2.append(op_norm)
+                    plan = plan2
                 return plan
             keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
             if any(builder_cfg.get(k) is not None for k in keys):
@@ -6568,6 +6758,21 @@ def _propose_builders_for_generation(
                 nM2 = int(builder_cfg.get("init_num_M2" if init else "num_M2", builder_cfg.get("num_M2", 0)) or 0)
                 plan = (["E1"] * max(0, nE1)) + (["E2"] * max(0, nE2)) + (["M1"] * max(0, nM1)) + (["M2"] * max(0, nM2))
                 rng.shuffle(plan)
+                if explore_enabled and explore_mode:
+                    plan2: List[str] = []
+                    for op in plan:
+                        op_norm = _normalize_operator_name(str(op).strip().upper(), side="builder")
+                        if _is_reweight_only_search_space(search_space_cfg):
+                            if op_norm in {"M2", "TUNE", "M1", "MUTATE"} and rng.random() < float(explore_replace_p):
+                                plan2.append("PARADIGM_SHIFT")
+                            else:
+                                plan2.append(op_norm)
+                        else:
+                            if op_norm in {"E2", "M2", "GEN", "TUNE"} and rng.random() < float(explore_replace_p):
+                                plan2.append("XOVER")
+                            else:
+                                plan2.append(op_norm)
+                    plan = plan2
                 return plan
 
             llm_budget = int(builder_cfg.get("init_llm_g", 0) or 0) if init else int(builder_cfg.get("llm_per_gen_g", 0) or 0)
@@ -6635,6 +6840,23 @@ def _propose_builders_for_generation(
             }
             if llm_op == "PARADIGM_SHIFT":
                 call_feedback["llm_call"]["parent_family_shortage"] = bool(locals().get("shortage", False))
+            if explore_enabled:
+                call_feedback["builder_search"] = dict(call_feedback.get("builder_search") or {})
+                call_feedback["builder_search"]["explore_mode"] = bool(explore_mode)
+                call_feedback["builder_search"]["stagnation_generations"] = int(
+                    (global_feedback or {}).get("builder_search", {}).get("stagnation_generations", 0) or 0
+                )
+                if bool(explore_mode):
+                    try:
+                        avoid_fams = list((global_feedback or {}).get("builder_search", {}).get("avoid_families", []) or [])[:16]
+                    except Exception:  # noqa: BLE001
+                        avoid_fams = []
+                    call_feedback["builder_search"]["avoid_families"] = avoid_fams
+                    call_feedback["builder_search"]["exploration_instructions"] = [
+                        "Avoid the dominant weighting-family patterns from avoid_families.",
+                        "Prefer changing the weighting principle or signal organization over tiny scalar retunes.",
+                        "When reweight_only is active, keep pair topology fixed and explore a genuinely different weight-shaping rule.",
+                    ]
 
             history: List[Dict[str, Any]] = []
             prompt_ref = ""
@@ -6779,6 +7001,20 @@ def _propose_builders_for_generation(
             origin = base_origin
             prompt_sha1 = dict(meta).get("prompt_sha1") if isinstance(meta, Mapping) else None
             prompt_path = dict(meta).get("prompt_path") if isinstance(meta, Mapping) else None
+            novelty_meta: Dict[str, Any] | None = None
+
+            if ok and novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                nov_ok, nov_payload = _check_builder_novelty(
+                    candidate=ir,
+                    bank=novelty_bank,
+                    max_similarity=float(novelty_max_sim),
+                    neighbors=int(novelty_neighbors),
+                )
+                if not bool(nov_ok):
+                    ok = False
+                    fail_reason = dict(nov_payload)
+                else:
+                    novelty_meta = dict(nov_payload)
 
             if (not ok) and repair_on_fail:
                 repaired, rep_meta = _repair_builder_candidate_loop(
@@ -6802,12 +7038,20 @@ def _propose_builders_for_generation(
                     prompt_context=builder_prompt_context,
                     max_attempts=max(0, int(repair_attempts)),
                     simplify_first=bool(repair_cfg.get("simplify_first", True)),
+                    novelty_bank=(
+                        novelty_bank if bool(novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE")) else None
+                    ),
+                    novelty_max_similarity=(
+                        float(novelty_max_sim) if bool(novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE")) else None
+                    ),
+                    novelty_neighbors=int(novelty_neighbors),
                 )
                 if repaired is not None:
                     ir = repaired
                     origin = "REPAIR"
                     op_type = "REPAIR"
                     ok = True
+                    novelty_meta = dict(rep_meta.get("novelty") or {}) if isinstance(rep_meta, dict) and rep_meta.get("novelty") else novelty_meta
                     if isinstance(rep_meta, dict) and isinstance(rep_meta.get("attempts"), list) and rep_meta["attempts"]:
                         history.extend(list(rep_meta["attempts"]))
                         last = rep_meta["attempts"][-1]
@@ -6815,6 +7059,8 @@ def _propose_builders_for_generation(
                         prompt_path = last.get("prompt_path", prompt_path)
 
             if ok:
+                if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                    _bank_add_builder(ir)
                 out.append(
                     {
                         "ir": ir,
@@ -6827,6 +7073,7 @@ def _propose_builders_for_generation(
                         "prompt_path": prompt_path,
                         "history": history,
                         "llm_seed": llm_seed,
+                        "novelty": novelty_meta,
                     }
                 )
 
@@ -10790,6 +11037,8 @@ def run_pref_loss_coevo(
             ),
             "simplify_first": bool(builder_repair_raw.get("simplify_first", True)),
         },
+        "novelty": dict(builder_llm_raw.get("novelty") or {}) if isinstance(builder_llm_raw.get("novelty"), dict) else {},
+        "exploration": dict(builder_llm_raw.get("exploration") or {}) if isinstance(builder_llm_raw.get("exploration"), dict) else {},
         "family_diversity": _normalize_family_diversity_cfg(
             builder_llm_raw.get("family_diversity", (cfg_yaml.get("builder", {}) or {}).get("family_diversity", {}))
         ),
@@ -11591,29 +11840,63 @@ def run_pref_loss_coevo(
             )
 
         global_feedback: Dict[str, Any] = dict(llm_feedback_state)
+        builder_llm_cfg_raw = cfg_yaml.get("builder_llm", {}) or {}
+        if not isinstance(builder_llm_cfg_raw, dict):
+            builder_llm_cfg_raw = {}
+        builder_explore_cfg = builder_llm_cfg_raw.get("exploration", {}) or {}
+        if not isinstance(builder_explore_cfg, dict):
+            builder_explore_cfg = {}
+        builder_explore_enabled = bool(builder_explore_cfg.get("enabled", False))
+        builder_stagnation_trigger = int(builder_explore_cfg.get("stagnation_generations", 0) or 0)
+        builder_explore_mode = bool(
+            builder_explore_enabled and builder_stagnation_trigger > 0 and int(stagnation_generations) >= int(builder_stagnation_trigger)
+        )
+        builder_avoid_families: List[str] = []
+        try:
+            fam_ctr = collections.Counter(
+                _builder_family_tags(pref_builder_ir_from_json(e.get("ir", {}))).get("weight_family", "unknown")
+                if isinstance(e, dict) and isinstance(e.get("ir"), dict)
+                else "unknown"
+                for e in (elites_g or [])
+            )
+            builder_avoid_families = [f for f, _ in fam_ctr.most_common(8) if str(f).strip()]
+        except Exception:  # noqa: BLE001
+            builder_avoid_families = []
+        if bool(builder_explore_enabled) and int(builder_stagnation_trigger) > 0:
+            LOGGER.info(
+                "Builder exploration schedule gen=%d: stagnation=%d trigger=%d explore_mode=%s avoid_families=%s",
+                int(gen),
+                int(stagnation_generations),
+                int(builder_stagnation_trigger),
+                str(bool(builder_explore_mode)),
+                list(builder_avoid_families),
+            )
+
         loss_llm_cfg_raw = cfg_yaml.get("loss_llm", {}) or {}
         if not isinstance(loss_llm_cfg_raw, dict):
             loss_llm_cfg_raw = {}
-        explore_cfg = loss_llm_cfg_raw.get("exploration", {}) or {}
-        if not isinstance(explore_cfg, dict):
-            explore_cfg = {}
-        explore_enabled = bool(explore_cfg.get("enabled", False))
-        stagnation_trigger = int(explore_cfg.get("stagnation_generations", 0) or 0)
-        explore_mode = bool(explore_enabled and stagnation_trigger > 0 and int(stagnation_generations) >= int(stagnation_trigger))
-        avoid_families: List[str] = []
+        loss_explore_cfg = loss_llm_cfg_raw.get("exploration", {}) or {}
+        if not isinstance(loss_explore_cfg, dict):
+            loss_explore_cfg = {}
+        loss_explore_enabled = bool(loss_explore_cfg.get("enabled", False))
+        loss_stagnation_trigger = int(loss_explore_cfg.get("stagnation_generations", 0) or 0)
+        loss_explore_mode = bool(
+            loss_explore_enabled and loss_stagnation_trigger > 0 and int(stagnation_generations) >= int(loss_stagnation_trigger)
+        )
+        loss_avoid_families: List[str] = []
         try:
             fam_ctr = collections.Counter(str(e.get("family") or "unknown") for e in (elites_f or []) if isinstance(e, dict))
-            avoid_families = [f for f, _ in fam_ctr.most_common(8)]
+            loss_avoid_families = [f for f, _ in fam_ctr.most_common(8)]
         except Exception:  # noqa: BLE001
-            avoid_families = []
-        if bool(explore_enabled) and int(stagnation_trigger) > 0:
+            loss_avoid_families = []
+        if bool(loss_explore_enabled) and int(loss_stagnation_trigger) > 0:
             LOGGER.info(
                 "Loss exploration schedule gen=%d: stagnation=%d trigger=%d explore_mode=%s avoid_families=%s",
                 int(gen),
                 int(stagnation_generations),
-                int(stagnation_trigger),
-                str(bool(explore_mode)),
-                list(avoid_families),
+                int(loss_stagnation_trigger),
+                str(bool(loss_explore_mode)),
+                list(loss_avoid_families),
             )
         global_feedback.update(
             {
@@ -11631,10 +11914,15 @@ def run_pref_loss_coevo(
                 "best_loss": best_loss_ir,
                 "best_builder_summary": best_builder_summary,
                 "best_loss_summary": best_loss_summary,
-                "loss_search": {
-                    "explore_mode": bool(explore_mode),
+                "builder_search": {
+                    "explore_mode": bool(builder_explore_mode),
                     "stagnation_generations": int(stagnation_generations),
-                    "avoid_families": list(avoid_families),
+                    "avoid_families": list(builder_avoid_families),
+                },
+                "loss_search": {
+                    "explore_mode": bool(loss_explore_mode),
+                    "stagnation_generations": int(stagnation_generations),
+                    "avoid_families": list(loss_avoid_families),
                 },
             }
         )
@@ -14339,6 +14627,16 @@ def run_pref_loss_coevo(
             }
         }
         llm_feedback_state["stagnation_generations"] = int(stagnation_generations)
+        try:
+            fam_ctr = collections.Counter(
+                _builder_family_tags(pref_builder_ir_from_json(e.get("ir", {}))).get("weight_family", "unknown")
+                if isinstance(e, dict) and isinstance(e.get("ir"), dict)
+                else "unknown"
+                for e in elites_g
+            )
+            llm_feedback_state["prev_gen_builder_families"] = list(fam_ctr.most_common(10))
+        except Exception:  # noqa: BLE001
+            llm_feedback_state["prev_gen_builder_families"] = []
         try:
             fam_ctr = collections.Counter(str(e.get("family") or "unknown") for e in elites_f if isinstance(e, dict))
             llm_feedback_state["prev_gen_loss_families"] = list(fam_ctr.most_common(10))

@@ -3,7 +3,7 @@ You are performing BUILDER_STRUCTURE_SHIFT for a preference builder.
 Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
 
 You will receive PARENT_JSON with one parent builder and metrics.
-Keep the pairwise representation contract intact, but change the cap/budget structure.
+Keep the pairwise representation contract intact while rewriting the signal organization for weighting search.
 
 Output schema:
 {
@@ -32,6 +32,8 @@ Hard constraints:
 - If BUILDER_SEARCH_SPACE_CONSTRAINTS indicates reweight_only:
   - preserve geometry_family, cap_family, weight_family, and constraint_family;
   - rewrite normalization, clipping, rescaling, or other signal-organization structure instead of changing pair topology.
+  - if normalization mode is `none`, do not divide weights by per-instance sums or means.
+  - good structure changes include changing transform order, replacing hard bands with smooth windows, switching between additive vs multiplicative blending, or moving where clamp/safeguards act.
 - Otherwise cap_family must change from the parent.
 - Keep other families as stable as reasonably possible unless needed for correctness.
 - No imports, no filesystem/network, no randomness.

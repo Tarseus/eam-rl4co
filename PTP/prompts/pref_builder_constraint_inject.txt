@@ -31,6 +31,8 @@ Hard constraints:
 - Emit all four family tags as non-empty strings.
 - constraint_family must change from the parent.
 - If BUILDER_SEARCH_SPACE_CONSTRAINTS indicates reweight_only, preserve geometry_family, cap_family, and weight_family while adding the new constraint mechanism.
+- If reweight_only is active and normalization mode is `none`, constraints must not rely on per-instance weight mean/sum normalization.
+- Under reweight_only, prefer concrete stability devices such as clamp envelopes, denominator eps guards, tie-zone suppression, band caps, or topk-style masking while keeping the weighting principle itself intact.
 - Code must include at least one explicit constraint operation such as tie-zone filtering, dedup, normalize, clamp, or topk cap.
 - No imports, no filesystem/network, no randomness.
 - Use vectorized tensor ops only; no Python loops/comprehensions over pair tensors.

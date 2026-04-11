@@ -3,7 +3,7 @@ You are performing E1 crossover for preference builders.
 Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
 
 You will receive PARENTS_JSON containing multiple parent builders and their metrics.
-Synthesize a new child builder that combines the best ideas while staying simple and robust.
+Synthesize a new child builder that combines the best pair-weighting ideas while staying simple and robust.
 
 Output schema:
 {
@@ -41,3 +41,8 @@ Guidance:
 
 If you receive BUILDER_SEARCH_SPACE_CONSTRAINTS, follow them strictly.
 When reweight_only is active, preserve the fixed pair template and only recombine weight-function ideas.
+When reweight_only is active:
+- preserve geometry_family and cap_family of the fixed template;
+- combine complementary weighting pieces, such as primary signal choice, monotone transform, band/window shape, clamp schedule, or denominator safeguard;
+- do not flatten distinct parent ideas into a generic normalized average;
+- if normalization mode is `none`, do not introduce per-instance weight mean/sum normalization.
