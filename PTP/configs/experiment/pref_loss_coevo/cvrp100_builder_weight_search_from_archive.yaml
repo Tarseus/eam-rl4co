@@ -21,9 +21,9 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  seed_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
   allow_freeform_weight_family: true
-  allow_uniform_none: true
+  allow_uniform_none: false
 
 budgets:
   generations: 10
@@ -72,9 +72,9 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    seed_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
     allow_freeform_weight_family: true
-    allow_uniform_none: true
+    allow_uniform_none: false
   operator_bank:
     init:
       - { name: GEN, count: 4 }

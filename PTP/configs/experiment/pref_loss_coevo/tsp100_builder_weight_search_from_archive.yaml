@@ -53,9 +53,9 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  seed_weight_families: [uniform_none, gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+  seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
   allow_freeform_weight_family: true
-  allow_uniform_none: true
+  allow_uniform_none: false
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
 mp:
@@ -187,9 +187,9 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    seed_weight_families: [uniform_none, gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+    seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
     allow_freeform_weight_family: true
-    allow_uniform_none: true
+    allow_uniform_none: false
   operator_bank:
     init:
       - { name: GEN, count: 4 }
