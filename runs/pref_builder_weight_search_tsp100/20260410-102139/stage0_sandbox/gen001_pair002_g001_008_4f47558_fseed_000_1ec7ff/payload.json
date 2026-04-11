@@ -1,0 +1,115 @@
+{
+  "generation": 1,
+  "pair_index": 2,
+  "g_entry": {
+    "id": "g001_008_4f47558c",
+    "ir": {
+      "name": "builder_all_pairs_rank_regret_blend_001",
+      "intuition": "Blend pair weights by normalized rank gap and regret difference to emphasize pairs with both positional and regret contrast, normalized per instance",
+      "implementation_hint": {
+        "expects": [
+          "rank",
+          "regret"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "rank_regret_blend_normalized",
+        "constraint_family": "fixed_pair_reweight_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "clamp",
+        "scatter_add",
+        "bincount",
+        "div",
+        "sub",
+        "abs",
+        "min",
+        "max"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    rank = feature_cache.get('rank')\n    regret = feature_cache.get('regret')\n    if rank is None or regret is None:\n        # fallback to no weights if signals missing\n        objective = feature_cache.get('objective')\n        if objective is None:\n            return PrefBatch(mode='pairwise', pair_idx=(torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long)), weight=None, meta={'builder': 'all_pairs_rank_regret_blend_normalized', 'weight_family': 'rank_regret_blend_normalized'})\n        mask = objective[:, :, None] < objective[:, None, :]\n        b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_rank_regret_blend_normalized', 'weight_family': 'rank_regret_blend_normalized'})\n\n    mask = rank[:, :, None] < rank[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_rank_regret_blend_normalized', 'weight_family': 'rank_regret_blend_normalized'})\n\n    batch_size = rank.shape[0]\n\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    rank_diff_pos = rank_diff.clamp_min(1.0)  # avoid zero to prevent division issues\n\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    regret_diff = regret_diff.clamp_min(0.0)\n\n    # Normalize rank_diff within batch instance\n    rank_min = torch.full((batch_size,), float('inf'), dtype=rank.dtype, device=rank.device)\n    rank_max = torch.full((batch_size,), float('-inf'), dtype=rank.dtype, device=rank.device)\n    rank_min.scatter_reduce_(0, b_idx, rank_diff_pos, reduce='amin', include_self=True)\n    rank_max.scatter_reduce_(0, b_idx, rank_diff_pos, reduce='amax', include_self=True)\n    rank_range = (rank_max - rank_min).clamp_min(1e-6)\n    rank_norm = (rank_diff_pos - rank_min[b_idx]) / rank_range[b_idx]\n\n    # Normalize regret_diff within batch instance\n    regret_min = torch.full((batch_size,), float('inf'), dtype=regret.dtype, device=regret.device)\n    regret_max = torch.full((batch_size,), float('-inf'), dtype=regret.dtype, device=regret.device)\n    regret_min.scatter_reduce_(0, b_idx, regret_diff, reduce='amin', include_self=True)\n    regret_max.scatter_reduce_(0, b_idx, regret_diff, reduce='amax', include_self=True)\n    regret_range = (regret_max - regret_min).clamp_min(1e-6)\n    regret_norm = (regret_diff - regret_min[b_idx]) / regret_range[b_idx]\n\n    tau = float(extra.get('weight_tau', 0.6))\n    # Blend weights: emphasize both rank gap and regret difference\n    raw = tau * rank_norm + (1.0 - tau) * regret_norm\n\n    counts = torch.bincount(b_idx.to(torch.int64), minlength=batch_size).to(rank.dtype)\n    mean_raw = torch.zeros(batch_size, dtype=rank.dtype, device=rank.device)\n    mean_raw.index_add_(0, b_idx, raw)\n    mean_raw = mean_raw / counts.clamp_min(1.0)\n\n    weight = raw / mean_raw[b_idx].clamp_min(1e-6)\n    weight = weight.clamp_min(0.0)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_rank_regret_blend_normalized', 'weight_family': 'rank_regret_blend_normalized'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_1ec7ffff",
+    "ir": {
+      "name": "loss_logsigmoid_004_cost_shifted_sum_normalized_repaired",
+      "intuition": "Removed the additive offset term that violated affine invariance and replaced it with a purely multiplicative interaction between log_prob difference and normalized cost gap. This ensures the loss respects scale and shift invariance by depending only on the relative difference (lpw - lpl) scaled by a normalized cost gap factor rather than subtracting a fixed offset proportional to the cost gap. Clamping is preserved for numerical stability.",
+      "pseudocode": "gap = cost_b - cost_a\nnorm_gap = gap / (1 + abs(gap))\nmargin = (lpw - lpl) * (1 - beta * norm_gap)\nx = alpha * scale * margin\nlosses = -logsigmoid(clamp(x, -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = sum(weighted_losses) / (sum(weight) + eps)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "scale_invariance"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "sum",
+        "add",
+        "sub",
+        "abs",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('beta', 0.05))\n    gap = cost_b - cost_a\n    norm_gap = gap / (1.0 + ops.abs(gap))\n    margin = (lpw - lpl) * (1.0 - beta * norm_gap)\n    x = alpha * scale * margin\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    loss = ops.sum(weighted_losses) / norm_factor\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
