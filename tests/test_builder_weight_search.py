@@ -260,6 +260,30 @@ def test_reweight_only_freeform_prompt_and_seed_pool(monkeypatch):
     assert observed <= {"gap_linear", "gap_sigmoid"}
 
 
+def test_reweight_only_default_excludes_uniform_none(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+        }
+    )
+
+    assert cfg["allow_uniform_none"] is False
+    assert "uniform_none" not in cfg["seed_weight_families"]
+
+    rng = random.Random(0)
+    rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+    pool = loop._make_builtin_builder_irs(rng, 8)
+    observed = {str(ir.hyperparams.get("weight_family")) for ir in pool}
+    assert "uniform_none" not in observed
+
+
 def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 

@@ -2584,7 +2584,6 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         fixed_pair_builder = "all_pairs"
 
     default_families = [
-        "uniform_none",
         "gap_linear",
         "gap_softmax",
         "gap_sigmoid",
@@ -2595,7 +2594,7 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         "margin_regret_blend",
         "gap_bandpass",
     ]
-    allow_uniform_none = bool(cfg.get("allow_uniform_none", True))
+    allow_uniform_none = bool(cfg.get("allow_uniform_none", False))
     allow_freeform_weight_family = bool(cfg.get("allow_freeform_weight_family", False))
 
     families = _normalize_weight_family_values(cfg.get("allowed_weight_families", []))
