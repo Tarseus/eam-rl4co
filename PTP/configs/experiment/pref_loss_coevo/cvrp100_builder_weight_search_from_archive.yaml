@@ -21,6 +21,7 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
+  pair_weight_normalization: none
   seed_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
   allow_freeform_weight_family: true
   allow_uniform_none: false
@@ -72,6 +73,7 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
+    pair_weight_normalization: none
     seed_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
     allow_freeform_weight_family: true
     allow_uniform_none: false

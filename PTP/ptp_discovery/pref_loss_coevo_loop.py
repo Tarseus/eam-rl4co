@@ -2583,6 +2583,14 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     if fixed_pair_builder not in {"all_pairs", "anchor_best"}:
         fixed_pair_builder = "all_pairs"
 
+    pair_weight_normalization = str(
+        cfg.get("pair_weight_normalization", cfg.get("weight_normalization", "instance_mean")) or "instance_mean"
+    ).strip().lower()
+    if pair_weight_normalization in {"none", "off", "disabled", "clamp_only"}:
+        pair_weight_normalization = "none"
+    else:
+        pair_weight_normalization = "instance_mean"
+
     default_families = [
         "gap_linear",
         "gap_softmax",
@@ -2617,6 +2625,7 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         "enabled": bool(cfg.get("enabled", False)) or mode == "reweight_only",
         "mode": str(mode),
         "fixed_pair_builder": str(fixed_pair_builder),
+        "pair_weight_normalization": str(pair_weight_normalization),
         "allowed_weight_families": ([] if allow_freeform_weight_family else list(families)),
         "seed_weight_families": list(seed_families),
         "allow_uniform_none": bool(allow_uniform_none),
@@ -5054,22 +5063,34 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
     def _make_reweight_builder_ir(*, kind: str, weight_family: str, index: int) -> PreferenceBuilderIR:
         builder_label = f"{kind}_{weight_family}"
         template_code = _fixed_pair_template_code(kind)
+        norm_mode = str(search_space_cfg.get("pair_weight_normalization", "instance_mean"))
         helper_lines = [
             "    clamp_lo = 0.25",
             "    clamp_hi = 4.0",
-            "    batch_size = int(objective.shape[0])",
-            "    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=batch_size).to(dtype=objective.dtype)",
             "    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)",
-            "    mean_raw = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
-            "    mean_raw.index_add_(0, b_idx, raw)",
-            "    mean_raw = mean_raw / counts.clamp_min(1.0)",
-            "    weight = raw / mean_raw[b_idx].clamp_min(eps)",
-            "    weight = weight.clamp(clamp_lo, clamp_hi)",
-            "    mean_weight = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
-            "    mean_weight.index_add_(0, b_idx, weight)",
-            "    mean_weight = mean_weight / counts.clamp_min(1.0)",
-            "    weight = weight / mean_weight[b_idx].clamp_min(eps)",
         ]
+        if norm_mode == "none":
+            helper_lines.extend(
+                [
+                    "    weight = raw.clamp(clamp_lo, clamp_hi)",
+                ]
+            )
+        else:
+            helper_lines.extend(
+                [
+                    "    batch_size = int(objective.shape[0])",
+                    "    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=batch_size).to(dtype=objective.dtype)",
+                    "    mean_raw = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
+                    "    mean_raw.index_add_(0, b_idx, raw)",
+                    "    mean_raw = mean_raw / counts.clamp_min(1.0)",
+                    "    weight = raw / mean_raw[b_idx].clamp_min(eps)",
+                    "    weight = weight.clamp(clamp_lo, clamp_hi)",
+                    "    mean_weight = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
+                    "    mean_weight.index_add_(0, b_idx, weight)",
+                    "    mean_weight = mean_weight / counts.clamp_min(1.0)",
+                    "    weight = weight / mean_weight[b_idx].clamp_min(eps)",
+                ]
+            )
         base_lines = [
             "def generated_builder(feature_cache, extra):",
             "    objective = feature_cache['objective']",
@@ -5180,7 +5201,11 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
             "geometry_family": ("anchor_star" if kind == "anchor_best" else "dense_all_pairs"),
             "cap_family": ("anchor_single" if kind == "anchor_best" else "uncapped_full"),
             "weight_family": str(weight_family),
-            "constraint_family": "fixed_pair_reweight_only",
+            "constraint_family": (
+                "clamp_only"
+                if norm_mode == "none"
+                else "fixed_pair_reweight_only"
+            ),
         }
         signal_family = {
             "gap_rank_blend": "gap_rank",
