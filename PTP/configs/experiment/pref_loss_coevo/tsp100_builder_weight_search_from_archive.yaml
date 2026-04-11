@@ -53,6 +53,7 @@ builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
+  pair_weight_normalization: none
   seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
   allow_freeform_weight_family: true
   allow_uniform_none: false
@@ -187,6 +188,7 @@ builder_llm:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
+    pair_weight_normalization: none
     seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
     allow_freeform_weight_family: true
     allow_uniform_none: false

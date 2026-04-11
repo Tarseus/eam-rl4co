@@ -166,6 +166,9 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
         mode = str(search_space.get("mode", "") or "").strip().lower()
         if mode == "reweight_only":
             fixed_pair_builder = str(search_space.get("fixed_pair_builder", "all_pairs") or "all_pairs").strip().lower()
+            pair_weight_normalization = str(
+                search_space.get("pair_weight_normalization", "instance_mean") or "instance_mean"
+            ).strip().lower()
             allowed_weight_families = search_space.get("allowed_weight_families", [])
             if not isinstance(allowed_weight_families, (list, tuple)):
                 allowed_weight_families = []
@@ -182,10 +185,21 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 "- Your only substantive degree of freedom is the nonnegative pair weight function.\n"
                 "- Keep pair_idx identical to the fixed template and modify only `weight` plus metadata/hyperparameters.\n"
                 "- Weight must be finite, nonnegative, vectorized, and instance-local.\n"
-                "- Use weighting to reshape the per-instance pair distribution with full-pool context and instance-local normalization.\n"
                 "- This is not redundant with loss-only search: the downstream loss batch is flattened and does not carry `b_idx`, so it cannot reconstruct instance-local pair distributions or per-instance pool statistics.\n"
                 "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
             )
+            if pair_weight_normalization == "none":
+                out += (
+                    "- Pair-weight normalization mode is `none`.\n"
+                    "- Do not divide weights by per-instance sums or means.\n"
+                    "- Use raw nonnegative weighting followed by explicit clamping only.\n"
+                    "- Let the downstream loss-side weighted mean handle global scale normalization.\n"
+                )
+            else:
+                out += (
+                    "- Pair-weight normalization mode is `instance_mean`.\n"
+                    "- Use weighting to reshape the per-instance pair distribution with full-pool context and instance-local normalization.\n"
+                )
             if allow_freeform_weight_family:
                 out += (
                     f"- Seed weight_family values for the handcrafted initial pool: {json.dumps([str(x) for x in seed_weight_families], ensure_ascii=False)}\n"
@@ -210,14 +224,16 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                     out += (
                         "- This is a signal-organization rewrite under the same successful weighting family.\n"
                         "- Preserve `weight_family` and `constraint_family` unless correctness forces otherwise.\n"
-                        "- Rewrite normalization, clipping, rescaling, ranking, or gap-to-weight transformation structure.\n"
+                        "- Rewrite clipping, rescaling, ranking, or gap-to-weight transformation structure.\n"
+                        "- Respect the configured pair-weight normalization mode.\n"
                         "- Do not reduce this to a scalar-only tune.\n"
                     )
                 elif op_name == "CONSTRAINT_INJECT":
                     out += (
                         "- This step should add explicit optimization/stability constraints while preserving the core weighting family.\n"
                         "- Preserve `weight_family` and fixed pair topology.\n"
-                        "- Add concrete stabilizers such as normalization, denominator safeguards, clamp, topk caps, or tie-zone filtering.\n"
+                        "- Add concrete stabilizers such as denominator safeguards, clamp, topk caps, or tie-zone filtering.\n"
+                        "- Do not add instance-local normalization when the configured pair-weight normalization mode is `none`.\n"
                     )
                 elif op_name in {"XOVER", "E1"}:
                     out += (

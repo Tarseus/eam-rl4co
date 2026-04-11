@@ -284,6 +284,35 @@ def test_reweight_only_default_excludes_uniform_none(monkeypatch):
     assert "uniform_none" not in observed
 
 
+def test_reweight_only_builtin_pool_supports_clamp_only_weights(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear"],
+            "allow_uniform_none": False,
+        }
+    )
+
+    assert cfg["pair_weight_normalization"] == "none"
+
+    rng = random.Random(0)
+    rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+    ir = loop._make_builtin_builder_irs(rng, 1)[0]
+
+    assert ir.hyperparams["constraint_family"] == "clamp_only"
+    assert "mean_raw" not in ir.code
+    assert "mean_weight" not in ir.code
+    assert "weight = raw.clamp(clamp_lo, clamp_hi)" in ir.code
+
+
 def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
@@ -308,6 +337,7 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
                 "enabled": True,
                 "mode": "reweight_only",
                 "fixed_pair_builder": "all_pairs",
+                "pair_weight_normalization": "none",
                 "allow_freeform_weight_family": True,
                 "seed_weight_families": ["gap_rank_blend"],
             }
@@ -321,6 +351,7 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
     assert "rank" in prompt
     assert "regret" in prompt
     assert "loss batch is flattened and does not carry `b_idx`" in prompt
+    assert "Do not divide weights by per-instance sums or means." in prompt
 
 
 def test_builtin_multi_signal_reweight_builders_preserve_all_pairs(monkeypatch):
