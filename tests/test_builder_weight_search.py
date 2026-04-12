@@ -553,6 +553,41 @@ def test_builder_prompt_includes_exploration_guidance(monkeypatch):
     assert "avoid dominant weighting-family patterns" in prompt_lower
 
 
+def test_builder_prompt_includes_stage_and_family_quota_guidance(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear", "gap_bandpass"],
+            "allow_uniform_none": False,
+        }
+    )
+    prompt, _ = builder_ops.build_generation_prompt(
+        str(_repo_root() / "PTP" / "prompts" / "pref_builder_generation.txt"),
+        global_feedback={
+            "builder_search_space": cfg,
+            "builder_search": {
+                "stage_name": "family_search",
+                "stage_instructions": ["Prefer discovering a genuinely different weight_family."],
+                "missing_weight_families": ["gap_bandpass"],
+                "target_weight_family": "gap_bandpass",
+            },
+        },
+    )
+    prompt_lower = prompt.lower()
+    assert "builder_stage_guidance" in prompt_lower
+    assert "active search stage: family_search" in prompt_lower
+    assert "builder_family_quota_guidance" in prompt_lower
+    assert "prefer producing a valid candidate with `weight_family = gap_bandpass`" in prompt_lower
+
+
 def test_reweight_only_default_excludes_uniform_none(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
@@ -604,6 +639,85 @@ def test_reweight_only_builtin_pool_supports_clamp_only_weights(monkeypatch):
     assert "mean_raw" not in ir.code
     assert "mean_weight" not in ir.code
     assert "weight = raw.clamp(clamp_lo, clamp_hi)" in ir.code
+
+
+def test_builder_two_stage_plan_rewrites_ops(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_two_stage_cfg(  # noqa: SLF001
+        {
+            "enabled": True,
+            "stage1_generations": 2,
+            "stage1_ops": ["GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"],
+            "stage2_ops": ["TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"],
+        },
+        total_generations=6,
+        search_space_cfg={"enabled": True, "mode": "reweight_only", "fixed_pair_builder": "all_pairs"},
+    )
+
+    stage1_name = loop._builder_two_stage_name(0, cfg=cfg)  # noqa: SLF001
+    stage2_name = loop._builder_two_stage_name(3, cfg=cfg)  # noqa: SLF001
+    assert stage1_name == "family_search"
+    assert stage2_name == "hyperparam_tune"
+
+    plan_stage1 = loop._rewrite_builder_operator_plan_for_stage(  # noqa: SLF001
+        ["GEN", "TUNE", "XOVER"],
+        stage_name=stage1_name,
+        cfg=cfg,
+    )
+    plan_stage2 = loop._rewrite_builder_operator_plan_for_stage(  # noqa: SLF001
+        ["GEN", "PARADIGM_SHIFT", "TUNE"],
+        stage_name=stage2_name,
+        cfg=cfg,
+    )
+
+    assert "TUNE" not in plan_stage1
+    assert all(op in {"GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"} for op in plan_stage1)
+    assert all(op in {"TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"} for op in plan_stage2)
+
+
+def test_builder_proposal_family_quota_backfills_missing_families(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    out = loop._propose_builders_for_generation(
+        generation=0,
+        pop_g=2,
+        elites_g=[],
+        diverse_elites_g=[],
+        rng=random.Random(0),
+        llm_cfg={
+            "builder": {
+                "enabled": False,
+                "seed_reserve": 0,
+                "search_space": {
+                    "enabled": True,
+                    "mode": "reweight_only",
+                    "fixed_pair_builder": "all_pairs",
+                    "pair_weight_normalization": "none",
+                    "seed_weight_families": ["gap_linear", "gap_bandpass"],
+                    "allow_uniform_none": False,
+                },
+                "proposal_family_quota": {
+                    "enabled": True,
+                    "min_per_weight_family": 1,
+                    "target_weight_families": ["gap_linear", "gap_bandpass"],
+                    "seed_missing_families": True,
+                },
+            }
+        },
+        operator_whitelist=[],
+        global_feedback={},
+        llm_init_only=False,
+        carry_elites=False,
+    )
+
+    observed = [loop._builder_weight_family_label(item["ir"]) for item in out]  # noqa: SLF001
+    assert observed[:2] == ["gap_linear", "gap_bandpass"]
 
 
 def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
