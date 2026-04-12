@@ -273,6 +273,30 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
             f"- Avoid dominant weighting-family patterns when possible: {json.dumps([str(x) for x in avoid_families[:12]], ensure_ascii=False)}\n"
             "- Prefer genuine weighting-family changes or signal-organization rewrites over tiny scalar retunes.\n"
         )
+    if isinstance(builder_search, Mapping):
+        stage_name = str(builder_search.get("stage_name", "") or "").strip()
+        if stage_name:
+            stage_instructions = builder_search.get("stage_instructions", [])
+            if not isinstance(stage_instructions, (list, tuple)):
+                stage_instructions = []
+            out += (
+                "\n\nBUILDER_STAGE_GUIDANCE:\n"
+                f"- Active search stage: {stage_name}\n"
+            )
+            for line in list(stage_instructions)[:6]:
+                out += f"- {str(line)}\n"
+
+        target_weight_family = str(builder_search.get("target_weight_family", "") or "").strip()
+        missing_weight_families = builder_search.get("missing_weight_families", [])
+        if not isinstance(missing_weight_families, (list, tuple)):
+            missing_weight_families = []
+        if target_weight_family or missing_weight_families:
+            out += (
+                "\n\nBUILDER_FAMILY_QUOTA_GUIDANCE:\n"
+                f"- Missing / under-covered weight_family values this generation: {json.dumps([str(x) for x in missing_weight_families[:12]], ensure_ascii=False)}\n"
+            )
+            if target_weight_family:
+                out += f"- Prefer producing a valid candidate with `weight_family = {target_weight_family}` if the operator semantics allow it.\n"
     return out + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 
