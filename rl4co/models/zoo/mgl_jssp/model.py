@@ -138,13 +138,46 @@ class MGLJSSPModel(L.LightningModule):
             )
         log.info("Loaded external MGL checkpoint from %s", path.as_posix())
 
+    def _filter_instances_by_allowed_shapes(
+        self, instances: list[dict[str, Any]], split_name: str, data_dir: str
+    ) -> list[dict[str, Any]]:
+        if self.allowed_shapes is None:
+            return instances
+
+        filtered = [
+            ins for ins in instances if (int(ins["j"]), int(ins["m"])) in self.allowed_shapes
+        ]
+        if not filtered:
+            allowed = ", ".join(f"{j}x{m}" for j, m in self.allowed_shapes)
+            raise ValueError(
+                f"No {split_name} instances match allowed_shapes=[{allowed}] in {data_dir}."
+            )
+
+        if len(filtered) != len(instances):
+            log.info(
+                "Filtered %s split by allowed_shapes: %d -> %d instances",
+                split_name,
+                len(instances),
+                len(filtered),
+            )
+        return filtered
+
     def setup(self, stage: str | None = None) -> None:
         train_instances = load_dataset(self.train_data_dir, use_cached=self.use_cached, device="cpu")
         val_instances = load_dataset(self.val_data_dir, use_cached=self.use_cached, device="cpu")
+        train_instances = self._filter_instances_by_allowed_shapes(
+            train_instances, "train", self.train_data_dir
+        )
+        val_instances = self._filter_instances_by_allowed_shapes(
+            val_instances, "val", self.val_data_dir
+        )
         self.train_dataset = JSSPInstanceDataset(train_instances)
         self.val_dataset = JSSPInstanceDataset(val_instances)
         if self.test_data_dir:
             test_instances = load_dataset(self.test_data_dir, use_cached=self.use_cached, device="cpu")
+            test_instances = self._filter_instances_by_allowed_shapes(
+                test_instances, "test", self.test_data_dir
+            )
             self.test_dataset = JSSPInstanceDataset(test_instances)
         else:
             self.test_dataset = self.val_dataset
