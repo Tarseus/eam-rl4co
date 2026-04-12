@@ -1,0 +1,105 @@
+{
+  "generation": 5,
+  "pair_index": 13,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f005_008_7fa5def8",
+    "ir": {
+      "name": "pairwise_advantage_weighted_diff_loss_smooth",
+      "intuition": "Replaced the clipped sigmoid margin loss with a smoother, novelty-inducing weighted pairwise loss using the tanh operator to create a differentiable margin difference signal. This avoids direct clipped log-sigmoid computations and instead uses a scaled tanh difference between (log_prob_w - log_prob_l) adjusted by advantage_gap, promoting stable gradients and novelty by changing the nonlinearity and aggregation method while respecting advantage weighting for signal relevance.",
+      "pseudocode": "diff = log_prob_w - log_prob_l - beta * advantage_gap\nscaled_diff = alpha * diff\nmargin_score = tanh(scaled_diff)\nlosses = 0.5 * (1 - margin_score)\nweight_losses = weight * losses\nloss = sum(weight_losses)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "tanh",
+        "agg_family": "weighted_sum",
+        "constraint_family": "distance_loss",
+        "other_hparams": ""
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "tanh",
+        "add",
+        "sum",
+        "ones_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n    diff = ops.sub(ops.sub(lpw, lpl), ops.mul(beta, adv))\n    scaled_diff = ops.mul(alpha, diff)\n    margin_score = ops.tanh(scaled_diff)\n    losses = ops.mul(0.5, ops.sub(ops.ones_like(margin_score), margin_score))\n    if weight is None:\n        weight = ops.ones_like(losses)\n    weighted_losses = ops.mul(weight, losses)\n    loss = ops.sum(weighted_losses)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

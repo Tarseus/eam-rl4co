@@ -1,0 +1,67 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_tsp100_discovery_scratch_only.yaml",
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_tsp100_discovery_scratch_only/20260408-092546",
+  "preset": "simple",
+  "search_mode": "loss_only",
+  "alternating_schedule": {
+    "enabled": false,
+    "start_phase": "loss",
+    "loss_generations": 0,
+    "builder_generations": 0,
+    "final_loss_generations": 0,
+    "rounds": 0
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "improve_eps_calibration": null,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "last_generation": 9,
+  "best_so_far": {
+    "score": -0.042149878692626874,
+    "builder_id": "g_ref",
+    "loss_id": "f005_006_8b004cd2",
+    "stage_final": "high_fidelity",
+    "generation": 5,
+    "phase": "loss",
+    "stage3_all_scenarios_negative": true,
+    "stage3_nonnegative_scenario_count": 0,
+    "stage3_worst_scenario_delta": -0.042149878692626874
+  },
+  "best_builder_cost": null,
+  "builder_cost_archive": {},
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "f005_006_8b004cd2"
+  },
+  "best_score": -0.042149878692626874,
+  "best_stage_final": "high_fidelity",
+  "best_gen": 5,
+  "best_phase": "loss",
+  "best_pair_score_history": [
+    {
+      "generation": 5,
+      "pair_index": 33,
+      "phase": "loss",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.042149878692626874,
+      "eval_budget_signature": "2a986e397fd6c3df",
+      "reference_score": -0.039184976959228734
+    }
+  ],
+  "best_pair_score_history_summary": {
+    "count": 1,
+    "scores": [
+      -0.042149878692626874
+    ],
+    "best": -0.042149878692626874,
+    "worst": -0.042149878692626874,
+    "mean": -0.042149878692626874,
+    "latest": -0.042149878692626874
+  }
+}

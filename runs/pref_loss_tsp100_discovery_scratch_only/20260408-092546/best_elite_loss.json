@@ -1,0 +1,167 @@
+{
+  "generation": 9,
+  "index": 0,
+  "id": "f009_000_464320d9",
+  "signature": "464320d9603f36441ca069fd693080a876c87055",
+  "family": "pairwise_rank_margin|advantage_gap|weighted_mean|bounded_loss",
+  "family_signature": "paradigm=pairwise_rank_margin|signal=advantage_gap|agg=weighted_mean|constraint=bounded_loss",
+  "origin": "REPAIR",
+  "origin_base": "E1",
+  "op_type": "REPAIR",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": "740eb12875099893cb22713ed7e47070324d8721",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+  "llm_seed": 346334678,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1_GENERATE",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "prompt_sha1": "740eb12875099893cb22713ed7e47070324d8721"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "9140217f1a64fe233b6936e16c28b4b28e3df095"
+    },
+    {
+      "attempt": 1,
+      "side": "loss",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m3.txt",
+      "prompt_sha1": "0b9291560aabc46d13f84526a275001eeba52f3a"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.7692307692307693,
+    "best_similarity_parts": {
+      "bigram": 0.4,
+      "unigram": 0.6470588235294118,
+      "call": 0.7692307692307693
+    },
+    "neighbors": [
+      {
+        "sig": "e3d021aa3900609a63b4ba6e0f539bb6e9b9a4b5",
+        "name": "pairwise_logprob_advantage_margin_loss",
+        "similarity": 0.7692307692307693,
+        "similarity_parts": {
+          "bigram": 0.4,
+          "unigram": 0.6470588235294118,
+          "call": 0.7692307692307693
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.div",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.softplus",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "b370be276e863e97e49e975199524c945ddd31d9",
+        "name": "pairwise_advantage_tanh_margin_loss_weighted_sum",
+        "similarity": 0.7692307692307693,
+        "similarity_parts": {
+          "bigram": 0.28125,
+          "unigram": 0.6470588235294118,
+          "call": 0.7692307692307693
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sub",
+          "ops.sum",
+          "ops.tanh"
+        ]
+      },
+      {
+        "sig": "51fb3a9a9ac01cb214a26874547a4915fffdde92",
+        "name": "pairwise_sigmoid_advantage_loss_clipped_margin",
+        "similarity": 0.7692307692307693,
+        "similarity_parts": {
+          "bigram": 0.23529411764705882,
+          "unigram": 0.7058823529411765,
+          "call": 0.7692307692307693
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_softplus_weighted_margin_loss_with_clamping",
+    "intuition": "Replaces the asymmetric softplus margin difference with a simpler signed margin linear in the log_prob difference clamped to avoid extreme values, then combines linearly with advantage_gap. The loss uses a negative tanh link for boundedness and aggregates via a weighted mean (sum weighted losses divided by sum weights) for numerical stability and interpretability. Clamping the margin difference prevents numerical overflow or instability from extreme log_prob differences. This simplification avoids logsumexp and max-shift computations, reducing complexity and potential instability while preserving preference guidance with advantage_gap and weighting.",
+    "pseudocode": "diff = clamp(log_prob_w - log_prob_l, -10, 10)\nmargin = alpha * diff - beta * advantage_gap\nlosses = -tanh(margin)\nloss = sum(weight * losses) / sum(weight)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_rank_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "tanh",
+      "agg_family": "weighted_mean",
+      "constraint_family": "bounded_loss",
+      "other_hparams": "clamped_margin_simplification"
+    },
+    "operators_used": [
+      "sub",
+      "clamp",
+      "mul",
+      "neg",
+      "tanh",
+      "sum",
+      "div",
+      "ones_like"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv = batch['advantage_gap']\n    weight = batch.get('weight', ops.ones_like(adv))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n\n    diff_raw = ops.sub(lpw, lpl)\n    diff = ops.clamp(diff_raw, -10.0, 10.0)\n\n    margin = ops.sub(ops.mul(alpha, diff), ops.mul(beta, adv))\n    losses = ops.neg(ops.tanh(margin))\n\n    weighted_losses = ops.mul(losses, weight)\n    sum_weighted_losses = ops.sum(weighted_losses)\n    sum_weight = ops.sum(weight)\n\n    loss = ops.div(sum_weighted_losses, sum_weight)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.03191355514526384,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}
