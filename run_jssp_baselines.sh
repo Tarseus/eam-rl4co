@@ -125,7 +125,7 @@ if [[ -n "${SHAPE_FILTER}" ]]; then
   fi
   jobs="${BASH_REMATCH[1]}"
   machines="${BASH_REMATCH[2]}"
-  ALLOWED_SHAPES_ARG="model.allowed_shapes=[[${jobs},${machines}]]"
+  ALLOWED_SHAPES_ARG="+model.allowed_shapes=[[${jobs},${machines}]]"
 fi
 
 TS="$(date +%Y%m%d-%H%M%S)"

@@ -1,0 +1,109 @@
+{
+  "generation": 9,
+  "pair_index": 31,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f009_005_80849452",
+    "ir": {
+      "name": "stabilized_mixed_crossover_loss_E1",
+      "intuition": "Simplified and stabilized the original mixed crossover loss by removing the redundant probabilistic margin (sigmoid + log) term which could cause numerical instability and overlaps with the softplus margin. The combined margin now uses a difference of softplus transforms for smooth asymmetric margin and linearly combines it with advantage_gap. The final loss applies a bounded tanh transform and aggregates losses via a stable normalized logsumexp weighted by 'weight'. This avoids invalid expects and numerical instability by clamping weights and adding a small epsilon to sums, ensuring finite values and stable gradients while preserving semantic alignment and smoothness.",
+      "pseudocode": "diff = log_prob_w - log_prob_l\nmargin_diff = softplus(diff) - softplus(-diff)\nmargin = alpha * margin_diff - beta * advantage_gap\nlosses = -tanh(margin)\nweighted_losses = weight * losses\nloss = logsumexp(weighted_losses) normalized by sum(weight)",
+      "hyperparams": {
+        "alpha": 1.0,
+        "beta": 0.5,
+        "epsilon": 1e-08
+      },
+      "operators_used": [
+        "sub",
+        "softplus",
+        "mul",
+        "neg",
+        "tanh",
+        "sum",
+        "exp",
+        "log",
+        "max",
+        "ones_like",
+        "add",
+        "div",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "advantage_gap",
+          "weight"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv = batch['advantage_gap']\n    weight = batch.get('weight', ops.ones_like(adv))\n\n    # Clamp weight to avoid zero or negative which can cause instability\n    epsilon = 1e-8\n    weight = ops.clamp(weight, epsilon, 1e6)\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n\n    diff = ops.sub(lpw, lpl)\n    margin_diff = ops.sub(ops.softplus(diff), ops.softplus(ops.neg(diff)))\n\n    margin = ops.sub(ops.mul(alpha, margin_diff), ops.mul(beta, adv))\n    losses = ops.neg(ops.tanh(margin))\n\n    weighted_losses = ops.mul(losses, weight)\n    max_loss = ops.max(weighted_losses)\n    shifted = ops.sub(weighted_losses, max_loss)\n    exp_shifted = ops.exp(shifted)\n    sum_exp = ops.sum(exp_shifted)\n\n    # Add epsilon to sum_exp to avoid log(0) and ensure numerical stability\n    sum_exp = ops.add(sum_exp, epsilon)\n\n    log_sum_exp = ops.add(ops.log(sum_exp), max_loss)\n    sum_weight = ops.sum(weight)\n    sum_weight = ops.add(sum_weight, epsilon)\n\n    loss = ops.sub(log_sum_exp, ops.log(sum_weight))\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

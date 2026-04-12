@@ -1,0 +1,106 @@
+{
+  "generation": 2,
+  "pair_index": 25,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_013_d1808f78",
+    "ir": {
+      "name": "loss_stabilized_margin_plus_adv_diff_sigmoid_penalty",
+      "intuition": "To reduce similarity to prior composite losses, I replaced the tanh scaling of margin with a softplus-based smooth hinge margin loss that encourages margin > 0, avoiding tanh usage. The advantage difference penalty is computed separately using sigmoid on the clamped difference, but now combined additively without learned weighting to simplify and differentiate from previous mixings. I removed negation on sigmoid to encourage positive penalty for advantage inconsistencies. The final loss uses mean aggregation and applies optional weighting. This design preserves stability, semantic clarity, and uses only 'log_prob_w', 'log_prob_l', 'advantage_w', 'advantage_l', and 'weight', fulfilling required keys and novelty constraints.",
+      "pseudocode": "lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    margin = ops.sub(lpl, lpw)  # encourage lpl > lpw\n    margin_loss = ops.softplus(margin)  # smooth hinge-like loss\n    adv_diff = ops.sub(adv_l, adv_w)  # encourage adv_l > adv_w\n    clamped_adv_diff = ops.clamp(adv_diff, -20.0, 20.0)\n    adv_penalty = ops.sigmoid(clamped_adv_diff)  # penalty for incorrect adv order\n    combined_loss = ops.add(margin_loss, adv_penalty)\n    if weight is not None:\n        combined_loss = ops.mul(combined_loss, weight)\n    return ops.mean(combined_loss)",
+      "hyperparams": {
+        "paradigm_family": "hybrid",
+        "signal_family": "composite",
+        "link_family": "softplus",
+        "agg_family": "mean",
+        "constraint_family": "clamp"
+      },
+      "operators_used": [
+        "sub",
+        "softplus",
+        "clamp",
+        "sigmoid",
+        "add",
+        "mul",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    margin = ops.sub(lpl, lpw)  # positive margin means winning log_prob larger\n    margin_loss = ops.softplus(margin)  # smooth hinge, penalizes margin <= 0\n    adv_diff = ops.sub(adv_l, adv_w)  # positive means advantage_l better than advantage_w\n    clamped_adv_diff = ops.clamp(adv_diff, -20.0, 20.0)\n    adv_penalty = ops.sigmoid(clamped_adv_diff)  # smooth penalty for preference violation\n    combined_loss = ops.add(margin_loss, adv_penalty)\n    if weight is not None:\n        combined_loss = ops.mul(combined_loss, weight)\n    return ops.mean(combined_loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "generation": 7,
+  "pair_index": 15,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f007_015_1db08ffe",
+    "ir": {
+      "name": "pairwise_weighted_tanh_advantage_logsumexp_margin_loss",
+      "intuition": "To increase novelty and reduce similarity to existing tanh advantage logmeanexp losses, I replaced the symmetric clamp margin with an asymmetric logarithmic margin transformation to reshape the margin difference nonlinearly. This uses a sign-based log transform clamp to compress large margin gaps without simple clipping, and aggregates losses with logsumexp but weighted by importance and normalized by sum weights. This preserves smooth gradients and pairwise ranking incentives, but with a novel nonlinear margin scaling and aggregation that differs meaningfully from prior simple clamping. This reduces near identical code pattern similarity by changing both margin computation and aggregation strategy.",
+      "pseudocode": "margin_diff = log(1 + abs(log_prob_w - log_prob_l)) * sign(log_prob_w - log_prob_l)\nmargin = alpha * margin_diff - beta * advantage_gap\nscaled_margin = tanh(margin)\nweighted_losses = -scaled_margin * weight\nloss = logsumexp(weighted_losses) - log(sum(weight))",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "tanh",
+        "agg_family": "logsumexp_normalized",
+        "constraint_family": "bounded_loss",
+        "other_hparams": "asymmetric_log_margin_transform"
+      },
+      "operators_used": [
+        "add",
+        "abs",
+        "log",
+        "sign",
+        "mul",
+        "sub",
+        "neg",
+        "tanh",
+        "sum",
+        "exp",
+        "log",
+        "div",
+        "ones_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv = batch['advantage_gap']\n    weight = batch.get('weight', ops.ones_like(adv))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n\n    margin_diff_raw = ops.sub(lpw, lpl)\n    margin_diff = ops.mul(ops.sign(margin_diff_raw), ops.log(ops.add(ops.abs(margin_diff_raw), ops.ones_like(margin_diff_raw))))\n\n    margin = ops.sub(ops.mul(alpha, margin_diff), ops.mul(beta, adv))\n    scaled_margin = ops.tanh(margin)\n    losses = ops.neg(scaled_margin)\n\n    weighted_losses = ops.mul(losses, weight)\n    max_loss = ops.max(weighted_losses)\n    shifted = ops.sub(weighted_losses, max_loss)\n    exp_shifted = ops.exp(shifted)\n    sum_exp = ops.sum(exp_shifted)\n    log_sum_exp = ops.add(ops.log(sum_exp), max_loss)\n    sum_weight = ops.sum(weight)\n\n    loss = ops.sub(log_sum_exp, ops.log(sum_weight))\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
