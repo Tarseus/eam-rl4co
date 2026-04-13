@@ -4,8 +4,7 @@ model:
     train:
     - loss
     - reward
-    - quality
-    - pair_count
+    - pref_rate
     val:
     - reward
     - gap
@@ -13,15 +12,14 @@ model:
     test: ${model.metrics.val}
     log_on_step: true
   _target_: rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel
-  baseline: bopo
+  baseline: po
   train_data_dir: ${paths.root_dir}/data/jssp_bopo/train
   val_data_dir: ${paths.root_dir}/data/jssp_bopo/validation
   test_data_dir: null
   use_cached: true
-  batch_size: 4
+  batch_size: 1
   val_batch_size: 1
   test_batch_size: 1
-  dataloader_num_workers: 0
   optimizer: Adam
   optimizer_kwargs:
     lr: 0.0002
@@ -33,20 +31,14 @@ model:
   B: 128
   K: 16
   D: 1
-  pair_mode: anchor_best
+  po_impl: bt
   val_B: 128
   test_B: 128
   greedy: 0
-  log_on_step: true
-  use_shape_buckets: true
-  bucket_drop_last: false
+  log_on_step: false
   allowed_shapes:
   - - 10
     - 10
-  - - 15
-    - 15
-  - - 20
-    - 20
 model/params/total: 351232
 model/params/trainable: 351232
 model/params/non_trainable: 0
@@ -64,7 +56,7 @@ trainer:
 callbacks:
   model_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
-    dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/mgl-jssp-bopo_20260327-154830/checkpoints
+    dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/mgl-jssp-po_paper_10x10_20260412-083925/checkpoints
     filename: epoch_{epoch:03d}
     monitor: val/gap
     verbose: false
@@ -91,9 +83,7 @@ extras:
   print_config: true
 task_name: null
 tags:
-- mgl-jssp-bopo-bucketed
+- mgl-jssp-po
 - jssp
-- phase5
-- multishape
 ckpt_path: null
 seed: 69

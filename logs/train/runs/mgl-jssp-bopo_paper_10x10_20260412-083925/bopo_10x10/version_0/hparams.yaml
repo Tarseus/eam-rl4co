@@ -5,6 +5,7 @@ model:
     - loss
     - reward
     - quality
+    - pair_count
     val:
     - reward
     - gap
@@ -12,7 +13,7 @@ model:
     test: ${model.metrics.val}
     log_on_step: true
   _target_: rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel
-  baseline: rl
+  baseline: bopo
   train_data_dir: ${paths.root_dir}/data/jssp_bopo/train
   val_data_dir: ${paths.root_dir}/data/jssp_bopo/validation
   test_data_dir: null
@@ -31,6 +32,7 @@ model:
   B: 128
   K: 16
   D: 1
+  pair_mode: anchor_best
   val_B: 128
   test_B: 128
   greedy: 0
@@ -55,7 +57,7 @@ trainer:
 callbacks:
   model_checkpoint:
     _target_: lightning.pytorch.callbacks.ModelCheckpoint
-    dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/mgl-jssp-rl_paper_10x10_20260412-044139/checkpoints
+    dirpath: /data1/gushengda/eam-rl4co/logs/train/runs/mgl-jssp-bopo_paper_10x10_20260412-083925/checkpoints
     filename: epoch_{epoch:03d}
     monitor: val/gap
     verbose: false
@@ -82,7 +84,7 @@ extras:
   print_config: true
 task_name: null
 tags:
-- mgl-jssp-rl
+- mgl-jssp-bopo
 - jssp
 ckpt_path: null
 seed: 69
