@@ -1,66 +1,45 @@
 {
-  "generation": 5,
-  "index": 1,
-  "id": "g005_001_a3a3c43f",
-  "signature": "a3a3c43fb6c91bbdd69b5da585aaaf09305271ab",
-  "family_signature": "geometry=dense_all_pairs|cap=clamp_only|weight=gap_rank_blend|constraint=clamp_only",
+  "generation": 9,
+  "index": 0,
+  "id": "g009_000_89c918b7",
+  "signature": "89c918b7ab122ddf935056d5a70b8d750ec918e9",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
   "origin": "REPAIR",
   "origin_base": "M2",
   "op_type": "REPAIR",
   "parents": [
-    "g002_002_3487cf61"
+    "g008_001_82bdca06"
   ],
   "attempt": 0,
-  "prompt_sha1": "ea552fe70d7a4910e89cb8ea1acf5297c4bc63a7",
+  "prompt_sha1": "6d3b24a9a1c5c54b5d1c4e0d4046e244631969d1",
   "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-  "llm_seed": 564529499,
+  "llm_seed": 1540703654,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
       "llm_op": "M2",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
-      "prompt_sha1": "f75c609dd854c5328e283c5dadc1be0b7fbfa7c2"
+      "prompt_sha1": "ad5f586ca1b50606603a2c46d244db2ec816dd5a"
     },
     {
       "attempt": 0,
       "op": "M3",
       "llm_op": "M3",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
-      "prompt_sha1": "043479ec1c6fbadd8fbbbefae151e34b77f873d2"
+      "prompt_sha1": "3a90e3d84efff4a774f918573239a53b6350688d"
     },
     {
       "attempt": 0,
       "op": "REPAIR",
       "llm_op": "REPAIR",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-      "prompt_sha1": "51cba1dc97b5ec6f27ca42d7b8fa66fcea455152"
-    },
-    {
-      "attempt": 1,
-      "op": "REPAIR",
-      "llm_op": "REPAIR",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-      "prompt_sha1": "05af0598526c83fe34c3f17ecef7cc7d3f1a1438"
-    },
-    {
-      "attempt": 2,
-      "op": "REPAIR",
-      "llm_op": "REPAIR",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-      "prompt_sha1": "8ce6b206b7a8469fa630d0d2e585954781f55178"
-    },
-    {
-      "attempt": 3,
-      "op": "REPAIR",
-      "llm_op": "REPAIR",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-      "prompt_sha1": "ea552fe70d7a4910e89cb8ea1acf5297c4bc63a7"
+      "prompt_sha1": "6d3b24a9a1c5c54b5d1c4e0d4046e244631969d1"
     }
   ],
   "ir": {
-    "name": "pairwise_gap_rank_blend_tuned_006",
-    "intuition": "Weight pairs by the positive objective gap multiplied by a smooth inverse softened regret difference using a tunable beta exponent, improving numerical stability and weight smoothness while preserving the gap-rank blend principle and finite nonnegative weights.",
+    "name": "pairwise_gap_linear_reweight_v5",
+    "intuition": "Weights pairs by a smooth sigmoid-transformed positive objective gap with tunable temperature and clamp bounds, preserving all-pairs topology and nonnegative weights for stable reweighting in reweight_only mode.",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -71,18 +50,17 @@
     },
     "hyperparams": {
       "geometry_family": "dense_all_pairs",
-      "cap_family": "clamp_only",
-      "weight_family": "gap_rank_blend",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_linear",
       "constraint_family": "clamp_only"
     },
     "operators_used": [
       "all_pairs",
+      "sub",
       "clamp",
-      "abs",
-      "pow",
-      "nan_to_num"
+      "sigmoid"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise', 'weight_family': 'gap_rank_blend'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    eps = float(extra.get('weight_eps', 1e-5))\n    beta = float(extra.get('weight_beta', 0.5))\n    inv_regret = 1.0 / (regret_diff + eps).pow(beta)\n    raw_weight = gap_pos * inv_regret\n    raw_weight = torch.nan_to_num(raw_weight, nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = float(extra.get('clamp_lo', 0.2))\n    clamp_hi = float(extra.get('clamp_hi', 4.5))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise', 'weight_family': 'gap_rank_blend'})"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_gap_linear_reweight_v5', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    # Use smooth sigmoid transform on gap_pos scaled by tau for smoother weighting\n    weight_raw = (gap_pos * tau).sigmoid()\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 5.0))\n    weight = weight_raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise_gap_linear_reweight_v5', 'weight_family': 'gap_linear'})"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -120,7 +98,7 @@
     "memory_metric_available": false,
     "memory_device": "cpu"
   },
-  "fitness": Infinity,
+  "fitness": -0.008016434097289693,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
@@ -129,14 +107,14 @@
       0
     ]
   },
-  "builder_perf": -0.0015802585601805141,
+  "builder_perf": -0.008016434097289693,
   "builder_cost": 960.0,
   "builder_feasible": true,
-  "builder_threshold": -0.0015802585601805141,
-  "builder_best_perf": -0.0015802585601805141,
+  "builder_threshold": -0.008016434097289693,
+  "builder_best_perf": -0.008016434097289693,
   "selection_sort_key": [
     0.0,
     960.0,
-    -0.0015802585601805141
+    -0.008016434097289693
   ]
 }
