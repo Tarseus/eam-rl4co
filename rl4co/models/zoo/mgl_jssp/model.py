@@ -291,16 +291,6 @@ class MGLJSSPModel(L.LightningModule):
                 sync_dist=True,
                 batch_size=actual_batch_size,
             )
-        if self.baseline == "po" and "pref_rate" in self.train_metrics:
-            self.log(
-                "train/pref_rate",
-                aux_total,
-                on_step=self.log_on_step,
-                on_epoch=not self.log_on_step,
-                prog_bar=False,
-                sync_dist=True,
-                batch_size=actual_batch_size,
-            )
         return loss_total
 
     def _training_rollout(
@@ -356,7 +346,7 @@ class MGLJSSPModel(L.LightningModule):
 
             # Compute PO loss per-instance (strictly within-instance pairs), then average
             total_loss = 0.0
-            total_pref_rate = 0.0
+            total_quality = 0.0
             best_makespan_list = []
 
             for i in range(num_instances):
@@ -365,13 +355,13 @@ class MGLJSSPModel(L.LightningModule):
                     logits=logits_reshaped[i],
                     mss=makespans_reshaped[i]
                 )
-                loss_i, pref_rate_i = po_loss(samples_i, impl=self.po_impl)
+                loss_i, quality_i = po_loss(samples_i, impl=self.po_impl)
                 total_loss = total_loss + loss_i
-                total_pref_rate = total_pref_rate + pref_rate_i
+                total_quality = total_quality + quality_i
                 best_makespan_list.append(makespans_reshaped[i].min())
 
             loss = total_loss / num_instances
-            quality = total_pref_rate / num_instances
+            quality = total_quality / num_instances
             best_makespan = torch.stack(best_makespan_list).min()
 
             reward = -best_makespan.to(self.device)

@@ -56,6 +56,6 @@ model:
   bucket_drop_last: false
   allowed_shapes: [[10, 10], [15, 15], [20, 20]]
   metrics:
-    train: ["loss", "reward", "pref_rate"]
+    train: ["loss", "reward", "quality"]
     val: ["reward", "gap", "makespan"]
     test: ${model.metrics.val}
