@@ -7,6 +7,8 @@ cd "$ROOT_DIR"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 BASELINES="bopo,rl,po"
 GPU_MAP=""
+VARIANT="bucketed-multishape"
+SHAPE_FILTER=""
 WAIT_MODE=1
 
 print_usage() {
@@ -17,12 +19,16 @@ Usage:
 Options:
   --baselines LIST    Comma-separated subset of: bopo,rl,po. Default: bopo,rl,po
   --gpus MAP          Comma-separated gpu map, e.g. bopo=0,rl=1,po=2
+  --variant NAME      Experiment variant: bucketed-multishape or paper.
+                      Default: bucketed-multishape
+  --shape JxM         Restrict training sampler to a single shape, e.g. 10x10
   --no-wait           Start processes and exit without waiting
   -h, --help          Show this help
 
 Examples:
   ./run_jssp_baselines.sh --baselines bopo,po --gpus bopo=0,po=1
   ./run_jssp_baselines.sh --baselines rl --gpus rl=3 -- trainer.max_epochs=30
+  ./run_jssp_baselines.sh --variant paper --shape 10x10 --gpus po=0,rl=2,bopo=3
 EOF
 }
 
@@ -34,6 +40,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --gpus)
       GPU_MAP="${2:-}"
+      shift 2
+      ;;
+    --variant)
+      VARIANT="${2:-}"
+      shift 2
+      ;;
+    --shape)
+      SHAPE_FILTER="${2:-}"
       shift 2
       ;;
     --no-wait)
@@ -94,6 +108,26 @@ if [[ -n "${GPU_MAP}" ]]; then
   done
 fi
 
+case "${VARIANT}" in
+  bucketed-multishape|paper)
+    ;;
+  *)
+    echo "Unsupported variant: ${VARIANT}" >&2
+    exit 1
+    ;;
+esac
+
+ALLOWED_SHAPES_ARG=""
+if [[ -n "${SHAPE_FILTER}" ]]; then
+  if [[ ! "${SHAPE_FILTER}" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+    echo "Invalid --shape value: ${SHAPE_FILTER}. Expected format like 10x10." >&2
+    exit 1
+  fi
+  jobs="${BASH_REMATCH[1]}"
+  machines="${BASH_REMATCH[2]}"
+  ALLOWED_SHAPES_ARG="+model.allowed_shapes=[[${jobs},${machines}]]"
+fi
+
 TS="$(date +%Y%m%d-%H%M%S)"
 
 declare -a PIDS=()
@@ -103,9 +137,15 @@ declare -a LOGS=()
 start_baseline() {
   local baseline="$1"
   local gpu_id="$2"
-  local log_path="${ROOT_DIR}/logs/jssp_${baseline}_${TS}.out"
-  local experiment="scheduling/mgl-jssp-${baseline}-bucketed-multishape"
-  local run_dir="${ROOT_DIR}/logs/train/runs/mgl-jssp-${baseline}_${TS}"
+  local log_suffix="${VARIANT}"
+  local experiment="scheduling/mgl-jssp-${baseline}-${VARIANT}"
+  local logger_name="${baseline}"
+  if [[ -n "${SHAPE_FILTER}" ]]; then
+    log_suffix="${log_suffix}_${SHAPE_FILTER}"
+    logger_name="${baseline}_${SHAPE_FILTER}"
+  fi
+  local log_path="${ROOT_DIR}/logs/jssp_${baseline}_${log_suffix}_${TS}.out"
+  local run_dir="${ROOT_DIR}/logs/train/runs/mgl-jssp-${baseline}_${log_suffix}_${TS}"
   local ckpt_dir="${run_dir}/checkpoints"
   local cmd=(
     "${PYTHON_BIN}" -u run.py
@@ -122,8 +162,11 @@ start_baseline() {
     "trainer.accelerator=gpu"
     "+trainer.devices=[0]"
     "logger=csv"
-    "logger.csv.name=${baseline}"
+    "logger.csv.name=${logger_name}"
   )
+  if [[ -n "${ALLOWED_SHAPES_ARG}" ]]; then
+    cmd+=("${ALLOWED_SHAPES_ARG}")
+  fi
   cmd+=("${EXTRA_ARGS[@]}")
 
   echo "[${baseline}] CUDA_VISIBLE_DEVICES=${gpu_id}"

@@ -1,0 +1,110 @@
+{
+  "generation": 8,
+  "pair_index": 24,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_007_aa9b214a",
+    "ir": {
+      "name": "pairwise_weighted_softplus_margin_diff_advantage_loss_v2",
+      "intuition": "To reduce similarity and improve novelty, replaced the symmetric signed softplus margin with an asymmetric margin using relu and softplus to emphasize positive margin differences. Specifically, margin_diff is transformed via relu to keep only positive gaps, softly penalized by subtracting a scaled advantage_gap term. The loss is weighted, negated, and aggregated using a numerically stable normalized logsumexp over weighted losses. This avoids symmetric softplus subtraction and tanh, producing a distinct shape that encourages margin separation while maintaining smooth gradients and pairwise ranking incentives.",
+      "pseudocode": "margin_diff = log_prob_w - log_prob_l\npos_margin = relu(margin_diff)\nsoft_margin = softplus(pos_margin)\nmargin = soft_margin - beta * advantage_gap\nlosses = -margin\nweighted_losses = losses * weight\nmax_loss = max(weighted_losses)\nshifted = weighted_losses - max_loss\nexp_shifted = exp(shifted)\nsum_exp = sum(exp_shifted)\nlog_sum_exp = log(sum_exp) + max_loss\nloss = log_sum_exp - log(sum(weight))",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "relu_softplus_asymmetric",
+        "agg_family": "logsumexp_normalized",
+        "constraint_family": "bounded_loss",
+        "other_hparams": "asymmetric_margin_with_relu"
+      },
+      "operators_used": [
+        "add",
+        "sub",
+        "mul",
+        "neg",
+        "softplus",
+        "sum",
+        "log",
+        "exp",
+        "max",
+        "relu",
+        "ones_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv = batch['advantage_gap']\n    weight = batch.get('weight', ops.ones_like(adv))\n\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n\n    margin_diff = ops.sub(lpw, lpl)\n    pos_margin = ops.relu(margin_diff)\n    soft_margin = ops.softplus(pos_margin)\n\n    margin = ops.sub(soft_margin, ops.mul(beta, adv))\n    losses = ops.neg(margin)\n\n    weighted_losses = ops.mul(losses, weight)\n    max_loss = ops.max(weighted_losses)\n    shifted = ops.sub(weighted_losses, max_loss)\n    exp_shifted = ops.exp(shifted)\n    sum_exp = ops.sum(exp_shifted)\n    log_sum_exp = ops.add(ops.log(sum_exp), max_loss)\n    sum_weight = ops.sum(weight)\n\n    loss = ops.sub(log_sum_exp, ops.log(sum_weight))\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
