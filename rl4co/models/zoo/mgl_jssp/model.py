@@ -51,6 +51,7 @@ class MGLJSSPModel(L.LightningModule):
         D: int = 1,
         pair_mode: str = "anchor_best",
         po_impl: str = "bt",
+        po_alpha: float = 1.0,
         val_B: int = 128,
         test_B: int = 128,
         greedy: int = 0,
@@ -82,6 +83,7 @@ class MGLJSSPModel(L.LightningModule):
         self.D = int(D)
         self.pair_mode = str(pair_mode or "anchor_best").strip().lower()
         self.po_impl = str(po_impl or "bt").strip().lower()
+        self.po_alpha = float(po_alpha)
         self.val_B = int(val_B)
         self.test_B = int(test_B)
         self.use_greedy = bool(greedy)
@@ -111,6 +113,8 @@ class MGLJSSPModel(L.LightningModule):
             raise ValueError("D must be positive.")
         if self.baseline == "bopo" and self.B % self.K != 0:
             raise ValueError(f"MGL JSSP BOPO requires B % K == 0, got B={self.B}, K={self.K}.")
+        if self.po_alpha <= 0:
+            raise ValueError(f"MGL JSSP po_alpha must be positive, got {self.po_alpha}.")
 
         self.encoder = CAMEncoder3(15, hidden_size=enc_hidden, embed_size=enc_out)
         self.decoder = LSTMDecoder2(
@@ -355,7 +359,7 @@ class MGLJSSPModel(L.LightningModule):
                     logits=logits_reshaped[i],
                     mss=makespans_reshaped[i]
                 )
-                loss_i, quality_i = po_loss(samples_i, impl=self.po_impl)
+                loss_i, quality_i = po_loss(samples_i, impl=self.po_impl, alpha=self.po_alpha)
                 total_loss = total_loss + loss_i
                 total_quality = total_quality + quality_i
                 best_makespan_list.append(makespans_reshaped[i].min())
