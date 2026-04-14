@@ -8,11 +8,17 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 CONFIG_PATH="${1:-PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml}"
 MODE="${2:-start}" # start | resume-latest | resume-dir
 RESUME_DIR="${3:-}"
+# Optional visible GPU list, e.g. "1,2,4,5".
+# Priority: 4th arg > GPU_LIST env > CUDA_VISIBLE_DEVICES env.
+VISIBLE_GPUS="${4:-${GPU_LIST:-${CUDA_VISIBLE_DEVICES:-}}}"
 
 export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
 export LOG_TZ="Asia/Shanghai"
 : "${LOG_LEVEL:=INFO}"
 export LOG_LEVEL
+if [[ -n "$VISIBLE_GPUS" ]]; then
+  export CUDA_VISIBLE_DEVICES="$VISIBLE_GPUS"
+fi
 
 LOG_DIR="${ROOT_DIR}/logs"
 mkdir -p "$LOG_DIR"
@@ -36,14 +42,18 @@ case "$MODE" in
     ;;
   *)
     echo "Usage:" >&2
-    echo "  $0 [config_path] start" >&2
-    echo "  $0 [config_path] resume-latest" >&2
-    echo "  $0 [config_path] resume-dir <run_dir>" >&2
+    echo "  $0 [config_path] start [resume_dir_unused] [visible_gpus]" >&2
+    echo "  $0 [config_path] resume-latest [resume_dir_unused] [visible_gpus]" >&2
+    echo "  $0 [config_path] resume-dir <run_dir> [visible_gpus]" >&2
+    echo "  Example: $0 PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml start '' 1,2,4,5" >&2
     exit 2
     ;;
 esac
 
 echo "Running: ${CMD[*]}"
+if [[ -n "${CUDA_VISIBLE_DEVICES:-}" ]]; then
+  echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES}"
+fi
 echo "Log: $LOG_PATH"
 nohup "${CMD[@]}" >"$LOG_PATH" 2>&1 &
 echo "Started PID: $!"
