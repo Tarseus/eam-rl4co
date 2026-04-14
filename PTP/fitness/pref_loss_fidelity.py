@@ -485,7 +485,12 @@ def aggregate_proxy_metrics(
     *,
     proxy_weights: Mapping[str, float],
 ) -> Tuple[float, Dict[str, Any]]:
-    """Aggregate per-batch proxy metrics into one proxy_score (lower is better)."""
+    """Aggregate per-batch proxy metrics into one proxy_score (lower is better).
+
+    Gate-derived diagnostics such as `effective_grad_ratio` are logged in `agg`
+    but intentionally excluded from the scalar proxy fitness. Gate outcomes are
+    handled as hard accept/reject decisions upstream.
+    """
 
     if not batch_metrics:
         return float("inf"), {"reason": "no_batches"}
@@ -503,11 +508,10 @@ def aggregate_proxy_metrics(
     loss = _mean("loss", float("inf"))
     eff = _mean("effective_grad_ratio", 0.0)
     ess = _mean("ess_ratio", 0.0)
-    w_eff = float(proxy_weights.get("effective_grad_ratio", 1.0))
     w_ess = float(proxy_weights.get("ess_ratio", 0.1))
 
-    # Penalize low effective gradient / low ESS, keep primary term as loss.
-    proxy_score = float(loss + w_eff * (1.0 - eff) + w_ess * (1.0 - ess))
+    # Gate-derived signals are hard thresholds, not soft fitness shaping terms.
+    proxy_score = float(loss + w_ess * (1.0 - ess))
     agg = {
         "proxy_loss_mean": float(loss),
         "proxy_effective_grad_ratio_mean": float(eff),

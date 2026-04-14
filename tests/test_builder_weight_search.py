@@ -317,6 +317,202 @@ def test_reweight_only_none_rejects_instance_weight_normalization(monkeypatch):
     assert fail["reason"] == "instance_weight_normalization_forbidden"
 
 
+def test_feature_cache_exposes_instance_stats(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    feature_cache = loop._dummy_feature_cache(batch_size=3, k=7, variant="visible")
+    for key in (
+        "instance_num_rollouts",
+        "instance_obj_mean",
+        "instance_obj_std",
+        "instance_obj_mad",
+        "instance_obj_range",
+        "instance_log_prob_mean",
+        "instance_log_prob_std",
+        "instance_regret_mean",
+        "instance_regret_std",
+    ):
+        assert key in feature_cache
+        assert tuple(feature_cache[key].shape) == (3,)
+        assert torch.isfinite(feature_cache[key]).all().item()
+
+
+def test_reweight_only_require_instance_stats_rejects_pair_only_builder(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    pair_only_builder = PreferenceBuilderIR(
+        name="all_pairs_gap_only",
+        intuition="pair-level gap weighting only",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = gap.clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+
+    ok, fail = loop.validate_builder_candidate(
+        pair_only_builder,
+        operator_whitelist=[],
+        gate_cfg={
+            "min_pairs": 1,
+            "min_coverage": 1.0,
+            "max_pairs_per_instance": 4096,
+            "weight_nonneg": True,
+            "semantic_tolerance": 0.0,
+            "semantic_min_pass_rate": 1.0,
+            "search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "pair_weight_normalization": "none",
+                "require_instance_stats": True,
+                "instance_stat_keys": ["instance_obj_std", "instance_log_prob_std"],
+            },
+        },
+    )
+    assert ok is False
+    assert fail["reason"] == "instance_stats_required"
+
+
+def test_reweight_only_require_instance_conditioning_rejects_unused_instance_stat(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    impl = PreferenceBuilderImplementationHint(
+        expects=["objective", "log_prob", "instance_obj_std"],
+        returns="PrefBatch",
+        mode="pairwise",
+    )
+    stat_but_not_conditioned = PreferenceBuilderIR(
+        name="all_pairs_gap_with_unused_instance_stat",
+        intuition="reads an instance stat but never uses it in the weighting path",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    instance_obj_std = feature_cache['instance_obj_std']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    _unused = instance_obj_std[b_idx]\n"
+            "    weight = gap.clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+
+    ok, fail = loop.validate_builder_candidate(
+        stat_but_not_conditioned,
+        operator_whitelist=[],
+        gate_cfg={
+            "min_pairs": 1,
+            "min_coverage": 1.0,
+            "max_pairs_per_instance": 4096,
+            "weight_nonneg": True,
+            "semantic_tolerance": 0.0,
+            "semantic_min_pass_rate": 1.0,
+            "search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "pair_weight_normalization": "none",
+                "require_instance_stats": True,
+                "require_instance_conditioning": True,
+                "instance_stat_keys": ["instance_obj_std"],
+            },
+        },
+    )
+    assert ok is False
+    assert fail["reason"] == "instance_conditioning_required"
+
+
+def test_reweight_only_min_instance_weight_cv_rejects_flat_within_instance_weighting(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    impl = PreferenceBuilderImplementationHint(
+        expects=["objective", "log_prob", "instance_obj_std"],
+        returns="PrefBatch",
+        mode="pairwise",
+    )
+    flat_within_instance_builder = PreferenceBuilderIR(
+        name="all_pairs_instance_scalar_only",
+        intuition="mentions gap and instance stats but leaves weights flat within each instance",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    instance_obj_std = feature_cache['instance_obj_std']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = gap * 0.0 + instance_obj_std[b_idx].clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+
+    ok, fail = loop.validate_builder_candidate(
+        flat_within_instance_builder,
+        operator_whitelist=[],
+        gate_cfg={
+            "min_pairs": 1,
+            "min_coverage": 1.0,
+            "max_pairs_per_instance": 4096,
+            "weight_nonneg": True,
+            "semantic_tolerance": 0.0,
+            "semantic_min_pass_rate": 1.0,
+            "min_instance_weight_cv": 0.05,
+            "min_instance_weight_cv_pass_rate": 1.0,
+            "search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "pair_weight_normalization": "none",
+                "require_instance_stats": True,
+                "require_instance_conditioning": True,
+                "instance_stat_keys": ["instance_obj_std"],
+            },
+        },
+    )
+    assert ok is False
+    assert fail["reason"] == "instance_weight_cv_too_low"
+
+
 def test_reweight_only_prompt_covers_m3_and_repair_none_mode(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
@@ -553,7 +749,7 @@ def test_builder_prompt_includes_exploration_guidance(monkeypatch):
     assert "avoid dominant weighting-family patterns" in prompt_lower
 
 
-def test_builder_prompt_includes_stage_and_family_quota_guidance(monkeypatch):
+def test_builder_prompt_includes_family_quota_guidance(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
     import ptp_discovery.pref_builder_llm_ops as builder_ops
@@ -574,16 +770,12 @@ def test_builder_prompt_includes_stage_and_family_quota_guidance(monkeypatch):
         global_feedback={
             "builder_search_space": cfg,
             "builder_search": {
-                "stage_name": "family_search",
-                "stage_instructions": ["Prefer discovering a genuinely different weight_family."],
                 "missing_weight_families": ["gap_bandpass"],
                 "target_weight_family": "gap_bandpass",
             },
         },
     )
     prompt_lower = prompt.lower()
-    assert "builder_stage_guidance" in prompt_lower
-    assert "active search stage: family_search" in prompt_lower
     assert "builder_family_quota_guidance" in prompt_lower
     assert "prefer producing a valid candidate with `weight_family = gap_bandpass`" in prompt_lower
 
@@ -641,43 +833,6 @@ def test_reweight_only_builtin_pool_supports_clamp_only_weights(monkeypatch):
     assert "weight = raw.clamp(clamp_lo, clamp_hi)" in ir.code
 
 
-def test_builder_two_stage_plan_rewrites_ops(monkeypatch):
-    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
-
-    import ptp_discovery.pref_loss_coevo_loop as loop
-
-    cfg = loop._normalize_builder_two_stage_cfg(  # noqa: SLF001
-        {
-            "enabled": True,
-            "stage1_generations": 2,
-            "stage1_ops": ["GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"],
-            "stage2_ops": ["TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"],
-        },
-        total_generations=6,
-        search_space_cfg={"enabled": True, "mode": "reweight_only", "fixed_pair_builder": "all_pairs"},
-    )
-
-    stage1_name = loop._builder_two_stage_name(0, cfg=cfg)  # noqa: SLF001
-    stage2_name = loop._builder_two_stage_name(3, cfg=cfg)  # noqa: SLF001
-    assert stage1_name == "family_search"
-    assert stage2_name == "hyperparam_tune"
-
-    plan_stage1 = loop._rewrite_builder_operator_plan_for_stage(  # noqa: SLF001
-        ["GEN", "TUNE", "XOVER"],
-        stage_name=stage1_name,
-        cfg=cfg,
-    )
-    plan_stage2 = loop._rewrite_builder_operator_plan_for_stage(  # noqa: SLF001
-        ["GEN", "PARADIGM_SHIFT", "TUNE"],
-        stage_name=stage2_name,
-        cfg=cfg,
-    )
-
-    assert "TUNE" not in plan_stage1
-    assert all(op in {"GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"} for op in plan_stage1)
-    assert all(op in {"TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"} for op in plan_stage2)
-
-
 def test_builder_proposal_family_quota_backfills_missing_families(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
@@ -730,8 +885,12 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
         mode="pairwise",
     )
 
-    assert set(ctx["preferred_cheap_keys"]) == {"log_prob", "obj_z", "objective", "rank", "regret"}
+    preferred = set(ctx["preferred_cheap_keys"])
+    assert {"log_prob", "obj_z", "objective", "rank", "regret"} <= preferred
+    assert {"instance_obj_std", "instance_obj_mad", "instance_log_prob_std", "instance_regret_mean"} <= preferred
     assert "seq_len" in set(ctx["available_keys"])
+    assert "instance_obj_mean" in set(ctx["available_keys"])
+    assert "instance_feature_keys" in ctx
     assert "seq_len" not in set(ctx["preferred_cheap_keys"])
     assert "entropy" in set(ctx["blocked_optional_keys"])
     assert "log_prob_step" in set(ctx["blocked_optional_keys"])
@@ -747,6 +906,9 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
                 "pair_weight_normalization": "none",
                 "allow_freeform_weight_family": True,
                 "seed_weight_families": ["gap_rank_blend"],
+                "require_instance_stats": True,
+                "require_instance_conditioning": True,
+                "instance_stat_keys": ["instance_obj_std", "instance_log_prob_std", "instance_regret_mean"],
             }
         },
         prompt_context=ctx,
@@ -759,6 +921,58 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
     assert "regret" in prompt
     assert "loss batch is flattened and does not carry `b_idx`" in prompt
     assert "Do not divide weights by per-instance sums or means." in prompt
+    assert "Candidate weighting must explicitly use one or more instance-level statistics" in prompt
+    assert "pair_signal / instance_stat" in prompt or "pair signal must be explicitly rescaled or modulated by an instance statistic" in prompt
+
+
+def test_builtin_reweight_builders_use_instance_stats_when_required(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_compiler import compile_preference_builder
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear"],
+            "allow_uniform_none": False,
+            "require_instance_stats": True,
+            "require_instance_conditioning": True,
+            "instance_stat_keys": ["instance_obj_mad", "instance_log_prob_std", "instance_regret_mean"],
+        }
+    )
+    rng = random.Random(0)
+    rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+    ir = loop._make_builtin_builder_irs(rng, 1)[0]
+    assert "instance_obj_mad" in ir.code
+
+    feature_cache = loop._dummy_feature_cache(batch_size=2, k=6, variant="visible")
+    compiled = compile_preference_builder(ir)
+    pref_batch = compiled.build_fn(feature_cache, {})
+    assert pref_batch.weight is not None
+    assert torch.isfinite(pref_batch.weight).all().item()
+
+    ok, fail = loop.validate_builder_candidate(
+        ir,
+        operator_whitelist=[],
+        gate_cfg={
+            "min_pairs": 1,
+            "min_coverage": 1.0,
+            "max_pairs_per_instance": 4096,
+            "weight_nonneg": True,
+            "semantic_tolerance": 0.0,
+            "semantic_min_pass_rate": 1.0,
+            "min_instance_weight_cv": 0.10,
+            "min_instance_weight_cv_pass_rate": 1.0,
+            "search_space": cfg,
+        },
+    )
+    assert ok is True
+    assert fail == {}
 
 
 def test_builtin_multi_signal_reweight_builders_preserve_all_pairs(monkeypatch):
@@ -849,6 +1063,189 @@ def test_reweight_only_builder_operator_bank_uses_five_search_classes(monkeypatc
     assert plan.count("STRUCTURE_SHIFT") == 3
     assert plan.count("CONSTRAINT_INJECT") == 4
     assert plan.count("XOVER") == 1
+
+
+def test_aggregate_proxy_metrics_excludes_gate_signal_from_proxy_score(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    from fitness.pref_loss_fidelity import aggregate_proxy_metrics
+
+    score_a, agg_a = aggregate_proxy_metrics(
+        [
+            {
+                "loss": 1.0,
+                "effective_grad_ratio": 0.1,
+                "ess_ratio": 0.5,
+            }
+        ],
+        proxy_weights={"effective_grad_ratio": 99.0, "ess_ratio": 0.1},
+    )
+    score_b, agg_b = aggregate_proxy_metrics(
+        [
+            {
+                "loss": 1.0,
+                "effective_grad_ratio": 0.9,
+                "ess_ratio": 0.5,
+            }
+        ],
+        proxy_weights={"effective_grad_ratio": 99.0, "ess_ratio": 0.1},
+    )
+
+    assert score_a == score_b
+    assert score_a == 1.0 + 0.1 * (1.0 - 0.5)
+    assert agg_a["proxy_effective_grad_ratio_mean"] == 0.1
+    assert agg_b["proxy_effective_grad_ratio_mean"] == 0.9
+
+
+def test_gate_only_pass_uses_neutral_score(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.free_loss_gates import JointPreferenceGateResult, PreferenceBuilderGateResult
+
+    monkeypatch.setattr(
+        loop,
+        "run_preference_builder_gates",
+        lambda *args, **kwargs: PreferenceBuilderGateResult(
+            ok=True,
+            reason="ok",
+            pair_count=12,
+            coverage=1.0,
+            semantic_pass_rate=0.3,
+            trace={"failed_gate": None},
+        ),
+    )
+    monkeypatch.setattr(
+        loop,
+        "run_joint_preference_gates",
+        lambda *args, **kwargs: JointPreferenceGateResult(
+            ok=True,
+            reason="ok",
+            effective_grad_ratio=0.8,
+            trace={"failed_gate": None, "observed": {"effective_grad_ratio": 0.8}},
+        ),
+    )
+    monkeypatch.setattr(loop, "_run_co_alignment_gates_for_loss", lambda *args, **kwargs: {"co_ok": True, "co_reason": "ok"})
+
+    rec = loop._evaluate_pair_worker(
+        {
+            "generation": 0,
+            "pair_index": 0,
+            "g_entry": {"id": "g_ref", "ir": loop.asdict(loop._ref_builder_ir())},
+            "f_entry": {"id": "f_ref", "ir": loop.asdict(loop._ref_loss_ir())},
+            "cfg_yaml": {
+                "cheap_gate_batch_size": 4,
+                "cheap_gate_k": 8,
+                "builder_max_pairs_per_instance": 4096,
+            },
+            "device_str": "cpu",
+            "operator_whitelist": [],
+            "run_dir": None,
+            "cheap_gate_on": True,
+            "high_fidelity_on": False,
+            "eval_budget_signature": "test",
+        }
+    )
+
+    assert rec["pair_ok"] is True
+    assert rec["pair_reason"] == "ok_gate_only"
+    assert rec["score"] == 0.0
+    assert rec["proxy_metrics"]["cheap_effective_grad_ratio"] == 0.8
+    assert rec["proxy_metrics"]["cheap_semantic_pass_rate"] == 0.3
+
+
+def test_runtime_builder_gate_relaxes_instance_cv_for_reference_builder(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "builder_min_pairs": 1,
+        "builder_min_coverage": 0.0,
+        "builder_max_pairs_per_instance": 4096,
+        "builder_weight_nonneg": True,
+        "builder_semantic_tolerance": 0.0,
+        "builder_semantic_min_pass_rate": 1.0,
+        "builder_min_instance_weight_cv": 0.10,
+        "builder_min_instance_weight_cv_pass_rate": 0.75,
+    }
+
+    ref_gate_cfg = loop._runtime_builder_gate_cfg(cfg, g_id=loop.G_REF_ID)
+    cand_gate_cfg = loop._runtime_builder_gate_cfg(cfg, g_id="g_candidate")
+
+    assert ref_gate_cfg["min_instance_weight_cv"] == 0.0
+    assert ref_gate_cfg["min_instance_weight_cv_pass_rate"] == 1.0
+    assert cand_gate_cfg["min_instance_weight_cv"] == 0.10
+    assert cand_gate_cfg["min_instance_weight_cv_pass_rate"] == 0.75
+
+
+def test_reference_builder_sandbox_runtime_cfg_disables_instance_cv_gate(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.free_loss_gates import JointPreferenceGateResult, PreferenceBuilderGateResult
+
+    captured: dict[str, float] = {}
+
+    monkeypatch.setattr(
+        loop,
+        "run_preference_builder_gates",
+        lambda *args, **kwargs: PreferenceBuilderGateResult(
+            ok=True,
+            reason="ok",
+            pair_count=12,
+            coverage=1.0,
+            semantic_pass_rate=1.0,
+            trace={"failed_gate": None},
+        ),
+    )
+    monkeypatch.setattr(
+        loop,
+        "run_joint_preference_gates",
+        lambda *args, **kwargs: JointPreferenceGateResult(
+            ok=True,
+            reason="ok",
+            effective_grad_ratio=0.8,
+            trace={"failed_gate": None},
+        ),
+    )
+    monkeypatch.setattr(loop, "_run_co_alignment_gates_for_loss", lambda *args, **kwargs: {"co_ok": True, "co_reason": "ok"})
+
+    def _fake_stage0_sandbox_gate(**kwargs):  # noqa: ANN003
+        cfg_yaml = kwargs["cfg_yaml"]
+        captured["min_instance_weight_cv"] = float(cfg_yaml["builder_min_instance_weight_cv"])
+        captured["min_instance_weight_cv_pass_rate"] = float(cfg_yaml["builder_min_instance_weight_cv_pass_rate"])
+        return {"ok": True, "reason": "ok", "failure_kind": None}
+
+    monkeypatch.setattr(loop, "_run_stage0_sandbox_gate", _fake_stage0_sandbox_gate)
+
+    rec = loop._evaluate_pair_worker(
+        {
+            "generation": 0,
+            "pair_index": 0,
+            "g_entry": {"id": loop.G_REF_ID, "ir": loop.asdict(loop._ref_builder_ir())},
+            "f_entry": {"id": "f_ref", "ir": loop.asdict(loop._ref_loss_ir())},
+            "cfg_yaml": {
+                "cheap_gate_batch_size": 4,
+                "cheap_gate_k": 8,
+                "builder_max_pairs_per_instance": 4096,
+                "builder_min_instance_weight_cv": 0.10,
+                "builder_min_instance_weight_cv_pass_rate": 0.75,
+                "stage0_sandbox_gate_enabled": True,
+                "stage0_sandbox_gate_only_when_hf": False,
+            },
+            "device_str": "cpu",
+            "operator_whitelist": [],
+            "run_dir": None,
+            "cheap_gate_on": True,
+            "high_fidelity_on": False,
+            "eval_budget_signature": "test",
+        }
+    )
+
+    assert rec["pair_ok"] is True
+    assert captured["min_instance_weight_cv"] == 0.0
+    assert captured["min_instance_weight_cv_pass_rate"] == 1.0
 
 
 def test_builder_llm_exception_is_logged(monkeypatch, caplog):
