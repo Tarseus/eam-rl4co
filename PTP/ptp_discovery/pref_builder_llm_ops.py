@@ -8,6 +8,8 @@ import re
 from dataclasses import asdict
 from typing import Any, Mapping, Sequence
 
+from fitness.co_features import INSTANCE_FEATURE_KEYS
+
 from .free_loss_llm_ops import _call_llm, _extract_json_object, configure_llm_run
 from .pref_builder_ir import PreferenceBuilderIR, ir_from_json as pref_builder_ir_from_json
 
@@ -123,6 +125,18 @@ def build_runtime_prompt_context(
     available = set(base_keys)
     preferred = set(base_keys)
     blocked = set()
+    instance_feature_keys = [str(key) for key in INSTANCE_FEATURE_KEYS]
+    available.update(instance_feature_keys)
+    preferred.update(
+        {
+            "instance_obj_std",
+            "instance_obj_mad",
+            "instance_obj_range",
+            "instance_log_prob_std",
+            "instance_regret_mean",
+            "instance_regret_std",
+        }
+    )
 
     for key in sorted(_BUILDER_OPTIONAL_FEATURE_KEYS):
         if key in observable_set:
@@ -136,10 +150,11 @@ def build_runtime_prompt_context(
         "available_keys": sorted(available),
         "preferred_cheap_keys": sorted(preferred),
         "blocked_optional_keys": sorted(blocked),
+        "instance_feature_keys": sorted(instance_feature_keys),
         "notes": [
             "implementation_hint.expects and required feature_cache[...] access must stay within available_keys",
             "optional signals should be accessed with feature_cache.get(..., fallback)",
-            "prefer objective/log_prob/obj_z/rank/regret unless an optional observable is explicitly available",
+            "prefer objective/log_prob/obj_z/rank/regret plus instance_feature_keys unless an optional observable is explicitly available",
         ],
     }
 
@@ -177,6 +192,11 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
             if not isinstance(seed_weight_families, (list, tuple)):
                 seed_weight_families = []
             allow_freeform_weight_family = bool(search_space.get("allow_freeform_weight_family", False))
+            require_instance_stats = bool(search_space.get("require_instance_stats", False))
+            require_instance_conditioning = bool(search_space.get("require_instance_conditioning", False))
+            instance_stat_keys = search_space.get("instance_stat_keys", [])
+            if not isinstance(instance_stat_keys, (list, tuple)):
+                instance_stat_keys = []
             out += (
                 "\n\nBUILDER_SEARCH_SPACE_CONSTRAINTS:\n"
                 "- Search mode is reweight_only.\n"
@@ -189,6 +209,19 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 "- This is not redundant with loss-only search: the downstream loss batch is flattened and does not carry `b_idx`, so it cannot reconstruct instance-local pair distributions or per-instance pool statistics.\n"
                 "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
             )
+            if require_instance_stats:
+                stat_keys = [str(x) for x in instance_stat_keys if str(x).strip()]
+                out += (
+                    "- Candidate weighting must explicitly use one or more instance-level statistics from feature_cache.\n"
+                    f"- Preferred instance-level statistic keys: {json.dumps(stat_keys, ensure_ascii=False)}\n"
+                    "- Do not rely only on raw pair-level signals like gap, regret_span, or margin_abs; combine them with instance-level summaries.\n"
+                )
+            if require_instance_conditioning:
+                out += (
+                    "- Candidate weighting must be instance-conditioned, not merely instance-aware.\n"
+                    "- At least one pair signal must be explicitly rescaled or modulated by an instance statistic, e.g. `gap / instance_obj_std[b_idx]` or `margin_abs * g(instance_log_prob_std[b_idx])`.\n"
+                    "- It is not sufficient to read an instance statistic without using it in the pair-signal weighting path.\n"
+                )
             if pair_weight_normalization == "none":
                 out += (
                     "- Pair-weight normalization mode is `none`.\n"
@@ -251,18 +284,24 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                         "- Tune only local weighting hyperparameters or smooth scalar transforms such as beta/gamma/tau/band edges/clamp bounds/eps.\n"
                         "- Avoid introducing a new weighting family, new pair topology, or new normalization scheme unless it is absolutely necessary for correctness.\n"
                     )
+                    if require_instance_stats:
+                        out += "- Preserve the explicit dependency on instance-level statistics while tuning local scalars.\n"
                 elif op_name == "M3":
                     out += (
                         "- This is simplify/stabilize for weighting search.\n"
                         "- Preserve the parent weighting family and fixed pair topology unless the failure reason proves they are invalid.\n"
                         "- Simplify fragile algebra, denominator handling, and clipping without falling back to per-instance weight normalization when normalization mode is `none`.\n"
                     )
+                    if require_instance_stats:
+                        out += "- Keep at least one explicit instance-level statistic in the weighting path after simplification.\n"
                 elif op_name == "REPAIR":
                     out += (
                         "- This is a repair pass for weighting search.\n"
                         "- Preserve the intended weighting family, family tags, and fixed pair topology while fixing only the reported failure.\n"
                         "- Do not reintroduce per-instance weight mean/sum normalization when normalization mode is `none`.\n"
                     )
+                    if require_instance_stats:
+                        out += "- Do not repair by dropping the required instance-level statistic dependency.\n"
     if isinstance(builder_search, Mapping) and bool(builder_search.get("explore_mode", False)):
         avoid_families = builder_search.get("avoid_families", [])
         if not isinstance(avoid_families, (list, tuple)):
@@ -274,18 +313,6 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
             "- Prefer genuine weighting-family changes or signal-organization rewrites over tiny scalar retunes.\n"
         )
     if isinstance(builder_search, Mapping):
-        stage_name = str(builder_search.get("stage_name", "") or "").strip()
-        if stage_name:
-            stage_instructions = builder_search.get("stage_instructions", [])
-            if not isinstance(stage_instructions, (list, tuple)):
-                stage_instructions = []
-            out += (
-                "\n\nBUILDER_STAGE_GUIDANCE:\n"
-                f"- Active search stage: {stage_name}\n"
-            )
-            for line in list(stage_instructions)[:6]:
-                out += f"- {str(line)}\n"
-
         target_weight_family = str(builder_search.get("target_weight_family", "") or "").strip()
         missing_weight_families = builder_search.get("missing_weight_families", [])
         if not isinstance(missing_weight_families, (list, tuple)):

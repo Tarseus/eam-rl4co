@@ -143,6 +143,10 @@ def main(argv: list[str] | None = None) -> int:
                     weight_nonneg=bool(builder_cfg.get("weight_nonneg", True)),
                     semantic_tolerance=float(builder_cfg.get("semantic_tolerance", 0.0) or 0.0),
                     semantic_min_pass_rate=float(builder_cfg.get("semantic_min_pass_rate", 1.0) or 1.0),
+                    min_instance_weight_cv=float(builder_cfg.get("min_instance_weight_cv", 0.0) or 0.0),
+                    min_instance_weight_cv_pass_rate=float(
+                        builder_cfg.get("min_instance_weight_cv_pass_rate", 1.0) or 1.0
+                    ),
                 )
                 if not bool(bg.ok):
                     out = _fail(
