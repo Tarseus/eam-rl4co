@@ -1154,6 +1154,100 @@ def test_gate_only_pass_uses_neutral_score(monkeypatch):
     assert rec["proxy_metrics"]["cheap_semantic_pass_rate"] == 0.3
 
 
+def test_runtime_builder_gate_relaxes_instance_cv_for_reference_builder(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = {
+        "builder_min_pairs": 1,
+        "builder_min_coverage": 0.0,
+        "builder_max_pairs_per_instance": 4096,
+        "builder_weight_nonneg": True,
+        "builder_semantic_tolerance": 0.0,
+        "builder_semantic_min_pass_rate": 1.0,
+        "builder_min_instance_weight_cv": 0.10,
+        "builder_min_instance_weight_cv_pass_rate": 0.75,
+    }
+
+    ref_gate_cfg = loop._runtime_builder_gate_cfg(cfg, g_id=loop.G_REF_ID)
+    cand_gate_cfg = loop._runtime_builder_gate_cfg(cfg, g_id="g_candidate")
+
+    assert ref_gate_cfg["min_instance_weight_cv"] == 0.0
+    assert ref_gate_cfg["min_instance_weight_cv_pass_rate"] == 1.0
+    assert cand_gate_cfg["min_instance_weight_cv"] == 0.10
+    assert cand_gate_cfg["min_instance_weight_cv_pass_rate"] == 0.75
+
+
+def test_reference_builder_sandbox_runtime_cfg_disables_instance_cv_gate(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.free_loss_gates import JointPreferenceGateResult, PreferenceBuilderGateResult
+
+    captured: dict[str, float] = {}
+
+    monkeypatch.setattr(
+        loop,
+        "run_preference_builder_gates",
+        lambda *args, **kwargs: PreferenceBuilderGateResult(
+            ok=True,
+            reason="ok",
+            pair_count=12,
+            coverage=1.0,
+            semantic_pass_rate=1.0,
+            trace={"failed_gate": None},
+        ),
+    )
+    monkeypatch.setattr(
+        loop,
+        "run_joint_preference_gates",
+        lambda *args, **kwargs: JointPreferenceGateResult(
+            ok=True,
+            reason="ok",
+            effective_grad_ratio=0.8,
+            trace={"failed_gate": None},
+        ),
+    )
+    monkeypatch.setattr(loop, "_run_co_alignment_gates_for_loss", lambda *args, **kwargs: {"co_ok": True, "co_reason": "ok"})
+
+    def _fake_stage0_sandbox_gate(**kwargs):  # noqa: ANN003
+        cfg_yaml = kwargs["cfg_yaml"]
+        captured["min_instance_weight_cv"] = float(cfg_yaml["builder_min_instance_weight_cv"])
+        captured["min_instance_weight_cv_pass_rate"] = float(cfg_yaml["builder_min_instance_weight_cv_pass_rate"])
+        return {"ok": True, "reason": "ok", "failure_kind": None}
+
+    monkeypatch.setattr(loop, "_run_stage0_sandbox_gate", _fake_stage0_sandbox_gate)
+
+    rec = loop._evaluate_pair_worker(
+        {
+            "generation": 0,
+            "pair_index": 0,
+            "g_entry": {"id": loop.G_REF_ID, "ir": loop.asdict(loop._ref_builder_ir())},
+            "f_entry": {"id": "f_ref", "ir": loop.asdict(loop._ref_loss_ir())},
+            "cfg_yaml": {
+                "cheap_gate_batch_size": 4,
+                "cheap_gate_k": 8,
+                "builder_max_pairs_per_instance": 4096,
+                "builder_min_instance_weight_cv": 0.10,
+                "builder_min_instance_weight_cv_pass_rate": 0.75,
+                "stage0_sandbox_gate_enabled": True,
+                "stage0_sandbox_gate_only_when_hf": False,
+            },
+            "device_str": "cpu",
+            "operator_whitelist": [],
+            "run_dir": None,
+            "cheap_gate_on": True,
+            "high_fidelity_on": False,
+            "eval_budget_signature": "test",
+        }
+    )
+
+    assert rec["pair_ok"] is True
+    assert captured["min_instance_weight_cv"] == 0.0
+    assert captured["min_instance_weight_cv_pass_rate"] == 1.0
+
+
 def test_builder_llm_exception_is_logged(monkeypatch, caplog):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
