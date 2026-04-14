@@ -10749,3 +10749,99 @@ hydra.errors.InstantiationException: Error locating target 'rl4co.models.zoo.mgl
 full_key: model
 [2026-04-13 21:04:40,839][rl4co.utils.utils][INFO] - Output dir: E:\CAS\rl4co-repo\eam-rl4co\logs\train\runs\mgl-jssp-po_10x10_20260413-210426
 [2026-04-13 21:04:40,841][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-13 14:47:43,796][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-13 14:47:43,799][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-13 14:47:43,834][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-13 14:47:43,871][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-13 14:47:43,874][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-13 14:47:43,908][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-13 14:47:47,712][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-13 14:47:47,775][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-13 14:47:48,010][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-13 14:47:48,016][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-13 14:47:48,057][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-13 14:47:48,057][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-13 14:47:48,059][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-13 14:47:48,060][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-13 14:47:48,060][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-13 14:47:48,060][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-13 14:47:48,062][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-13 14:47:48,064][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-13 14:47:48,064][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-13 14:47:48,064][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-13 14:47:48,066][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-13 14:47:48,067][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-13 14:47:48,067][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-13 14:47:48,067][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-13 14:47:48,069][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-13 14:47:48,071][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-13 14:47:48,072][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-13 14:47:48,072][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-13 14:47:48,080][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-13 14:47:48,081][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-13 14:47:56,305][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-13 14:47:56,305][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,305][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x10: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,305][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,305][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x10: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,306][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x15: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,306][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,306][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
+[2026-04-13 14:47:56,306][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x10: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x10: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x15: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
+[2026-04-13 14:47:56,467][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-04-13 14:48:11,198][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-13 14:48:11,201][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-13 14:48:11,237][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-13 14:48:11,345][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-13 14:48:11,348][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-13 14:48:11,384][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-13 14:48:15,288][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-13 14:48:15,407][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-13 14:48:15,559][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-13 14:48:15,610][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-13 14:48:15,610][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-13 14:48:15,612][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-13 14:48:15,612][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-13 14:48:15,613][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-13 14:48:15,613][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-13 14:48:15,615][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-13 14:48:15,618][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-13 14:48:15,625][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-13 14:48:15,627][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-13 14:48:15,671][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-13 14:48:15,721][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-13 14:48:15,721][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-13 14:48:15,723][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-13 14:48:15,724][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-13 14:48:15,724][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-13 14:48:15,725][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-13 14:48:15,726][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-13 14:48:15,729][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-13 14:48:15,738][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-13 14:48:15,739][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x10: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x10: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x15: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
+[2026-04-13 14:48:24,121][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x10: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x10: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x15: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
+[2026-04-13 14:48:24,581][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
