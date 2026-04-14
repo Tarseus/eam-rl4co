@@ -1785,6 +1785,49 @@ def _stage0_sandbox_script_path() -> str:
     return os.path.join(_repo_root_dir(), "PTP", "ptp_discovery", "run_stage0_sandbox_gate.py")
 
 
+def _runtime_builder_gate_cfg(
+    cfg_yaml: Mapping[str, Any],
+    *,
+    g_id: str | None = None,
+) -> Dict[str, Any]:
+    gate_cfg = {
+        "min_pairs": int(cfg_yaml.get("builder_min_pairs", 1) or 1),
+        "min_coverage": float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
+        "max_pairs_per_instance": int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
+        "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
+        "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
+        "semantic_min_pass_rate": float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+        "min_instance_weight_cv": float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+        "min_instance_weight_cv_pass_rate": float(
+            cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
+        ),
+    }
+    # Keep the weighting-specific anti-degeneracy gate for searched builders, but
+    # let the fixed unweighted reference builder participate as a baseline.
+    if str(g_id or "") == G_REF_ID:
+        gate_cfg["min_instance_weight_cv"] = 0.0
+        gate_cfg["min_instance_weight_cv_pass_rate"] = 1.0
+    return gate_cfg
+
+
+def _cfg_with_runtime_builder_gate_overrides(
+    cfg_yaml: Mapping[str, Any],
+    *,
+    g_id: str | None = None,
+) -> Dict[str, Any]:
+    cfg_out = dict(cfg_yaml)
+    gate_cfg = _runtime_builder_gate_cfg(cfg_yaml, g_id=g_id)
+    cfg_out["builder_min_pairs"] = int(gate_cfg["min_pairs"])
+    cfg_out["builder_min_coverage"] = float(gate_cfg["min_coverage"])
+    cfg_out["builder_max_pairs_per_instance"] = int(gate_cfg["max_pairs_per_instance"])
+    cfg_out["builder_weight_nonneg"] = bool(gate_cfg["weight_nonneg"])
+    cfg_out["builder_semantic_tolerance"] = float(gate_cfg["semantic_tolerance"])
+    cfg_out["builder_semantic_min_pass_rate"] = float(gate_cfg["semantic_min_pass_rate"])
+    cfg_out["builder_min_instance_weight_cv"] = float(gate_cfg["min_instance_weight_cv"])
+    cfg_out["builder_min_instance_weight_cv_pass_rate"] = float(gate_cfg["min_instance_weight_cv_pass_rate"])
+    return cfg_out
+
+
 def _run_stage0_sandbox_gate(
     *,
     run_dir: str,
@@ -9247,6 +9290,16 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     except (TypeError, ValueError):
         early_eval_steps_i = 0
     eval_sig = str(payload.get("eval_budget_signature", ""))
+    loss_prompt_context_raw = cfg.get("loss_prompt_context")
+    if isinstance(loss_prompt_context_raw, Mapping):
+        loss_prompt_context = dict(loss_prompt_context_raw)
+    else:
+        loss_prompt_context = dict(
+            loss_llm_ops.build_runtime_prompt_context(
+                loss_observables=tuple(str(v) for v in cfg.get("loss_observables", []) if str(v).strip()),
+                mode="pairwise",
+            )
+        )
     proxy_record = payload.get("proxy_record")
     if not isinstance(proxy_record, dict):
         proxy_record = None
@@ -9331,6 +9384,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         return record
 
     variant = "hidden" if bool(cfg.get("hidden_dynamic_gates_enabled", False)) else "visible"
+    runtime_builder_gate_cfg = _runtime_builder_gate_cfg(cfg, g_id=str(g_entry.get("id") or ""))
+    runtime_cfg = _cfg_with_runtime_builder_gate_overrides(cfg, g_id=str(g_entry.get("id") or ""))
     feature_cache = _dummy_feature_cache(
         batch_size=int(cfg.get("cheap_gate_batch_size", 8) or 8),
         k=int(cfg.get("cheap_gate_k", 16) or 16),
@@ -9347,20 +9402,13 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         weight_nonneg=bool(cfg.get("builder_weight_nonneg", True)),
         semantic_tolerance=float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
         semantic_min_pass_rate=float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
-        min_instance_weight_cv=float(cfg.get("builder_min_instance_weight_cv", 0.0) or 0.0),
-        min_instance_weight_cv_pass_rate=float(cfg.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0),
+        min_instance_weight_cv=float(runtime_builder_gate_cfg.get("min_instance_weight_cv", 0.0) or 0.0),
+        min_instance_weight_cv_pass_rate=float(
+            runtime_builder_gate_cfg.get("min_instance_weight_cv_pass_rate", 1.0) or 1.0
+        ),
     )
     builder_gate.trace = _enrich_builder_gate_trace_with_memory(builder_gate.trace, pref_batch, cache_hit=False)
-    builder_gate_cfg = {
-        "min_pairs": int(cfg.get("builder_min_pairs", 1) or 1),
-        "min_coverage": float(cfg.get("builder_min_coverage", 0.0) or 0.0),
-        "max_pairs_per_instance": int(cfg.get("builder_max_pairs_per_instance", 4096) or 4096),
-        "weight_nonneg": bool(cfg.get("builder_weight_nonneg", True)),
-        "semantic_tolerance": float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
-        "semantic_min_pass_rate": float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
-        "min_instance_weight_cv": float(cfg.get("builder_min_instance_weight_cv", 0.0) or 0.0),
-        "min_instance_weight_cv_pass_rate": float(cfg.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0),
-    }
+    builder_gate_cfg = dict(runtime_builder_gate_cfg)
     builder_gate_repair_reports: List[Dict[str, Any]] = []
     builder_llm_cfg = cfg.get("builder_llm", {}) if isinstance(cfg.get("builder_llm"), dict) else {}
     builder_repair_cfg = (
@@ -9571,7 +9619,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             g_ir=g_ir,
             f_ir=f_ir,
             operator_whitelist=list(operator_whitelist),
-            cfg_yaml=cfg,
+            cfg_yaml=runtime_cfg,
         )
         if not bool(sandbox_gate_result.get("ok")):
             joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
@@ -9731,7 +9779,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 g_ir=g_ir,
                 f_ir=repaired_ir,
                 operator_whitelist=list(operator_whitelist),
-                cfg_yaml=cfg,
+                cfg_yaml=runtime_cfg,
             )
         if high_fidelity_on and sandbox_should_run and sandbox_gate_hard_block_hf and (not bool((sandbox_candidate or {}).get("ok", False))):
             sandbox_trace = dict((sandbox_candidate or {}).get("trace") or {}) if isinstance((sandbox_candidate or {}).get("trace"), dict) else {}
@@ -10147,7 +10195,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 g_ir=g_ir,
                 f_ir=f_ir,
                 operator_whitelist=list(operator_whitelist),
-                cfg_yaml=cfg,
+                cfg_yaml=runtime_cfg,
             )
         if sandbox_gate_result is not None and (not bool(sandbox_gate_result.get("ok"))):
             joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
