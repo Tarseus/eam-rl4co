@@ -30,6 +30,7 @@ from fitness.free_loss_fidelity import (
     FreeLossFidelityConfig,
     PrefBatch,
     PrefBuilder,
+    _empty_cuda_cache_for_device,
     baseline_epoch_objectives_from_metrics_csv,
     extract_feature_cache,
     evaluate_free_loss_candidate,
@@ -253,6 +254,20 @@ def _maybe_auto_flush_pref_cache(
 def _repo_root_dir() -> str:
     # This file lives at PTP/ptp_discovery/pref_loss_coevo_loop.py.
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _stage3_cleanup_eval_device(device_str: str | None) -> None:
+    try:
+        gc.collect()
+    except Exception:  # noqa: BLE001
+        pass
+    if not torch.cuda.is_available():
+        return
+    try:
+        dev = torch.device(str(device_str or "cuda"))
+    except Exception:  # noqa: BLE001
+        return
+    _empty_cuda_cache_for_device(dev, collect_garbage=True, synchronize=True)
 
 
 def _abs_from_repo_root(path: str) -> str:
@@ -1274,28 +1289,35 @@ def _stage3_pre_minitrain_eval(
         device_str = "cpu"
     device = torch.device(device_str)
 
-    env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
-    policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
-    if init_checkpoint:
-        _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
-    policy = policy.to(device)
-    policy.eval()
+    env = None
+    policy = None
+    try:
+        env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
+        policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
+        if init_checkpoint:
+            _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
+        policy = policy.to(device)
+        policy.eval()
 
-    by_size: Dict[int, float] = {}
-    for sz in valid_problem_sizes:
-        obj = _evaluate_rl4co_model(
-            policy=policy,
-            cfg=hf_cfg,
-            problem_size=int(sz),
-            device=device,
-            num_episodes=int(num_validation_episodes),
-            batch_size=int(hf_cfg.validation_batch_size),
-            rollout_strategy=str(rollout_strategy),
-        )
-        by_size[int(sz)] = float(obj)
+        by_size: Dict[int, float] = {}
+        for sz in valid_problem_sizes:
+            obj = _evaluate_rl4co_model(
+                policy=policy,
+                cfg=hf_cfg,
+                problem_size=int(sz),
+                device=device,
+                num_episodes=int(num_validation_episodes),
+                batch_size=int(hf_cfg.validation_batch_size),
+                rollout_strategy=str(rollout_strategy),
+            )
+            by_size[int(sz)] = float(obj)
 
-    aggregated = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
-    return by_size, float(aggregated)
+        aggregated = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
+        return by_size, float(aggregated)
+    finally:
+        policy = None
+        env = None
+        _stage3_cleanup_eval_device(str(device))
 
 
 def _ensure_stage3_baseline_mini_eval(
@@ -1311,27 +1333,34 @@ def _ensure_stage3_baseline_mini_eval(
     _record_stage3_baseline_mini_eval_path(cfg_yaml, str(mini_eval_path))
 
     expected_sig = _build_stage3_eval_signature(cfg_yaml)
+    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
+    if not init_specs:
+        raise ValueError("stage3 baseline requires at least one init source (scratch and/or baseline.checkpoints)")
+    expected_init_names = [str(init_name) for init_name, _ in init_specs]
     existing = None
     if os.path.isfile(_abs_from_repo_root(str(mini_eval_path))):
         try:
             existing = _load_baseline_mini_eval(str(mini_eval_path))
         except Exception:  # noqa: BLE001
             existing = None
+    existing_per_init: Dict[str, Any] = {}
     if (
         isinstance(existing, Mapping)
         and existing.get("eval_signature") == expected_sig
         and isinstance(existing.get("per_init"), Mapping)
     ):
-        return {
-            "path": str(mini_eval_path),
-            "cached": True,
-            "regenerated": False,
-            "eval_signature": expected_sig,
+        existing_per_init = {
+            str(init_name): dict(init_payload)
+            for init_name, init_payload in dict(existing.get("per_init") or {}).items()
+            if str(init_name) in expected_init_names and isinstance(init_payload, Mapping)
         }
-
-    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
-    if not init_specs:
-        raise ValueError("stage3 baseline requires at least one init source (scratch and/or baseline.checkpoints)")
+        if all(init_name in existing_per_init for init_name in expected_init_names):
+            return {
+                "path": str(mini_eval_path),
+                "cached": True,
+                "regenerated": False,
+                "eval_signature": expected_sig,
+            }
 
     scratch_init_seed = int(_resolve_training_seed(cfg_yaml))
     train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
@@ -1369,63 +1398,74 @@ def _ensure_stage3_baseline_mini_eval(
     hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=str(device_str))
 
     objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
-    per_init: Dict[str, Any] = {}
-    for init_name, init_ckpt in init_specs:
-        pre_by_size, pre_agg = _stage3_pre_minitrain_eval(
-            cfg_yaml=cfg_yaml,
-            init_checkpoint=init_ckpt,
-            train_problem_size=int(train_problem_size),
-            valid_problem_sizes=list(valid_problem_sizes),
-            num_validation_episodes=int(num_validation_episodes),
-            train_batch_size=int(train_batch_size),
-            scratch_init_seed=int(scratch_init_seed),
-            offline_train=(str(offline_train) if offline_train else None),
-            offline_val_by_size=offline_val_by_size,
-        )
-        fitness = _evaluate_stage3_reference_baseline(
-            cfg_yaml=cfg_yaml,
-            hf_cfg=hf_cfg,
-            operator_whitelist=operator_whitelist,
-            init_ckpt=init_ckpt,
-        )
-        by_size, agg = _extract_stage3_size_objectives(fitness, valid_sizes=valid_problem_sizes)
+    per_init: Dict[str, Any] = dict(existing_per_init)
 
-        per_init[str(init_name)] = {
-            "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
-            "pre_val_reward_by_size": {
-                str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
-                for k, v in pre_by_size.items()
+    def _write_baseline_payload(*, complete: bool) -> None:
+        payload: Dict[str, Any] = {
+            "schema_version": 1,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "config_path": None,
+            "eval_signature": expected_sig,
+            "per_init": dict(per_init),
+            "reference": {
+                "builder_ir": asdict(_ref_builder_ir()),
+                "loss_ir": asdict(_ref_loss_ir()),
             },
-            "pre_aggregated_objective": float(pre_agg),
-            "pre_aggregated_reward": float((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg)),
-            "val_objective_by_size": {str(int(k)): float(v) for k, v in by_size.items()},
-            "val_reward_by_size": {
-                str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
-                for k, v in by_size.items()
-            },
-            "aggregated_objective": float(agg),
-            "aggregated_reward": float((-float(agg)) if objective_sign == "neg_reward" else float(agg)),
-            "delta_objective_post_minus_pre": float(float(agg) - float(pre_agg)),
-            "delta_reward_post_minus_pre": float(
-                ((-float(agg)) if objective_sign == "neg_reward" else float(agg))
-                - ((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg))
-            ),
-            "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+            "complete": bool(complete),
         }
+        resolved_path = _abs_from_repo_root(str(mini_eval_path))
+        _atomic_write_json(resolved_path, payload)
+        _BASELINE_MINI_EVAL_CACHE[resolved_path] = dict(payload)
 
-    payload: Dict[str, Any] = {
-        "schema_version": 1,
-        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "config_path": None,
-        "eval_signature": expected_sig,
-        "per_init": per_init,
-        "reference": {
-            "builder_ir": asdict(_ref_builder_ir()),
-            "loss_ir": asdict(_ref_loss_ir()),
-        },
-    }
-    _atomic_write_json(_abs_from_repo_root(str(mini_eval_path)), payload)
-    _BASELINE_MINI_EVAL_CACHE[_abs_from_repo_root(str(mini_eval_path))] = dict(payload)
+    for init_name, init_ckpt in init_specs:
+        if str(init_name) in per_init:
+            continue
+        try:
+            pre_by_size, pre_agg = _stage3_pre_minitrain_eval(
+                cfg_yaml=cfg_yaml,
+                init_checkpoint=init_ckpt,
+                train_problem_size=int(train_problem_size),
+                valid_problem_sizes=list(valid_problem_sizes),
+                num_validation_episodes=int(num_validation_episodes),
+                train_batch_size=int(train_batch_size),
+                scratch_init_seed=int(scratch_init_seed),
+                offline_train=(str(offline_train) if offline_train else None),
+                offline_val_by_size=offline_val_by_size,
+            )
+            fitness = _evaluate_stage3_reference_baseline(
+                cfg_yaml=cfg_yaml,
+                hf_cfg=hf_cfg,
+                operator_whitelist=operator_whitelist,
+                init_ckpt=init_ckpt,
+            )
+            by_size, agg = _extract_stage3_size_objectives(fitness, valid_sizes=valid_problem_sizes)
+
+            per_init[str(init_name)] = {
+                "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
+                "pre_val_reward_by_size": {
+                    str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
+                    for k, v in pre_by_size.items()
+                },
+                "pre_aggregated_objective": float(pre_agg),
+                "pre_aggregated_reward": float((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg)),
+                "val_objective_by_size": {str(int(k)): float(v) for k, v in by_size.items()},
+                "val_reward_by_size": {
+                    str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
+                    for k, v in by_size.items()
+                },
+                "aggregated_objective": float(agg),
+                "aggregated_reward": float((-float(agg)) if objective_sign == "neg_reward" else float(agg)),
+                "delta_objective_post_minus_pre": float(float(agg) - float(pre_agg)),
+                "delta_reward_post_minus_pre": float(
+                    ((-float(agg)) if objective_sign == "neg_reward" else float(agg))
+                    - ((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg))
+                ),
+                "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+            }
+            _write_baseline_payload(complete=all(name in per_init for name in expected_init_names))
+        finally:
+            _stage3_cleanup_eval_device(str(device_str))
+
     return {
         "path": str(mini_eval_path),
         "cached": False,

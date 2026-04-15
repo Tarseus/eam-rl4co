@@ -2464,7 +2464,7 @@ def _evaluate_free_loss_candidate_rl4co(
     if epoch_window_violations is not None:
         hf_like_score += cfg.baseline_epoch_window_violation_weight * float(epoch_window_violations)
 
-    return {
+    result = {
         "hf_like_score": hf_like_score,
         "validation_objective": main_valid_obj,
         "generalization_penalty": generalization_penalty,
@@ -2554,6 +2554,16 @@ def _evaluate_free_loss_candidate_rl4co(
             "operators_used": compiled_loss.ir.operators_used,
         },
     }
+    try:
+        return result
+    finally:
+        for phase_res_name in ("scratch_res", "warm_res"):
+            phase_res = locals().get(phase_res_name)
+            if isinstance(phase_res, dict):
+                phase_res.pop("policy", None)
+        policy = None
+        if torch.cuda.is_available():
+            _empty_cuda_cache_for_device(device, collect_garbage=True, synchronize=True)
 
 
 def evaluate_po_baseline_rl4co(
@@ -3017,7 +3027,7 @@ def evaluate_po_baseline_rl4co(
     if epoch_window_violations is not None:
         fitness_score += float(baseline_epoch_window_violation_weight) * float(epoch_window_violations)
 
-    return {
+    result = {
         "hf_score": hf_score,
         "fitness_score": fitness_score,
         "validation_objective": main_valid_obj,
@@ -3086,6 +3096,16 @@ def evaluate_po_baseline_rl4co(
             ),
         },
     }
+    try:
+        return result
+    finally:
+        for phase_res_name in ("scratch_res", "warm_res"):
+            phase_res = locals().get(phase_res_name)
+            if isinstance(phase_res, dict):
+                phase_res.pop("policy", None)
+        policy = None
+        if torch.cuda.is_available():
+            _empty_cuda_cache_for_device(device, collect_garbage=True, synchronize=True)
 
 
 def evaluate_free_loss_candidate(
