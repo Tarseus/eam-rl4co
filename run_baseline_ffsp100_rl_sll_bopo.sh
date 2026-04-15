@@ -98,7 +98,7 @@ for idx in "${!EXPERIMENT_KEYS[@]}"; do
     cmd+=("trainer.deterministic=false")
   fi
   if [[ "$has_devices_override" == "false" ]]; then
-    cmd+=("trainer.devices=[${gpu_id}]")
+    cmd+=("+trainer.devices=[${gpu_id}]")
   fi
   if [[ "$has_matmul_precision_override" == "false" ]]; then
     cmd+=("matmul_precision=highest")
