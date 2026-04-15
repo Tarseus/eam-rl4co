@@ -1,0 +1,1015 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml",
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_builder_weight_search_tsp100/20260411-114705",
+  "preset": "simple",
+  "search_mode": "builder_only",
+  "alternating_schedule": {
+    "enabled": false,
+    "start_phase": "loss",
+    "loss_generations": 0,
+    "builder_generations": 0,
+    "final_loss_generations": 0,
+    "rounds": 0
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "improve_eps_calibration": null,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "last_generation": 0,
+  "best_so_far": {
+    "score": -0.02145215148925761,
+    "builder_id": "g_ref",
+    "loss_id": "fseed_000_1ec7ffff",
+    "stage_final": "transfer_seed_baseline",
+    "generation": -1,
+    "phase": "builder"
+  },
+  "best_builder_cost": {
+    "builder_id": "g000_015_661b453a",
+    "cost": 960.0,
+    "perf": -0.0125412731170651,
+    "metric_mode": "minimize",
+    "slack": 0.0,
+    "best_perf": -0.0125412731170651,
+    "best_perf_anchor": -0.0125412731170651,
+    "threshold": -0.0125412731170651,
+    "generation": 0,
+    "phase": "builder",
+    "perf_ref": {
+      "g_id": "g000_015_661b453a",
+      "f_id": "fseed_000_1ec7ffff",
+      "score": -0.0125412731170651,
+      "final_score": -0.0125412731170651,
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "phase": "builder",
+      "generation": 0,
+      "pair_reason": "ok_stage3_offline_minitrain",
+      "pair_ok": true,
+      "g_ir": {
+        "name": "builder_all_pairs_gap_bandpass_010",
+        "intuition": "all pairs with bandpass weighting on gap to focus on medium gaps, preserving topology but shifting weight paradigm",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_bandpass",
+          "constraint_family": "clamp_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "gap_bandpass"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    eps = 1e-6\n    low = float(extra.get('bandpass_low', 0.1))\n    high = float(extra.get('bandpass_high', 1.0))\n    # bandpass weighting emphasizes medium gap values between low and high\n    raw = (gap - low) * (high - gap)\n    raw = raw.clamp(min=0.0)  # zero outside bandpass\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+      },
+      "cost": 960.0
+    },
+    "feasible_count": 1
+  },
+  "builder_cost_archive": {
+    "g000_015_661b453a": {
+      "builder_id": "g000_015_661b453a",
+      "perf": -0.0125412731170651,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_015_661b453a",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0125412731170651,
+        "final_score": -0.0125412731170651,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_bandpass_010",
+          "intuition": "all pairs with bandpass weighting on gap to focus on medium gaps, preserving topology but shifting weight paradigm",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_bandpass"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    eps = 1e-6\n    low = float(extra.get('bandpass_low', 0.1))\n    high = float(extra.get('bandpass_high', 1.0))\n    # bandpass weighting emphasizes medium gap values between low and high\n    raw = (gap - low) * (high - gap)\n    raw = raw.clamp(min=0.0)  # zero outside bandpass\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.0125412731170651
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_012_469c595d": {
+      "builder_id": "g000_012_469c595d",
+      "perf": -0.0024065433502196143,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_012_469c595d",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0024065433502196143,
+        "final_score": -0.0024065433502196143,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_rank_weighted_010",
+          "intuition": "reweight all pairs by a new nonlinear blend of gap and rank difference emphasizing large gaps with rank smoothing",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_weighted",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_weighted"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_rank_weighted'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 1.5))\n    tau = float(extra.get('tau', 2.0))\n    eps = 1e-6\n    gap_pos = gap.clamp_min(0.0)\n    gap_power = gap_pos.pow(tau)\n    rank_smooth = torch.sigmoid(beta * rank_span)\n    raw = gap_power * rank_smooth\n    clamp_lo = 0.25\n    clamp_hi = 5.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=clamp_hi, neginf=0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_rank_weighted'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0024065433502196143
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_014_5fb7827f": {
+      "builder_id": "g000_014_5fb7827f",
+      "perf": -0.0049674819946288196,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_014_5fb7827f",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0049674819946288196,
+        "final_score": -0.0049674819946288196,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_bandpass_010",
+          "intuition": "all pairs with a bandpass weighting emphasizing medium-sized objective gaps, suppressing very small and very large gaps",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "bandpass"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    lower = float(extra.get('bandpass_lower', 0.1))\n    upper = float(extra.get('bandpass_upper', 2.0))\n    gap_clamped = gap.clamp_min(eps)\n    pass_lower = (gap_clamped - lower).clamp_min(0.0)\n    pass_upper = (upper - gap_clamped).clamp_min(0.0)\n    raw = pass_lower * pass_upper\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0049674819946288196
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_013_fdebe2fc": {
+      "builder_id": "g000_013_fdebe2fc",
+      "perf": -0.004226236343383594,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_013_fdebe2fc",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.004226236343383594,
+        "final_score": -0.004226236343383594,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_bandpass_010",
+          "intuition": "all pairs with bandpass weighting emphasizing moderate objective gaps",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_bandpass"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    eps = 1e-6\n    gap = gap.clamp_min(eps)\n    low = float(extra.get('low', 0.1))\n    high = float(extra.get('high', 1.0))\n    center = (low + high) / 2.0\n    width = (high - low) / 2.0\n    norm_gap = (gap - center) / width\n    gauss = torch.exp(-norm_gap * norm_gap)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = gauss.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.004226236343383594
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_001_77c08b26": {
+      "builder_id": "g000_001_77c08b26",
+      "perf": 0.07025090980529791,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_001_77c08b26",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.07025090980529791,
+        "final_score": 0.07025090980529791,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_margin_rank_blend_tiezone",
+          "intuition": "Preserves margin_rank_blend weighting with explicit tie-zone filtering to zero small margin pairs, stabilizing weights",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "tiezone_filtered"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend",
+            "tiezone_filter",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend'})\n    eps = 1e-6\n    beta_rank = float(extra.get('beta_rank', 4.0))\n    gamma = float(extra.get('gamma', 0.5))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    raw = torch.sigmoid(beta_rank * rank_span) / (margin_abs + eps).pow(gamma)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    tiezone = float(extra.get('tiezone', 0.1))\n    # Zero weights where margin_abs is less than tiezone threshold\n    raw = raw * (margin_abs > tiezone).float()\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.07025090980529791
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_009_09545a9c": {
+      "builder_id": "g000_009_09545a9c",
+      "perf": 0.27528052711486817,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_009_09545a9c",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.27528052711486817,
+        "final_score": 0.27528052711486817,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_inv_margin_rank_blend_010",
+          "intuition": "reweight all pairs using inverse margin times a sigmoid-rank blend, emphasizing smaller margins more strongly than parents",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "inv_margin_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'inv_margin_rank_blend'})\n    eps = 1e-6\n    rank = feature_cache['rank']\n    beta_rank = float(extra.get('beta_rank', 4.0))\n    gamma = float(extra.get('gamma', 0.75))\n    margin = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs().clamp_min(eps)\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    raw = torch.sigmoid(beta_rank * rank_span) / margin.pow(gamma)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'inv_margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.27528052711486817
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_005_28092f5d": {
+      "builder_id": "g000_005_28092f5d",
+      "perf": -0.003152239227294462,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_005_28092f5d",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.003152239227294462,
+        "final_score": -0.003152239227294462,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_linear_reweight_fixed_corrected",
+          "intuition": "Constructs all pairs where the loser has strictly higher objective than the winner, preserving the fixed all_pairs topology and reweights pairs by a nonnegative linear function of the positive objective gap to reflect preference strength, ensuring winner-loser semantics are correct for a lower_is_better objective.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {},
+          "operators_used": [],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # For lower_is_better, winner is the one with smaller objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]  # positive gap = loser obj - winner obj\n    weight_scale = float(extra.get('weight_scale', 1.0))\n    weight_offset = float(extra.get('weight_offset', 0.0))\n    raw_weight = weight_scale * gap + weight_offset\n    raw_weight = raw_weight.clamp_min(0.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=raw_weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.003152239227294462
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_011_ed8cb946": {
+      "builder_id": "g000_011_ed8cb946",
+      "perf": -0.005676155853271414,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_011_ed8cb946",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.005676155853271414,
+        "final_score": -0.005676155853271414,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_bandpass_010",
+          "intuition": "reweight all pairs with a bandpass filter on gap emphasizing mid-range cost differences",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_bandpass"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_min = float(extra.get('gap_min', 0.1))\n    gap_max = float(extra.get('gap_max', 1.0))\n    raw = (gap - gap_min) * (gap_max - gap)\n    raw = raw.clamp(min=0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.005676155853271414
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_006_50cd2b0c": {
+      "builder_id": "g000_006_50cd2b0c",
+      "perf": -0.008921151351928724,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_006_50cd2b0c",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.008921151351928724,
+        "final_score": -0.008921151351928724,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "combined_pair_weight",
+          "intuition": "Integrates the stable pairwise construction with a flexible, nonnegative weighting scheme that blends ideas from margin rank and gap linear approaches, enhancing robustness and adaptability in pairwise preference modeling.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend_gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend",
+            "gap_linear"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    regret = feature_cache['regret']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Maintain pair topology\n    # Compute gap\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Initialize weight as a blend of margin rank and gap linear\n    eps = 1e-6\n    # Margin rank component\n    margin_raw = torch.sigmoid(4.0 * (rank[b_idx, loser_idx] - rank[b_idx, winner_idx]))\n    # Gap linear component\n    gap_raw = gap.clamp_min(0.0)\n    # Blend weights\n    weight_margin = margin_raw\n    weight_gap = gap_raw\n    # Combine with extra parameters for blending\n    alpha = float(extra.get('alpha', 0.5))\n    beta = float(extra.get('beta', 0.5))\n    weight = alpha * weight_margin + (1 - alpha) * weight_gap\n    # Clamp weights to ensure non-negativity and stability\n    weight = torch.nan_to_num(weight, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0).clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'combined', 'weight_family': 'margin_rank_blend_gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.008921151351928724
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_000_515af4f4": {
+      "builder_id": "g000_000_515af4f4",
+      "perf": -0.008884353256225719,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_000_515af4f4",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.008884353256225719,
+        "final_score": -0.008884353256225719,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "balanced_gap_rank_regret",
+          "intuition": "Combines the pairwise gap linear emphasis with adaptive blending of margin, rank, and regret-based weighting to achieve a simple yet robust preference structure that balances different signals for stable training.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_regret",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "margin_rank_blend",
+            "margin_regret_blend",
+            "regret"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    regret = feature_cache['regret']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    eps = 1e-6\n    # Compute raw weight combining gap, rank, and regret signals\n    rank = feature_cache['rank']\n    raw_gap = gap.clamp_min(0.0)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    regret_diff = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]\n    # Blend signals with fixed coefficients for balance\n    raw_weight = (\n        0.5 * torch.sigmoid(4.0 * rank_diff) +\n        0.3 * torch.sigmoid(4.0 * regret_diff) +\n        0.2 * torch.sigmoid(4.0 * raw_gap)\n    )\n    # Clamp weights to ensure stability\n    weight = raw_weight.clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'balanced_gap_rank_regret', 'weight_family': 'gap_rank_regret'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.008884353256225719
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_007_9c6775a6": {
+      "builder_id": "g000_007_9c6775a6",
+      "perf": 0.0017137954711916592,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_007_9c6775a6",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.0017137954711916592,
+        "final_score": 0.0017137954711916592,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_linear_001_tiezone",
+          "intuition": "Inject tie-zone filtering to zero out weights with small gaps, preserving gap_linear weighting and pairwise structure.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tie_zone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "abs",
+            "where"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_tiezone'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    raw = raw.nan_to_num(nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    # Tie-zone filtering: zero weights with gap less than tie_eps\n    tie_eps = float(extra.get('tie_eps', 0.1))\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    tie_mask = (raw >= tie_eps)\n    weight = weight * tie_mask.to(weight.dtype)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_tiezone'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.0017137954711916592
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_004_1817ebc2": {
+      "builder_id": "g000_004_1817ebc2",
+      "perf": 0.1443944713592531,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_004_1817ebc2",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.1443944713592531,
+        "final_score": 0.1443944713592531,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pref_builder_margin_rank_blend_no_imports_fixed",
+          "intuition": "Build all pairs where the winner's objective is less than the loser's, weighting pairs by a smooth sigmoid of the rank difference divided by a powered margin of the absolute log_prob difference, with clamping to prevent extreme weights and ensure numerical stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {},
+          "operators_used": [],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        # Return empty PrefBatch with proper metadata and no weight tensor\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend'})\n    eps = 1e-6\n    beta_rank = float(extra.get('beta_rank', 4.0))\n    gamma = float(extra.get('gamma', 0.5))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    sigmoid = 1.0 / (1.0 + (-beta_rank * rank_span).exp())\n    raw = sigmoid / (margin_abs + eps).pow(gamma)\n    raw = raw.clamp_min(0.0)\n    clamp_lo = 0.1\n    clamp_hi = 3.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.1443944713592531
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_010_8a10d6ef": {
+      "builder_id": "g000_010_8a10d6ef",
+      "perf": 0.13113221969604494,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_010_8a10d6ef",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.13113221969604494,
+        "final_score": 0.13113221969604494,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_margin_rank_blend_tiezone",
+          "intuition": "adds tie-zone filtering constraint to suppress near-tie pairs while preserving margin_rank_blend weighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "tie_zone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend",
+            "tie_zone_filter",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend'})\n    eps = 1e-6\n    rank = feature_cache['rank']\n    beta_rank = float(extra.get('beta_rank', 4.0))\n    gamma = float(extra.get('gamma', 0.5))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    raw = torch.sigmoid(beta_rank * rank_span) / (margin_abs + eps).pow(gamma)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    # tie-zone filtering: zero weights where margin_abs below threshold\n    tie_zone_threshold = float(extra.get('tie_zone_threshold', 0.1))\n    tie_mask = (margin_abs >= tie_zone_threshold)\n    raw = raw * tie_mask.to(raw.dtype)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.13113221969604494
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_002_973da53e": {
+      "builder_id": "g000_002_973da53e",
+      "perf": -0.0075864795684816855,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_002_973da53e",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0075864795684816855,
+        "final_score": -0.0075864795684816855,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_bandpass_v2",
+          "intuition": "reweight all pairs using a bandpass filter on the cost gap emphasizing medium gaps with smooth decay",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass_v2",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_bandpass"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass_v2'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Parameters for bandpass: center and width from extra or defaults\n    center = float(extra.get('center', 1.0))\n    width = float(extra.get('width', 0.5))\n    eps = 1e-6\n    # Compute bandpass weight as a smooth triangle shape around center gap\n    dist = (gap - center).abs()\n    raw = (width - dist).clamp(min=0.0) / (width + eps)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp(min=0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass_v2'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.0075864795684816855
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_008_7d5c7d39": {
+      "builder_id": "g000_008_7d5c7d39",
+      "perf": 0.02900926132202164,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_008_7d5c7d39",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.02900926132202164,
+        "final_score": 0.02900926132202164,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_margin_regret_blend_clamp_rescale_005",
+          "intuition": "Refined margin_regret_blend weights by adding configurable rescaling and tighter clamping for improved stability in all_pairs topology",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_regret_blend"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'margin_regret_blend'})\n    eps = 1e-6\n    regret = feature_cache['regret']\n    lambda_regret = float(extra.get('lambda_regret', 1.0))\n    gamma = float(extra.get('gamma', 0.5))\n    clamp_lo = float(extra.get('clamp_lo', 0.5))\n    clamp_hi = float(extra.get('clamp_hi', 2.0))\n    rescale = float(extra.get('rescale', 1.0))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    regret_span = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]\n    raw = (1.0 + lambda_regret * regret_span) / (margin_abs + eps).pow(gamma)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = (raw * rescale).clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'margin_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.02900926132202164
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_003_75294ce7": {
+      "builder_id": "g000_003_75294ce7",
+      "perf": -0.004898134231567042,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_003_75294ce7",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.004898134231567042,
+        "final_score": -0.004898134231567042,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_bandpass_010",
+          "intuition": "reweight all pairs using a bandpass filter on gap magnitude to emphasize medium gaps",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_bandpass"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_abs = gap.abs()\n    low = float(extra.get('low', 0.1))\n    high = float(extra.get('high', 1.0))\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    # bandpass weighting: emphasize gaps between low and high\n    weight = ((gap_abs - low) * (high - gap_abs)).clamp(min=0.0)\n    weight = torch.nan_to_num(weight, nan=0.0, posinf=0.0, neginf=0.0).clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0125412731170651,
+      "threshold": -0.0125412731170651,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.004898134231567042
+      ],
+      "generation": 0,
+      "phase": "builder"
+    }
+  },
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "fseed_000_1ec7ffff"
+  },
+  "best_score": -0.02145215148925761,
+  "best_stage_final": "transfer_seed_baseline",
+  "best_gen": -1,
+  "best_phase": "builder",
+  "best_pair_score_history": [],
+  "best_pair_score_history_summary": {
+    "count": 0,
+    "scores": []
+  }
+}

@@ -16,14 +16,16 @@ loss_transfer_seed:
   source_loss_path: runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008/best_loss.json
   keep_source_fitness: true
   reset_history: false
+  re_eval_current_protocol: true
 
 builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+  pair_weight_normalization: none
+  seed_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
   allow_freeform_weight_family: true
-  allow_uniform_none: true
+  allow_uniform_none: false
 
 budgets:
   generations: 10
@@ -68,22 +70,42 @@ builder_llm:
   offline_mode: false
   parent_p: 5
   seed_reserve: 0
+  proposal_family_quota:
+    enabled: true
+    min_per_weight_family: 1
+    max_per_weight_family: 0
+    target_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    seed_missing_families: true
+  two_stage_search:
+    enabled: true
+    stage1_generations: 4
+    stage1_name: family_search
+    stage2_name: hyperparam_tune
+    stage1_ops: [GEN, PARADIGM_SHIFT, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
+    stage2_ops: [TUNE, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
   search_space:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    seed_weight_families: [uniform_none, gap_linear, gap_softmax, gap_sigmoid, gap_square]
+    pair_weight_normalization: none
+    seed_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
     allow_freeform_weight_family: true
-    allow_uniform_none: true
+    allow_uniform_none: false
   operator_bank:
     init:
       - { name: GEN, count: 4 }
-      - { name: XOVER, count: 4 }
-      - { name: TUNE, count: 8 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 2 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
     per_gen:
       - { name: GEN, count: 4 }
-      - { name: XOVER, count: 4 }
-      - { name: TUNE, count: 8 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 2 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
 
 loss_llm:
   enabled: false

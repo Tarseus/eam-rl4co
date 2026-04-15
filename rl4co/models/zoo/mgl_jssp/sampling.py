@@ -3,9 +3,6 @@ from dataclasses import dataclass
 import torch
 import torch.nn.functional as F
 
-from rl4co.models.rl.reinforce.preference_losses import po_loss as pairwise_po_loss
-
-
 @dataclass
 class Solutions:
     mss: torch.Tensor
@@ -64,10 +61,43 @@ def rl_loss(samples: Solutions) -> tuple[torch.Tensor, float]:
 
 
 def po_loss(samples: Solutions, impl: str = "bt") -> tuple[torch.Tensor, float]:
-    log_probs = trajectory_log_probs(samples.logits, samples.trajs).unsqueeze(0)
-    reward = (-samples.mss).unsqueeze(0)
-    loss, pref_rate = pairwise_po_loss(reward, log_probs, alpha=1.0, impl=impl)
-    return loss, float(pref_rate.item())
+    if impl not in {"bt", "exponential"}:
+        raise ValueError(f"Unknown po_loss impl: {impl}")
+
+    log_probs = trajectory_log_probs(samples.logits, samples.trajs)
+    makespans = samples.mss
+    pair_mask = torch.triu(
+        torch.ones(
+            (makespans.shape[0], makespans.shape[0]),
+            dtype=torch.bool,
+            device=makespans.device,
+        ),
+        diagonal=1,
+    )
+    if not pair_mask.any():
+        return log_probs.sum() * 0.0, solution_ratio(makespans)
+
+    left_idx, right_idx = pair_mask.nonzero(as_tuple=True)
+    left_ms = makespans[left_idx]
+    right_ms = makespans[right_idx]
+    unequal = left_ms != right_ms
+    if not unequal.any():
+        return log_probs.sum() * 0.0, solution_ratio(makespans)
+
+    left_idx = left_idx[unequal]
+    right_idx = right_idx[unequal]
+    left_ms = left_ms[unequal]
+    right_ms = right_ms[unequal]
+
+    better_is_left = left_ms < right_ms
+    better_idx = torch.where(better_is_left, left_idx, right_idx)
+    worse_idx = torch.where(better_is_left, right_idx, left_idx)
+    score_diff = log_probs[better_idx] - log_probs[worse_idx]
+    if impl == "bt":
+        loss = -F.logsigmoid(score_diff).mean()
+    else:
+        loss = -score_diff.mean()
+    return loss, solution_ratio(makespans)
 
 
 class JobShopStates:

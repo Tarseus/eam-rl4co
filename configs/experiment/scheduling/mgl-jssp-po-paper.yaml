@@ -50,6 +50,6 @@ model:
   greedy: 0
   log_on_step: false
   metrics:
-    train: ["loss", "reward", "pref_rate"]
+    train: ["loss", "reward", "quality"]
     val: ["reward", "gap", "makespan"]
     test: ${model.metrics.val}

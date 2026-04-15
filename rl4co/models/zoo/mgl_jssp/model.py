@@ -138,13 +138,46 @@ class MGLJSSPModel(L.LightningModule):
             )
         log.info("Loaded external MGL checkpoint from %s", path.as_posix())
 
+    def _filter_instances_by_allowed_shapes(
+        self, instances: list[dict[str, Any]], split_name: str, data_dir: str
+    ) -> list[dict[str, Any]]:
+        if self.allowed_shapes is None:
+            return instances
+
+        filtered = [
+            ins for ins in instances if (int(ins["j"]), int(ins["m"])) in self.allowed_shapes
+        ]
+        if not filtered:
+            allowed = ", ".join(f"{j}x{m}" for j, m in self.allowed_shapes)
+            raise ValueError(
+                f"No {split_name} instances match allowed_shapes=[{allowed}] in {data_dir}."
+            )
+
+        if len(filtered) != len(instances):
+            log.info(
+                "Filtered %s split by allowed_shapes: %d -> %d instances",
+                split_name,
+                len(instances),
+                len(filtered),
+            )
+        return filtered
+
     def setup(self, stage: str | None = None) -> None:
         train_instances = load_dataset(self.train_data_dir, use_cached=self.use_cached, device="cpu")
         val_instances = load_dataset(self.val_data_dir, use_cached=self.use_cached, device="cpu")
+        train_instances = self._filter_instances_by_allowed_shapes(
+            train_instances, "train", self.train_data_dir
+        )
+        val_instances = self._filter_instances_by_allowed_shapes(
+            val_instances, "val", self.val_data_dir
+        )
         self.train_dataset = JSSPInstanceDataset(train_instances)
         self.val_dataset = JSSPInstanceDataset(val_instances)
         if self.test_data_dir:
             test_instances = load_dataset(self.test_data_dir, use_cached=self.use_cached, device="cpu")
+            test_instances = self._filter_instances_by_allowed_shapes(
+                test_instances, "test", self.test_data_dir
+            )
             self.test_dataset = JSSPInstanceDataset(test_instances)
         else:
             self.test_dataset = self.val_dataset
@@ -258,16 +291,6 @@ class MGLJSSPModel(L.LightningModule):
                 sync_dist=True,
                 batch_size=actual_batch_size,
             )
-        if self.baseline == "po" and "pref_rate" in self.train_metrics:
-            self.log(
-                "train/pref_rate",
-                aux_total,
-                on_step=self.log_on_step,
-                on_epoch=not self.log_on_step,
-                prog_bar=False,
-                sync_dist=True,
-                batch_size=actual_batch_size,
-            )
         return loss_total
 
     def _training_rollout(
@@ -323,7 +346,7 @@ class MGLJSSPModel(L.LightningModule):
 
             # Compute PO loss per-instance (strictly within-instance pairs), then average
             total_loss = 0.0
-            total_pref_rate = 0.0
+            total_quality = 0.0
             best_makespan_list = []
 
             for i in range(num_instances):
@@ -332,13 +355,13 @@ class MGLJSSPModel(L.LightningModule):
                     logits=logits_reshaped[i],
                     mss=makespans_reshaped[i]
                 )
-                loss_i, pref_rate_i = po_loss(samples_i, impl=self.po_impl)
+                loss_i, quality_i = po_loss(samples_i, impl=self.po_impl)
                 total_loss = total_loss + loss_i
-                total_pref_rate = total_pref_rate + pref_rate_i
+                total_quality = total_quality + quality_i
                 best_makespan_list.append(makespans_reshaped[i].min())
 
             loss = total_loss / num_instances
-            quality = total_pref_rate / num_instances
+            quality = total_quality / num_instances
             best_makespan = torch.stack(best_makespan_list).min()
 
             reward = -best_makespan.to(self.device)

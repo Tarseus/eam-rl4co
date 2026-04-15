@@ -162,10 +162,14 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
     out = prompt
     llm_call = global_feedback.get("llm_call") if isinstance(global_feedback, Mapping) else None
     search_space = global_feedback.get("builder_search_space") if isinstance(global_feedback, Mapping) else None
+    builder_search = global_feedback.get("builder_search") if isinstance(global_feedback, Mapping) else None
     if isinstance(search_space, Mapping):
         mode = str(search_space.get("mode", "") or "").strip().lower()
         if mode == "reweight_only":
             fixed_pair_builder = str(search_space.get("fixed_pair_builder", "all_pairs") or "all_pairs").strip().lower()
+            pair_weight_normalization = str(
+                search_space.get("pair_weight_normalization", "instance_mean") or "instance_mean"
+            ).strip().lower()
             allowed_weight_families = search_space.get("allowed_weight_families", [])
             if not isinstance(allowed_weight_families, (list, tuple)):
                 allowed_weight_families = []
@@ -182,10 +186,21 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 "- Your only substantive degree of freedom is the nonnegative pair weight function.\n"
                 "- Keep pair_idx identical to the fixed template and modify only `weight` plus metadata/hyperparameters.\n"
                 "- Weight must be finite, nonnegative, vectorized, and instance-local.\n"
-                "- Use weighting to reshape the per-instance pair distribution with full-pool context and instance-local normalization.\n"
                 "- This is not redundant with loss-only search: the downstream loss batch is flattened and does not carry `b_idx`, so it cannot reconstruct instance-local pair distributions or per-instance pool statistics.\n"
                 "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
             )
+            if pair_weight_normalization == "none":
+                out += (
+                    "- Pair-weight normalization mode is `none`.\n"
+                    "- Do not divide weights by per-instance sums or means.\n"
+                    "- Use raw nonnegative weighting followed by explicit clamping only.\n"
+                    "- Let the downstream loss-side weighted mean handle global scale normalization.\n"
+                )
+            else:
+                out += (
+                    "- Pair-weight normalization mode is `instance_mean`.\n"
+                    "- Use weighting to reshape the per-instance pair distribution with full-pool context and instance-local normalization.\n"
+                )
             if allow_freeform_weight_family:
                 out += (
                     f"- Seed weight_family values for the handcrafted initial pool: {json.dumps([str(x) for x in seed_weight_families], ensure_ascii=False)}\n"
@@ -210,27 +225,78 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                     out += (
                         "- This is a signal-organization rewrite under the same successful weighting family.\n"
                         "- Preserve `weight_family` and `constraint_family` unless correctness forces otherwise.\n"
-                        "- Rewrite normalization, clipping, rescaling, ranking, or gap-to-weight transformation structure.\n"
+                        "- Rewrite clipping, rescaling, ranking, or gap-to-weight transformation structure.\n"
+                        "- Respect the configured pair-weight normalization mode.\n"
                         "- Do not reduce this to a scalar-only tune.\n"
                     )
                 elif op_name == "CONSTRAINT_INJECT":
                     out += (
                         "- This step should add explicit optimization/stability constraints while preserving the core weighting family.\n"
                         "- Preserve `weight_family` and fixed pair topology.\n"
-                        "- Add concrete stabilizers such as normalization, denominator safeguards, clamp, topk caps, or tie-zone filtering.\n"
+                        "- Add concrete stabilizers such as denominator safeguards, clamp, topk caps, or tie-zone filtering.\n"
+                        "- Do not add instance-local normalization when the configured pair-weight normalization mode is `none`.\n"
                     )
                 elif op_name in {"XOVER", "E1"}:
                     out += (
                         "- This is crossover over existing weighting candidates.\n"
                         "- Preserve the fixed pair template and combine complementary weighting ideas from multiple parents.\n"
                         "- Reuse effective substructures already validated in the parents when possible.\n"
+                        "- Good crossover moves include combining one parent's primary signal with another parent's monotone transform, clamp schedule, or denominator safeguard.\n"
+                        "- Do not collapse distinct parent ideas into a generic normalized average.\n"
                     )
                 elif op_name in {"TUNE", "M2"}:
                     out += (
                         "- This is local exploitation.\n"
-                        "- Keep the overall weighting logic the same and tune only local hyperparameters or smooth scalar transforms.\n"
-                        "- Avoid introducing a new weighting family unless it is absolutely necessary for correctness.\n"
+                        "- Keep the overall weighting logic and family tags the same.\n"
+                        "- Tune only local weighting hyperparameters or smooth scalar transforms such as beta/gamma/tau/band edges/clamp bounds/eps.\n"
+                        "- Avoid introducing a new weighting family, new pair topology, or new normalization scheme unless it is absolutely necessary for correctness.\n"
                     )
+                elif op_name == "M3":
+                    out += (
+                        "- This is simplify/stabilize for weighting search.\n"
+                        "- Preserve the parent weighting family and fixed pair topology unless the failure reason proves they are invalid.\n"
+                        "- Simplify fragile algebra, denominator handling, and clipping without falling back to per-instance weight normalization when normalization mode is `none`.\n"
+                    )
+                elif op_name == "REPAIR":
+                    out += (
+                        "- This is a repair pass for weighting search.\n"
+                        "- Preserve the intended weighting family, family tags, and fixed pair topology while fixing only the reported failure.\n"
+                        "- Do not reintroduce per-instance weight mean/sum normalization when normalization mode is `none`.\n"
+                    )
+    if isinstance(builder_search, Mapping) and bool(builder_search.get("explore_mode", False)):
+        avoid_families = builder_search.get("avoid_families", [])
+        if not isinstance(avoid_families, (list, tuple)):
+            avoid_families = []
+        out += (
+            "\n\nBUILDER_EXPLORATION_GUIDANCE:\n"
+            f"- explore_mode is active after {int(builder_search.get('stagnation_generations', 0) or 0)} stagnant generation(s).\n"
+            f"- Avoid dominant weighting-family patterns when possible: {json.dumps([str(x) for x in avoid_families[:12]], ensure_ascii=False)}\n"
+            "- Prefer genuine weighting-family changes or signal-organization rewrites over tiny scalar retunes.\n"
+        )
+    if isinstance(builder_search, Mapping):
+        stage_name = str(builder_search.get("stage_name", "") or "").strip()
+        if stage_name:
+            stage_instructions = builder_search.get("stage_instructions", [])
+            if not isinstance(stage_instructions, (list, tuple)):
+                stage_instructions = []
+            out += (
+                "\n\nBUILDER_STAGE_GUIDANCE:\n"
+                f"- Active search stage: {stage_name}\n"
+            )
+            for line in list(stage_instructions)[:6]:
+                out += f"- {str(line)}\n"
+
+        target_weight_family = str(builder_search.get("target_weight_family", "") or "").strip()
+        missing_weight_families = builder_search.get("missing_weight_families", [])
+        if not isinstance(missing_weight_families, (list, tuple)):
+            missing_weight_families = []
+        if target_weight_family or missing_weight_families:
+            out += (
+                "\n\nBUILDER_FAMILY_QUOTA_GUIDANCE:\n"
+                f"- Missing / under-covered weight_family values this generation: {json.dumps([str(x) for x in missing_weight_families[:12]], ensure_ascii=False)}\n"
+            )
+            if target_weight_family:
+                out += f"- Prefer producing a valid candidate with `weight_family = {target_weight_family}` if the operator semantics allow it.\n"
     return out + "\n\nGLOBAL_FEEDBACK_JSON:\n" + json.dumps(global_feedback, indent=2, ensure_ascii=False)
 
 

@@ -1560,6 +1560,7 @@ def _normalize_loss_transfer_seed_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, 
         "max_per_family": max(0, int(raw.get("max_per_family", 2) or 2)),
         "keep_source_fitness": bool(raw.get("keep_source_fitness", True)),
         "reset_history": bool(raw.get("reset_history", False)),
+        "re_eval_current_protocol": bool(raw.get("re_eval_current_protocol", True)),
     }
 
 
@@ -2583,8 +2584,15 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     if fixed_pair_builder not in {"all_pairs", "anchor_best"}:
         fixed_pair_builder = "all_pairs"
 
+    pair_weight_normalization = str(
+        cfg.get("pair_weight_normalization", cfg.get("weight_normalization", "instance_mean")) or "instance_mean"
+    ).strip().lower()
+    if pair_weight_normalization in {"none", "off", "disabled", "clamp_only"}:
+        pair_weight_normalization = "none"
+    else:
+        pair_weight_normalization = "instance_mean"
+
     default_families = [
-        "uniform_none",
         "gap_linear",
         "gap_softmax",
         "gap_sigmoid",
@@ -2595,7 +2603,7 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         "margin_regret_blend",
         "gap_bandpass",
     ]
-    allow_uniform_none = bool(cfg.get("allow_uniform_none", True))
+    allow_uniform_none = bool(cfg.get("allow_uniform_none", False))
     allow_freeform_weight_family = bool(cfg.get("allow_freeform_weight_family", False))
 
     families = _normalize_weight_family_values(cfg.get("allowed_weight_families", []))
@@ -2618,6 +2626,7 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         "enabled": bool(cfg.get("enabled", False)) or mode == "reweight_only",
         "mode": str(mode),
         "fixed_pair_builder": str(fixed_pair_builder),
+        "pair_weight_normalization": str(pair_weight_normalization),
         "allowed_weight_families": ([] if allow_freeform_weight_family else list(families)),
         "seed_weight_families": list(seed_families),
         "allow_uniform_none": bool(allow_uniform_none),
@@ -2627,6 +2636,21 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
 
 def _builder_family_tags(ir: PreferenceBuilderIR) -> Dict[str, str]:
     return _family_tags_from_hparams(getattr(ir, "hyperparams", {}), keys=_BUILDER_FAMILY_KEYS)
+
+
+def _builder_weight_family_label(ir_or_entry: Any) -> str:
+    try:
+        if isinstance(ir_or_entry, PreferenceBuilderIR):
+            tags = _builder_family_tags(ir_or_entry)
+        elif isinstance(ir_or_entry, Mapping) and isinstance(ir_or_entry.get("ir"), Mapping):
+            tags = _builder_family_tags(pref_builder_ir_from_json(ir_or_entry.get("ir") or {}))
+        elif isinstance(ir_or_entry, Mapping):
+            tags = _family_tags_from_hparams(ir_or_entry.get("hyperparams", {}), keys=_BUILDER_FAMILY_KEYS)
+        else:
+            tags = {}
+    except Exception:  # noqa: BLE001
+        tags = {}
+    return _normalize_family_value(tags.get("weight_family"))
 
 
 def _loss_family_tags(ir: FreeLossIR) -> Dict[str, str]:
@@ -3296,6 +3320,73 @@ def _check_loss_novelty(
     return True, {"max_similarity": float(best), "best_similarity_parts": dict(best_parts), "neighbors": top}
 
 
+def _check_builder_novelty(
+    *,
+    candidate: PreferenceBuilderIR,
+    bank: Sequence[Mapping[str, Any]],
+    max_similarity: float,
+    neighbors: int = 3,
+) -> tuple[bool, Dict[str, Any]]:
+    """Return (ok, meta_or_failure_payload) for builder novelty."""
+
+    if not bank:
+        return True, {"max_similarity": 0.0, "neighbors": []}
+
+    cand_fp = _builder_fingerprint(candidate)
+    cand_bigrams = cand_fp.get("token_bigrams") or set()
+    cand_unigrams = cand_fp.get("token_unigrams") or set()
+    cand_calls = cand_fp.get("call_names_set") or set()
+    if not isinstance(cand_bigrams, set):
+        cand_bigrams = set()
+    if not isinstance(cand_unigrams, set):
+        cand_unigrams = set()
+    if not isinstance(cand_calls, set):
+        cand_calls = set()
+
+    scored: List[Dict[str, Any]] = []
+    best = 0.0
+    best_parts = {"bigram": 0.0, "unigram": 0.0, "call": 0.0}
+    for e in bank:
+        bt = e.get("token_bigrams")
+        ut = e.get("token_unigrams")
+        ct = e.get("call_names_set")
+        if not isinstance(bt, set) or not isinstance(ut, set) or not isinstance(ct, set):
+            continue
+        sim_big = _jaccard(cand_bigrams, bt)
+        sim_uni = _jaccard(cand_unigrams, ut)
+        sim_call = _jaccard(cand_calls, ct)
+        sim = float(max(sim_big, sim_uni, sim_call))
+        if sim > best:
+            best = float(sim)
+            best_parts = {"bigram": float(sim_big), "unigram": float(sim_uni), "call": float(sim_call)}
+        scored.append(
+            {
+                "sig": str(e.get("sig", "")),
+                "name": str(e.get("name", "")),
+                "similarity": float(sim),
+                "similarity_parts": {"bigram": float(sim_big), "unigram": float(sim_uni), "call": float(sim_call)},
+                "call_names_top": list(e.get("call_names_top") or [])[:16],
+            }
+        )
+
+    scored.sort(key=lambda x: float(x.get("similarity", 0.0)), reverse=True)
+    top = scored[: max(1, int(neighbors))]
+
+    if float(best) >= float(max_similarity):
+        return (
+            False,
+            {
+                "stage": "novelty",
+                "max_similarity": float(max_similarity),
+                "best_similarity": float(best),
+                "best_similarity_parts": dict(best_parts),
+                "too_similar_to": top,
+            },
+        )
+
+    return True, {"max_similarity": float(best), "best_similarity_parts": dict(best_parts), "neighbors": top}
+
+
 def _select_elites_by_family(
     *,
     ranked: Sequence[Mapping[str, Any]],
@@ -3774,6 +3865,104 @@ def _normalize_family_diversity_cfg(raw: Any) -> Dict[str, Any]:
         "parent_max_per_family": int(cfg.get("parent_max_per_family", 0) or 0),
         "include_unknown": bool(cfg.get("include_unknown", False)),
     }
+
+
+def _normalize_builder_proposal_family_quota_cfg(
+    raw: Any,
+    *,
+    search_space_cfg: Mapping[str, Any] | None = None,
+) -> Dict[str, Any]:
+    cfg = dict(raw) if isinstance(raw, Mapping) else {}
+    search_space = dict(search_space_cfg) if isinstance(search_space_cfg, Mapping) else {}
+    target_families = _normalize_weight_family_values(
+        cfg.get(
+            "target_weight_families",
+            search_space.get("seed_weight_families", search_space.get("allowed_weight_families", [])),
+        )
+    )
+    enabled_default = bool(_is_reweight_only_search_space(search_space))
+    return {
+        "enabled": bool(cfg.get("enabled", enabled_default)) and bool(target_families),
+        "min_per_weight_family": max(0, int(cfg.get("min_per_weight_family", 1) or 1)),
+        "max_per_weight_family": max(0, int(cfg.get("max_per_weight_family", 0) or 0)),
+        "target_weight_families": list(target_families),
+        "seed_missing_families": bool(cfg.get("seed_missing_families", True)),
+    }
+
+
+def _normalize_builder_two_stage_cfg(
+    raw: Any,
+    *,
+    total_generations: int,
+    search_space_cfg: Mapping[str, Any] | None = None,
+) -> Dict[str, Any]:
+    cfg = dict(raw) if isinstance(raw, Mapping) else {}
+    search_space = dict(search_space_cfg) if isinstance(search_space_cfg, Mapping) else {}
+    enabled_default = bool(_is_reweight_only_search_space(search_space))
+    total_generations = max(1, int(total_generations or 1))
+    stage1_default = max(
+        1,
+        min(
+            total_generations,
+            int(cfg.get("stage1_generations", 0) or 0) or int(math.ceil(total_generations * 0.4)),
+        ),
+    )
+    stage1_ops = [str(x).strip().upper() for x in list(cfg.get("stage1_ops", ["GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"])) if str(x).strip()]
+    stage2_ops = [str(x).strip().upper() for x in list(cfg.get("stage2_ops", ["TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"])) if str(x).strip()]
+    return {
+        "enabled": bool(cfg.get("enabled", enabled_default)),
+        "stage1_generations": int(stage1_default),
+        "stage1_name": str(cfg.get("stage1_name", "family_search") or "family_search"),
+        "stage2_name": str(cfg.get("stage2_name", "hyperparam_tune") or "hyperparam_tune"),
+        "stage1_ops": list(dict.fromkeys(stage1_ops)),
+        "stage2_ops": list(dict.fromkeys(stage2_ops)),
+    }
+
+
+def _builder_two_stage_name(
+    generation: int,
+    *,
+    cfg: Mapping[str, Any] | None,
+) -> str | None:
+    if not isinstance(cfg, Mapping) or not bool(cfg.get("enabled", False)):
+        return None
+    stage1_generations = max(1, int(cfg.get("stage1_generations", 1) or 1))
+    if int(generation) < stage1_generations:
+        return str(cfg.get("stage1_name", "family_search") or "family_search")
+    return str(cfg.get("stage2_name", "hyperparam_tune") or "hyperparam_tune")
+
+
+def _rewrite_builder_operator_plan_for_stage(
+    plan: Sequence[str],
+    *,
+    stage_name: str | None,
+    cfg: Mapping[str, Any] | None,
+) -> List[str]:
+    if not isinstance(cfg, Mapping) or not bool(cfg.get("enabled", False)) or not stage_name:
+        return [str(op) for op in plan]
+
+    stage1_name = str(cfg.get("stage1_name", "family_search") or "family_search")
+    stage2_name = str(cfg.get("stage2_name", "hyperparam_tune") or "hyperparam_tune")
+    if stage_name == stage1_name:
+        allowed = {str(x).strip().upper() for x in list(cfg.get("stage1_ops", []))}
+        remap = {"TUNE": "STRUCTURE_SHIFT", "M2": "STRUCTURE_SHIFT"}
+    elif stage_name == stage2_name:
+        allowed = {str(x).strip().upper() for x in list(cfg.get("stage2_ops", []))}
+        remap = {"GEN": "TUNE", "E1_GENERATE": "TUNE", "PARADIGM_SHIFT": "TUNE", "E2": "XOVER"}
+    else:
+        return [str(op) for op in plan]
+
+    if not allowed:
+        return [str(op) for op in plan]
+
+    fallback = "TUNE" if stage_name == stage2_name and "TUNE" in allowed else next(iter(allowed))
+    rewritten: List[str] = []
+    for op in plan:
+        op_norm = str(remap.get(str(op).strip().upper(), str(op).strip().upper()))
+        if op_norm not in allowed:
+            op_norm = str(fallback)
+        rewritten.append(op_norm)
+    return rewritten
 
 
 def _normalize_stage3_multifidelity_cfg(raw: Any) -> Dict[str, Any]:
@@ -5055,22 +5244,34 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
     def _make_reweight_builder_ir(*, kind: str, weight_family: str, index: int) -> PreferenceBuilderIR:
         builder_label = f"{kind}_{weight_family}"
         template_code = _fixed_pair_template_code(kind)
+        norm_mode = str(search_space_cfg.get("pair_weight_normalization", "instance_mean"))
         helper_lines = [
             "    clamp_lo = 0.25",
             "    clamp_hi = 4.0",
-            "    batch_size = int(objective.shape[0])",
-            "    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=batch_size).to(dtype=objective.dtype)",
             "    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)",
-            "    mean_raw = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
-            "    mean_raw.index_add_(0, b_idx, raw)",
-            "    mean_raw = mean_raw / counts.clamp_min(1.0)",
-            "    weight = raw / mean_raw[b_idx].clamp_min(eps)",
-            "    weight = weight.clamp(clamp_lo, clamp_hi)",
-            "    mean_weight = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
-            "    mean_weight.index_add_(0, b_idx, weight)",
-            "    mean_weight = mean_weight / counts.clamp_min(1.0)",
-            "    weight = weight / mean_weight[b_idx].clamp_min(eps)",
         ]
+        if norm_mode == "none":
+            helper_lines.extend(
+                [
+                    "    weight = raw.clamp(clamp_lo, clamp_hi)",
+                ]
+            )
+        else:
+            helper_lines.extend(
+                [
+                    "    batch_size = int(objective.shape[0])",
+                    "    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=batch_size).to(dtype=objective.dtype)",
+                    "    mean_raw = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
+                    "    mean_raw.index_add_(0, b_idx, raw)",
+                    "    mean_raw = mean_raw / counts.clamp_min(1.0)",
+                    "    weight = raw / mean_raw[b_idx].clamp_min(eps)",
+                    "    weight = weight.clamp(clamp_lo, clamp_hi)",
+                    "    mean_weight = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)",
+                    "    mean_weight.index_add_(0, b_idx, weight)",
+                    "    mean_weight = mean_weight / counts.clamp_min(1.0)",
+                    "    weight = weight / mean_weight[b_idx].clamp_min(eps)",
+                ]
+            )
         base_lines = [
             "def generated_builder(feature_cache, extra):",
             "    objective = feature_cache['objective']",
@@ -5181,7 +5382,11 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
             "geometry_family": ("anchor_star" if kind == "anchor_best" else "dense_all_pairs"),
             "cap_family": ("anchor_single" if kind == "anchor_best" else "uncapped_full"),
             "weight_family": str(weight_family),
-            "constraint_family": "fixed_pair_reweight_only",
+            "constraint_family": (
+                "clamp_only"
+                if norm_mode == "none"
+                else "fixed_pair_reweight_only"
+            ),
         }
         signal_family = {
             "gap_rank_blend": "gap_rank",
@@ -5894,6 +6099,35 @@ def _builder_has_explicit_constraint_mechanism(ir: PreferenceBuilderIR) -> bool:
     return any(marker in code for marker in markers | {"eps", "denom", "tie", "dedup"})
 
 
+def _builder_uses_instance_weight_normalization(ir: PreferenceBuilderIR) -> bool:
+    ops_used = {str(x or "").strip().lower() for x in (getattr(ir, "operators_used", []) or [])}
+    tags = {str(k): str(v).strip().lower() for k, v in (_builder_family_tags(ir) or {}).items()}
+    constraint_family = tags.get("constraint_family", "")
+    if constraint_family in {"clamped_instance_norm", "instance_norm", "normalized_clamp"}:
+        return True
+    if {"normalize", "norm"} & ops_used:
+        return True
+    code = str(getattr(ir, "code", "") or "").lower()
+    markers = (
+        "mean_raw",
+        "mean_weight",
+        "sum_raw",
+        "sum_weight",
+        "mean_clipped",
+        "mean_bandpass",
+        "mean_norm",
+        "counts.clamp_min(1.0)",
+    )
+    if any(marker in code for marker in markers):
+        return True
+    suspicious_pairs = (
+        ("index_add_", " / "),
+        ("bincount", " / "),
+        ("index_add_", ".clamp_min(eps)"),
+    )
+    return any(a in code and b in code for a, b in suspicious_pairs)
+
+
 def _validate_builder_operator_contract(
     ir: PreferenceBuilderIR,
     op_type: str,
@@ -5903,7 +6137,7 @@ def _validate_builder_operator_contract(
 ) -> Tuple[bool, Dict[str, Any]]:
     del parent_entries
     op = str(op_type or "").strip().upper()
-    if op not in {"BUILDER_PARADIGM_SHIFT", "BUILDER_STRUCTURE_SHIFT", "BUILDER_CONSTRAINT_INJECT"}:
+    if op not in {"BUILDER_PARADIGM_SHIFT", "BUILDER_STRUCTURE_SHIFT", "BUILDER_CONSTRAINT_INJECT", "M2"}:
         return True, {}
     cand_tags = _builder_family_tags(ir)
     missing = _missing_required_family_tags(cand_tags, keys=_BUILDER_FAMILY_KEYS)
@@ -5917,6 +6151,15 @@ def _validate_builder_operator_contract(
         )
     reweight_only = _is_reweight_only_search_space(search_space_cfg)
     if reweight_only:
+        pair_weight_normalization = str(search_space_cfg.get("pair_weight_normalization", "instance_mean") or "instance_mean")
+        if pair_weight_normalization == "none" and _builder_uses_instance_weight_normalization(ir):
+            return False, _operator_contract_failure(
+                op_type=op,
+                reason="instance_weight_normalization_forbidden",
+                parent_tags=[_builder_family_tags(p) for p in parent_irs],
+                cand_tags=cand_tags,
+                required_change={"must_not_include": ["per-instance weight mean/sum normalization"], "normalization_mode": "none"},
+            )
         parent = parent_irs[0] if parent_irs else None
         p_tags = _builder_family_tags(parent) if parent is not None else {}
         maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
@@ -5990,6 +6233,16 @@ def _validate_builder_operator_contract(
                     cand_tags=cand_tags,
                     required_change={"must_include": ["normalize/clamp/topk/tie-zone/denom-safeguard"]},
                 )
+        elif op == "M2":
+            for key in ("geometry_family", "cap_family", "weight_family", "constraint_family"):
+                if _normalize_family_value(cand_tags.get(key)) != _normalize_family_value(p_tags.get(key)):
+                    return False, _operator_contract_failure(
+                        op_type=op,
+                        reason=f"{key}_not_preserved",
+                        parent_tags=p_tags,
+                        cand_tags=cand_tags,
+                        required_change={"must_preserve": ["geometry_family", "cap_family", "weight_family", "constraint_family"], "must_change": ["local_weight_hyperparameters_only"]},
+                    )
         return True, {}
     if op == "BUILDER_PARADIGM_SHIFT":
         maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
@@ -6126,6 +6379,17 @@ def _validate_builder_search_space_contract(
                 "fixed_pair_builder": str(search_space_cfg.get("fixed_pair_builder", "all_pairs")),
                 "candidate_pairs": int(cand_b.numel()),
                 "reference_pairs": int(ref_b.numel()),
+            },
+        )
+    pair_weight_normalization = str(search_space_cfg.get("pair_weight_normalization", "instance_mean") or "instance_mean")
+    if pair_weight_normalization == "none" and _builder_uses_instance_weight_normalization(compiled.ir):
+        return False, _builder_failure_report(
+            stage="search_space",
+            reason="instance_weight_normalization_forbidden",
+            trace={
+                "failed_gate": "SearchSpace",
+                "failure_kind": "instance_weight_normalization_forbidden",
+                "normalization_mode": "none",
             },
         )
     return True, {}
@@ -6290,6 +6554,9 @@ def _repair_builder_candidate_loop(
     prompt_context: Mapping[str, Any] | None,
     max_attempts: int,
     simplify_first: bool = True,
+    novelty_bank: Sequence[Mapping[str, Any]] | None = None,
+    novelty_max_similarity: float | None = None,
+    novelty_neighbors: int = 3,
 ) -> Tuple[PreferenceBuilderIR | None, Dict[str, Any]]:
     """Attempt to repair a failing builder candidate via LLM, re-validating each attempt.
 
@@ -6305,6 +6572,7 @@ def _repair_builder_candidate_loop(
     last_fail = dict(failure_report)
     attempts: List[Dict[str, Any]] = []
     current = ir
+    novelty_meta: Dict[str, Any] | None = None
     for attempt in range(max(0, int(max_attempts))):
         try:
             fb = dict(global_feedback or {})
@@ -6348,8 +6616,20 @@ def _repair_builder_candidate_loop(
             parent_irs=parent_irs,
             parent_entries=parent_entries,
         )
+        if ok and novelty_bank is not None and novelty_max_similarity is not None:
+            nov_ok, nov_payload = _check_builder_novelty(
+                candidate=repaired,
+                bank=novelty_bank,
+                max_similarity=float(novelty_max_similarity),
+                neighbors=int(novelty_neighbors),
+            )
+            if not bool(nov_ok):
+                last_fail = dict(nov_payload)
+                current = repaired
+                continue
+            novelty_meta = dict(nov_payload)
         if ok:
-            return repaired, {"attempts": attempts, "repaired": True}
+            return repaired, {"attempts": attempts, "repaired": True, "novelty": novelty_meta}
         last_fail = dict(fail2)
         current = repaired
 
@@ -6423,6 +6703,35 @@ def _propose_builders_for_generation(
     if bool(llm_init_only):
         seed_reserve = 0
 
+    builder_search_space_cfg = _normalize_builder_search_space_cfg(builder_cfg.get("search_space", {}))
+    proposal_family_quota_cfg_global = _normalize_builder_proposal_family_quota_cfg(
+        builder_cfg.get("proposal_family_quota", {}),
+        search_space_cfg=builder_search_space_cfg,
+    )
+
+    def _weight_family_counts(items: Sequence[Mapping[str, Any]]) -> collections.Counter[str]:
+        ctr: collections.Counter[str] = collections.Counter()
+        for item in items:
+            ir_local = item.get("ir") if isinstance(item, Mapping) else None
+            fam = _builder_weight_family_label(ir_local)
+            if fam and fam != "unknown":
+                ctr[fam] += 1
+        return ctr
+
+    def _missing_weight_families(items: Sequence[Mapping[str, Any]]) -> List[str]:
+        if not bool(proposal_family_quota_cfg_global.get("enabled", False)):
+            return []
+        min_per = int(proposal_family_quota_cfg_global.get("min_per_weight_family", 0) or 0)
+        if min_per <= 0:
+            return []
+        counts = _weight_family_counts(items)
+        missing: List[str] = []
+        for fam in list(proposal_family_quota_cfg_global.get("target_weight_families", [])):
+            fam_key = str(fam)
+            if int(counts.get(fam_key, 0)) < min_per:
+                missing.append(fam_key)
+        return missing
+
     if llm_enabled:
         llm_failure_counts: Dict[str, int] = {}
         llm_failure_samples: List[Dict[str, Any]] = []
@@ -6435,6 +6744,19 @@ def _propose_builders_for_generation(
         repair_on_fail = bool(repair_cfg.get("enabled", builder_cfg.get("repair_on_failure", True)))
         repair_attempts = int(repair_cfg.get("max_attempts", builder_cfg.get("repair_attempts", 1)) or 1)
         family_div_cfg = _normalize_family_diversity_cfg(builder_cfg.get("family_diversity", {}))
+        novelty_cfg = builder_cfg.get("novelty", {}) or {}
+        if not isinstance(novelty_cfg, dict):
+            novelty_cfg = {}
+        novelty_enabled = bool(novelty_cfg.get("enabled", False))
+        novelty_max_sim = float(novelty_cfg.get("max_similarity", 1.0) or 1.0)
+        novelty_neighbors = int(novelty_cfg.get("neighbors", 3) or 3)
+        novelty_apply_to_elites = bool(novelty_cfg.get("apply_to_elites", False))
+        explore_cfg = builder_cfg.get("exploration", {}) or {}
+        if not isinstance(explore_cfg, dict):
+            explore_cfg = {}
+        explore_enabled = bool(explore_cfg.get("enabled", False))
+        explore_replace_p = float(explore_cfg.get("replace_p", 0.7) or 0.7)
+        explore_mode = bool((global_feedback or {}).get("builder_search", {}).get("explore_mode", False))
 
         prompts = llm_root.get("prompts", builder_cfg.get("prompts", {})) or {}
         if not isinstance(prompts, dict):
@@ -6453,7 +6775,14 @@ def _propose_builders_for_generation(
         gate_cfg = llm_root.get("builder_gate", builder_cfg.get("builder_gate", {})) or {}
         if not isinstance(gate_cfg, dict):
             gate_cfg = {}
-        search_space_cfg = _normalize_builder_search_space_cfg(builder_cfg.get("search_space", {}))
+        search_space_cfg = dict(builder_search_space_cfg)
+        proposal_family_quota_cfg = dict(proposal_family_quota_cfg_global)
+        two_stage_cfg = _normalize_builder_two_stage_cfg(
+            builder_cfg.get("two_stage_search", {}),
+            total_generations=max(1, int(builder_cfg.get("total_generations", generation + 1) or generation + 1)),
+            search_space_cfg=search_space_cfg,
+        )
+        two_stage_name = _builder_two_stage_name(int(generation), cfg=two_stage_cfg)
         min_pairs = int(gate_cfg.get("min_pairs", 1) or 1)
         min_cov = float(gate_cfg.get("min_coverage", 0.0) or 0.0)
         max_pairs_pi = int(gate_cfg.get("max_pairs_per_instance", 4096) or 4096)
@@ -6530,11 +6859,47 @@ def _propose_builders_for_generation(
                     break
         ranked_parents.sort(key=lambda x: _stored_selection_sort_key(x[3], fallback_key="fitness"))
 
+        novelty_bank: List[Dict[str, Any]] = []
+        novelty_seen: set[str] = set()
+
+        def _bank_add_builder(ir_in: PreferenceBuilderIR) -> None:
+            try:
+                fp = _builder_fingerprint(ir_in)
+                sig0 = str(fp.get("sig", "")) or _sig_pref_builder(ir_in)
+                if sig0 in novelty_seen:
+                    return
+                novelty_seen.add(sig0)
+                novelty_bank.append({"sig": sig0, "name": str(getattr(ir_in, "name", "") or ""), **fp})
+            except Exception:  # noqa: BLE001
+                return
+
+        for carried in out:
+            if isinstance(carried, dict) and isinstance(carried.get("ir"), PreferenceBuilderIR):
+                _bank_add_builder(carried["ir"])
+        for _, _, pir, _ in ranked_parents:
+            _bank_add_builder(pir)
+
         # Operator plan: either explicit counts (preferred) or legacy budget+random choice.
         def _op_plan() -> List[str]:
             init = int(generation) <= 0
             plan = _expand_operator_bank(builder_cfg, int(generation), rng, side="builder")
             if plan:
+                if explore_enabled and explore_mode:
+                    plan2: List[str] = []
+                    for op in plan:
+                        op_norm = _normalize_operator_name(str(op).strip().upper(), side="builder")
+                        if _is_reweight_only_search_space(search_space_cfg):
+                            if op_norm in {"STRUCTURE_SHIFT", "TUNE", "M2"} and rng.random() < float(explore_replace_p):
+                                plan2.append("PARADIGM_SHIFT")
+                            else:
+                                plan2.append(op_norm)
+                        else:
+                            if op_norm in {"E2", "M2", "GEN", "TUNE"} and rng.random() < float(explore_replace_p):
+                                plan2.append("XOVER")
+                            else:
+                                plan2.append(op_norm)
+                    plan = plan2
+                plan = _rewrite_builder_operator_plan_for_stage(plan, stage_name=two_stage_name, cfg=two_stage_cfg)
                 return plan
             keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
             if any(builder_cfg.get(k) is not None for k in keys):
@@ -6544,10 +6909,27 @@ def _propose_builders_for_generation(
                 nM2 = int(builder_cfg.get("init_num_M2" if init else "num_M2", builder_cfg.get("num_M2", 0)) or 0)
                 plan = (["E1"] * max(0, nE1)) + (["E2"] * max(0, nE2)) + (["M1"] * max(0, nM1)) + (["M2"] * max(0, nM2))
                 rng.shuffle(plan)
+                if explore_enabled and explore_mode:
+                    plan2: List[str] = []
+                    for op in plan:
+                        op_norm = _normalize_operator_name(str(op).strip().upper(), side="builder")
+                        if _is_reweight_only_search_space(search_space_cfg):
+                            if op_norm in {"M2", "TUNE", "M1", "MUTATE"} and rng.random() < float(explore_replace_p):
+                                plan2.append("PARADIGM_SHIFT")
+                            else:
+                                plan2.append(op_norm)
+                        else:
+                            if op_norm in {"E2", "M2", "GEN", "TUNE"} and rng.random() < float(explore_replace_p):
+                                plan2.append("XOVER")
+                            else:
+                                plan2.append(op_norm)
+                    plan = plan2
+                plan = _rewrite_builder_operator_plan_for_stage(plan, stage_name=two_stage_name, cfg=two_stage_cfg)
                 return plan
 
             llm_budget = int(builder_cfg.get("init_llm_g", 0) or 0) if init else int(builder_cfg.get("llm_per_gen_g", 0) or 0)
-            return [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
+            plan = [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
+            return _rewrite_builder_operator_plan_for_stage(plan, stage_name=two_stage_name, cfg=two_stage_cfg)
 
         for op in _op_plan():
             if len(out) >= max(0, int(pop_g) - int(seed_reserve)):
@@ -6611,6 +6993,43 @@ def _propose_builders_for_generation(
             }
             if llm_op == "PARADIGM_SHIFT":
                 call_feedback["llm_call"]["parent_family_shortage"] = bool(locals().get("shortage", False))
+            if explore_enabled:
+                call_feedback["builder_search"] = dict(call_feedback.get("builder_search") or {})
+                call_feedback["builder_search"]["explore_mode"] = bool(explore_mode)
+                call_feedback["builder_search"]["stagnation_generations"] = int(
+                    (global_feedback or {}).get("builder_search", {}).get("stagnation_generations", 0) or 0
+                )
+                if bool(explore_mode):
+                    try:
+                        avoid_fams = list((global_feedback or {}).get("builder_search", {}).get("avoid_families", []) or [])[:16]
+                    except Exception:  # noqa: BLE001
+                        avoid_fams = []
+                    call_feedback["builder_search"]["avoid_families"] = avoid_fams
+                    call_feedback["builder_search"]["exploration_instructions"] = [
+                        "Avoid the dominant weighting-family patterns from avoid_families.",
+                        "Prefer changing the weighting principle or signal organization over tiny scalar retunes.",
+                        "When reweight_only is active, keep pair topology fixed and explore a genuinely different weight-shaping rule.",
+                    ]
+            missing_weight_families = _missing_weight_families(out)
+            call_feedback["builder_search"] = dict(call_feedback.get("builder_search") or {})
+            call_feedback["builder_search"]["proposal_family_quota"] = dict(proposal_family_quota_cfg)
+            call_feedback["builder_search"]["missing_weight_families"] = list(missing_weight_families)
+            if missing_weight_families:
+                call_feedback["builder_search"]["target_weight_family"] = str(missing_weight_families[0])
+            if two_stage_name:
+                call_feedback["builder_search"]["stage_name"] = str(two_stage_name)
+                if str(two_stage_name) == str(two_stage_cfg.get("stage1_name", "family_search")):
+                    call_feedback["builder_search"]["stage_instructions"] = [
+                        "This is the family-search stage.",
+                        "Prefer discovering materially different weight_family choices over scalar retunes.",
+                        "Only use TUNE-like edits if required for correctness.",
+                    ]
+                else:
+                    call_feedback["builder_search"]["stage_instructions"] = [
+                        "This is the hyperparameter-tune stage.",
+                        "Prefer preserving the current weight_family and improving thresholds, blend coefficients, and clamp bounds.",
+                        "Avoid inventing a new weighting family unless the current family is invalid.",
+                    ]
 
             history: List[Dict[str, Any]] = []
             prompt_ref = ""
@@ -6755,6 +7174,20 @@ def _propose_builders_for_generation(
             origin = base_origin
             prompt_sha1 = dict(meta).get("prompt_sha1") if isinstance(meta, Mapping) else None
             prompt_path = dict(meta).get("prompt_path") if isinstance(meta, Mapping) else None
+            novelty_meta: Dict[str, Any] | None = None
+
+            if ok and novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                nov_ok, nov_payload = _check_builder_novelty(
+                    candidate=ir,
+                    bank=novelty_bank,
+                    max_similarity=float(novelty_max_sim),
+                    neighbors=int(novelty_neighbors),
+                )
+                if not bool(nov_ok):
+                    ok = False
+                    fail_reason = dict(nov_payload)
+                else:
+                    novelty_meta = dict(nov_payload)
 
             if (not ok) and repair_on_fail:
                 repaired, rep_meta = _repair_builder_candidate_loop(
@@ -6778,12 +7211,20 @@ def _propose_builders_for_generation(
                     prompt_context=builder_prompt_context,
                     max_attempts=max(0, int(repair_attempts)),
                     simplify_first=bool(repair_cfg.get("simplify_first", True)),
+                    novelty_bank=(
+                        novelty_bank if bool(novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE")) else None
+                    ),
+                    novelty_max_similarity=(
+                        float(novelty_max_sim) if bool(novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE")) else None
+                    ),
+                    novelty_neighbors=int(novelty_neighbors),
                 )
                 if repaired is not None:
                     ir = repaired
                     origin = "REPAIR"
                     op_type = "REPAIR"
                     ok = True
+                    novelty_meta = dict(rep_meta.get("novelty") or {}) if isinstance(rep_meta, dict) and rep_meta.get("novelty") else novelty_meta
                     if isinstance(rep_meta, dict) and isinstance(rep_meta.get("attempts"), list) and rep_meta["attempts"]:
                         history.extend(list(rep_meta["attempts"]))
                         last = rep_meta["attempts"][-1]
@@ -6791,6 +7232,8 @@ def _propose_builders_for_generation(
                         prompt_path = last.get("prompt_path", prompt_path)
 
             if ok:
+                if novelty_enabled and (novelty_apply_to_elites or str(base_origin) != "ELITE"):
+                    _bank_add_builder(ir)
                 out.append(
                     {
                         "ir": ir,
@@ -6803,6 +7246,7 @@ def _propose_builders_for_generation(
                         "prompt_path": prompt_path,
                         "history": history,
                         "llm_seed": llm_seed,
+                        "novelty": novelty_meta,
                     }
                 )
 
@@ -6828,11 +7272,19 @@ def _propose_builders_for_generation(
     if bool(llm_init_only):
         return out[:pop_g]
     fallback_search_space_cfg = _normalize_builder_search_space_cfg(builder_cfg.get("search_space", {}))
+    fallback_quota_cfg = _normalize_builder_proposal_family_quota_cfg(
+        builder_cfg.get("proposal_family_quota", {}),
+        search_space_cfg=fallback_search_space_cfg,
+    )
     while len(out) < pop_g:
+        missing_families = _missing_weight_families(out)
         op = rng.choice(["mutate", "crossover", "seed"]) if parent_pool else "seed"
         if op == "seed":
+            seed_cfg = dict(fallback_search_space_cfg)
+            if bool(fallback_quota_cfg.get("enabled", False)) and bool(fallback_quota_cfg.get("seed_missing_families", True)) and missing_families:
+                seed_cfg["seed_weight_families"] = [str(missing_families[0])]
             prev_cfg = getattr(rng, "_pref_builder_search_space_cfg", None)
-            setattr(rng, "_pref_builder_search_space_cfg", fallback_search_space_cfg)
+            setattr(rng, "_pref_builder_search_space_cfg", seed_cfg)
             try:
                 ir = _make_builtin_builder_irs(rng, 1)[0]
             finally:
@@ -10735,6 +11187,7 @@ def run_pref_loss_coevo(
         "enabled": bool(builder_llm_enabled),
         "parent_p": int(builder_llm_raw.get("parent_p", default_parent_p) or default_parent_p),
         "seed_reserve": int(builder_llm_raw.get("seed_reserve", cfg_yaml.get("builder_seed_reserve", 2)) or 2),
+        "total_generations": int(generations),
         "search_space": _normalize_builder_search_space_cfg(
             builder_llm_raw.get("search_space", cfg_yaml.get("builder_search_space", {}))
         ),
@@ -10766,8 +11219,23 @@ def run_pref_loss_coevo(
             ),
             "simplify_first": bool(builder_repair_raw.get("simplify_first", True)),
         },
+        "novelty": dict(builder_llm_raw.get("novelty") or {}) if isinstance(builder_llm_raw.get("novelty"), dict) else {},
+        "exploration": dict(builder_llm_raw.get("exploration") or {}) if isinstance(builder_llm_raw.get("exploration"), dict) else {},
         "family_diversity": _normalize_family_diversity_cfg(
             builder_llm_raw.get("family_diversity", (cfg_yaml.get("builder", {}) or {}).get("family_diversity", {}))
+        ),
+        "proposal_family_quota": _normalize_builder_proposal_family_quota_cfg(
+            builder_llm_raw.get("proposal_family_quota", (cfg_yaml.get("builder", {}) or {}).get("proposal_family_quota", {})),
+            search_space_cfg=_normalize_builder_search_space_cfg(
+                builder_llm_raw.get("search_space", cfg_yaml.get("builder_search_space", {}))
+            ),
+        ),
+        "two_stage_search": _normalize_builder_two_stage_cfg(
+            builder_llm_raw.get("two_stage_search", (cfg_yaml.get("builder", {}) or {}).get("two_stage_search", {})),
+            total_generations=int(generations),
+            search_space_cfg=_normalize_builder_search_space_cfg(
+                builder_llm_raw.get("search_space", cfg_yaml.get("builder_search_space", {}))
+            ),
         ),
     }
     loss_cfg: Dict[str, Any] = {
@@ -10875,6 +11343,7 @@ def run_pref_loss_coevo(
     archive_g: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_g", {})) if resume_state else {}
     archive_f: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_f", {})) if resume_state else {}
     imported_loss_baseline_entry: Dict[str, Any] | None = None
+    loss_transfer_seed_cfg = _normalize_loss_transfer_seed_cfg(cfg_yaml)
     if resume_state:
         pair_score_history_map_resume = resume_state.get("pair_score_history_map", {})
         resident_pop_f = _refresh_loss_population_scores_from_history(
@@ -10898,7 +11367,6 @@ def run_pref_loss_coevo(
             )
             elites_f = list(refreshed_elites_f[: max(0, min(len(refreshed_elites_f), len(elites_f)))])
     if resume_state is None:
-        loss_transfer_seed_cfg = _normalize_loss_transfer_seed_cfg(cfg_yaml)
         if bool(loss_transfer_seed_cfg.get("enabled", False)) and (not resident_pop_f):
             transfer_loss_path = str(loss_transfer_seed_cfg.get("source_loss_path", "") or "").strip()
             if transfer_loss_path:
@@ -11275,6 +11743,75 @@ def run_pref_loss_coevo(
                         "stage3_worst_scenario_delta": rebuilt_best_rec.get("stage3_worst_scenario_delta"),
                     }
 
+    reevaluated_transfer_seed_baseline: Dict[str, Any] | None = None
+    if (
+        best_so_far is None
+        and resume_state is None
+        and str(search_mode) == "builder_only"
+        and isinstance(imported_loss_baseline_entry, Mapping)
+        and bool(loss_transfer_seed_cfg.get("re_eval_current_protocol", True))
+    ):
+        imported_loss_id = str(imported_loss_baseline_entry.get("id") or "")
+        imported_loss_ir = imported_loss_baseline_entry.get("ir")
+        if imported_loss_id and isinstance(imported_loss_ir, Mapping):
+            try:
+                baseline_payload = {
+                    "generation": -1,
+                    "pair_index": -1,
+                    "g_entry": {"id": str(G_REF_ID), "ir": asdict(_ref_builder_ir())},
+                    "f_entry": {"id": str(imported_loss_id), "ir": dict(imported_loss_ir)},
+                    "cfg_yaml": dict(cfg_yaml),
+                    "device_str": str(device_list[0] if device_list else "cpu"),
+                    "operator_whitelist": list(operator_whitelist),
+                    "cheap_gate_on": bool(cfg_yaml.get("cheap_gate_on", True)),
+                    "high_fidelity_on": bool(eval_stages.get("stage3_high_fidelity", True)),
+                    "run_dir": str(run_dir),
+                    "eval_budget_signature": str(eval_sig),
+                    "baseline_epoch_objectives": list(baseline_epoch_objectives) if baseline_epoch_objectives else None,
+                    "baseline_early_valid": baseline_early_valid,
+                    "early_eval_steps": int(early_eval_steps),
+                }
+                reevaluated_transfer_seed_baseline = _evaluate_pair_worker(baseline_payload)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning(
+                    "Failed to re-evaluate imported builder_only baseline under current protocol: pair=(%s,%s) error=%s",
+                    str(G_REF_ID),
+                    str(imported_loss_id),
+                    str(exc),
+                )
+            else:
+                if isinstance(reevaluated_transfer_seed_baseline, Mapping):
+                    rec0 = dict(reevaluated_transfer_seed_baseline)
+                    rec0["phase"] = "builder"
+                    rec0["compare_target"] = "incumbent"
+                    rec0["reference_score"] = None
+                    rec0["stage_final"] = str(rec0.get("stage_final", rec0.get("stage", "none")))
+                    final_score0 = _pair_record_effective_score(rec0)
+                    cache_key0 = (str(G_REF_ID), str(imported_loss_id), str(eval_sig))
+                    caches.set_pair(cache_key0, rec0)
+                    _append_pair_score_history(pair_score_history_map, rec0)
+                    _append_jsonl(pairs_jsonl, [rec0])
+                    if bool(rec0.get("pair_ok")) and final_score0 is not None and math.isfinite(float(final_score0)):
+                        reevaluated_transfer_seed_baseline = dict(rec0)
+                        LOGGER.info(
+                            "Re-evaluated imported builder_only baseline under current protocol: score=%s pair=(%s,%s) stage=%s eval_sig=%s",
+                            float(final_score0),
+                            str(G_REF_ID),
+                            str(imported_loss_id),
+                            str(rec0.get("stage_final", rec0.get("stage", "none"))),
+                            str(eval_sig),
+                        )
+                    else:
+                        LOGGER.warning(
+                            "Imported builder_only baseline re-eval did not yield a valid pair; falling back to source_fitness. pair=(%s,%s) pair_ok=%s reason=%s stage=%s",
+                            str(G_REF_ID),
+                            str(imported_loss_id),
+                            bool(rec0.get("pair_ok")),
+                            str(rec0.get("pair_reason")),
+                            str(rec0.get("stage_final", rec0.get("stage", "none"))),
+                        )
+                        reevaluated_transfer_seed_baseline = None
+
     if best_so_far is None:
         imported_loss_id = ""
         imported_loss_score: float | None = None
@@ -11289,7 +11826,9 @@ def run_pref_loss_coevo(
             str(search_mode) == "builder_only"
             and imported_loss_id
         )
-        if use_imported_builder_only_baseline and imported_loss_score is not None:
+        if isinstance(reevaluated_transfer_seed_baseline, Mapping):
+            incumbent_score = float(_pair_record_effective_score(reevaluated_transfer_seed_baseline))
+        elif use_imported_builder_only_baseline and imported_loss_score is not None:
             incumbent_score = float(imported_loss_score)
         elif baseline_early_valid is not None:
             incumbent_score = float(baseline_early_valid)
@@ -11299,7 +11838,11 @@ def run_pref_loss_coevo(
             "score": float(incumbent_score),
             "builder_id": str(G_REF_ID),
             "loss_id": (str(imported_loss_id) if use_imported_builder_only_baseline else str(F_REF_ID)),
-            "stage_final": ("transfer_seed_baseline" if use_imported_builder_only_baseline else "baseline"),
+            "stage_final": (
+                str(reevaluated_transfer_seed_baseline.get("stage_final", reevaluated_transfer_seed_baseline.get("stage", "transfer_seed_baseline")))
+                if isinstance(reevaluated_transfer_seed_baseline, Mapping)
+                else ("transfer_seed_baseline" if use_imported_builder_only_baseline else "baseline")
+            ),
             "generation": -1,
             "phase": ("builder" if use_imported_builder_only_baseline else "baseline"),
         }
@@ -11567,29 +12110,63 @@ def run_pref_loss_coevo(
             )
 
         global_feedback: Dict[str, Any] = dict(llm_feedback_state)
+        builder_llm_cfg_raw = cfg_yaml.get("builder_llm", {}) or {}
+        if not isinstance(builder_llm_cfg_raw, dict):
+            builder_llm_cfg_raw = {}
+        builder_explore_cfg = builder_llm_cfg_raw.get("exploration", {}) or {}
+        if not isinstance(builder_explore_cfg, dict):
+            builder_explore_cfg = {}
+        builder_explore_enabled = bool(builder_explore_cfg.get("enabled", False))
+        builder_stagnation_trigger = int(builder_explore_cfg.get("stagnation_generations", 0) or 0)
+        builder_explore_mode = bool(
+            builder_explore_enabled and builder_stagnation_trigger > 0 and int(stagnation_generations) >= int(builder_stagnation_trigger)
+        )
+        builder_avoid_families: List[str] = []
+        try:
+            fam_ctr = collections.Counter(
+                _builder_family_tags(pref_builder_ir_from_json(e.get("ir", {}))).get("weight_family", "unknown")
+                if isinstance(e, dict) and isinstance(e.get("ir"), dict)
+                else "unknown"
+                for e in (elites_g or [])
+            )
+            builder_avoid_families = [f for f, _ in fam_ctr.most_common(8) if str(f).strip()]
+        except Exception:  # noqa: BLE001
+            builder_avoid_families = []
+        if bool(builder_explore_enabled) and int(builder_stagnation_trigger) > 0:
+            LOGGER.info(
+                "Builder exploration schedule gen=%d: stagnation=%d trigger=%d explore_mode=%s avoid_families=%s",
+                int(gen),
+                int(stagnation_generations),
+                int(builder_stagnation_trigger),
+                str(bool(builder_explore_mode)),
+                list(builder_avoid_families),
+            )
+
         loss_llm_cfg_raw = cfg_yaml.get("loss_llm", {}) or {}
         if not isinstance(loss_llm_cfg_raw, dict):
             loss_llm_cfg_raw = {}
-        explore_cfg = loss_llm_cfg_raw.get("exploration", {}) or {}
-        if not isinstance(explore_cfg, dict):
-            explore_cfg = {}
-        explore_enabled = bool(explore_cfg.get("enabled", False))
-        stagnation_trigger = int(explore_cfg.get("stagnation_generations", 0) or 0)
-        explore_mode = bool(explore_enabled and stagnation_trigger > 0 and int(stagnation_generations) >= int(stagnation_trigger))
-        avoid_families: List[str] = []
+        loss_explore_cfg = loss_llm_cfg_raw.get("exploration", {}) or {}
+        if not isinstance(loss_explore_cfg, dict):
+            loss_explore_cfg = {}
+        loss_explore_enabled = bool(loss_explore_cfg.get("enabled", False))
+        loss_stagnation_trigger = int(loss_explore_cfg.get("stagnation_generations", 0) or 0)
+        loss_explore_mode = bool(
+            loss_explore_enabled and loss_stagnation_trigger > 0 and int(stagnation_generations) >= int(loss_stagnation_trigger)
+        )
+        loss_avoid_families: List[str] = []
         try:
             fam_ctr = collections.Counter(str(e.get("family") or "unknown") for e in (elites_f or []) if isinstance(e, dict))
-            avoid_families = [f for f, _ in fam_ctr.most_common(8)]
+            loss_avoid_families = [f for f, _ in fam_ctr.most_common(8)]
         except Exception:  # noqa: BLE001
-            avoid_families = []
-        if bool(explore_enabled) and int(stagnation_trigger) > 0:
+            loss_avoid_families = []
+        if bool(loss_explore_enabled) and int(loss_stagnation_trigger) > 0:
             LOGGER.info(
                 "Loss exploration schedule gen=%d: stagnation=%d trigger=%d explore_mode=%s avoid_families=%s",
                 int(gen),
                 int(stagnation_generations),
-                int(stagnation_trigger),
-                str(bool(explore_mode)),
-                list(avoid_families),
+                int(loss_stagnation_trigger),
+                str(bool(loss_explore_mode)),
+                list(loss_avoid_families),
             )
         global_feedback.update(
             {
@@ -11607,10 +12184,15 @@ def run_pref_loss_coevo(
                 "best_loss": best_loss_ir,
                 "best_builder_summary": best_builder_summary,
                 "best_loss_summary": best_loss_summary,
-                "loss_search": {
-                    "explore_mode": bool(explore_mode),
+                "builder_search": {
+                    "explore_mode": bool(builder_explore_mode),
                     "stagnation_generations": int(stagnation_generations),
-                    "avoid_families": list(avoid_families),
+                    "avoid_families": list(builder_avoid_families),
+                },
+                "loss_search": {
+                    "explore_mode": bool(loss_explore_mode),
+                    "stagnation_generations": int(stagnation_generations),
+                    "avoid_families": list(loss_avoid_families),
                 },
             }
         )
@@ -14315,6 +14897,16 @@ def run_pref_loss_coevo(
             }
         }
         llm_feedback_state["stagnation_generations"] = int(stagnation_generations)
+        try:
+            fam_ctr = collections.Counter(
+                _builder_family_tags(pref_builder_ir_from_json(e.get("ir", {}))).get("weight_family", "unknown")
+                if isinstance(e, dict) and isinstance(e.get("ir"), dict)
+                else "unknown"
+                for e in elites_g
+            )
+            llm_feedback_state["prev_gen_builder_families"] = list(fam_ctr.most_common(10))
+        except Exception:  # noqa: BLE001
+            llm_feedback_state["prev_gen_builder_families"] = []
         try:
             fam_ctr = collections.Counter(str(e.get("family") or "unknown") for e in elites_f if isinstance(e, dict))
             llm_feedback_state["prev_gen_loss_families"] = list(fam_ctr.most_common(10))

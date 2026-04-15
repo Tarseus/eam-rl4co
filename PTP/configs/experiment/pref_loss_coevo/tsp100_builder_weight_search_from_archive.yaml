@@ -48,14 +48,16 @@ loss_transfer_seed:
   source_loss_path: artifacts/loss_archive/tsp100_best_current/best_loss.json
   keep_source_fitness: true
   reset_history: false
+  re_eval_current_protocol: true
 
 builder_search_space:
   enabled: true
   mode: reweight_only
   fixed_pair_builder: all_pairs
-  seed_weight_families: [uniform_none, gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+  pair_weight_normalization: none
+  seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
   allow_freeform_weight_family: true
-  allow_uniform_none: true
+  allow_uniform_none: false
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
 mp:
@@ -183,13 +185,27 @@ builder_llm:
     elite_max_per_family: 2
     parent_max_per_family: 1
     include_unknown: false
+  proposal_family_quota:
+    enabled: true
+    min_per_weight_family: 1
+    max_per_weight_family: 0
+    target_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+    seed_missing_families: true
+  two_stage_search:
+    enabled: true
+    stage1_generations: 4
+    stage1_name: family_search
+    stage2_name: hyperparam_tune
+    stage1_ops: [GEN, PARADIGM_SHIFT, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
+    stage2_ops: [TUNE, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
   search_space:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
-    seed_weight_families: [uniform_none, gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+    pair_weight_normalization: none
+    seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
     allow_freeform_weight_family: true
-    allow_uniform_none: true
+    allow_uniform_none: false
   operator_bank:
     init:
       - { name: GEN, count: 4 }

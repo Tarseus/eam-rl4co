@@ -3,7 +3,7 @@ You are performing BUILDER_PARADIGM_SHIFT for a preference builder.
 Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
 
 You will receive PARENTS_JSON with multiple parent builders and metrics.
-Synthesize a new builder that is meaningfully different in pair geometry and family tags.
+Synthesize a new builder that is meaningfully different in the intended search dimension for this run.
 
 Output schema:
 {
@@ -36,6 +36,8 @@ Hard constraints:
   - preserve the fixed pair template exactly;
   - keep geometry_family and cap_family aligned with that fixed template;
   - change weight_family relative to the dominant parent pattern.
+  - do not add per-instance weight mean/sum normalization when normalization mode is `none`.
+  - paradigm changes should alter the primary weighting principle itself, for example gap-driven vs rank-driven vs margin-driven vs bandpass vs blended families.
 - Otherwise geometry_family must change relative to the dominant parent pattern.
 - Outside reweight_only, also change at least one of cap_family, weight_family, or constraint_family.
 - Do not make a tiny threshold tweak only; this must be a real paradigm change.

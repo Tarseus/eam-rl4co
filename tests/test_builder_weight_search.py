@@ -260,6 +260,466 @@ def test_reweight_only_freeform_prompt_and_seed_pool(monkeypatch):
     assert observed <= {"gap_linear", "gap_sigmoid"}
 
 
+def test_reweight_only_none_rejects_instance_weight_normalization(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    normalized_builder = PreferenceBuilderIR(
+        name="all_pairs_gap_linear_normed",
+        intuition="keeps all pairs but performs instance-level weight normalization",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamped_instance_norm",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp", "normalize"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    batch_size = int(objective.shape[0])\n"
+            "    counts = torch.bincount(b_idx.to(torch.int64), minlength=batch_size).to(dtype=objective.dtype)\n"
+            "    mean_raw = torch.zeros(batch_size, dtype=objective.dtype, device=objective.device)\n"
+            "    mean_raw.index_add_(0, b_idx, gap)\n"
+            "    mean_raw = mean_raw / counts.clamp_min(1.0)\n"
+            "    weight = gap / mean_raw[b_idx].clamp_min(1e-6)\n"
+            "    weight = weight.clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+
+    ok, fail = loop.validate_builder_candidate(
+        normalized_builder,
+        operator_whitelist=[],
+        gate_cfg={
+            "min_pairs": 1,
+            "min_coverage": 1.0,
+            "max_pairs_per_instance": 4096,
+            "weight_nonneg": True,
+            "semantic_tolerance": 0.0,
+            "semantic_min_pass_rate": 1.0,
+            "search_space": {
+                "enabled": True,
+                "mode": "reweight_only",
+                "fixed_pair_builder": "all_pairs",
+                "pair_weight_normalization": "none",
+            },
+        },
+    )
+    assert ok is False
+    assert fail["reason"] == "instance_weight_normalization_forbidden"
+
+
+def test_reweight_only_prompt_covers_m3_and_repair_none_mode(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear"],
+            "allow_uniform_none": False,
+        }
+    )
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    parent = PreferenceBuilderIR(
+        name="parent",
+        intuition="seed",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = gap.clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+
+    repair_prompt, _ = builder_ops.build_repair_prompt(
+        str(_repo_root() / "PTP" / "prompts" / "pref_builder_repair.txt"),
+        failed_ir=parent,
+        failure_reason={"reason": "sandbox_gate_failed"},
+        global_feedback={
+            "builder_search_space": cfg,
+            "llm_call": {"op_type": "REPAIR", "search_operator": "REPAIR"},
+        },
+    )
+    m3_prompt, _ = builder_ops.build_m3_prompt(
+        str(_repo_root() / "PTP" / "prompts" / "pref_builder_m3.txt"),
+        candidate=parent,
+        failure_reason={"reason": "sandbox_gate_failed"},
+        global_feedback={
+            "builder_search_space": cfg,
+            "llm_call": {"op_type": "M3", "search_operator": "M3"},
+        },
+    )
+
+    assert "do not repair by adding per-instance weight mean/sum normalization" in repair_prompt.lower()
+    assert "do not reintroduce per-instance weight mean/sum normalization" in m3_prompt.lower()
+
+
+def test_reweight_only_m2_prompt_preserves_weighting_families(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear"],
+            "allow_uniform_none": False,
+        }
+    )
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    parent = PreferenceBuilderIR(
+        name="parent",
+        intuition="seed",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = gap.clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+    prompt, _ = builder_ops.build_m2_prompt(
+        str(_repo_root() / "PTP" / "prompts" / "pref_builder_m2.txt"),
+        parent=parent,
+        parent_fitness={"fitness": -0.1},
+        global_feedback={
+            "builder_search_space": cfg,
+            "llm_call": {"op_type": "M2", "search_operator": "TUNE"},
+        },
+    )
+    prompt_lower = prompt.lower()
+    assert "preserve geometry_family, cap_family, weight_family, and constraint_family" in prompt_lower
+    assert "good tuning targets are beta, gamma, tau, band edges, clamp bounds, and denominator eps" in prompt_lower
+
+
+def test_reweight_only_m2_contract_rejects_family_change(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    parent = PreferenceBuilderIR(
+        name="parent",
+        intuition="seed",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code="def generated_builder(feature_cache, extra):\n    pass\n",
+    )
+    child = PreferenceBuilderIR(
+        name="child",
+        intuition="bad tune changed family",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "gap_bandpass", "clamp"],
+        code="def generated_builder(feature_cache, extra):\n    pass\n",
+    )
+
+    ok, fail = loop._validate_builder_operator_contract(  # noqa: SLF001
+        child,
+        "M2",
+        [parent],
+        search_space_cfg={
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+        },
+    )
+    assert ok is False
+    assert fail["reason"] == "weight_family_not_preserved"
+
+
+def test_builder_novelty_rejects_duplicate_structure(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+    from ptp_discovery.pref_builder_ir import PreferenceBuilderIR, PreferenceBuilderImplementationHint
+
+    impl = PreferenceBuilderImplementationHint(expects=["objective", "log_prob"], returns="PrefBatch", mode="pairwise")
+    ir = PreferenceBuilderIR(
+        name="builder",
+        intuition="seed",
+        implementation_hint=impl,
+        hyperparams={
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "fixed_pair_reweight_only",
+        },
+        operators_used=["all_pairs", "gap_linear", "clamp"],
+        code=(
+            "def generated_builder(feature_cache, extra):\n"
+            "    objective = feature_cache['objective']\n"
+            "    mask = objective[:, :, None] < objective[:, None, :]\n"
+            "    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n"
+            "    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n"
+            "    weight = gap.clamp(0.25, 4.0)\n"
+            "    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs'})\n"
+        ),
+    )
+    fp = loop._builder_fingerprint(ir)  # noqa: SLF001
+    ok, payload = loop._check_builder_novelty(  # noqa: SLF001
+        candidate=ir,
+        bank=[{"sig": fp["sig"], "name": ir.name, **fp}],
+        max_similarity=0.95,
+        neighbors=1,
+    )
+    assert ok is False
+    assert payload["stage"] == "novelty"
+
+
+def test_builder_prompt_includes_exploration_guidance(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear"],
+            "allow_uniform_none": False,
+        }
+    )
+    prompt, _ = builder_ops.build_generation_prompt(
+        str(_repo_root() / "PTP" / "prompts" / "pref_builder_generation.txt"),
+        global_feedback={
+            "builder_search_space": cfg,
+            "builder_search": {
+                "explore_mode": True,
+                "stagnation_generations": 3,
+                "avoid_families": ["gap_linear", "gap_rank_blend"],
+            },
+        },
+    )
+    prompt_lower = prompt.lower()
+    assert "builder_exploration_guidance" in prompt_lower
+    assert "avoid dominant weighting-family patterns" in prompt_lower
+
+
+def test_builder_prompt_includes_stage_and_family_quota_guidance(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_builder_llm_ops as builder_ops
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear", "gap_bandpass"],
+            "allow_uniform_none": False,
+        }
+    )
+    prompt, _ = builder_ops.build_generation_prompt(
+        str(_repo_root() / "PTP" / "prompts" / "pref_builder_generation.txt"),
+        global_feedback={
+            "builder_search_space": cfg,
+            "builder_search": {
+                "stage_name": "family_search",
+                "stage_instructions": ["Prefer discovering a genuinely different weight_family."],
+                "missing_weight_families": ["gap_bandpass"],
+                "target_weight_family": "gap_bandpass",
+            },
+        },
+    )
+    prompt_lower = prompt.lower()
+    assert "builder_stage_guidance" in prompt_lower
+    assert "active search stage: family_search" in prompt_lower
+    assert "builder_family_quota_guidance" in prompt_lower
+    assert "prefer producing a valid candidate with `weight_family = gap_bandpass`" in prompt_lower
+
+
+def test_reweight_only_default_excludes_uniform_none(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+        }
+    )
+
+    assert cfg["allow_uniform_none"] is False
+    assert "uniform_none" not in cfg["seed_weight_families"]
+
+    rng = random.Random(0)
+    rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+    pool = loop._make_builtin_builder_irs(rng, 8)
+    observed = {str(ir.hyperparams.get("weight_family")) for ir in pool}
+    assert "uniform_none" not in observed
+
+
+def test_reweight_only_builtin_pool_supports_clamp_only_weights(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_search_space_cfg(
+        {
+            "enabled": True,
+            "mode": "reweight_only",
+            "fixed_pair_builder": "all_pairs",
+            "pair_weight_normalization": "none",
+            "seed_weight_families": ["gap_linear"],
+            "allow_uniform_none": False,
+        }
+    )
+
+    assert cfg["pair_weight_normalization"] == "none"
+
+    rng = random.Random(0)
+    rng._pref_builder_search_space_cfg = cfg  # type: ignore[attr-defined]
+    ir = loop._make_builtin_builder_irs(rng, 1)[0]
+
+    assert ir.hyperparams["constraint_family"] == "clamp_only"
+    assert "mean_raw" not in ir.code
+    assert "mean_weight" not in ir.code
+    assert "weight = raw.clamp(clamp_lo, clamp_hi)" in ir.code
+
+
+def test_builder_two_stage_plan_rewrites_ops(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    cfg = loop._normalize_builder_two_stage_cfg(  # noqa: SLF001
+        {
+            "enabled": True,
+            "stage1_generations": 2,
+            "stage1_ops": ["GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"],
+            "stage2_ops": ["TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"],
+        },
+        total_generations=6,
+        search_space_cfg={"enabled": True, "mode": "reweight_only", "fixed_pair_builder": "all_pairs"},
+    )
+
+    stage1_name = loop._builder_two_stage_name(0, cfg=cfg)  # noqa: SLF001
+    stage2_name = loop._builder_two_stage_name(3, cfg=cfg)  # noqa: SLF001
+    assert stage1_name == "family_search"
+    assert stage2_name == "hyperparam_tune"
+
+    plan_stage1 = loop._rewrite_builder_operator_plan_for_stage(  # noqa: SLF001
+        ["GEN", "TUNE", "XOVER"],
+        stage_name=stage1_name,
+        cfg=cfg,
+    )
+    plan_stage2 = loop._rewrite_builder_operator_plan_for_stage(  # noqa: SLF001
+        ["GEN", "PARADIGM_SHIFT", "TUNE"],
+        stage_name=stage2_name,
+        cfg=cfg,
+    )
+
+    assert "TUNE" not in plan_stage1
+    assert all(op in {"GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"} for op in plan_stage1)
+    assert all(op in {"TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"} for op in plan_stage2)
+
+
+def test_builder_proposal_family_quota_backfills_missing_families(monkeypatch):
+    monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
+
+    import random
+    import ptp_discovery.pref_loss_coevo_loop as loop
+
+    out = loop._propose_builders_for_generation(
+        generation=0,
+        pop_g=2,
+        elites_g=[],
+        diverse_elites_g=[],
+        rng=random.Random(0),
+        llm_cfg={
+            "builder": {
+                "enabled": False,
+                "seed_reserve": 0,
+                "search_space": {
+                    "enabled": True,
+                    "mode": "reweight_only",
+                    "fixed_pair_builder": "all_pairs",
+                    "pair_weight_normalization": "none",
+                    "seed_weight_families": ["gap_linear", "gap_bandpass"],
+                    "allow_uniform_none": False,
+                },
+                "proposal_family_quota": {
+                    "enabled": True,
+                    "min_per_weight_family": 1,
+                    "target_weight_families": ["gap_linear", "gap_bandpass"],
+                    "seed_missing_families": True,
+                },
+            }
+        },
+        operator_whitelist=[],
+        global_feedback={},
+        llm_init_only=False,
+        carry_elites=False,
+    )
+
+    observed = [loop._builder_weight_family_label(item["ir"]) for item in out]  # noqa: SLF001
+    assert observed[:2] == ["gap_linear", "gap_bandpass"]
+
+
 def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
     monkeypatch.syspath_prepend(str(_repo_root() / "PTP"))
 
@@ -284,6 +744,7 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
                 "enabled": True,
                 "mode": "reweight_only",
                 "fixed_pair_builder": "all_pairs",
+                "pair_weight_normalization": "none",
                 "allow_freeform_weight_family": True,
                 "seed_weight_families": ["gap_rank_blend"],
             }
@@ -297,6 +758,7 @@ def test_builder_runtime_prompt_context_and_reweight_necessity(monkeypatch):
     assert "rank" in prompt
     assert "regret" in prompt
     assert "loss batch is flattened and does not carry `b_idx`" in prompt
+    assert "Do not divide weights by per-instance sums or means." in prompt
 
 
 def test_builtin_multi_signal_reweight_builders_preserve_all_pairs(monkeypatch):
