@@ -38,6 +38,7 @@ from fitness.free_loss_fidelity import (
     reset_rollout_debug_events,
     run_rl4co_rollout_smoke_test,
 )
+from fitness.co_features import INSTANCE_FEATURE_KEYS
 from fitness.ptp_high_fidelity import (
     HighFidelityConfig,
     _set_seed,
@@ -1784,6 +1785,49 @@ def _stage0_sandbox_script_path() -> str:
     return os.path.join(_repo_root_dir(), "PTP", "ptp_discovery", "run_stage0_sandbox_gate.py")
 
 
+def _runtime_builder_gate_cfg(
+    cfg_yaml: Mapping[str, Any],
+    *,
+    g_id: str | None = None,
+) -> Dict[str, Any]:
+    gate_cfg = {
+        "min_pairs": int(cfg_yaml.get("builder_min_pairs", 1) or 1),
+        "min_coverage": float(cfg_yaml.get("builder_min_coverage", 0.0) or 0.0),
+        "max_pairs_per_instance": int(cfg_yaml.get("builder_max_pairs_per_instance", 4096) or 4096),
+        "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
+        "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
+        "semantic_min_pass_rate": float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+        "min_instance_weight_cv": float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+        "min_instance_weight_cv_pass_rate": float(
+            cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
+        ),
+    }
+    # Keep the weighting-specific anti-degeneracy gate for searched builders, but
+    # let the fixed unweighted reference builder participate as a baseline.
+    if str(g_id or "") == G_REF_ID:
+        gate_cfg["min_instance_weight_cv"] = 0.0
+        gate_cfg["min_instance_weight_cv_pass_rate"] = 1.0
+    return gate_cfg
+
+
+def _cfg_with_runtime_builder_gate_overrides(
+    cfg_yaml: Mapping[str, Any],
+    *,
+    g_id: str | None = None,
+) -> Dict[str, Any]:
+    cfg_out = dict(cfg_yaml)
+    gate_cfg = _runtime_builder_gate_cfg(cfg_yaml, g_id=g_id)
+    cfg_out["builder_min_pairs"] = int(gate_cfg["min_pairs"])
+    cfg_out["builder_min_coverage"] = float(gate_cfg["min_coverage"])
+    cfg_out["builder_max_pairs_per_instance"] = int(gate_cfg["max_pairs_per_instance"])
+    cfg_out["builder_weight_nonneg"] = bool(gate_cfg["weight_nonneg"])
+    cfg_out["builder_semantic_tolerance"] = float(gate_cfg["semantic_tolerance"])
+    cfg_out["builder_semantic_min_pass_rate"] = float(gate_cfg["semantic_min_pass_rate"])
+    cfg_out["builder_min_instance_weight_cv"] = float(gate_cfg["min_instance_weight_cv"])
+    cfg_out["builder_min_instance_weight_cv_pass_rate"] = float(gate_cfg["min_instance_weight_cv_pass_rate"])
+    return cfg_out
+
+
 def _run_stage0_sandbox_gate(
     *,
     run_dir: str,
@@ -1863,6 +1907,10 @@ def _run_stage0_sandbox_gate(
             "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
             "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
             "semantic_min_pass_rate": float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+            "min_instance_weight_cv": float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+            "min_instance_weight_cv_pass_rate": float(
+                cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
+            ),
         },
         "joint_gate": {
             "min_pass_rate": float(cfg_yaml.get("joint_min_pass_rate", 0.8) or 0.8),
@@ -2570,6 +2618,24 @@ def _family_tags_from_hparams(hparams: Mapping[str, Any] | None, *, keys: Sequen
     return out
 
 
+_DEFAULT_BUILDER_INSTANCE_STAT_KEYS: Tuple[str, ...] = tuple(str(k) for k in INSTANCE_FEATURE_KEYS)
+
+
+def _normalize_instance_stat_keys(raw: Any) -> List[str]:
+    if not isinstance(raw, (list, tuple)):
+        return list(_DEFAULT_BUILDER_INSTANCE_STAT_KEYS)
+    out: List[str] = []
+    seen: set[str] = set()
+    allowed = set(_DEFAULT_BUILDER_INSTANCE_STAT_KEYS)
+    for item in raw:
+        key = str(item or "").strip()
+        if not key or key in seen or key not in allowed:
+            continue
+        out.append(key)
+        seen.add(key)
+    return out if out else list(_DEFAULT_BUILDER_INSTANCE_STAT_KEYS)
+
+
 def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     cfg = raw if isinstance(raw, Mapping) else {}
     mode = str(cfg.get("mode", cfg.get("preset", "default")) or "default").strip().lower()
@@ -2605,6 +2671,9 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     ]
     allow_uniform_none = bool(cfg.get("allow_uniform_none", False))
     allow_freeform_weight_family = bool(cfg.get("allow_freeform_weight_family", False))
+    require_instance_stats = bool(cfg.get("require_instance_stats", False))
+    require_instance_conditioning = bool(cfg.get("require_instance_conditioning", False))
+    instance_stat_keys = _normalize_instance_stat_keys(cfg.get("instance_stat_keys"))
 
     families = _normalize_weight_family_values(cfg.get("allowed_weight_families", []))
     if not families and not allow_freeform_weight_family:
@@ -2631,6 +2700,9 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         "seed_weight_families": list(seed_families),
         "allow_uniform_none": bool(allow_uniform_none),
         "allow_freeform_weight_family": bool(allow_freeform_weight_family),
+        "require_instance_stats": bool(require_instance_stats),
+        "require_instance_conditioning": bool(require_instance_conditioning),
+        "instance_stat_keys": list(instance_stat_keys),
     }
 
 
@@ -3888,81 +3960,6 @@ def _normalize_builder_proposal_family_quota_cfg(
         "target_weight_families": list(target_families),
         "seed_missing_families": bool(cfg.get("seed_missing_families", True)),
     }
-
-
-def _normalize_builder_two_stage_cfg(
-    raw: Any,
-    *,
-    total_generations: int,
-    search_space_cfg: Mapping[str, Any] | None = None,
-) -> Dict[str, Any]:
-    cfg = dict(raw) if isinstance(raw, Mapping) else {}
-    search_space = dict(search_space_cfg) if isinstance(search_space_cfg, Mapping) else {}
-    enabled_default = bool(_is_reweight_only_search_space(search_space))
-    total_generations = max(1, int(total_generations or 1))
-    stage1_default = max(
-        1,
-        min(
-            total_generations,
-            int(cfg.get("stage1_generations", 0) or 0) or int(math.ceil(total_generations * 0.4)),
-        ),
-    )
-    stage1_ops = [str(x).strip().upper() for x in list(cfg.get("stage1_ops", ["GEN", "PARADIGM_SHIFT", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"])) if str(x).strip()]
-    stage2_ops = [str(x).strip().upper() for x in list(cfg.get("stage2_ops", ["TUNE", "STRUCTURE_SHIFT", "CONSTRAINT_INJECT", "XOVER"])) if str(x).strip()]
-    return {
-        "enabled": bool(cfg.get("enabled", enabled_default)),
-        "stage1_generations": int(stage1_default),
-        "stage1_name": str(cfg.get("stage1_name", "family_search") or "family_search"),
-        "stage2_name": str(cfg.get("stage2_name", "hyperparam_tune") or "hyperparam_tune"),
-        "stage1_ops": list(dict.fromkeys(stage1_ops)),
-        "stage2_ops": list(dict.fromkeys(stage2_ops)),
-    }
-
-
-def _builder_two_stage_name(
-    generation: int,
-    *,
-    cfg: Mapping[str, Any] | None,
-) -> str | None:
-    if not isinstance(cfg, Mapping) or not bool(cfg.get("enabled", False)):
-        return None
-    stage1_generations = max(1, int(cfg.get("stage1_generations", 1) or 1))
-    if int(generation) < stage1_generations:
-        return str(cfg.get("stage1_name", "family_search") or "family_search")
-    return str(cfg.get("stage2_name", "hyperparam_tune") or "hyperparam_tune")
-
-
-def _rewrite_builder_operator_plan_for_stage(
-    plan: Sequence[str],
-    *,
-    stage_name: str | None,
-    cfg: Mapping[str, Any] | None,
-) -> List[str]:
-    if not isinstance(cfg, Mapping) or not bool(cfg.get("enabled", False)) or not stage_name:
-        return [str(op) for op in plan]
-
-    stage1_name = str(cfg.get("stage1_name", "family_search") or "family_search")
-    stage2_name = str(cfg.get("stage2_name", "hyperparam_tune") or "hyperparam_tune")
-    if stage_name == stage1_name:
-        allowed = {str(x).strip().upper() for x in list(cfg.get("stage1_ops", []))}
-        remap = {"TUNE": "STRUCTURE_SHIFT", "M2": "STRUCTURE_SHIFT"}
-    elif stage_name == stage2_name:
-        allowed = {str(x).strip().upper() for x in list(cfg.get("stage2_ops", []))}
-        remap = {"GEN": "TUNE", "E1_GENERATE": "TUNE", "PARADIGM_SHIFT": "TUNE", "E2": "XOVER"}
-    else:
-        return [str(op) for op in plan]
-
-    if not allowed:
-        return [str(op) for op in plan]
-
-    fallback = "TUNE" if stage_name == stage2_name and "TUNE" in allowed else next(iter(allowed))
-    rewritten: List[str] = []
-    for op in plan:
-        op_norm = str(remap.get(str(op).strip().upper(), str(op).strip().upper()))
-        if op_norm not in allowed:
-            op_norm = str(fallback)
-        rewritten.append(op_norm)
-    return rewritten
 
 
 def _normalize_stage3_multifidelity_cfg(raw: Any) -> Dict[str, Any]:
@@ -5245,6 +5242,19 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
         builder_label = f"{kind}_{weight_family}"
         template_code = _fixed_pair_template_code(kind)
         norm_mode = str(search_space_cfg.get("pair_weight_normalization", "instance_mean"))
+        require_instance_stats = bool(search_space_cfg.get("require_instance_stats", False))
+        instance_stat_keys = set(str(x) for x in search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS))
+        gap_input_expr = "gap_scaled" if require_instance_stats else "gap"
+        margin_abs_expr = (
+            "margin_abs / instance_log_prob_scale[b_idx].clamp_min(eps)"
+            if require_instance_stats
+            else "margin_abs"
+        )
+        regret_span_expr = (
+            "regret_span / (1.0 + instance_regret_scale[b_idx].clamp_min(eps))"
+            if require_instance_stats
+            else "regret_span"
+        )
         helper_lines = [
             "    clamp_lo = 0.25",
             "    clamp_hi = 4.0",
@@ -5283,37 +5293,61 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
             f"        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={{'builder': '{kind}', 'weight_family': '{weight_family}'}})",
             "    eps = 1e-6",
         ]
+        if require_instance_stats:
+            obj_scale_key = (
+                "instance_obj_mad"
+                if "instance_obj_mad" in instance_stat_keys
+                else ("instance_obj_std" if "instance_obj_std" in instance_stat_keys else "instance_obj_range")
+            )
+            lp_scale_key = (
+                "instance_log_prob_std"
+                if "instance_log_prob_std" in instance_stat_keys
+                else "instance_log_prob_range"
+            )
+            regret_scale_key = (
+                "instance_regret_std"
+                if "instance_regret_std" in instance_stat_keys
+                else "instance_regret_mean"
+            )
+            base_lines.extend(
+                [
+                    f"    instance_obj_scale = feature_cache['{obj_scale_key}']",
+                    f"    instance_log_prob_scale = feature_cache['{lp_scale_key}']",
+                    f"    instance_regret_scale = feature_cache['{regret_scale_key}']",
+                    "    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)",
+                ]
+            )
         if weight_family == "uniform_none":
             base_lines.append(
                 f"    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={{'builder': '{kind}', 'weight_family': '{weight_family}'}})"
             )
         else:
             if weight_family == "gap_linear":
-                base_lines.append("    raw = gap.clamp_min(0.0)")
+                base_lines.append(f"    raw = {gap_input_expr}.clamp_min(0.0)")
             elif weight_family == "gap_softmax":
                 base_lines.extend(
                     [
                         "    tau = float(extra.get('weight_tau', 1.0))",
                         "    tau = max(abs(tau), 1e-3)",
-                        "    raw = torch.exp(torch.clamp(gap / tau, min=-20.0, max=20.0))",
+                        f"    raw = torch.exp(torch.clamp({gap_input_expr} / tau, min=-20.0, max=20.0))",
                     ]
                 )
             elif weight_family == "gap_sigmoid":
                 base_lines.extend(
                     [
                         "    beta = float(extra.get('weight_beta', 1.0))",
-                        "    raw = torch.sigmoid(beta * gap)",
+                        f"    raw = torch.sigmoid(beta * {gap_input_expr})",
                     ]
                 )
             elif weight_family == "gap_square":
-                base_lines.append("    raw = gap.clamp_min(0.0).pow(2)")
+                base_lines.append(f"    raw = {gap_input_expr}.clamp_min(0.0).pow(2)")
             elif weight_family == "gap_rank_blend":
                 base_lines.extend(
                     [
                         "    rank = feature_cache['rank']",
                         "    lambda_rank = float(extra.get('lambda_rank', 1.0))",
                         "    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]",
-                        "    raw = torch.sqrt(gap.clamp_min(0.0)) * (1.0 + lambda_rank * rank_span)",
+                        f"    raw = torch.sqrt({gap_input_expr}.clamp_min(0.0)) * (1.0 + lambda_rank * rank_span)",
                     ]
                 )
             elif weight_family == "gap_regret_blend":
@@ -5322,12 +5356,8 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
                         "    regret = feature_cache['regret']",
                         "    lambda_regret = float(extra.get('lambda_regret', 1.0))",
                         "    regret_span = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]",
-                        "    gap_mean = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)",
-                        "    counts_gap = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)",
-                        "    gap_mean.index_add_(0, b_idx, gap.clamp_min(0.0))",
-                        "    gap_mean = gap_mean / counts_gap.clamp_min(1.0)",
-                        "    gap_scale = gap / gap_mean[b_idx].clamp_min(eps)",
-                        "    raw = torch.sqrt(gap_scale.clamp_min(0.0)) * (1.0 + lambda_regret * regret_span)",
+                        f"    regret_span = {regret_span_expr}",
+                        f"    raw = torch.sqrt({gap_input_expr}.clamp_min(0.0)) * (1.0 + lambda_regret * regret_span)",
                     ]
                 )
             elif weight_family == "margin_rank_blend":
@@ -5337,6 +5367,7 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
                         "    beta_rank = float(extra.get('beta_rank', 4.0))",
                         "    gamma = float(extra.get('gamma', 0.5))",
                         "    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()",
+                        f"    margin_abs = {margin_abs_expr}",
                         "    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]",
                         "    raw = torch.sigmoid(beta_rank * rank_span) / (margin_abs + eps).pow(gamma)",
                     ]
@@ -5348,7 +5379,9 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
                         "    lambda_regret = float(extra.get('lambda_regret', 1.0))",
                         "    gamma = float(extra.get('gamma', 0.5))",
                         "    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()",
+                        f"    margin_abs = {margin_abs_expr}",
                         "    regret_span = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]",
+                        f"    regret_span = {regret_span_expr}",
                         "    raw = (1.0 + lambda_regret * regret_span) / (margin_abs + eps).pow(gamma)",
                     ]
                 )
@@ -5357,7 +5390,7 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
                     [
                         "    center = float(extra.get('center', 0.5))",
                         "    beta_band = float(extra.get('beta_band', 4.0))",
-                        "    gap_pos = gap.clamp_min(0.0)",
+                        f"    gap_pos = {gap_input_expr}.clamp_min(0.0)",
                         "    gap_min = torch.full((int(objective.shape[0]),), float('inf'), dtype=objective.dtype, device=objective.device)",
                         "    gap_max = torch.full((int(objective.shape[0]),), float('-inf'), dtype=objective.dtype, device=objective.device)",
                         "    gap_min.scatter_reduce_(0, b_idx, gap_pos, reduce='amin', include_self=True)",
@@ -5407,8 +5440,11 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
         )
 
     def _hint() -> PreferenceBuilderImplementationHint:
+        expects = ["objective", "log_prob", "obj_z", "rank", "regret"]
+        if bool(search_space_cfg.get("require_instance_stats", False)):
+            expects.extend(list(search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS)))
         return PreferenceBuilderImplementationHint(
-            expects=["objective", "log_prob", "obj_z", "rank", "regret"],
+            expects=expects,
             returns="PrefBatch",
             mode="pairwise",
         )
@@ -6128,6 +6164,85 @@ def _builder_uses_instance_weight_normalization(ir: PreferenceBuilderIR) -> bool
     return any(a in code and b in code for a, b in suspicious_pairs)
 
 
+def _builder_referenced_instance_stat_keys(
+    ir: PreferenceBuilderIR,
+    *,
+    allowed_keys: Sequence[str] | None = None,
+) -> List[str]:
+    code = str(getattr(ir, "code", "") or "")
+    keys = [str(k) for k in (allowed_keys or _DEFAULT_BUILDER_INSTANCE_STAT_KEYS)]
+    used: List[str] = []
+    for key in keys:
+        if not key:
+            continue
+        if key in code:
+            used.append(key)
+    return used
+
+
+def _builder_has_instance_conditioned_weighting(
+    ir: PreferenceBuilderIR,
+    *,
+    allowed_instance_keys: Sequence[str] | None = None,
+) -> bool:
+    code = str(getattr(ir, "code", "") or "")
+    if not code.strip():
+        return False
+
+    allowed = [str(k) for k in (allowed_instance_keys or _DEFAULT_BUILDER_INSTANCE_STAT_KEYS)]
+    pair_signal_names = {
+        "gap",
+        "gap_pos",
+        "gap_input",
+        "gap_scaled",
+        "gap_unit",
+        "margin_abs",
+        "margin_raw",
+        "margin_weight",
+        "margin_unit",
+        "regret_span",
+        "regret_weight",
+        "regret_unit",
+        "rank_span",
+        "rank_weight",
+        "rank_diff",
+        "raw_weight",
+        "combined_weight",
+    }
+    conditioned_vars: set[str] = set()
+    variable_pattern = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]*\b")
+    assign_pattern = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=")
+
+    for line in code.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("def "):
+            continue
+        match = assign_pattern.match(line)
+        if not match:
+            continue
+        lhs = str(match.group(1))
+        rhs = line.split("=", 1)[1]
+        tokens = set(variable_pattern.findall(rhs))
+        has_pair_signal = bool(tokens & pair_signal_names) or bool(tokens & conditioned_vars)
+        has_instance_signal = any(tok.startswith("instance_") for tok in tokens) or any(key in rhs for key in allowed)
+        if has_pair_signal and has_instance_signal:
+            conditioned_vars.add(lhs)
+            if lhs in {"raw", "weight", "raw_weight", "combined_weight", "gap_scaled", "gap_unit", "margin_unit", "regret_unit"}:
+                return True
+
+    if conditioned_vars:
+        for line in code.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if any(
+                re.search(rf"\b{name}\b", line)
+                for name in ("raw", "weight", "raw_weight", "combined_weight")
+            ) and any(re.search(rf"\b{name}\b", line) for name in conditioned_vars):
+                return True
+    return False
+
+
 def _validate_builder_operator_contract(
     ir: PreferenceBuilderIR,
     op_type: str,
@@ -6160,6 +6275,37 @@ def _validate_builder_operator_contract(
                 cand_tags=cand_tags,
                 required_change={"must_not_include": ["per-instance weight mean/sum normalization"], "normalization_mode": "none"},
             )
+        if bool(search_space_cfg.get("require_instance_stats", False)):
+            stat_keys = _builder_referenced_instance_stat_keys(
+                ir,
+                allowed_keys=search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS),
+            )
+            if not stat_keys:
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="instance_stats_not_used",
+                    parent_tags=[_builder_family_tags(p) for p in parent_irs],
+                    cand_tags=cand_tags,
+                    required_change={
+                        "must_use_one_of": list(
+                            search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS)
+                        )
+                    },
+                )
+        if bool(search_space_cfg.get("require_instance_conditioning", False)):
+            if not _builder_has_instance_conditioned_weighting(
+                ir,
+                allowed_instance_keys=search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS),
+            ):
+                return False, _operator_contract_failure(
+                    op_type=op,
+                    reason="instance_conditioning_not_used",
+                    parent_tags=[_builder_family_tags(p) for p in parent_irs],
+                    cand_tags=cand_tags,
+                    required_change={
+                        "must_realize": "pair_signal conditioned by instance_stat",
+                    },
+                )
         parent = parent_irs[0] if parent_irs else None
         p_tags = _builder_family_tags(parent) if parent is not None else {}
         maj = _majority_parent_tags(parent_irs, keys=_BUILDER_FAMILY_KEYS, kind="builder")
@@ -6392,6 +6538,37 @@ def _validate_builder_search_space_contract(
                 "normalization_mode": "none",
             },
         )
+    if bool(search_space_cfg.get("require_instance_stats", False)):
+        stat_keys = _builder_referenced_instance_stat_keys(
+            compiled.ir,
+            allowed_keys=search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS),
+        )
+        if not stat_keys:
+            return False, _builder_failure_report(
+                stage="search_space",
+                reason="instance_stats_required",
+                trace={
+                    "failed_gate": "SearchSpace",
+                    "failure_kind": "instance_stats_required",
+                    "required_instance_stat_keys": list(
+                        search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS)
+                    ),
+                },
+            )
+    if bool(search_space_cfg.get("require_instance_conditioning", False)):
+        if not _builder_has_instance_conditioned_weighting(
+            compiled.ir,
+            allowed_instance_keys=search_space_cfg.get("instance_stat_keys", _DEFAULT_BUILDER_INSTANCE_STAT_KEYS),
+        ):
+            return False, _builder_failure_report(
+                stage="search_space",
+                reason="instance_conditioning_required",
+                trace={
+                    "failed_gate": "SearchSpace",
+                    "failure_kind": "instance_conditioning_required",
+                    "required_pattern": "pair_signal conditioned by instance_stat",
+                },
+            )
     return True, {}
 
 
@@ -6505,6 +6682,8 @@ def validate_builder_candidate(
             weight_nonneg=bool(gate_cfg.get("weight_nonneg", True)),
             semantic_tolerance=float(gate_cfg.get("semantic_tolerance", 0.0) or 0.0),
             semantic_min_pass_rate=float(gate_cfg.get("semantic_min_pass_rate", 1.0) or 1.0),
+            min_instance_weight_cv=float(gate_cfg.get("min_instance_weight_cv", 0.0) or 0.0),
+            min_instance_weight_cv_pass_rate=float(gate_cfg.get("min_instance_weight_cv_pass_rate", 1.0) or 1.0),
         )
         bg.trace = _enrich_builder_gate_trace_with_memory(bg.trace, pb, cache_hit=False)
     except Exception as exc:  # noqa: BLE001
@@ -6777,12 +6956,6 @@ def _propose_builders_for_generation(
             gate_cfg = {}
         search_space_cfg = dict(builder_search_space_cfg)
         proposal_family_quota_cfg = dict(proposal_family_quota_cfg_global)
-        two_stage_cfg = _normalize_builder_two_stage_cfg(
-            builder_cfg.get("two_stage_search", {}),
-            total_generations=max(1, int(builder_cfg.get("total_generations", generation + 1) or generation + 1)),
-            search_space_cfg=search_space_cfg,
-        )
-        two_stage_name = _builder_two_stage_name(int(generation), cfg=two_stage_cfg)
         min_pairs = int(gate_cfg.get("min_pairs", 1) or 1)
         min_cov = float(gate_cfg.get("min_coverage", 0.0) or 0.0)
         max_pairs_pi = int(gate_cfg.get("max_pairs_per_instance", 4096) or 4096)
@@ -6899,7 +7072,6 @@ def _propose_builders_for_generation(
                             else:
                                 plan2.append(op_norm)
                     plan = plan2
-                plan = _rewrite_builder_operator_plan_for_stage(plan, stage_name=two_stage_name, cfg=two_stage_cfg)
                 return plan
             keys = ("num_E1", "num_E2", "num_M1", "num_M2", "init_num_E1", "init_num_E2", "init_num_M1", "init_num_M2")
             if any(builder_cfg.get(k) is not None for k in keys):
@@ -6924,12 +7096,11 @@ def _propose_builders_for_generation(
                             else:
                                 plan2.append(op_norm)
                     plan = plan2
-                plan = _rewrite_builder_operator_plan_for_stage(plan, stage_name=two_stage_name, cfg=two_stage_cfg)
                 return plan
 
             llm_budget = int(builder_cfg.get("init_llm_g", 0) or 0) if init else int(builder_cfg.get("llm_per_gen_g", 0) or 0)
             plan = [_llm_op_choice(rng, gen=int(generation), parent_pool_size=len(ranked_parents)) for _ in range(max(0, llm_budget))]
-            return _rewrite_builder_operator_plan_for_stage(plan, stage_name=two_stage_name, cfg=two_stage_cfg)
+            return plan
 
         for op in _op_plan():
             if len(out) >= max(0, int(pop_g) - int(seed_reserve)):
@@ -7016,20 +7187,6 @@ def _propose_builders_for_generation(
             call_feedback["builder_search"]["missing_weight_families"] = list(missing_weight_families)
             if missing_weight_families:
                 call_feedback["builder_search"]["target_weight_family"] = str(missing_weight_families[0])
-            if two_stage_name:
-                call_feedback["builder_search"]["stage_name"] = str(two_stage_name)
-                if str(two_stage_name) == str(two_stage_cfg.get("stage1_name", "family_search")):
-                    call_feedback["builder_search"]["stage_instructions"] = [
-                        "This is the family-search stage.",
-                        "Prefer discovering materially different weight_family choices over scalar retunes.",
-                        "Only use TUNE-like edits if required for correctness.",
-                    ]
-                else:
-                    call_feedback["builder_search"]["stage_instructions"] = [
-                        "This is the hyperparameter-tune stage.",
-                        "Prefer preserving the current weight_family and improving thresholds, blend coefficients, and clamp bounds.",
-                        "Avoid inventing a new weighting family unless the current family is invalid.",
-                    ]
 
             history: List[Dict[str, Any]] = []
             prompt_ref = ""
@@ -8756,6 +8913,10 @@ def _cheap_eval_pair_cached(
                 weight_nonneg=bool(cfg_yaml.get("builder_weight_nonneg", True)),
                 semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
                 semantic_min_pass_rate=float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+                min_instance_weight_cv=float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+                min_instance_weight_cv_pass_rate=float(
+                    cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
+                ),
             )
             bg.trace = _enrich_builder_gate_trace_with_memory(bg.trace, pref, cache_hit=pref_cache_hit)
             builder_ok = bool(bg.ok)
@@ -9129,6 +9290,16 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     except (TypeError, ValueError):
         early_eval_steps_i = 0
     eval_sig = str(payload.get("eval_budget_signature", ""))
+    loss_prompt_context_raw = cfg.get("loss_prompt_context")
+    if isinstance(loss_prompt_context_raw, Mapping):
+        loss_prompt_context = dict(loss_prompt_context_raw)
+    else:
+        loss_prompt_context = dict(
+            loss_llm_ops.build_runtime_prompt_context(
+                loss_observables=tuple(str(v) for v in cfg.get("loss_observables", []) if str(v).strip()),
+                mode="pairwise",
+            )
+        )
     proxy_record = payload.get("proxy_record")
     if not isinstance(proxy_record, dict):
         proxy_record = None
@@ -9213,6 +9384,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         return record
 
     variant = "hidden" if bool(cfg.get("hidden_dynamic_gates_enabled", False)) else "visible"
+    runtime_builder_gate_cfg = _runtime_builder_gate_cfg(cfg, g_id=str(g_entry.get("id") or ""))
+    runtime_cfg = _cfg_with_runtime_builder_gate_overrides(cfg, g_id=str(g_entry.get("id") or ""))
     feature_cache = _dummy_feature_cache(
         batch_size=int(cfg.get("cheap_gate_batch_size", 8) or 8),
         k=int(cfg.get("cheap_gate_k", 16) or 16),
@@ -9229,16 +9402,13 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         weight_nonneg=bool(cfg.get("builder_weight_nonneg", True)),
         semantic_tolerance=float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
         semantic_min_pass_rate=float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+        min_instance_weight_cv=float(runtime_builder_gate_cfg.get("min_instance_weight_cv", 0.0) or 0.0),
+        min_instance_weight_cv_pass_rate=float(
+            runtime_builder_gate_cfg.get("min_instance_weight_cv_pass_rate", 1.0) or 1.0
+        ),
     )
     builder_gate.trace = _enrich_builder_gate_trace_with_memory(builder_gate.trace, pref_batch, cache_hit=False)
-    builder_gate_cfg = {
-        "min_pairs": int(cfg.get("builder_min_pairs", 1) or 1),
-        "min_coverage": float(cfg.get("builder_min_coverage", 0.0) or 0.0),
-        "max_pairs_per_instance": int(cfg.get("builder_max_pairs_per_instance", 4096) or 4096),
-        "weight_nonneg": bool(cfg.get("builder_weight_nonneg", True)),
-        "semantic_tolerance": float(cfg.get("builder_semantic_tolerance", 0.0) or 0.0),
-        "semantic_min_pass_rate": float(cfg.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
-    }
+    builder_gate_cfg = dict(runtime_builder_gate_cfg)
     builder_gate_repair_reports: List[Dict[str, Any]] = []
     builder_llm_cfg = cfg.get("builder_llm", {}) if isinstance(cfg.get("builder_llm"), dict) else {}
     builder_repair_cfg = (
@@ -9351,6 +9521,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                     weight_nonneg=bool(builder_gate_cfg["weight_nonneg"]),
                     semantic_tolerance=float(builder_gate_cfg["semantic_tolerance"]),
                     semantic_min_pass_rate=float(builder_gate_cfg["semantic_min_pass_rate"]),
+                    min_instance_weight_cv=float(builder_gate_cfg.get("min_instance_weight_cv", 0.0) or 0.0),
+                    min_instance_weight_cv_pass_rate=float(
+                        builder_gate_cfg.get("min_instance_weight_cv_pass_rate", 1.0) or 1.0
+                    ),
                 )
                 builder_gate_repaired.trace = _enrich_builder_gate_trace_with_memory(
                     builder_gate_repaired.trace,
@@ -9445,7 +9619,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             g_ir=g_ir,
             f_ir=f_ir,
             operator_whitelist=list(operator_whitelist),
-            cfg_yaml=cfg,
+            cfg_yaml=runtime_cfg,
         )
         if not bool(sandbox_gate_result.get("ok")):
             joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
@@ -9605,7 +9779,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 g_ir=g_ir,
                 f_ir=repaired_ir,
                 operator_whitelist=list(operator_whitelist),
-                cfg_yaml=cfg,
+                cfg_yaml=runtime_cfg,
             )
         if high_fidelity_on and sandbox_should_run and sandbox_gate_hard_block_hf and (not bool((sandbox_candidate or {}).get("ok", False))):
             sandbox_trace = dict((sandbox_candidate or {}).get("trace") or {}) if isinstance((sandbox_candidate or {}).get("trace"), dict) else {}
@@ -10021,7 +10195,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 g_ir=g_ir,
                 f_ir=f_ir,
                 operator_whitelist=list(operator_whitelist),
-                cfg_yaml=cfg,
+                cfg_yaml=runtime_cfg,
             )
         if sandbox_gate_result is not None and (not bool(sandbox_gate_result.get("ok"))):
             joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
@@ -10151,10 +10325,9 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     if not high_fidelity_on:
         eff = float(joint_gate.effective_grad_ratio or 0.0)
         sem = float(builder_gate.semantic_pass_rate or 0.0)
-        cheap_score = float(2.0 - eff - sem)
         record["pair_ok"] = True
         record["pair_reason"] = "ok_gate_only"
-        record["score"] = float(cheap_score)
+        record["score"] = 0.0
         record["proxy_metrics"] = record.get("proxy_metrics") or {
             "cheap_effective_grad_ratio": eff,
             "cheap_semantic_pass_rate": sem,
@@ -11230,13 +11403,6 @@ def run_pref_loss_coevo(
                 builder_llm_raw.get("search_space", cfg_yaml.get("builder_search_space", {}))
             ),
         ),
-        "two_stage_search": _normalize_builder_two_stage_cfg(
-            builder_llm_raw.get("two_stage_search", (cfg_yaml.get("builder", {}) or {}).get("two_stage_search", {})),
-            total_generations=int(generations),
-            search_space_cfg=_normalize_builder_search_space_cfg(
-                builder_llm_raw.get("search_space", cfg_yaml.get("builder_search_space", {}))
-            ),
-        ),
     }
     loss_cfg: Dict[str, Any] = {
         "enabled": bool(loss_llm_enabled),
@@ -11288,6 +11454,10 @@ def run_pref_loss_coevo(
             "weight_nonneg": bool(cfg_yaml.get("builder_weight_nonneg", True)),
             "semantic_tolerance": float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
             "semantic_min_pass_rate": float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+            "min_instance_weight_cv": float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+            "min_instance_weight_cv_pass_rate": float(
+                cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
+            ),
         },
         "builder": builder_cfg,
         "loss": loss_cfg,
@@ -12425,6 +12595,10 @@ def run_pref_loss_coevo(
                     weight_nonneg=bool(cfg_yaml.get("builder_weight_nonneg", True)),
                     semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
                     semantic_min_pass_rate=float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
+                    min_instance_weight_cv=float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+                    min_instance_weight_cv_pass_rate=float(
+                        cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
+                    ),
                 )
                 bg.trace = _enrich_builder_gate_trace_with_memory(bg.trace, pb, cache_hit=False)
                 entry["builder_static_ok"] = bool(bg.ok)
@@ -13282,6 +13456,12 @@ def run_pref_loss_coevo(
                                     "semantic_tolerance": float(builder_gate_live_cfg.get("semantic_tolerance", 0.0) or 0.0),
                                     "semantic_min_pass_rate": float(
                                         builder_gate_live_cfg.get("semantic_min_pass_rate", 1.0) or 1.0
+                                    ),
+                                    "min_instance_weight_cv": float(
+                                        builder_gate_live_cfg.get("min_instance_weight_cv", 0.0) or 0.0
+                                    ),
+                                    "min_instance_weight_cv_pass_rate": float(
+                                        builder_gate_live_cfg.get("min_instance_weight_cv_pass_rate", 1.0) or 1.0
                                     ),
                                 },
                                 llm_prompts={"builder_m3": p_builder_m3, "builder_repair": p_builder_rep},

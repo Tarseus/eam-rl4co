@@ -24,6 +24,8 @@ seed_with_po4cops_default: false
 llm_init_only: true
 builder_min_coverage: 0.0
 builder_max_pairs_per_instance: 8192
+builder_min_instance_weight_cv: 0.10
+builder_min_instance_weight_cv_pass_rate: 0.75
 proxy_joint_swap_check_mode: synthetic
 proxy_joint_batch_pass_rate_threshold: 0.9
 joint_gate_repair_enabled: true
@@ -55,8 +57,24 @@ builder_search_space:
   mode: reweight_only
   fixed_pair_builder: all_pairs
   pair_weight_normalization: none
+  require_instance_stats: true
+  require_instance_conditioning: true
+  instance_stat_keys:
+    - instance_obj_mean
+    - instance_obj_std
+    - instance_obj_median
+    - instance_obj_mad
+    - instance_obj_min
+    - instance_obj_max
+    - instance_obj_range
+    - instance_log_prob_mean
+    - instance_log_prob_std
+    - instance_log_prob_range
+    - instance_regret_mean
+    - instance_regret_std
+    - instance_regret_max
   seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
-  allow_freeform_weight_family: true
+  allow_freeform_weight_family: false
   allow_uniform_none: false
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
@@ -191,20 +209,29 @@ builder_llm:
     max_per_weight_family: 0
     target_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
     seed_missing_families: true
-  two_stage_search:
-    enabled: true
-    stage1_generations: 4
-    stage1_name: family_search
-    stage2_name: hyperparam_tune
-    stage1_ops: [GEN, PARADIGM_SHIFT, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
-    stage2_ops: [TUNE, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
   search_space:
     enabled: true
     mode: reweight_only
     fixed_pair_builder: all_pairs
     pair_weight_normalization: none
+    require_instance_stats: true
+    require_instance_conditioning: true
+    instance_stat_keys:
+      - instance_obj_mean
+      - instance_obj_std
+      - instance_obj_median
+      - instance_obj_mad
+      - instance_obj_min
+      - instance_obj_max
+      - instance_obj_range
+      - instance_log_prob_mean
+      - instance_log_prob_std
+      - instance_log_prob_range
+      - instance_regret_mean
+      - instance_regret_std
+      - instance_regret_max
     seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
-    allow_freeform_weight_family: true
+    allow_freeform_weight_family: false
     allow_uniform_none: false
   operator_bank:
     init:

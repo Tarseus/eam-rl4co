@@ -157,6 +157,8 @@ def run_preference_builder_gates(
     weight_nonneg: bool = True,
     semantic_tolerance: float = 0.0,
     semantic_min_pass_rate: float = 1.0,
+    min_instance_weight_cv: float = 0.0,
+    min_instance_weight_cv_pass_rate: float = 1.0,
 ) -> PreferenceBuilderGateResult:
     """Validate a builder-produced PrefBatch against basic constraints.
 
@@ -317,6 +319,53 @@ def run_preference_builder_gates(
             },
         )
 
+    min_cv = max(0.0, float(min_instance_weight_cv))
+    cv_pass_rate = float(min_instance_weight_cv_pass_rate)
+    cv_pass_rate = min(max(cv_pass_rate, 0.0), 1.0)
+    eligible_instances = counts >= 2
+    eligible_count = int(eligible_instances.sum().item())
+    observed_cv_values: list[float] = []
+    if min_cv > 0.0 and eligible_count > 0:
+        for batch_id in range(B):
+            if not bool(eligible_instances[batch_id].item()):
+                continue
+            mask = b_idx == batch_id
+            local_weight = weight[mask].to(dtype=torch.float32)
+            if int(local_weight.numel()) < 2:
+                continue
+            mean_abs = float(local_weight.abs().mean().item())
+            std = float(local_weight.std(unbiased=False).item())
+            observed_cv_values.append(std / max(mean_abs, 1e-6))
+        if observed_cv_values:
+            observed_cv = torch.tensor(observed_cv_values, dtype=torch.float32)
+            observed_cv_pass_rate = float((observed_cv >= min_cv).to(dtype=torch.float32).mean().item())
+            if observed_cv_pass_rate + 1e-12 < cv_pass_rate:
+                return PreferenceBuilderGateResult(
+                    ok=False,
+                    reason="instance_weight_cv_too_low",
+                    pair_count=pair_count,
+                    coverage=coverage,
+                    max_pairs_per_instance=max_pairs,
+                    weight_min=float(weight.min().item()) if weight.numel() else None,
+                    weight_max=float(weight.max().item()) if weight.numel() else None,
+                    semantic_pass_rate=semantic_pass_rate,
+                    trace={
+                        "failed_gate": "PreferenceBuilder",
+                        "failure_kind": "instance_weight_cv_too_low",
+                        "metric": {
+                            "metric_name": "instance_weight_cv_pass_rate",
+                            "observed_value": observed_cv_pass_rate,
+                            "threshold": cv_pass_rate,
+                            "direction": ">=",
+                        },
+                        "cv_threshold": min_cv,
+                        "eligible_instances": eligible_count,
+                        "observed_cv_min": float(observed_cv.min().item()),
+                        "observed_cv_mean": float(observed_cv.mean().item()),
+                        "observed_cv_max": float(observed_cv.max().item()),
+                    },
+                )
+
     return PreferenceBuilderGateResult(
         ok=True,
         reason="ok",
@@ -354,6 +403,13 @@ def run_preference_builder_gates(
                     "direction": ">=",
                 },
             ],
+            "instance_weight_cv_gate": {
+                "enabled": bool(min_cv > 0.0),
+                "cv_threshold": min_cv,
+                "pass_rate_threshold": cv_pass_rate,
+                "eligible_instances": eligible_count,
+                "observed_cv_values": list(observed_cv_values),
+            },
         },
     )
 

@@ -43,7 +43,7 @@ population:
 backend: rl4co
 env_name: cvrp
 policy_name: pomo
-devices: ["cuda:2", "cuda:3", "cuda:4", "cuda:5"]
+devices: ["cuda:4", "cuda:5", "cuda:6", "cuda:7"]
 mp:
   enabled: true
   processes: 4
@@ -76,13 +76,6 @@ builder_llm:
     max_per_weight_family: 0
     target_weight_families: [gap_linear, gap_softmax, gap_sigmoid, gap_square]
     seed_missing_families: true
-  two_stage_search:
-    enabled: true
-    stage1_generations: 4
-    stage1_name: family_search
-    stage2_name: hyperparam_tune
-    stage1_ops: [GEN, PARADIGM_SHIFT, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
-    stage2_ops: [TUNE, STRUCTURE_SHIFT, CONSTRAINT_INJECT, XOVER]
   search_space:
     enabled: true
     mode: reweight_only

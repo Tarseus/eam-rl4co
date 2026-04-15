@@ -20,7 +20,7 @@
     "stage2_micro_unroll": false,
     "stage3_high_fidelity": true
   },
-  "last_generation": 6,
+  "last_generation": 9,
   "best_so_far": {
     "score": -0.014580363845825062,
     "builder_id": "g000_003_bab96354",
@@ -2110,6 +2110,423 @@
         0.0008716335296630184
       ],
       "generation": 6,
+      "phase": "builder"
+    },
+    "g007_001_4262fa6b": {
+      "builder_id": "g007_001_4262fa6b",
+      "perf": -0.006291666793823314,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_001_4262fa6b",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.006291666793823314,
+        "final_score": -0.006291666793823314,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_gap_rank_blend_tuned_007",
+          "intuition": "Weight pairs by positive objective gap scaled by a smoothly softened inverse regret difference with tunable beta, improving weight smoothness and numerical stability while preserving the gap-rank blend principle and all-pairs topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "clamp_only",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "abs",
+            "pow"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise', 'weight_family': 'gap_rank_blend'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    eps = float(extra.get('weight_eps', 1e-4))\n    beta = float(extra.get('weight_beta', 0.75))\n    inv_regret = 1.0 / (regret_diff + eps).pow(beta)\n    raw_weight = gap_pos * inv_regret\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 5.0))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.006291666793823314,
+      "threshold": -0.006291666793823314,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.006291666793823314
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g008_001_82bdca06": {
+      "builder_id": "g008_001_82bdca06",
+      "perf": -0.0044712589263915525,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_001_82bdca06",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.0044712589263915525,
+        "final_score": -0.0044712589263915525,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_gap_linear_reweight_v2",
+          "intuition": "Combines the positive objective gap weighting from parent 4 with the monotonic transform and clamp strategies from parent 2, aiming for a stable, nonnegative weight function that emphasizes meaningful objective differences while maintaining the all-pairs topology. This approach preserves the fixed pair structure and enhances weight robustness by integrating complementary ideas from both parents, suitable for reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp",
+            "abs",
+            "mul",
+            "nan_to_num"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_gap_linear_reweight_v2', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    eps = float(extra.get('weight_eps', 1e-4))\n    # Use a blended approach: positive gap scaled by inverse regret with clamp\n    inv_regret = 1.0 / (regret_diff + eps)\n    raw_weight = gap_pos * inv_regret\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.0044712589263915525,
+      "threshold": -0.0044712589263915525,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.0044712589263915525
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g008_000_fe9f761d": {
+      "builder_id": "g008_000_fe9f761d",
+      "perf": 0.006009886550903509,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_000_fe9f761d",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.006009886550903509,
+        "final_score": 0.006009886550903509,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_linear_reweight_clamp_tiezone_v002",
+          "intuition": "Add tie-zone suppression and clamping to the linear positive gap weights for numerical stability and constraint enforcement while preserving all-pairs topology and reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear_reweight_v1",
+            "constraint_family": "clamp_tiezone"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp_min",
+            "clamp",
+            "abs",
+            "where"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_linear_reweight_clamp_tiezone_v002', 'weight_family': 'gap_linear_reweight_v1'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    tie_zone = float(extra.get('tie_zone', 0.02))\n    # Suppress weights for pairs with gap inside tie_zone (close gaps)\n    gap_filtered = gap_pos.where(gap_pos > tie_zone, 0.0)\n    clamp_lo = float(extra.get('clamp_lo', 1e-4))\n    clamp_hi = float(extra.get('clamp_hi', 10.0))\n    weight = gap_filtered.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_linear_reweight_clamp_tiezone_v002', 'weight_family': 'gap_linear_reweight_v1'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.0044712589263915525,
+      "threshold": -0.0044712589263915525,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.006009886550903509
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g009_003_bd55df8e": {
+      "builder_id": "g009_003_bd55df8e",
+      "perf": -0.006229779434204108,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_003_bd55df8e",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.006229779434204108,
+        "final_score": -0.006229779434204108,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_regret_blend_002_smoothsigmoid_tuned",
+          "intuition": "Adjusted the weight blending parameters to emphasize larger objective gaps and moderate regret differences, improving the robustness and sensitivity of the pairwise weights while maintaining a stable all-pairs topology. Tuned the sigmoid beta and clamp bounds for better focus on meaningful pairs in reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend_smoothsigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_regret_blend",
+            "sigmoid",
+            "clamp_min",
+            "abs"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_regret_blend_smoothsigmoid'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    eps = 1e-6\n    beta = float(extra.get('weight_beta', 12.0))  # Slightly increased for sharper emphasis\n    inv_regret_weight = torch.sigmoid(beta * (1.0 / (regret_diff + eps) - 1.0))\n    raw = gap.clamp_min(0.0) * inv_regret_weight\n    clamp_lo = float(extra.get('clamp_lo', 0.2))  # Slightly lowered for sensitivity\n    clamp_hi = float(extra.get('clamp_hi', 4.5))  # Slightly increased to allow stronger weights\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_regret_blend_smoothsigmoid'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.008016434097289693,
+      "threshold": -0.008016434097289693,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.006229779434204108
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_002_f0ad0bda": {
+      "builder_id": "g009_002_f0ad0bda",
+      "perf": 0.004302100753784455,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_002_f0ad0bda",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": 0.004302100753784455,
+        "final_score": 0.004302100753784455,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_gap_regret_blend_inv_exp_clamp",
+          "intuition": "Weights pairs by a positive objective gap scaled by an exponentially decayed inverse regret difference, stabilizing weights and emphasizing pairs with small regret differences and larger gaps. Clamping enforces finite, nonnegative weights while preserving all-pairs topology and gap_regret_blend semantics for reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "clamp_only",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp",
+            "abs",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_gap_regret_blend_inv_exp_clamp', 'weight_family': 'gap_regret_blend'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    eps = float(extra.get('weight_eps', 1e-4))\n    tau = float(extra.get('weight_tau', 1.0))\n    inv_regret_exp = torch.exp(-tau * (regret_diff + eps))\n    raw_weight = gap_pos * inv_regret_exp\n    clamp_lo = float(extra.get('clamp_lo', 0.0))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise_gap_regret_blend_inv_exp_clamp', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.008016434097289693,
+      "threshold": -0.008016434097289693,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.004302100753784455
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_001_95829b14": {
+      "builder_id": "g009_001_95829b14",
+      "perf": -0.004634328079223593,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_001_95829b14",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.004634328079223593,
+        "final_score": -0.004634328079223593,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_gap_rank_blend_beta_clamped_v5",
+          "intuition": "Weights pairs by blending the positive objective gap with regret difference powered by beta, using a smooth softplus to ensure stable nonnegative weights, then clamped to enhance robustness while preserving all-pairs topology and fixed pair indexing.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp",
+            "abs",
+            "pow",
+            "mul",
+            "softplus"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_gap_rank_blend_beta_clamped_v5', 'weight_family': 'gap_rank_blend'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    regret_diff = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]).abs()\n    beta = float(extra.get('beta', 0.75))\n    eps = float(extra.get('weight_eps', 1e-4))\n    # Use softplus to smooth weight and ensure positivity\n    rank_scale = (regret_diff + eps).pow(beta)\n    raw_weight = torch.nn.functional.softplus(gap_pos * rank_scale)\n    clamp_lo = float(extra.get('clamp_lo', 0.3))\n    clamp_hi = float(extra.get('clamp_hi', 2.5))\n    weight = raw_weight.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise_gap_rank_blend_beta_clamped_v5', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.008016434097289693,
+      "threshold": -0.008016434097289693,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.004634328079223593
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_000_89c918b7": {
+      "builder_id": "g009_000_89c918b7",
+      "perf": -0.008016434097289693,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_000_89c918b7",
+        "f_id": "fseed_000_1ec7ffff",
+        "score": -0.008016434097289693,
+        "final_score": -0.008016434097289693,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_gap_linear_reweight_v5",
+          "intuition": "Weights pairs by a smooth sigmoid-transformed positive objective gap with tunable temperature and clamp bounds, preserving all-pairs topology and nonnegative weights for stable reweighting in reweight_only mode.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp",
+            "sigmoid"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_gap_linear_reweight_v5', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    # Use smooth sigmoid transform on gap_pos scaled by tau for smoother weighting\n    weight_raw = (gap_pos * tau).sigmoid()\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 5.0))\n    weight = weight_raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise_gap_linear_reweight_v5', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.008016434097289693,
+      "threshold": -0.008016434097289693,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.008016434097289693
+      ],
+      "generation": 9,
       "phase": "builder"
     }
   },

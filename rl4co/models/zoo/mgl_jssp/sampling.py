@@ -60,9 +60,11 @@ def rl_loss(samples: Solutions) -> tuple[torch.Tensor, float]:
     return loss, solution_ratio(samples.mss)
 
 
-def po_loss(samples: Solutions, impl: str = "bt") -> tuple[torch.Tensor, float]:
+def po_loss(samples: Solutions, impl: str = "bt", alpha: float = 1.0) -> tuple[torch.Tensor, float]:
     if impl not in {"bt", "exponential"}:
         raise ValueError(f"Unknown po_loss impl: {impl}")
+    if alpha <= 0:
+        raise ValueError(f"po_loss alpha must be positive, got {alpha}")
 
     log_probs = trajectory_log_probs(samples.logits, samples.trajs)
     makespans = samples.mss
@@ -92,7 +94,7 @@ def po_loss(samples: Solutions, impl: str = "bt") -> tuple[torch.Tensor, float]:
     better_is_left = left_ms < right_ms
     better_idx = torch.where(better_is_left, left_idx, right_idx)
     worse_idx = torch.where(better_is_left, right_idx, left_idx)
-    score_diff = log_probs[better_idx] - log_probs[worse_idx]
+    score_diff = alpha * (log_probs[better_idx] - log_probs[worse_idx])
     if impl == "bt":
         loss = -F.logsigmoid(score_diff).mean()
     else:
