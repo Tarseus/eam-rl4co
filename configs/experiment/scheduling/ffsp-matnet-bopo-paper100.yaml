@@ -5,21 +5,13 @@ defaults:
   - override /model: matnet.yaml
   - override /callbacks: default.yaml
   - override /trainer: default.yaml
-  - override /logger: wandb.yaml
+  - override /logger: csv.yaml
   - override /env: ffsp.yaml
 
 # Hydra output directory with meaningful name
 hydra:
   run:
     dir: ${paths.log_dir}/${mode}/runs/ffsp-matnet-bopo-paper100_${now:%Y%m%d-%H%M%S}
-
-logger:
-  wandb:
-    project: "rl4co"
-    log_model: "all"
-    group: "bopo-ffsp-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
-    tags: ["bopo-ffsp-paper", "${env.name}"]
-    name: "bopo-ffsp-paper-${env.generator_params.num_job}j-${env.generator_params.num_machine}m"
 
 env:
   generator_params:
@@ -30,7 +22,8 @@ env:
 
 trainer:
   max_epochs: 200
-  precision: 16-mixed
+  # FFSP100 + MatNet is more reliable in fp32 for long full-training runs.
+  precision: 32-true
   gradient_clip_val: null
   log_every_n_steps: 10
 
@@ -46,7 +39,7 @@ model:
   bopo_select_quantile: 0.5
   alpha: 1.0
   num_starts: 24
-  batch_size: 50
+  batch_size: 32
   train_data_size: 1_000
   val_data_size: 1_000
   test_data_size: 1_000
@@ -61,6 +54,7 @@ model:
     train: ["loss", "reward", "max_reward", "bopo_loss", "bopo_pair_count"]
     val: ["reward", "max_reward"]
     test: ${model.metrics.val}
+    log_on_step: false
   policy_params:
     embed_dim: 256
     num_encoder_layers: 3
