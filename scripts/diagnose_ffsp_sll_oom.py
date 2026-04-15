@@ -250,6 +250,91 @@ def _run_full_step(
     return result
 
 
+def _run_multi_step(
+    *,
+    device: torch.device,
+    loss_type: str,
+    batch_size: int,
+    num_starts: int,
+    precision: str,
+    steps: int,
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "mode": "multi_step",
+        "loss_type": loss_type,
+        "batch_size": int(batch_size),
+        "num_starts": int(num_starts),
+        "precision": str(precision),
+        "steps": int(steps),
+        "status": "ok",
+        "per_step": [],
+    }
+
+    env = None
+    model = None
+    optimizer = None
+
+    try:
+        _cleanup_cuda(device)
+        env = _make_env(device)
+        model = _make_model(env=env, loss_type=loss_type, batch_size=batch_size, num_starts=num_starts).to(device)
+        model.train()
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-6)
+        result["stages"] = {"after_model_init": asdict(_cuda_mem(device))}
+
+        for step_idx in range(int(steps)):
+            batch = None
+            out = None
+            loss = None
+            try:
+                _reset_cuda_stats(device)
+                batch = _make_batch(env, batch_size, device)
+                optimizer.zero_grad(set_to_none=True)
+                with _autocast_context(device, precision):
+                    loss, out = _forward_and_loss(model=model, env=env, batch=batch, num_starts=num_starts)
+                loss.backward()
+                optimizer.step()
+
+                mem = _cuda_mem(device)
+                result["per_step"].append(
+                    {
+                        "step": int(step_idx),
+                        "loss_value": float(loss.detach().float().item()),
+                        "allocated_mb": float(mem.allocated_mb),
+                        "reserved_mb": float(mem.reserved_mb),
+                        "peak_allocated_mb": float(mem.peak_allocated_mb),
+                        "peak_reserved_mb": float(mem.peak_reserved_mb),
+                    }
+                )
+            except RuntimeError as exc:
+                result["status"] = "runtime_error"
+                result["error"] = _summarize_exception(exc)
+                result["failed_step"] = int(step_idx)
+                result["peak"] = asdict(_cuda_mem(device))
+                break
+            finally:
+                del out
+                del loss
+                del batch
+                if device.type == "cuda":
+                    torch.cuda.synchronize(device)
+        if result["status"] == "ok":
+            result["peak"] = asdict(_cuda_mem(device))
+            reserved_values = [float(item["reserved_mb"]) for item in result["per_step"]]
+            if reserved_values:
+                result["reserved_growth_mb"] = float(max(reserved_values) - min(reserved_values))
+    except Exception as exc:  # noqa: BLE001
+        result["status"] = "error"
+        result["error"] = _summarize_exception(exc)
+        result["peak"] = asdict(_cuda_mem(device))
+    finally:
+        del optimizer
+        del model
+        del env
+        _cleanup_cuda(device)
+    return result
+
+
 def _synthetic_rl_loss(
     reward: torch.Tensor,
     log_likelihood: torch.Tensor,
@@ -366,11 +451,49 @@ def _best_stage_peak(record: dict[str, Any]) -> float:
     return float(peak)
 
 
+def _stage_alloc(record: dict[str, Any], stage_name: str) -> float | None:
+    stage = (record.get("stages") or {}).get(stage_name) or {}
+    value = stage.get("allocated_mb")
+    if value is None:
+        return None
+    return float(value)
+
+
+def _largest_stage_jump(record: dict[str, Any]) -> tuple[str, float | None]:
+    order = [
+        "after_model_init",
+        "after_batch_materialize",
+        "after_forward_and_loss",
+        "after_backward",
+        "after_optimizer_step",
+    ]
+    prev_name = None
+    prev_value = None
+    best_name = "-"
+    best_delta = None
+    for name in order:
+        value = _stage_alloc(record, name)
+        if value is None:
+            continue
+        if prev_value is not None:
+            delta = value - prev_value
+            if best_delta is None or delta > best_delta:
+                best_delta = delta
+                best_name = f"{prev_name}->{name}"
+        prev_name = name
+        prev_value = value
+    return best_name, best_delta
+
+
 def _print_summary(records: list[dict[str, Any]]) -> None:
     print()
     print("Summary")
     print("-" * 120)
-    header = f"{'mode':<10} {'loss':<10} {'bs':>4} {'starts':>6} {'status':<14} {'peak_alloc_mb':>14} {'peak_res_mb':>12} {'loss':>12}"
+    header = (
+        f"{'mode':<10} {'loss':<10} {'bs':>4} {'starts':>6} {'status':<14} "
+        f"{'fwd_mb':>10} {'bwd_mb':>10} {'peak_alloc_mb':>14} {'peak_res_mb':>12} "
+        f"{'max_jump':>26} {'loss':>12}"
+    )
     print(header)
     print("-" * len(header))
     for rec in records:
@@ -378,16 +501,25 @@ def _print_summary(records: list[dict[str, Any]]) -> None:
         peak_alloc = peak.get("peak_allocated_mb")
         peak_res = peak.get("peak_reserved_mb")
         loss_value = rec.get("loss_value")
+        fwd_mb = _stage_alloc(rec, "after_forward_and_loss")
+        bwd_mb = _stage_alloc(rec, "after_backward")
+        jump_name, jump_delta = _largest_stage_jump(rec)
+        growth_mb = rec.get("reserved_growth_mb")
         print(
             f"{str(rec.get('mode','')):<10} "
             f"{str(rec.get('loss_type','')):<10} "
             f"{int(rec.get('batch_size',0)):>4} "
             f"{int(rec.get('num_starts',0)):>6} "
             f"{str(rec.get('status','')):<14} "
+            f"{(f'{float(fwd_mb):.1f}' if fwd_mb is not None else '-'):>10} "
+            f"{(f'{float(bwd_mb):.1f}' if bwd_mb is not None else '-'):>10} "
             f"{(f'{float(peak_alloc):.1f}' if peak_alloc is not None else '-'):>14} "
             f"{(f'{float(peak_res):.1f}' if peak_res is not None else '-'):>12} "
+            f"{(f'{jump_name}:{float(jump_delta):.1f}' if jump_delta is not None else '-'):>26} "
             f"{(f'{float(loss_value):.6f}' if loss_value is not None else '-'):>12}"
         )
+        if growth_mb is not None:
+            print(f"{'':<56} reserved_growth_mb={float(growth_mb):.1f}")
     print("-" * len(header))
 
 
@@ -401,6 +533,7 @@ def main() -> int:
     parser.add_argument("--num-starts", type=int, default=24, help="POMO/MatNet multistart count.")
     parser.add_argument("--precision", type=str, default="32-true", help="32-true | 16-mixed | bf16-mixed")
     parser.add_argument("--sequence-length", type=int, default=300, help="Approx rollout length for FFSP100 BOPO loss-only probe.")
+    parser.add_argument("--loop-steps", type=int, default=0, help="If > 0, run a consecutive multi-step train probe to detect memory creep.")
     parser.add_argument("--skip-loss-only", action="store_true", help="Skip synthetic loss-only probe.")
     parser.add_argument("--skip-full-step", action="store_true", help="Skip full train-step probe.")
     parser.add_argument("--json-out", type=str, default="", help="Optional JSON output path.")
@@ -451,6 +584,20 @@ def main() -> int:
                     batch_size=batch_size,
                     num_starts=args.num_starts,
                     precision=args.precision,
+                )
+                all_records.append(rec)
+                print(json.dumps(rec, indent=2))
+
+            if int(args.loop_steps) > 0:
+                print()
+                print(f"[probe] loss={loss_type} batch_size={batch_size} mode=multi_step steps={int(args.loop_steps)}")
+                rec = _run_multi_step(
+                    device=device,
+                    loss_type=loss_type,
+                    batch_size=batch_size,
+                    num_starts=args.num_starts,
+                    precision=args.precision,
+                    steps=int(args.loop_steps),
                 )
                 all_records.append(rec)
                 print(json.dumps(rec, indent=2))
