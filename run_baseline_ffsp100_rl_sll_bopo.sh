@@ -48,6 +48,10 @@ has_seed_override=false
 has_deterministic_override=false
 has_devices_override=false
 has_matmul_precision_override=false
+has_precision_override=false
+has_batch_size_override=false
+has_logger_override=false
+has_checkpoint_dir_override=false
 disable_rich_progress_bar=true
 
 for arg in "$@"; do
@@ -63,6 +67,18 @@ for arg in "$@"; do
       ;;
     matmul_precision=*)
       has_matmul_precision_override=true
+      ;;
+    trainer.precision=*|precision=*)
+      has_precision_override=true
+      ;;
+    model.batch_size=*|batch_size=*)
+      has_batch_size_override=true
+      ;;
+    logger=*|logger.csv.name=*|logger.wandb.*)
+      has_logger_override=true
+      ;;
+    callbacks.model_checkpoint.dirpath=*)
+      has_checkpoint_dir_override=true
       ;;
     trainer.enable_progress_bar=true|trainer.enable_progress_bar=True)
       disable_rich_progress_bar=false
@@ -81,6 +97,8 @@ for idx in "${!EXPERIMENT_KEYS[@]}"; do
   log_path="${LOG_DIR}/${key}_${TS}.out"
 
   mkdir -p "$run_dir"
+  ckpt_dir="${run_dir}/checkpoints"
+  mkdir -p "$ckpt_dir"
 
   cmd=(
     "$PYTHON_BIN" -u run.py
@@ -88,14 +106,35 @@ for idx in "${!EXPERIMENT_KEYS[@]}"; do
     "hydra.run.dir=${run_dir}"
   )
 
+  if [[ "$has_logger_override" == "false" ]]; then
+    cmd+=("logger=csv" "logger.csv.name=${key}")
+  fi
   if [[ "$disable_rich_progress_bar" == "true" ]]; then
     cmd+=("~callbacks.rich_progress_bar")
+  fi
+  if [[ "$has_checkpoint_dir_override" == "false" ]]; then
+    cmd+=(
+      "callbacks.model_checkpoint.dirpath=${ckpt_dir}"
+      "callbacks.model_checkpoint.filename='epoch_{epoch:03d}'"
+      "callbacks.model_checkpoint.auto_insert_metric_name=False"
+      "callbacks.model_checkpoint.save_top_k=-1"
+      "callbacks.model_checkpoint.save_last=True"
+      "callbacks.model_checkpoint.every_n_epochs=1"
+    )
   fi
   if [[ "$has_seed_override" == "false" ]]; then
     cmd+=("seed=1234")
   fi
   if [[ "$has_deterministic_override" == "false" ]]; then
     cmd+=("trainer.deterministic=false")
+  fi
+  if [[ "$has_precision_override" == "false" ]]; then
+    # FFSP100 + MatNet is more reliable in fp32 for long baseline runs.
+    cmd+=("trainer.precision=32-true")
+  fi
+  if [[ "$has_batch_size_override" == "false" ]]; then
+    # Match the stable FFSP100 full PO run envelope.
+    cmd+=("model.batch_size=32")
   fi
   if [[ "$has_devices_override" == "false" ]]; then
     cmd+=("+trainer.devices=[${gpu_id}]")
