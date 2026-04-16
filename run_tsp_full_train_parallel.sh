@@ -11,8 +11,9 @@ echo "=========================================="
 echo "Starting TSP Full Training - Parallel"
 echo "=========================================="
 echo ""
-echo "TSP100 will run on: cuda:0"
-echo "TSP50 will run on: cuda:1 (using TSP100's best_pair)"
+echo "TSP100 will run on: cuda:1"
+echo "TSP50 will run on: cuda:2 (using TSP100's best_pair)"
+echo "Logger: csv"
 echo ""
 
 # Export PYTHONPATH
@@ -93,6 +94,7 @@ run_full_train() {
         "trainer.devices=[0]"
         "matmul_precision=highest"
         "~callbacks.rich_progress_bar"
+        "logger=csv"
     )
 
     echo "  Running on GPU ${gpu_id}: ${cmd[*]}"
@@ -119,22 +121,22 @@ fi
 echo "Found TSP100 best_pair: $tsp100_best_pair"
 echo ""
 
-# Run TSP100 on cuda:0
+# Run TSP100 on cuda:1
 echo "Starting TSP100 full training..."
 pid_tsp100=$(run_full_train \
     "$tsp100_best_pair" \
     "routing/pomo-po4cops-tsp100-po" \
-    "0" \
+    "1" \
     "tsp100")
 
 sleep 3
 
-# Run TSP50 on cuda:1, using TSP100's best_pair
+# Run TSP50 on cuda:2, using TSP100's best_pair
 echo "Starting TSP50 full training (using TSP100's best_pair)..."
 pid_tsp50=$(run_full_train \
     "$tsp100_best_pair" \
     "routing/pomo-po4cops-tsp50-po" \
-    "1" \
+    "2" \
     "tsp50")
 
 echo "=========================================="
