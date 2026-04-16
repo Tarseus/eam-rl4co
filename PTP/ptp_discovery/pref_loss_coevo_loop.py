@@ -34,6 +34,7 @@ from fitness.free_loss_fidelity import (
     baseline_epoch_objectives_from_metrics_csv,
     extract_feature_cache,
     evaluate_free_loss_candidate,
+    evaluate_native_baseline_mgl_jssp,
     evaluate_po_baseline_rl4co,
     get_rollout_debug_events,
     reset_rollout_debug_events,
@@ -1048,6 +1049,9 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
 
 def _stage3_baseline_eval_mode(cfg_yaml: Mapping[str, Any]) -> str:
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    policy_name = str(cfg_yaml.get("policy_name", "") or "").strip().lower()
+    if env_name == "jssp" and policy_name in {"mgl", "mgl_jssp", "mgl-jssp"}:
+        return "native_mgl_baseline"
     # CVRP and FFSP compare against the native PO objective so the stage3 baseline
     # matches the paper training loss rather than the reference free-loss surrogate.
     return "native_po_loss" if env_name in {"cvrp", "ffsp"} else "ref_free_loss"
@@ -1085,6 +1089,22 @@ def _evaluate_stage3_reference_baseline(
 ) -> Dict[str, Any]:
     eval_mode = _stage3_baseline_eval_mode(cfg_yaml)
     init_ckpt_abs = _abs_from_repo_root(str(init_ckpt)) if init_ckpt else None
+
+    if str(eval_mode) == "native_mgl_baseline":
+        return evaluate_native_baseline_mgl_jssp(
+            hf_cfg,
+            init_checkpoint_path=init_ckpt_abs,
+            init_checkpoint_epoch=None,
+            scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+            warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+            baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+            baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
+            baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+            baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+            baseline_epoch_window_violation_weight=float(
+                cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+            ),
+        )
 
     if str(eval_mode) == "native_po_loss":
         return evaluate_po_baseline_rl4co(
