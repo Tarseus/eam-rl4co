@@ -1586,6 +1586,120 @@ def _load_json(path: str) -> Any:
         return json.load(f)
 
 
+def _normalize_tracked_pair_values_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    raw = cfg_yaml.get("tracked_pair_values", {}) or {}
+    if not isinstance(raw, Mapping):
+        return {"enabled": False, "targets": []}
+
+    targets_out: List[Dict[str, Any]] = []
+    for idx, item in enumerate(raw.get("targets", []) or []):
+        if not isinstance(item, Mapping):
+            continue
+        try:
+            generation = int(item.get("generation"))
+            pair_index = int(item.get("pair_index"))
+        except (TypeError, ValueError):
+            continue
+        filename = str(item.get("filename", "") or "").strip()
+        if not filename:
+            filename = f"tracked_pair_{idx:02d}_gen{generation}_pair{pair_index}.json"
+        targets_out.append(
+            {
+                "name": str(item.get("name", f"gen{generation}_pair{pair_index}") or f"gen{generation}_pair{pair_index}"),
+                "generation": int(generation),
+                "pair_index": int(pair_index),
+                "g_id": (str(item.get("g_id")).strip() if item.get("g_id") is not None else None),
+                "f_id": (str(item.get("f_id")).strip() if item.get("f_id") is not None else None),
+                "filename": filename,
+                "output_root_latest_filename": str(item.get("output_root_latest_filename", "") or "").strip(),
+            }
+        )
+
+    return {
+        "enabled": bool(raw.get("enabled", False)) and bool(targets_out),
+        "targets": targets_out,
+    }
+
+
+def _persist_tracked_pair_values(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    run_dir: str | None,
+    records: Sequence[Mapping[str, Any]],
+) -> int:
+    cfg = _normalize_tracked_pair_values_cfg(cfg_yaml)
+    if not bool(cfg.get("enabled", False)):
+        return 0
+    if not run_dir:
+        return 0
+
+    saved = 0
+    output_root = str(cfg_yaml.get("output_root", "") or "").strip()
+    for rec in records:
+        if not isinstance(rec, Mapping):
+            continue
+        try:
+            rec_generation = int(rec.get("generation"))
+            rec_pair_index = int(rec.get("pair_index"))
+        except (TypeError, ValueError):
+            continue
+        for target in cfg.get("targets", []):
+            if rec_generation != int(target.get("generation")):
+                continue
+            if rec_pair_index != int(target.get("pair_index")):
+                continue
+            target_g_id = target.get("g_id")
+            if target_g_id is not None and str(rec.get("g_id", "")).strip() != str(target_g_id):
+                continue
+            target_f_id = target.get("f_id")
+            if target_f_id is not None and str(rec.get("f_id", "")).strip() != str(target_f_id):
+                continue
+
+            effective_score = _pair_record_effective_score(rec)
+            score_value = rec.get("score")
+            payload = {
+                "name": str(target.get("name", "")),
+                "generation": int(rec_generation),
+                "pair_index": int(rec_pair_index),
+                "g_id": str(rec.get("g_id", "")).strip(),
+                "f_id": str(rec.get("f_id", "")).strip(),
+                "value": (
+                    float(effective_score)
+                    if effective_score is not None and math.isfinite(float(effective_score))
+                    else (
+                        float(score_value)
+                        if isinstance(score_value, (int, float)) and math.isfinite(float(score_value))
+                        else score_value
+                    )
+                ),
+                "score": (
+                    float(score_value)
+                    if isinstance(score_value, (int, float)) and math.isfinite(float(score_value))
+                    else score_value
+                ),
+                "effective_score": (
+                    float(effective_score)
+                    if effective_score is not None and math.isfinite(float(effective_score))
+                    else None
+                ),
+                "stage": rec.get("stage"),
+                "stage_final": rec.get("stage_final", rec.get("stage")),
+                "phase": rec.get("phase"),
+                "pair_ok": rec.get("pair_ok"),
+                "pair_reason": rec.get("pair_reason"),
+                "run_dir": os.path.abspath(str(run_dir)),
+                "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            run_value_path = os.path.join(str(run_dir), str(target.get("filename")))
+            _atomic_write_json(run_value_path, payload)
+            latest_filename = str(target.get("output_root_latest_filename", "") or "").strip()
+            if output_root and latest_filename:
+                latest_path = os.path.join(output_root, latest_filename)
+                _atomic_write_json(latest_path, payload)
+            saved += 1
+    return int(saved)
+
+
 def _b64_pickle(obj: Any) -> str:
     return base64.b64encode(pickle.dumps(obj)).decode("ascii")
 
@@ -11923,6 +12037,11 @@ def run_pref_loss_coevo(
         for sig in eval_sigs_to_load:
             loaded_total += int(load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=sig))
         LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sigs=%s)", loaded_total, eval_sigs_to_load)
+        _persist_tracked_pair_values(
+            cfg_yaml=cfg_yaml,
+            run_dir=run_dir,
+            records=list(caches.pair_cache.values()),
+        )
         rebuilt_pair_score_history_map = _rebuild_pair_score_history_map(list(caches.pair_cache.values()))
         if rebuilt_pair_score_history_map:
             pair_score_history_map = dict(rebuilt_pair_score_history_map)
@@ -12032,6 +12151,11 @@ def run_pref_loss_coevo(
                     caches.set_pair(cache_key0, rec0)
                     _append_pair_score_history(pair_score_history_map, rec0)
                     _append_jsonl(pairs_jsonl, [rec0])
+                    _persist_tracked_pair_values(
+                        cfg_yaml=cfg_yaml,
+                        run_dir=run_dir,
+                        records=[rec0],
+                    )
                     if bool(rec0.get("pair_ok")) and final_score0 is not None and math.isfinite(float(final_score0)):
                         reevaluated_transfer_seed_baseline = dict(rec0)
                         LOGGER.info(
@@ -15281,6 +15405,11 @@ def run_pref_loss_coevo(
             )
 
         _append_jsonl(pairs_jsonl, pair_records)
+        _persist_tracked_pair_values(
+            cfg_yaml=cfg_yaml,
+            run_dir=run_dir,
+            records=pair_records,
+        )
         _append_jsonl(gate_jsonl, gate_records)
         _append_jsonl(gate_repair_jsonl, gate_repair_records_gen)
         _append_jsonl(gate_repair_jsonl, joint_gate_repair_attempt_records_gen)

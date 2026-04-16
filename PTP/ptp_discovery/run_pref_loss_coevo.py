@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -24,15 +25,33 @@ from ptp_discovery.pref_loss_coevo_loop import run_pref_loss_coevo
 from ptp_discovery.runtime_trace import RuntimeTrace
 
 
-def _find_latest_run_dir(config_path: str) -> str:
+def _load_config_yaml(config_path: str) -> dict:
     import yaml
 
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f) or {}
+    if not isinstance(cfg, dict):
+        raise ValueError(f"Invalid YAML config: {config_path}")
+    return dict(cfg)
+
+
+def _configured_generation_budget(cfg: dict) -> int:
+    budgets = cfg.get("budgets", {}) or {}
+    if not isinstance(budgets, dict):
+        budgets = {}
+    raw = budgets.get("generations", cfg.get("generations", 1))
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _find_latest_run_dir_from_cfg(cfg: dict, *, require_incomplete: bool = False) -> str | None:
     out_root = os.path.abspath(str(cfg.get("output_root", "runs/pref_loss_coevo")))
     if not os.path.isdir(out_root):
         raise FileNotFoundError(f"output_root does not exist: {out_root}")
 
+    generation_budget = _configured_generation_budget(cfg)
     candidates: list[str] = []
     for name in os.listdir(out_root):
         path = os.path.join(out_root, name)
@@ -44,7 +63,74 @@ def _find_latest_run_dir(config_path: str) -> str:
     if not candidates:
         raise FileNotFoundError(f"No resumable runs (checkpoint.json) found under: {out_root}")
 
-    return sorted(candidates)[-1]
+    for path in sorted(candidates, reverse=True):
+        if not require_incomplete:
+            return path
+        ckpt_path = os.path.join(path, "checkpoint.json")
+        try:
+            with open(ckpt_path, "r", encoding="utf-8") as f:
+                checkpoint = json.load(f)
+        except Exception:  # noqa: BLE001
+            continue
+        if not isinstance(checkpoint, dict):
+            continue
+        try:
+            next_generation = int(checkpoint.get("next_generation", 0) or 0)
+        except (TypeError, ValueError):
+            next_generation = 0
+        if next_generation < generation_budget:
+            return path
+    return None
+
+
+def _find_latest_run_dir(config_path: str) -> str:
+    cfg = _load_config_yaml(config_path)
+    path = _find_latest_run_dir_from_cfg(cfg, require_incomplete=False)
+    if path is None:
+        raise FileNotFoundError(
+            f"No resumable runs (checkpoint.json) found under: "
+            f"{os.path.abspath(str(cfg.get('output_root', 'runs/pref_loss_coevo')))}"
+        )
+    return path
+
+
+def _resolve_resume_dir_from_config(config_path: str) -> tuple[str | None, str | None]:
+    cfg = _load_config_yaml(config_path)
+    resume_cfg = cfg.get("resume", {}) or {}
+    if not isinstance(resume_cfg, dict):
+        return None, None
+    if not bool(resume_cfg.get("enabled", False)):
+        return None, None
+
+    mode = str(resume_cfg.get("mode", "latest_incomplete") or "latest_incomplete").strip().lower()
+    strict = bool(resume_cfg.get("strict", False))
+    run_dir = None
+    try:
+        if mode in {"latest", "resume-latest"}:
+            run_dir = _find_latest_run_dir_from_cfg(cfg, require_incomplete=False)
+        elif mode in {"latest_incomplete", "latest-incomplete", "latest_resumable", "latest-resumable"}:
+            run_dir = _find_latest_run_dir_from_cfg(cfg, require_incomplete=True)
+        elif mode in {"dir", "resume-dir"}:
+            raw_dir = str(resume_cfg.get("dir", "") or "").strip()
+            if raw_dir:
+                run_dir = os.path.abspath(raw_dir)
+        else:
+            raise ValueError(f"Unsupported resume.mode={mode!r} in {config_path}")
+    except FileNotFoundError:
+        if strict:
+            raise
+        return None, None
+
+    if run_dir and not os.path.isdir(run_dir):
+        if strict:
+            raise FileNotFoundError(f"Configured resume dir does not exist: {run_dir}")
+        return None, None
+    if run_dir is None and strict:
+        raise FileNotFoundError(
+            f"Configured resume.mode={mode!r} could not find a matching run under "
+            f"{os.path.abspath(str(cfg.get('output_root', 'runs/pref_loss_coevo')))}"
+        )
+    return run_dir, mode
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
@@ -85,6 +171,20 @@ def main() -> None:
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     parser = _build_arg_parser()
     args = parser.parse_args()
+    resume_dir = args.resume_dir
+    resume_source = None
+    if args.resume_latest:
+        if resume_dir is not None:
+            raise SystemExit("Pass only one of --resume-dir or --resume-latest.")
+        resume_dir = _find_latest_run_dir(args.config)
+        resume_source = "cli_latest"
+    elif resume_dir is not None:
+        resume_source = "cli_dir"
+    else:
+        resume_dir, resume_mode = _resolve_resume_dir_from_config(args.config)
+        if resume_dir is not None:
+            resume_source = f"config:{resume_mode}"
+            logging.info("Using config-driven resume: mode=%s run_dir=%s", resume_mode, resume_dir)
     trace_dir = os.path.join(os.getcwd(), "logs", "runtime")
     os.makedirs(trace_dir, exist_ok=True)
     trace_path = os.path.join(trace_dir, f"pref_loss_launcher_{os.getpid()}.json")
@@ -100,8 +200,9 @@ def main() -> None:
     runtime_trace.start(
         extra={
             "config_path": os.path.abspath(str(args.config)),
-            "resume_dir": (os.path.abspath(str(args.resume_dir)) if args.resume_dir else None),
+            "resume_dir": (os.path.abspath(str(resume_dir)) if resume_dir else None),
             "resume_latest": bool(args.resume_latest),
+            "resume_source": resume_source,
             "device_override": args.device,
         }
     )
@@ -111,11 +212,6 @@ def main() -> None:
     if args.device is not None:
         overrides["device"] = args.device
 
-    resume_dir = args.resume_dir
-    if args.resume_latest:
-        if resume_dir is not None:
-            raise SystemExit("Pass only one of --resume-dir or --resume-latest.")
-        resume_dir = _find_latest_run_dir(args.config)
     try:
         run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
     except KeyboardInterrupt as exc:

@@ -2,6 +2,18 @@ preset: simple
 search_mode: builder_only
 seed: 1234
 output_root: runs/pref_builder_weight_search_ffsp100
+resume:
+  enabled: true
+  mode: latest_incomplete
+
+tracked_pair_values:
+  enabled: true
+  targets:
+    - name: gen-1_pair-1
+      generation: -1
+      pair_index: -1
+      filename: gen-1_pair-1_value.json
+      output_root_latest_filename: latest_gen-1_pair-1_value.json
 
 metric_mode: minimize
 improve_eps: 0.0
