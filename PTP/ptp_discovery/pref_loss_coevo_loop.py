@@ -7457,13 +7457,15 @@ def _propose_builders_for_generation(
                 failure_summary,
             )
             if bool(llm_init_only) and not out:
-                LOGGER.error(
-                    "Builder generation %d produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. "
-                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, or invalid LLM JSON/code. "
-                    "failure_samples=%s",
-                    int(generation),
-                    llm_failure_samples,
+                msg = (
+                    "Builder generation "
+                    f"{int(generation)} produced zero valid proposals while llm_init_only=true; "
+                    "all LLM attempts failed and seed/backfill is disabled. "
+                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, "
+                    f"or invalid LLM JSON/code. failure_samples={llm_failure_samples}"
                 )
+                LOGGER.error(msg)
+                raise RuntimeError(msg)
 
     # Mutations/crossover and fresh seeds.
     if bool(llm_init_only):
@@ -8229,13 +8231,15 @@ def _propose_losses_for_generation(
                 failure_summary,
             )
             if bool(llm_init_only) and not out:
-                LOGGER.error(
-                    "Loss generation %d produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. "
-                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, or invalid LLM JSON/code. "
-                    "failure_samples=%s",
-                    int(generation),
-                    llm_failure_samples,
+                msg = (
+                    "Loss generation "
+                    f"{int(generation)} produced zero valid proposals while llm_init_only=true; "
+                    "all LLM attempts failed and seed/backfill is disabled. "
+                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, "
+                    f"or invalid LLM JSON/code. failure_samples={llm_failure_samples}"
                 )
+                LOGGER.error(msg)
+                raise RuntimeError(msg)
 
     if bool(llm_init_only):
         return out[:pop_f]
