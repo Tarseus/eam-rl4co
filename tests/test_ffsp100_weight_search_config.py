@@ -21,12 +21,25 @@ def test_ffsp100_weight_search_config_matches_ffsp_builder_search_contract() -> 
 
     assert cfg["search_mode"] == "builder_only"
     assert cfg["output_root"] == "runs/pref_builder_weight_search_ffsp100"
+    assert cfg["resume"]["enabled"] is True
+    assert cfg["resume"]["mode"] == "latest_incomplete"
     assert cfg["env_name"] == "ffsp"
     assert cfg["policy_name"] == "matnet"
     assert cfg["precision"] == "32-true"
     assert cfg["loss_observables"] == ["advantage"]
     assert cfg["aggressive_cuda_cleanup"] is True
     assert cfg["aggressive_cuda_cleanup_mode"] == "epoch"
+    tracked = cfg["tracked_pair_values"]
+    assert tracked["enabled"] is True
+    assert tracked["targets"] == [
+        {
+            "name": "gen-1_pair-1",
+            "generation": -1,
+            "pair_index": -1,
+            "filename": "gen-1_pair-1_value.json",
+            "output_root_latest_filename": "latest_gen-1_pair-1_value.json",
+        }
+    ]
 
     source_loss_path = repo_root / cfg["loss_transfer_seed"]["source_loss_path"]
     assert source_loss_path.is_file()
