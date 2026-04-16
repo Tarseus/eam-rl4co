@@ -1250,7 +1250,9 @@ def _stage3_pre_minitrain_eval(
     offline_val_by_size: Mapping[int, str] | None = None,
 ) -> Tuple[Dict[int, float], float]:
     from fitness.free_loss_fidelity import (
+        _build_mgl_jssp_model,
         _evaluate_rl4co_model,
+        _is_mgl_jssp_cfg,
         _load_policy_weights_from_checkpoint,
         _rl4co_build_env,
         _rl4co_build_policy,
@@ -1312,8 +1314,13 @@ def _stage3_pre_minitrain_eval(
     env = None
     policy = None
     try:
-        env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
-        policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
+        if _is_mgl_jssp_cfg(hf_cfg):
+            # MGL JSSP uses its native model wrapper instead of the generic RL4CO policy builder.
+            policy = _build_mgl_jssp_model(hf_cfg, problem_size=int(train_problem_size))
+            rollout_strategy = "mgl_sampling"
+        else:
+            env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
+            policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
         if init_checkpoint:
             _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
         policy = policy.to(device)
