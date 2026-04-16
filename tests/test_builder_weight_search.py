@@ -5,6 +5,7 @@ import logging
 import random
 from pathlib import Path
 
+import pytest
 import torch
 
 
@@ -1261,40 +1262,40 @@ def test_builder_llm_exception_is_logged(monkeypatch, caplog):
     monkeypatch.setattr(builder_ops, "generate_pref_builder_candidate_with_meta", _boom)
 
     with caplog.at_level(logging.WARNING):
-        out = loop._propose_builders_for_generation(
-            generation=0,
-            pop_g=1,
-            elites_g=[],
-            diverse_elites_g=[],
-            rng=random.Random(0),
-            llm_cfg={
-                "builder": {
-                    "enabled": True,
-                    "parent_p": 2,
-                    "seed_reserve": 0,
-                    "search_space": {
+        with pytest.raises(RuntimeError, match="Builder generation 0 produced zero valid proposals while llm_init_only=true"):
+            loop._propose_builders_for_generation(
+                generation=0,
+                pop_g=1,
+                elites_g=[],
+                diverse_elites_g=[],
+                rng=random.Random(0),
+                llm_cfg={
+                    "builder": {
                         "enabled": True,
-                        "mode": "reweight_only",
-                        "fixed_pair_builder": "all_pairs",
+                        "parent_p": 2,
+                        "seed_reserve": 0,
+                        "search_space": {
+                            "enabled": True,
+                            "mode": "reweight_only",
+                            "fixed_pair_builder": "all_pairs",
+                        },
+                        "operator_bank": {
+                            "init": [
+                                {"name": "GEN", "count": 1},
+                            ]
+                        },
+                        "repair": {"enabled": False},
                     },
-                    "operator_bank": {
-                        "init": [
-                            {"name": "GEN", "count": 1},
-                        ]
+                    "prompts": {
+                        "builder_generation": "PTP/prompts/pref_builder_generation.txt",
                     },
-                    "repair": {"enabled": False},
                 },
-                "prompts": {
-                    "builder_generation": "PTP/prompts/pref_builder_generation.txt",
-                },
-            },
-            operator_whitelist=[],
-            global_feedback={},
-            llm_init_only=True,
-            carry_elites=False,
-        )
+                operator_whitelist=[],
+                global_feedback={},
+                llm_init_only=True,
+                carry_elites=False,
+            )
 
-    assert out == []
     assert "Builder LLM proposal failed at gen=0" in caplog.text
     assert ("OPENAI_API_KEY is not set" in caplog.text) or ("openai package is not installed" in caplog.text)
     assert "Builder generation 0 produced zero valid proposals while llm_init_only=true" in caplog.text

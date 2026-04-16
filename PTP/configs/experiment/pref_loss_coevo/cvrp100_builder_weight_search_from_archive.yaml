@@ -65,6 +65,29 @@ pomo_size: null
 generator_params:
   num_loc: 100
 
+baseline:
+  mini_eval_paths:
+    epoch10_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch10_inst100000.json
+  checkpoints:
+    - baseline/cvrp100_epoch_100.ckpt
+  include_scratch: true
+  multiseed_compare_enabled: false
+  scenarios:
+    - name: cvrp100
+      problem: cvrp
+      env_name: cvrp
+      train_problem_size: 100
+      valid_problem_sizes: [100]
+      policy_kwargs:
+        po4cops_compat: true
+      generator_params:
+        num_loc: 100
+      baseline:
+        mini_eval_paths:
+          epoch10_inst100000: baseline/mini_eval/baseline_minitrain_cvrp100_epoch10_inst100000.json
+        checkpoints:
+          - baseline/cvrp100_epoch_100.ckpt
+
 builder_llm:
   enabled: true
   offline_mode: false
