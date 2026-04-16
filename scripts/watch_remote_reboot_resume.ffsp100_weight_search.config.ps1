@@ -1,7 +1,7 @@
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
 $WatchRemoteRebootResumeConfig = @{
-    Host                  = "gushengda@g53"
+    Host                  = "g49"
     WatchMode             = "pref_loss"
     RemoteWorkdir         = "/data1/gushengda/eam-rl4co"
     RemoteConfigPath      = "PTP/configs/experiment/pref_loss_coevo/ffsp100_builder_weight_search_from_archive.yaml"
