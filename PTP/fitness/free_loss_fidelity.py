@@ -8,7 +8,7 @@ import math
 import os
 import re
 import traceback
-from typing import Any, Dict, List, Mapping, Protocol, Sequence, Tuple
+from typing import Any, Callable, Dict, Iterator, List, Mapping, Protocol, Sequence, Tuple
 
 import logging
 import torch
@@ -1471,9 +1471,52 @@ def run_rl4co_rollout_smoke_test(
     }
     env = None
     policy = None
+    model = None
     try:
         reset_rollout_debug_events()
         _set_seed(int(cfg.seed))
+        if _is_mgl_jssp_cfg(cfg):
+            from rl4co.models.zoo.mgl_jssp.sampling import sampling
+
+            model = _build_mgl_jssp_model(cfg, problem_size=int(cfg.train_problem_size))
+            if init_checkpoint_path:
+                _load_policy_weights_from_checkpoint(model, str(init_checkpoint_path))
+            model = model.to(target_device)
+            model.eval()
+            model.setup("fit")
+            train_loader = model.train_dataloader()
+            train_iter = iter(train_loader)
+            batch, train_iter = _next_loader_batch(train_loader, train_iter)
+            instances = batch if isinstance(batch, list) else [batch]
+            if not instances:
+                raise RuntimeError("MGL JSSP preflight received an empty train batch")
+
+            requested_batch = max(int(effective_batch_size), 1)
+            instances = list(instances[:requested_batch])
+            sample_size = max(int(effective_num_rollouts), 1)
+            makespans, entropies, log_probs = sampling(
+                instances,
+                model.encoder,
+                model.decoder,
+                bs=sample_size,
+                use_greedy=bool(getattr(model, "use_greedy", False)),
+                device=str(target_device),
+            )
+            num_instances = len(instances)
+            reward = (-makespans.view(num_instances, sample_size)).float()
+            log_likelihood = log_probs.view(num_instances, sample_size).float()
+            result["ok"] = True
+            result["rollout_strategy"] = "mgl_sampling"
+            result["reward"] = _debug_value_summary(reward, max_depth=1, max_items=6)
+            result["log_likelihood"] = _debug_value_summary(log_likelihood, max_depth=1, max_items=6)
+            result["entropy"] = _debug_value_summary(
+                entropies.view(num_instances, sample_size, -1).sum(dim=-1),
+                max_depth=1,
+                max_items=6,
+            )
+            result["rollout_debug_events"] = get_rollout_debug_events()
+            return result
+
         env = _rl4co_build_env(cfg, cfg.train_problem_size)
         env = env.to(target_device)
         policy, rollout_strategy = _rl4co_build_policy(cfg, env)
@@ -1517,6 +1560,7 @@ def run_rl4co_rollout_smoke_test(
         try:
             env = None
             policy = None
+            model = None
             if target_device.type == "cuda":
                 _empty_cuda_cache_for_device(
                     target_device,
@@ -1526,6 +1570,696 @@ def run_rl4co_rollout_smoke_test(
         except Exception:  # noqa: BLE001
             pass
         reset_rollout_debug_events()
+
+
+def _is_mgl_jssp_cfg(cfg: HighFidelityConfig) -> bool:
+    env_name = str(getattr(cfg, "env_name", "") or "").strip().lower()
+    policy_name = str(getattr(cfg, "policy_name", "") or "").strip().lower()
+    return env_name == "jssp" and policy_name in {"mgl", "mgl_jssp", "mgl-jssp"}
+
+
+def _mgl_jssp_model_kwargs(
+    cfg: HighFidelityConfig,
+    *,
+    problem_size: int,
+) -> Dict[str, Any]:
+    model_kwargs = dict(getattr(cfg, "policy_kwargs", {}) or {})
+    generator_params = dict(getattr(cfg, "generator_params", {}) or {})
+
+    num_jobs = int(generator_params.get("num_jobs", problem_size) or problem_size)
+    num_machines = int(generator_params.get("num_machines", num_jobs) or num_jobs)
+    default_rollouts = resolve_pomo_size(getattr(cfg, "pomo_size", None), problem_size)
+
+    model_kwargs.setdefault("baseline", "bopo")
+    model_kwargs.setdefault("train_data_dir", os.path.join("data", "jssp_bopo", "train"))
+    model_kwargs.setdefault("val_data_dir", os.path.join("data", "jssp_bopo", "validation"))
+    model_kwargs.setdefault("test_data_dir", None)
+    model_kwargs.setdefault("use_cached", True)
+    model_kwargs.setdefault("batch_size", int(getattr(cfg, "train_batch_size", 1) or 1))
+    model_kwargs.setdefault(
+        "val_batch_size",
+        int(getattr(cfg, "validation_batch_size", model_kwargs["batch_size"]) or model_kwargs["batch_size"]),
+    )
+    model_kwargs.setdefault(
+        "test_batch_size",
+        int(model_kwargs.get("val_batch_size", getattr(cfg, "validation_batch_size", 1)) or 1),
+    )
+    model_kwargs.setdefault("optimizer_kwargs", {"lr": float(cfg.learning_rate), "weight_decay": float(cfg.weight_decay)})
+    model_kwargs.setdefault("B", int(default_rollouts))
+    model_kwargs.setdefault("val_B", int(model_kwargs.get("B", default_rollouts)))
+    model_kwargs.setdefault("test_B", int(model_kwargs.get("val_B", model_kwargs.get("B", default_rollouts))))
+    model_kwargs.setdefault("K", 16)
+    model_kwargs.setdefault("D", 1)
+    model_kwargs.setdefault(
+        "pair_mode",
+        str(model_kwargs.get("pair_mode", model_kwargs.get("bopo_pair_mode", "anchor_best")) or "anchor_best"),
+    )
+    model_kwargs.setdefault("po_impl", str(getattr(cfg, "po_impl", "bt") or "bt"))
+    model_kwargs.setdefault("po_alpha", float(getattr(cfg, "alpha", 1.0)))
+    model_kwargs.setdefault("greedy", 0)
+    model_kwargs.setdefault("use_shape_buckets", True)
+    model_kwargs.setdefault("bucket_drop_last", False)
+    model_kwargs.setdefault("allowed_shapes", [[int(problem_size), int(num_machines)]])
+    model_kwargs.setdefault(
+        "metrics",
+        {
+            "train": ["loss", "reward", "quality", "pair_count"],
+            "val": ["reward", "gap", "makespan"],
+            "test": ["reward", "gap", "makespan"],
+        },
+    )
+    return model_kwargs
+
+
+def _build_mgl_jssp_model(
+    cfg: HighFidelityConfig,
+    *,
+    problem_size: int,
+):
+    from rl4co.models.zoo.mgl_jssp.model import MGLJSSPModel
+
+    env = _rl4co_build_env(cfg, problem_size)
+    model = MGLJSSPModel(env, **_mgl_jssp_model_kwargs(cfg, problem_size=problem_size))
+    return model
+
+
+def _mgl_jssp_selected_log_prob_step(
+    logits: torch.Tensor,
+    trajs: torch.Tensor,
+) -> torch.Tensor:
+    if logits.ndim != 3 or trajs.ndim != 2:
+        raise ValueError(
+            f"MGL JSSP expected logits=(N*B,T,A) and trajs=(N*B,T); got {tuple(logits.shape)} and {tuple(trajs.shape)}"
+        )
+    flat_logits = logits.reshape(-1, logits.size(-1))
+    flat_trajs = trajs.reshape(-1)
+    log_probs = torch.log_softmax(flat_logits, dim=-1)
+    chosen = log_probs[
+        torch.arange(flat_trajs.numel(), device=logits.device),
+        flat_trajs,
+    ]
+    return chosen.view_as(trajs)
+
+
+def _mgl_jssp_train_loader_iter(model) -> tuple[Any, Iterator[Any]]:
+    train_loader = model.train_dataloader()
+    return train_loader, iter(train_loader)
+
+
+def _next_loader_batch(loader, loader_iter: Iterator[Any]) -> tuple[Any, Iterator[Any]]:
+    try:
+        batch = next(loader_iter)
+        return batch, loader_iter
+    except StopIteration:
+        loader_iter = iter(loader)
+        batch = next(loader_iter)
+        return batch, loader_iter
+
+
+@torch.no_grad()
+def _evaluate_mgl_jssp_model(
+    *,
+    model,
+    cfg: HighFidelityConfig,
+    problem_size: int,
+    device: torch.device,
+    num_episodes: int,
+    batch_size: int,
+) -> float:
+    from rl4co.models.zoo.mgl_jssp.sampling import sampling
+
+    eval_model = model
+    created_eval_model = False
+    if int(problem_size) != int(cfg.train_problem_size):
+        eval_model = _build_mgl_jssp_model(cfg, problem_size=int(problem_size))
+        eval_model.load_state_dict(model.state_dict(), strict=True)
+        created_eval_model = True
+
+    eval_model = eval_model.to(device)
+    eval_model.eval()
+    eval_model.setup("fit")
+
+    requested_batch_size = max(int(batch_size or 1), 1)
+    eval_loader = eval_model.val_dataloader()
+    eval_iter = iter(eval_loader)
+    sample_size = int(getattr(eval_model, "val_B", 1) or 1)
+    score_meter = AverageMeter()
+    episodes_done = 0
+
+    while episodes_done < int(num_episodes):
+        batch, eval_iter = _next_loader_batch(eval_loader, eval_iter)
+        instances = batch if isinstance(batch, list) else [batch]
+        if not instances:
+            raise RuntimeError("MGL JSSP validation loader yielded an empty batch")
+        if len(instances) > requested_batch_size:
+            instances = list(instances[:requested_batch_size])
+
+        makespans, _, _ = sampling(
+            instances,
+            eval_model.encoder,
+            eval_model.decoder,
+            bs=sample_size,
+            use_greedy=bool(getattr(eval_model, "use_greedy", False)),
+            device=str(device),
+        )
+        num_instances = len(instances)
+        best_makespans = makespans.view(num_instances, sample_size).min(dim=1)[0]
+        objective = best_makespans.float().mean().item()
+        score_meter.update(objective, n=num_instances)
+        episodes_done += num_instances
+
+        del makespans, best_makespans
+        if _should_run_aggressive_cleanup(cfg, when="step"):
+            _maybe_aggressive_cuda_cleanup(device, cfg)
+
+    if created_eval_model:
+        eval_model = None
+    if _should_run_aggressive_cleanup(cfg, when="phase"):
+        _maybe_aggressive_cuda_cleanup(device, cfg)
+    return float(score_meter.avg)
+
+
+def _train_one_batch_with_free_loss_mgl_jssp(
+    *,
+    model,
+    batch: Any,
+    optimizer: Adam,
+    compiled_loss: CompiledFreeLoss,
+    hf_cfg: HighFidelityConfig,
+    device: torch.device,
+    scaler=None,
+    pref_builder: PrefBuilder | None = None,
+) -> Tuple[float, float, int]:
+    from rl4co.models.zoo.mgl_jssp.sampling import solve_jsp
+
+    instances = batch if isinstance(batch, list) else [batch]
+    num_instances = len(instances)
+    if num_instances <= 0:
+        raise RuntimeError("MGL JSSP train loader yielded an empty batch")
+
+    model.train()
+    observables = set(normalize_loss_observables(getattr(hf_cfg, "loss_observables", None)))
+    want_step_logp = "log_prob_step" in observables
+    batch_rollouts = int(getattr(model, "B", resolve_pomo_size(hf_cfg.pomo_size, hf_cfg.train_problem_size)) or 1)
+
+    trajs, logits, makespans, entropies = solve_jsp(
+        instances,
+        batch_size_per_instance=batch_rollouts,
+        device=str(device),
+        encoder=model.encoder,
+        decoder=model.decoder,
+        use_greedy=bool(getattr(model, "use_greedy", False)),
+    )
+    num_steps = int(trajs.size(1))
+    step_log_prob = _mgl_jssp_selected_log_prob_step(logits, trajs)
+    log_likelihood = step_log_prob.sum(dim=-1).view(num_instances, batch_rollouts)
+    reward = (-makespans.view(num_instances, batch_rollouts)).float()
+    objective = _rl4co_objective_from_reward(reward, hf_cfg)
+    entropy_total = entropies.view(num_instances, batch_rollouts, num_steps).sum(dim=-1)
+    seq_len = torch.full_like(log_likelihood, float(num_steps))
+
+    extra = build_runtime_observables(
+        reward,
+        log_likelihood,
+        observables=tuple(observables),
+        seq_len=seq_len,
+        log_prob_step=(step_log_prob.view(num_instances, batch_rollouts, num_steps) if want_step_logp else None),
+        entropy=entropy_total,
+        seq_len_fallback=num_steps,
+    )
+    feature_cache = extract_feature_cache(objective, log_likelihood, extra=extra)
+    pair_count = 0
+
+    mode = str(getattr(compiled_loss.ir.implementation_hint, "mode", "pairwise") or "pairwise").strip().lower()
+    if mode == "setwise":
+        loss = compiled_loss.loss_fn(
+            batch={},
+            model_output=feature_cache,
+            extra={"alpha": hf_cfg.alpha},
+        )
+    else:
+        builder = pref_builder or _AllPairsPrefBuilder()
+        pref = builder.build(
+            feature_cache,
+            meta={
+                "stage": "train",
+                "problem": str(getattr(hf_cfg, "problem", "")),
+                "problem_size": int(hf_cfg.train_problem_size),
+                "backend_model": "mgl_jssp",
+            },
+        )
+        pair_count = pref.num_examples()
+        if pair_count == 0:
+            advantage = reward - reward.mean(dim=1, keepdim=True)
+            loss = -(advantage.detach() * log_likelihood).mean()
+        else:
+            loss_batch = prepare_pairwise_loss_batch(
+                pref.to_pairwise_loss_batch(feature_cache),
+                compiled_loss.ir.implementation_hint.expects or [],
+            )
+            loss = compiled_loss.loss_fn(
+                batch=loss_batch,
+                model_output=feature_cache,
+                extra={"alpha": hf_cfg.alpha},
+            )
+
+    best_reward, _ = reward.max(dim=1)
+    score_mean = _rl4co_objective_from_reward(best_reward, hf_cfg).float().mean()
+
+    optimizer.zero_grad(set_to_none=True)
+    if not torch.isfinite(loss).all():
+        raise RuntimeError("Non-finite MGL JSSP free-loss encountered during mini-train")
+    if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        loss.backward()
+        optimizer.step()
+
+    score_item = float(score_mean.item())
+    loss_item = float(loss.item())
+
+    del trajs, logits, makespans, entropies, step_log_prob, log_likelihood, reward, objective, entropy_total, seq_len, extra, feature_cache, best_reward, score_mean, loss
+    try:
+        del pref
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        del loss_batch
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        del advantage
+    except Exception:  # noqa: BLE001
+        pass
+    if _should_run_aggressive_cleanup(hf_cfg, when="step"):
+        _maybe_aggressive_cuda_cleanup(device, hf_cfg)
+
+    return score_item, loss_item, int(pair_count)
+
+
+def _train_one_batch_native_mgl_jssp(
+    *,
+    model,
+    batch: Any,
+    optimizer: Adam,
+    hf_cfg: HighFidelityConfig,
+    scaler=None,
+) -> Tuple[float, float, int]:
+    model.train()
+    loss, reward, _, pair_count = model._training_rollout(batch)
+    score = _rl4co_objective_from_reward(reward.float(), hf_cfg).mean()
+
+    optimizer.zero_grad(set_to_none=True)
+    if not torch.isfinite(loss).all():
+        raise RuntimeError("Non-finite MGL JSSP native loss encountered during mini-train")
+    if scaler is not None and bool(getattr(scaler, "is_enabled", lambda: False)()):
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        loss.backward()
+        optimizer.step()
+
+    score_item = float(score.item())
+    loss_item = float(loss.item())
+    pair_count_item = int(float(pair_count.item())) if isinstance(pair_count, torch.Tensor) else 0
+    del loss, reward, score, pair_count
+    return score_item, loss_item, pair_count_item
+
+
+def _run_mgl_jssp_free_loss_phase(
+    *,
+    compiled_loss: CompiledFreeLoss,
+    cfg: FreeLossFidelityConfig,
+    device: torch.device,
+    steps_per_epoch: int,
+    phase: str,
+    phase_epochs: int,
+    init_ckpt: str | None,
+    use_early_stop: bool,
+    extra_steps_f2: int,
+    early_eval_steps_phase: int,
+    baseline_early_valid_phase: float | None,
+    pref_builder: PrefBuilder | None = None,
+) -> Dict[str, Any]:
+    _set_seed(cfg.hf.seed)
+
+    model = _build_mgl_jssp_model(cfg.hf, problem_size=cfg.hf.train_problem_size)
+    if init_ckpt:
+        _load_policy_weights_from_checkpoint(model, str(init_ckpt))
+    model = model.to(device)
+    model.setup("fit")
+    train_loader, train_iter = _mgl_jssp_train_loader_iter(model)
+    scaler = _make_grad_scaler(device, _effective_precision_mode(cfg.hf))
+    optimizer = Adam(
+        model.parameters(),
+        lr=float(cfg.hf.learning_rate),
+        weight_decay=float(cfg.hf.weight_decay),
+    )
+
+    phase_epochs = max(int(phase_epochs), 0)
+    steps_f1_phase = int(phase_epochs) * int(steps_per_epoch)
+    steps_f2_phase = max(int(extra_steps_f2), 0)
+    steps_phase = steps_f1_phase + steps_f2_phase
+
+    score_meter = AverageMeter()
+    loss_meter = AverageMeter()
+    total_pairs = 0
+    score_meter_f1 = AverageMeter()
+    loss_meter_f1 = AverageMeter()
+    total_pairs_f1 = 0
+    score_meter_f2 = AverageMeter()
+    loss_meter_f2 = AverageMeter()
+    total_pairs_f2 = 0
+    epoch_objectives: List[float] = []
+
+    logger.info(
+        "MGL JSSP free-loss phase=%s: epochs=%d steps_f1=%d steps_f2=%d total_steps=%d "
+        "(ckpt=%s, device=%s)",
+        phase,
+        phase_epochs,
+        steps_f1_phase,
+        steps_f2_phase,
+        steps_phase,
+        str(init_ckpt) if init_ckpt else "none",
+        str(device),
+    )
+
+    if steps_phase <= 0:
+        return {
+            "phase": phase,
+            "policy": model,
+            "rollout_strategy": "mgl_sampling",
+            "steps_f1": 0,
+            "steps_f2": 0,
+            "steps": 0,
+            "epochs_total": int(phase_epochs),
+            "epoch_objectives": [],
+            "final_validation_objective": None,
+            "early_eval": {"enabled": False, "steps": 0, "early_stopped": False},
+            "train_score_mean": None,
+            "train_loss_mean": None,
+            "pair_count": 0,
+            "f1": {"train_score_mean": None, "train_loss_mean": None, "pair_count": 0},
+            "f2": {"train_score_mean": None, "train_loss_mean": None, "pair_count": 0},
+        }
+
+    log_interval = max(steps_phase // 10, 1)
+    early_eval_steps_phase = max(int(early_eval_steps_phase or 0), 0)
+    early_eval_cap = steps_f1_phase if steps_f1_phase > 0 else steps_phase
+    early_eval_effective = min(early_eval_steps_phase, early_eval_cap) if early_eval_steps_phase > 0 else 0
+    early_validation_objective: float | None = None
+    early_stopped = False
+
+    for step in range(steps_phase):
+        batch, train_iter = _next_loader_batch(train_loader, train_iter)
+        score, loss, pair_count = _train_one_batch_with_free_loss_mgl_jssp(
+            model=model,
+            batch=batch,
+            optimizer=optimizer,
+            compiled_loss=compiled_loss,
+            hf_cfg=cfg.hf,
+            device=device,
+            scaler=scaler,
+            pref_builder=pref_builder,
+        )
+        score_meter.update(score)
+        loss_meter.update(loss)
+        total_pairs += int(pair_count)
+
+        if step < steps_f1_phase:
+            score_meter_f1.update(score)
+            loss_meter_f1.update(loss)
+            total_pairs_f1 += int(pair_count)
+        else:
+            score_meter_f2.update(score)
+            loss_meter_f2.update(loss)
+            total_pairs_f2 += int(pair_count)
+
+        if (step + 1) % log_interval == 0 or step == 0:
+            logger.info(
+                "MGL JSSP free-loss[%s] step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f), pairs_step=%d, pairs_total=%d",
+                phase,
+                step + 1,
+                steps_phase,
+                score,
+                float(score_meter.avg),
+                loss,
+                float(loss_meter.avg),
+                int(pair_count),
+                int(total_pairs),
+            )
+
+        if steps_f1_phase > 0 and (step + 1) % steps_per_epoch == 0:
+            epoch_idx = (step + 1) // steps_per_epoch
+            if epoch_idx <= phase_epochs:
+                epoch_valid_obj = _evaluate_mgl_jssp_model(
+                    model=model,
+                    cfg=cfg.hf,
+                    problem_size=cfg.hf.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.hf.num_validation_episodes,
+                    batch_size=cfg.hf.validation_batch_size,
+                )
+                epoch_objectives.append(epoch_valid_obj)
+                logger.info(
+                    "MGL JSSP free-loss[%s] epoch %d/%d: validation_objective=%.6f",
+                    phase,
+                    epoch_idx,
+                    phase_epochs,
+                    epoch_valid_obj,
+                )
+                if _should_run_aggressive_cleanup(cfg.hf, when="epoch"):
+                    _maybe_aggressive_cuda_cleanup(device, cfg.hf)
+
+        if use_early_stop and early_eval_effective > 0 and (step + 1) == early_eval_effective:
+            early_validation_objective = _evaluate_mgl_jssp_model(
+                model=model,
+                cfg=cfg.hf,
+                problem_size=cfg.hf.train_problem_size,
+                device=device,
+                num_episodes=cfg.hf.num_validation_episodes,
+                batch_size=cfg.hf.validation_batch_size,
+            )
+            if (
+                baseline_early_valid_phase is not None
+                and early_validation_objective > baseline_early_valid_phase
+            ):
+                early_stopped = True
+                logger.info(
+                    "MGL JSSP early stop[%s] at step %d: candidate early_valid=%.6f baseline_early=%.6f",
+                    phase,
+                    step + 1,
+                    early_validation_objective,
+                    baseline_early_valid_phase,
+                )
+                break
+
+    if early_stopped and early_validation_objective is not None:
+        final_valid_obj = float(early_validation_objective)
+    else:
+        final_valid_obj = float(
+            _evaluate_mgl_jssp_model(
+                model=model,
+                cfg=cfg.hf,
+                problem_size=cfg.hf.train_problem_size,
+                device=device,
+                num_episodes=cfg.hf.num_validation_episodes,
+                batch_size=cfg.hf.validation_batch_size,
+            )
+        )
+
+    if _should_run_aggressive_cleanup(cfg.hf, when="phase"):
+        _maybe_aggressive_cuda_cleanup(device, cfg.hf)
+
+    return {
+        "phase": phase,
+        "policy": model,
+        "rollout_strategy": "mgl_sampling",
+        "steps_f1": int(steps_f1_phase),
+        "steps_f2": int(steps_f2_phase),
+        "steps": int(steps_phase),
+        "epochs_total": int(phase_epochs),
+        "epoch_objectives": list(epoch_objectives),
+        "final_validation_objective": float(final_valid_obj),
+        "early_eval": {
+            "enabled": bool(early_eval_effective),
+            "steps": int(early_eval_effective),
+            "baseline_validation_objective": baseline_early_valid_phase,
+            "candidate_validation_objective": early_validation_objective,
+            "early_stopped": early_stopped,
+        },
+        "train_score_mean": float(score_meter.avg),
+        "train_loss_mean": float(loss_meter.avg),
+        "pair_count": int(total_pairs),
+        "f1": {
+            "train_score_mean": float(score_meter_f1.avg) if steps_f1_phase > 0 else None,
+            "train_loss_mean": float(loss_meter_f1.avg) if steps_f1_phase > 0 else None,
+            "pair_count": int(total_pairs_f1),
+        },
+        "f2": {
+            "train_score_mean": float(score_meter_f2.avg) if steps_f2_phase > 0 else None,
+            "train_loss_mean": float(loss_meter_f2.avg) if steps_f2_phase > 0 else None,
+            "pair_count": int(total_pairs_f2),
+        },
+    }
+
+
+def _run_mgl_jssp_native_phase(
+    *,
+    cfg: HighFidelityConfig,
+    device: torch.device,
+    steps_per_epoch: int,
+    phase: str,
+    total_steps: int,
+    phase_epochs: int,
+    init_ckpt: str | None,
+    use_early_stop: bool,
+    early_eval_steps_phase: int,
+    baseline_early_valid_phase: float | None,
+) -> Dict[str, Any]:
+    _set_seed(cfg.seed)
+
+    model = _build_mgl_jssp_model(cfg, problem_size=cfg.train_problem_size)
+    if init_ckpt:
+        _load_policy_weights_from_checkpoint(model, str(init_ckpt))
+    model = model.to(device)
+    model.setup("fit")
+    train_loader, train_iter = _mgl_jssp_train_loader_iter(model)
+    scaler = _make_grad_scaler(device, _effective_precision_mode(cfg))
+    optimizer = Adam(
+        model.parameters(),
+        lr=float(cfg.learning_rate),
+        weight_decay=float(cfg.weight_decay),
+    )
+
+    score_meter = AverageMeter()
+    loss_meter = AverageMeter()
+    pair_count_meter = AverageMeter()
+    epoch_objectives: List[float] = []
+    early_validation_objective: float | None = None
+    early_stopped = False
+    early_eval_steps_phase = min(max(int(early_eval_steps_phase or 0), 0), max(int(total_steps), 0))
+    log_interval = max(int(total_steps) // 20, 1) if total_steps > 0 else 1
+
+    logger.info(
+        "MGL JSSP baseline native phase=%s: epochs=%d total_steps=%d (ckpt=%s, device=%s)",
+        phase,
+        int(phase_epochs),
+        int(total_steps),
+        str(init_ckpt) if init_ckpt else "none",
+        str(device),
+    )
+
+    for step in range(int(total_steps)):
+        batch, train_iter = _next_loader_batch(train_loader, train_iter)
+        score, loss, pair_count = _train_one_batch_native_mgl_jssp(
+            model=model,
+            batch=batch,
+            optimizer=optimizer,
+            hf_cfg=cfg,
+            scaler=scaler,
+        )
+        score_meter.update(score)
+        loss_meter.update(loss)
+        pair_count_meter.update(float(pair_count))
+
+        if (step + 1) % log_interval == 0 or step == 0:
+            logger.info(
+                "MGL JSSP baseline native[%s] step %d/%d: score=%.6f (avg=%.6f), loss=%.6f (avg=%.6f), pair_count=%.2f",
+                phase,
+                step + 1,
+                int(total_steps),
+                score,
+                float(score_meter.avg),
+                loss,
+                float(loss_meter.avg),
+                float(pair_count_meter.avg),
+            )
+
+        if steps_per_epoch > 0 and phase_epochs > 0 and (step + 1) % steps_per_epoch == 0:
+            epoch_idx = (step + 1) // steps_per_epoch
+            if epoch_idx <= int(phase_epochs):
+                epoch_valid_obj = _evaluate_mgl_jssp_model(
+                    model=model,
+                    cfg=cfg,
+                    problem_size=cfg.train_problem_size,
+                    device=device,
+                    num_episodes=cfg.num_validation_episodes,
+                    batch_size=cfg.validation_batch_size,
+                )
+                epoch_objectives.append(epoch_valid_obj)
+                logger.info(
+                    "MGL JSSP baseline native[%s] epoch %d/%d: validation_objective=%.6f",
+                    phase,
+                    epoch_idx,
+                    int(phase_epochs),
+                    epoch_valid_obj,
+                )
+                if _should_run_aggressive_cleanup(cfg, when="epoch"):
+                    _maybe_aggressive_cuda_cleanup(device, cfg)
+
+        if use_early_stop and early_eval_steps_phase > 0 and (step + 1) == early_eval_steps_phase:
+            early_validation_objective = _evaluate_mgl_jssp_model(
+                model=model,
+                cfg=cfg,
+                problem_size=cfg.train_problem_size,
+                device=device,
+                num_episodes=cfg.num_validation_episodes,
+                batch_size=cfg.validation_batch_size,
+            )
+            if (
+                baseline_early_valid_phase is not None
+                and early_validation_objective > baseline_early_valid_phase
+            ):
+                early_stopped = True
+                logger.info(
+                    "MGL JSSP baseline native early stop[%s] at step %d: candidate early_valid=%.6f baseline_early=%.6f",
+                    phase,
+                    step + 1,
+                    early_validation_objective,
+                    baseline_early_valid_phase,
+                )
+                break
+
+    if early_stopped and early_validation_objective is not None:
+        final_valid_obj = float(early_validation_objective)
+    else:
+        final_valid_obj = float(
+            _evaluate_mgl_jssp_model(
+                model=model,
+                cfg=cfg,
+                problem_size=cfg.train_problem_size,
+                device=device,
+                num_episodes=cfg.num_validation_episodes,
+                batch_size=cfg.validation_batch_size,
+            )
+        )
+
+    if _should_run_aggressive_cleanup(cfg, when="phase"):
+        _maybe_aggressive_cuda_cleanup(device, cfg)
+
+    return {
+        "phase": phase,
+        "policy": model,
+        "rollout_strategy": "mgl_sampling",
+        "steps": int(total_steps),
+        "epochs_total": int(phase_epochs),
+        "epoch_objectives": list(epoch_objectives),
+        "final_validation_objective": float(final_valid_obj),
+        "early_eval": {
+            "enabled": bool(early_eval_steps_phase),
+            "steps": int(early_eval_steps_phase),
+            "baseline_validation_objective": baseline_early_valid_phase,
+            "candidate_validation_objective": early_validation_objective,
+            "early_stopped": early_stopped,
+        },
+        "train_score_mean": float(score_meter.avg) if total_steps > 0 else None,
+        "train_loss_mean": float(loss_meter.avg) if total_steps > 0 else None,
+        "pair_count": int(round(float(pair_count_meter.avg))) if total_steps > 0 else 0,
+    }
 
 
 def _train_one_batch_with_free_loss_rl4co(
@@ -1669,6 +2403,16 @@ def _evaluate_rl4co_model(
     batch_size: int,
     rollout_strategy: str,
 ) -> float:
+    if _is_mgl_jssp_cfg(cfg):
+        return _evaluate_mgl_jssp_model(
+            model=policy,
+            cfg=cfg,
+            problem_size=problem_size,
+            device=device,
+            num_episodes=num_episodes,
+            batch_size=batch_size,
+        )
+
     env = _rl4co_build_env(cfg, problem_size)
     env = env.to(device)
     policy.eval()
@@ -1716,6 +2460,16 @@ def _evaluate_free_loss_candidate_rl4co(
     baseline_epoch_objectives: Sequence[float] | None = None,
     pref_builder: PrefBuilder | None = None,
 ) -> Dict[str, Any]:
+    if _is_mgl_jssp_cfg(cfg.hf):
+        return _evaluate_free_loss_candidate_mgl_jssp(
+            compiled_loss,
+            cfg,
+            baseline_early_valid=baseline_early_valid,
+            early_eval_steps=early_eval_steps,
+            baseline_epoch_objectives=baseline_epoch_objectives,
+            pref_builder=pref_builder,
+        )
+
     _set_seed(cfg.hf.seed)
 
     device_str = cfg.hf.device
@@ -2552,6 +3306,824 @@ def _evaluate_free_loss_candidate_rl4co(
             "intuition": compiled_loss.ir.intuition,
             "hyperparams": compiled_loss.ir.hyperparams,
             "operators_used": compiled_loss.ir.operators_used,
+        },
+    }
+    try:
+        return result
+    finally:
+        for phase_res_name in ("scratch_res", "warm_res"):
+            phase_res = locals().get(phase_res_name)
+            if isinstance(phase_res, dict):
+                phase_res.pop("policy", None)
+        policy = None
+        if torch.cuda.is_available():
+            _empty_cuda_cache_for_device(device, collect_garbage=True, synchronize=True)
+
+
+def _evaluate_free_loss_candidate_mgl_jssp(
+    compiled_loss: CompiledFreeLoss,
+    cfg: FreeLossFidelityConfig,
+    *,
+    baseline_early_valid: float | None = None,
+    early_eval_steps: int = 0,
+    baseline_epoch_objectives: Sequence[float] | None = None,
+    pref_builder: PrefBuilder | None = None,
+) -> Dict[str, Any]:
+    _set_seed(cfg.hf.seed)
+
+    device_str = cfg.hf.device
+    if device_str == "cuda" and not torch.cuda.is_available():
+        device_str = "cpu"
+    device = torch.device(device_str)
+
+    steps_per_epoch, epochs_total_cfg = get_hf_epoch_plan(cfg.hf)
+    scratch_epochs = max(int(getattr(cfg, "scratch_hf_epochs", 0) or 0), 0)
+    warm_epochs = max(int(getattr(cfg, "warmstart_hf_epochs", 0) or 0), 0)
+    split_enabled = bool(scratch_epochs or warm_epochs)
+    if steps_per_epoch <= 0 or epochs_total_cfg <= 0:
+        if split_enabled:
+            logger.warning(
+                "Ignoring scratch_hf_epochs/warmstart_hf_epochs for MGL JSSP because hf_epochs and hf_instances_per_epoch are not set (>0)."
+            )
+        split_enabled = False
+    if split_enabled and cfg.hf.hf_epochs > 0 and (scratch_epochs + warm_epochs) != int(cfg.hf.hf_epochs):
+        logger.warning(
+            "scratch_hf_epochs + warmstart_hf_epochs != hf_epochs (%d + %d != %d); continuing anyway.",
+            scratch_epochs,
+            warm_epochs,
+            int(cfg.hf.hf_epochs),
+        )
+
+    steps_f2_cfg = max(int(cfg.f2_steps), 0)
+    scratch_res: Dict[str, Any] | None = None
+    warm_res: Dict[str, Any] | None = None
+
+    if steps_per_epoch > 0 and epochs_total_cfg > 0:
+        if split_enabled:
+            has_init_ckpt = bool(cfg.init_checkpoint_path)
+            if has_init_ckpt:
+                if warm_epochs > 0:
+                    warm_res = _run_mgl_jssp_free_loss_phase(
+                        compiled_loss=compiled_loss,
+                        cfg=cfg,
+                        device=device,
+                        steps_per_epoch=steps_per_epoch,
+                        phase="warmstart",
+                        phase_epochs=warm_epochs,
+                        init_ckpt=cfg.init_checkpoint_path,
+                        use_early_stop=True,
+                        extra_steps_f2=steps_f2_cfg,
+                        early_eval_steps_phase=int(early_eval_steps or 0),
+                        baseline_early_valid_phase=baseline_early_valid,
+                        pref_builder=pref_builder,
+                    )
+                elif scratch_epochs > 0:
+                    logger.info(
+                        "warmstart_hf_epochs=0 for MGL JSSP checkpoint-backed init; falling back to scratch phase."
+                    )
+                    scratch_res = _run_mgl_jssp_free_loss_phase(
+                        compiled_loss=compiled_loss,
+                        cfg=cfg,
+                        device=device,
+                        steps_per_epoch=steps_per_epoch,
+                        phase="scratch",
+                        phase_epochs=scratch_epochs,
+                        init_ckpt=None,
+                        use_early_stop=False,
+                        extra_steps_f2=0,
+                        early_eval_steps_phase=0,
+                        baseline_early_valid_phase=None,
+                        pref_builder=pref_builder,
+                    )
+            else:
+                if scratch_epochs > 0:
+                    scratch_res = _run_mgl_jssp_free_loss_phase(
+                        compiled_loss=compiled_loss,
+                        cfg=cfg,
+                        device=device,
+                        steps_per_epoch=steps_per_epoch,
+                        phase="scratch",
+                        phase_epochs=scratch_epochs,
+                        init_ckpt=None,
+                        use_early_stop=False,
+                        extra_steps_f2=0,
+                        early_eval_steps_phase=0,
+                        baseline_early_valid_phase=None,
+                        pref_builder=pref_builder,
+                    )
+                elif warm_epochs > 0:
+                    logger.warning(
+                        "warmstart_hf_epochs=%d but init_checkpoint_path is not set; skipping warm-start MGL phase.",
+                        warm_epochs,
+                    )
+
+            primary_res = warm_res if warm_res is not None else scratch_res
+            if primary_res is None:
+                raise RuntimeError("Split MGL JSSP free-loss evaluation enabled but no phase was executed.")
+
+            if scratch_res is not None and warm_res is not None:
+                primary_phase = "scratch+warmstart"
+                primary_epochs_total = int(scratch_epochs + warm_epochs)
+                epoch_validation_objectives = list(scratch_res["epoch_objectives"]) + list(
+                    warm_res["epoch_objectives"]
+                )
+                early_eval = dict(warm_res.get("early_eval") or {})
+            else:
+                primary_phase = str(primary_res["phase"])
+                primary_epochs_total = int(primary_res["epochs_total"])
+                epoch_validation_objectives = list(primary_res["epoch_objectives"])
+                early_eval = dict(primary_res.get("early_eval") or {})
+
+            phase_list = [
+                r
+                for r in (scratch_res, warm_res)
+                if r is not None and int(r.get("steps", 0) or 0) > 0
+            ]
+            steps_f1 = sum(int(r.get("steps_f1", 0) or 0) for r in phase_list)
+            steps_f2 = sum(int(r.get("steps_f2", 0) or 0) for r in phase_list)
+            steps = steps_f1 + steps_f2
+            pair_count = sum(int(r.get("pair_count", 0) or 0) for r in phase_list)
+
+            train_score_mean = None
+            train_loss_mean = None
+            if steps > 0:
+                train_score_mean = sum(float(r["train_score_mean"]) * float(r["steps"]) for r in phase_list) / float(steps)
+                train_loss_mean = sum(float(r["train_loss_mean"]) * float(r["steps"]) for r in phase_list) / float(steps)
+
+            f1_pair_count = sum(int((r.get("f1") or {}).get("pair_count", 0) or 0) for r in phase_list)
+            f2_pair_count = sum(int((r.get("f2") or {}).get("pair_count", 0) or 0) for r in phase_list)
+            f1_train_score_mean = None
+            f1_train_loss_mean = None
+            if steps_f1 > 0:
+                f1_train_score_mean = sum(
+                    float((r.get("f1") or {}).get("train_score_mean") or 0.0) * float(r.get("steps_f1") or 0)
+                    for r in phase_list
+                ) / float(steps_f1)
+                f1_train_loss_mean = sum(
+                    float((r.get("f1") or {}).get("train_loss_mean") or 0.0) * float(r.get("steps_f1") or 0)
+                    for r in phase_list
+                ) / float(steps_f1)
+
+            f2_train_score_mean = None
+            f2_train_loss_mean = None
+            if steps_f2 > 0:
+                f2_train_score_mean = sum(
+                    float((r.get("f2") or {}).get("train_score_mean") or 0.0) * float(r.get("steps_f2") or 0)
+                    for r in phase_list
+                ) / float(steps_f2)
+                f2_train_loss_mean = sum(
+                    float((r.get("f2") or {}).get("train_loss_mean") or 0.0) * float(r.get("steps_f2") or 0)
+                    for r in phase_list
+                ) / float(steps_f2)
+
+            policy = primary_res["policy"]
+            rollout_strategy = str(primary_res.get("rollout_strategy") or "mgl_sampling")
+            main_valid_obj = float(primary_res["final_validation_objective"])
+            scratch_epoch_eval = (
+                {
+                    "phase": "scratch",
+                    "epochs_total": int(scratch_res["epochs_total"]),
+                    "objectives": list(scratch_res["epoch_objectives"]),
+                    "final_validation_objective": scratch_res["final_validation_objective"],
+                }
+                if scratch_res is not None and scratch_epochs > 0
+                else None
+            )
+            warmstart_epoch_eval = (
+                {
+                    "phase": "warmstart",
+                    "epochs_total": int(warm_res["epochs_total"]),
+                    "objectives": list(warm_res["epoch_objectives"]),
+                    "final_validation_objective": warm_res["final_validation_objective"],
+                    "init_checkpoint_path": cfg.init_checkpoint_path,
+                    "init_checkpoint_epoch": cfg.init_checkpoint_epoch,
+                }
+                if warm_res is not None and warm_epochs > 0
+                else None
+            )
+        else:
+            primary_phase = "single"
+            primary_epochs_total = int(epochs_total_cfg)
+            warm_res = _run_mgl_jssp_free_loss_phase(
+                compiled_loss=compiled_loss,
+                cfg=cfg,
+                device=device,
+                steps_per_epoch=steps_per_epoch,
+                phase="single",
+                phase_epochs=primary_epochs_total,
+                init_ckpt=cfg.init_checkpoint_path,
+                use_early_stop=True,
+                extra_steps_f2=steps_f2_cfg,
+                early_eval_steps_phase=int(early_eval_steps or 0),
+                baseline_early_valid_phase=baseline_early_valid,
+                pref_builder=pref_builder,
+            )
+            epoch_validation_objectives = list(warm_res["epoch_objectives"])
+            early_eval = dict(warm_res.get("early_eval") or {})
+            policy = warm_res["policy"]
+            rollout_strategy = str(warm_res.get("rollout_strategy") or "mgl_sampling")
+            main_valid_obj = float(warm_res["final_validation_objective"])
+            steps_f1 = int(warm_res["steps_f1"])
+            steps_f2 = int(warm_res["steps_f2"])
+            steps = int(warm_res["steps"])
+            train_score_mean = float(warm_res["train_score_mean"])
+            train_loss_mean = float(warm_res["train_loss_mean"])
+            pair_count = int(warm_res["pair_count"])
+            f1_train_score_mean = warm_res["f1"]["train_score_mean"]
+            f1_train_loss_mean = warm_res["f1"]["train_loss_mean"]
+            f2_train_score_mean = warm_res["f2"]["train_score_mean"]
+            f2_train_loss_mean = warm_res["f2"]["train_loss_mean"]
+            f1_pair_count = int(warm_res["f1"]["pair_count"])
+            f2_pair_count = int(warm_res["f2"]["pair_count"])
+            scratch_epoch_eval = None
+            warmstart_epoch_eval = None
+    else:
+        steps = max(int(get_total_hf_train_steps(cfg.hf)), 0) + int(steps_f2_cfg)
+        primary_phase = "single_steps"
+        primary_epochs_total = 0
+        warm_res = _run_mgl_jssp_free_loss_phase(
+            compiled_loss=compiled_loss,
+            cfg=cfg,
+            device=device,
+            steps_per_epoch=1,
+            phase="single_steps",
+            phase_epochs=0,
+            init_ckpt=cfg.init_checkpoint_path,
+            use_early_stop=True,
+            extra_steps_f2=steps,
+            early_eval_steps_phase=int(early_eval_steps or 0),
+            baseline_early_valid_phase=baseline_early_valid,
+            pref_builder=pref_builder,
+        )
+        epoch_validation_objectives = []
+        early_eval = dict(warm_res.get("early_eval") or {})
+        policy = warm_res["policy"]
+        rollout_strategy = str(warm_res.get("rollout_strategy") or "mgl_sampling")
+        main_valid_obj = float(warm_res["final_validation_objective"])
+        steps_f1 = int(warm_res["steps_f1"])
+        steps_f2 = int(warm_res["steps_f2"])
+        steps = int(warm_res["steps"])
+        train_score_mean = warm_res["train_score_mean"]
+        train_loss_mean = warm_res["train_loss_mean"]
+        pair_count = int(warm_res["pair_count"])
+        f1_train_score_mean = warm_res["f1"]["train_score_mean"]
+        f1_train_loss_mean = warm_res["f1"]["train_loss_mean"]
+        f2_train_score_mean = warm_res["f2"]["train_score_mean"]
+        f2_train_loss_mean = warm_res["f2"]["train_loss_mean"]
+        f1_pair_count = int(warm_res["f1"]["pair_count"])
+        f2_pair_count = int(warm_res["f2"]["pair_count"])
+        scratch_epoch_eval = None
+        warmstart_epoch_eval = None
+
+    size_objectives: Dict[int, float] = {int(cfg.hf.train_problem_size): float(main_valid_obj)}
+    for size in cfg.hf.valid_problem_sizes:
+        size_int = int(size)
+        if size_int in size_objectives:
+            continue
+        size_objectives[size_int] = _evaluate_mgl_jssp_model(
+            model=policy,
+            cfg=cfg.hf,
+            problem_size=size_int,
+            device=device,
+            num_episodes=cfg.hf.num_validation_episodes,
+            batch_size=cfg.hf.validation_batch_size,
+        )
+    gen_objectives = {k: v for k, v in size_objectives.items() if k != int(cfg.hf.train_problem_size)}
+    max_gen_obj = max(gen_objectives.values()) if gen_objectives else main_valid_obj
+    generalization_penalty = max(0.0, max_gen_obj - main_valid_obj)
+
+    epoch_objective_mean: float | None = None
+    if epoch_validation_objectives:
+        epoch_objective_mean = float(sum(epoch_validation_objectives) / len(epoch_validation_objectives))
+
+    epoch_baseline_violations: int | None = None
+    epoch_better_than_baseline: bool | None = None
+    epoch_tail_baseline_violations: int | None = None
+    epoch_tail_better_than_baseline: bool | None = None
+    epoch_baseline_margins: List[float] | None = None
+    if baseline_epoch_objectives:
+        offset = max(int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0), 0)
+        baseline_list_full = [float(v) for v in baseline_epoch_objectives]
+        baseline_list = baseline_list_full[offset : offset + int(primary_epochs_total)]
+        compare_len = min(len(epoch_validation_objectives), len(baseline_list))
+        epoch_baseline_margins = []
+        for i in range(compare_len):
+            epoch_baseline_margins.append(float(epoch_validation_objectives[i]) - baseline_list[i])
+        epoch_baseline_violations = int(sum(1 for m in epoch_baseline_margins if m > 0.0))
+        epoch_better_than_baseline = (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and epoch_baseline_violations == 0
+        )
+        tail_frac = float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0)
+        tail_frac = min(max(tail_frac, 0.0), 1.0)
+        if (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and compare_len > 0
+            and tail_frac > 0.0
+        ):
+            tail_count = int(math.ceil(tail_frac * float(compare_len)))
+            tail_count = max(1, min(tail_count, compare_len))
+            tail_margins = epoch_baseline_margins[compare_len - tail_count :]
+            epoch_tail_baseline_violations = int(sum(1 for m in tail_margins if m > 0.0))
+            epoch_tail_better_than_baseline = epoch_tail_baseline_violations == 0
+
+    window_k = int(getattr(cfg, "baseline_epoch_window_k", 10) or 10)
+    cand_early_mean, cand_late_mean = _epoch_window_means(epoch_validation_objectives, k=window_k)
+    epoch_window_eval: Dict[str, Any] = {
+        "k": int(window_k),
+        "early_mean": cand_early_mean,
+        "late_mean": cand_late_mean,
+        "objectives": list(epoch_validation_objectives),
+    }
+    base_early_mean: float | None = None
+    base_late_mean: float | None = None
+    if baseline_epoch_objectives:
+        offset = max(int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0), 0)
+        baseline_slice = list(baseline_epoch_objectives)[offset : offset + int(primary_epochs_total)]
+        base_early_mean, base_late_mean = _epoch_window_means(baseline_slice, k=window_k)
+    baseline_epoch_window_eval: Dict[str, Any] = {
+        "early_mean": base_early_mean,
+        "late_mean": base_late_mean,
+    }
+    epoch_window_margins: Dict[str, float] | None = None
+    epoch_window_violations: int | None = None
+    epoch_window_better_than_baseline: bool | None = None
+    if (
+        cand_early_mean is not None
+        and cand_late_mean is not None
+        and base_early_mean is not None
+        and base_late_mean is not None
+    ):
+        early_margin = float(cand_early_mean) - float(base_early_mean)
+        late_margin = float(cand_late_mean) - float(base_late_mean)
+        epoch_window_margins = {"early": early_margin, "late": late_margin}
+        epoch_window_violations = int(sum(1 for m in (early_margin, late_margin) if m > 0.0))
+        epoch_window_better_than_baseline = epoch_window_violations == 0
+
+    agg_method = str(cfg.hf.size_aggregation or "legacy").strip().lower()
+    base_objective = epoch_objective_mean if epoch_objective_mean is not None else float(main_valid_obj)
+    if agg_method == "legacy":
+        hf_like_score = base_objective + cfg.hf.generalization_penalty_weight * generalization_penalty
+    else:
+        hf_like_score = aggregate_objectives_by_size(
+            size_objectives,
+            method=agg_method,
+            cvar_alpha=float(cfg.hf.size_cvar_alpha),
+        )
+    if epoch_baseline_violations is not None:
+        hf_like_score += cfg.baseline_epoch_violation_weight * float(epoch_baseline_violations)
+    if epoch_window_violations is not None:
+        hf_like_score += cfg.baseline_epoch_window_violation_weight * float(epoch_window_violations)
+
+    result = {
+        "hf_like_score": hf_like_score,
+        "validation_objective": main_valid_obj,
+        "generalization_penalty": generalization_penalty,
+        "generalization_objectives": gen_objectives,
+        "size_objectives": size_objectives,
+        "size_aggregation": agg_method,
+        "size_cvar_alpha": float(cfg.hf.size_cvar_alpha),
+        "epoch_objective_mean": epoch_objective_mean,
+        "epoch_baseline_violations": epoch_baseline_violations,
+        "epoch_better_than_baseline": epoch_better_than_baseline,
+        "epoch_tail_baseline_violations": epoch_tail_baseline_violations,
+        "epoch_tail_better_than_baseline": epoch_tail_better_than_baseline,
+        "epoch_window_eval": epoch_window_eval,
+        "baseline_epoch_window_eval": baseline_epoch_window_eval,
+        "epoch_window_margins": epoch_window_margins,
+        "epoch_window_violations": epoch_window_violations,
+        "epoch_window_better_than_baseline": epoch_window_better_than_baseline,
+        "epoch_eval": {
+            "enabled": bool(steps_per_epoch > 0 and primary_epochs_total > 0),
+            "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
+            "epochs_total": int(primary_epochs_total),
+            "objectives": epoch_validation_objectives,
+            "objective_mean": epoch_objective_mean,
+            "baseline_margins": epoch_baseline_margins,
+            "baseline_violations": epoch_baseline_violations,
+            "better_than_baseline": epoch_better_than_baseline,
+            "phase": primary_phase,
+            "baseline_compare_offset": int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0),
+            "tail_frac": float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0),
+            "tail_baseline_violations": epoch_tail_baseline_violations,
+            "tail_better_than_baseline": epoch_tail_better_than_baseline,
+        },
+        "scratch_epoch_eval": scratch_epoch_eval,
+        "warmstart_epoch_eval": warmstart_epoch_eval,
+        "train_score_mean": float(train_score_mean) if train_score_mean is not None else None,
+        "train_loss_mean": float(train_loss_mean) if train_loss_mean is not None else None,
+        "pair_count": int(pair_count),
+        "early_eval": {
+            "enabled": bool(early_eval.get("enabled")),
+            "steps": int(early_eval.get("steps") or 0),
+            "baseline_validation_objective": early_eval.get("baseline_validation_objective"),
+            "candidate_validation_objective": early_eval.get("candidate_validation_objective"),
+            "early_stopped": bool(early_eval.get("early_stopped")),
+        },
+        "phases": {
+            "f1": {
+                "steps": int(steps_f1),
+                "train_score_mean": float(f1_train_score_mean) if steps_f1 > 0 else None,
+                "train_loss_mean": float(f1_train_loss_mean) if steps_f1 > 0 else None,
+                "pair_count": int(f1_pair_count),
+            },
+            "f2": {
+                "steps": int(steps_f2),
+                "train_score_mean": float(f2_train_score_mean) if steps_f2 > 0 else None,
+                "train_loss_mean": float(f2_train_loss_mean) if steps_f2 > 0 else None,
+                "pair_count": int(f2_pair_count),
+            },
+        },
+        "config": {
+            "hf": asdict(cfg.hf),
+            "free_loss": {
+                "f1_steps": cfg.f1_steps,
+                "total_train_steps": steps,
+                "init_checkpoint_path": cfg.init_checkpoint_path,
+                "init_checkpoint_epoch": (
+                    int(cfg.init_checkpoint_epoch)
+                    if cfg.init_checkpoint_epoch is not None
+                    else _infer_epoch_from_checkpoint_path(str(cfg.init_checkpoint_path))
+                    if cfg.init_checkpoint_path
+                    else None
+                ),
+                "scratch_hf_epochs": int(getattr(cfg, "scratch_hf_epochs", 0) or 0),
+                "warmstart_hf_epochs": int(getattr(cfg, "warmstart_hf_epochs", 0) or 0),
+                "baseline_epoch_compare_offset": int(getattr(cfg, "baseline_epoch_compare_offset", 0) or 0),
+                "f2_steps": cfg.f2_steps,
+                "f3_enabled": cfg.f3_enabled,
+                "baseline_epoch_violation_weight": cfg.baseline_epoch_violation_weight,
+                "baseline_epoch_tail_frac": float(getattr(cfg, "baseline_epoch_tail_frac", 1.0) or 1.0),
+                "baseline_epoch_window_k": cfg.baseline_epoch_window_k,
+                "baseline_epoch_window_violation_weight": cfg.baseline_epoch_window_violation_weight,
+                "rollout_strategy": rollout_strategy,
+            },
+        },
+        "loss_ir": {
+            "name": compiled_loss.ir.name,
+            "intuition": compiled_loss.ir.intuition,
+            "hyperparams": compiled_loss.ir.hyperparams,
+            "operators_used": compiled_loss.ir.operators_used,
+        },
+    }
+    try:
+        return result
+    finally:
+        for phase_res_name in ("scratch_res", "warm_res"):
+            phase_res = locals().get(phase_res_name)
+            if isinstance(phase_res, dict):
+                phase_res.pop("policy", None)
+        policy = None
+        if torch.cuda.is_available():
+            _empty_cuda_cache_for_device(device, collect_garbage=True, synchronize=True)
+
+
+def evaluate_native_baseline_mgl_jssp(
+    cfg: HighFidelityConfig,
+    *,
+    early_eval_steps: int | None = None,
+    baseline_early_valid: float | None = None,
+    baseline_epoch_objectives: Sequence[float] | None = None,
+    init_checkpoint_path: str | None = None,
+    init_checkpoint_epoch: int | None = None,
+    scratch_hf_epochs: int = 0,
+    warmstart_hf_epochs: int = 0,
+    baseline_epoch_compare_offset: int = 0,
+    baseline_epoch_violation_weight: float = 1.0,
+    baseline_epoch_tail_frac: float = 1.0,
+    baseline_epoch_window_k: int = 10,
+    baseline_epoch_window_violation_weight: float = 1.0,
+) -> Dict[str, Any]:
+    _set_seed(cfg.seed)
+
+    device_str = cfg.device
+    if device_str == "cuda" and not torch.cuda.is_available():
+        device_str = "cpu"
+    device = torch.device(device_str)
+    steps_per_epoch, epochs_total_cfg = get_hf_epoch_plan(cfg)
+    scratch_epochs = max(int(scratch_hf_epochs or 0), 0)
+    warm_epochs = max(int(warmstart_hf_epochs or 0), 0)
+    split_enabled = bool(scratch_epochs or warm_epochs)
+    if steps_per_epoch <= 0 or epochs_total_cfg <= 0:
+        split_enabled = False
+    elif cfg.hf_epochs > 0 and (scratch_epochs + warm_epochs) != int(cfg.hf_epochs):
+        logger.warning(
+            "MGL native baseline split epochs do not sum to hf_epochs (%d + %d != %d); continuing anyway.",
+            scratch_epochs,
+            warm_epochs,
+            int(cfg.hf_epochs),
+        )
+
+    scratch_res: Dict[str, Any] | None = None
+    warm_res: Dict[str, Any] | None = None
+
+    if split_enabled:
+        has_init_ckpt = bool(init_checkpoint_path)
+        if has_init_ckpt:
+            if warm_epochs > 0:
+                warm_res = _run_mgl_jssp_native_phase(
+                    cfg=cfg,
+                    device=device,
+                    steps_per_epoch=steps_per_epoch,
+                    phase="warmstart",
+                    total_steps=int(warm_epochs) * int(steps_per_epoch),
+                    phase_epochs=int(warm_epochs),
+                    init_ckpt=init_checkpoint_path,
+                    use_early_stop=True,
+                    early_eval_steps_phase=int(early_eval_steps or 0),
+                    baseline_early_valid_phase=baseline_early_valid,
+                )
+            elif scratch_epochs > 0:
+                logger.info(
+                    "warmstart_hf_epochs=0 for MGL checkpoint-backed native baseline init; falling back to scratch phase."
+                )
+                scratch_res = _run_mgl_jssp_native_phase(
+                    cfg=cfg,
+                    device=device,
+                    steps_per_epoch=steps_per_epoch,
+                    phase="scratch",
+                    total_steps=int(scratch_epochs) * int(steps_per_epoch),
+                    phase_epochs=int(scratch_epochs),
+                    init_ckpt=None,
+                    use_early_stop=False,
+                    early_eval_steps_phase=0,
+                    baseline_early_valid_phase=None,
+                )
+        else:
+            if scratch_epochs > 0:
+                scratch_res = _run_mgl_jssp_native_phase(
+                    cfg=cfg,
+                    device=device,
+                    steps_per_epoch=steps_per_epoch,
+                    phase="scratch",
+                    total_steps=int(scratch_epochs) * int(steps_per_epoch),
+                    phase_epochs=int(scratch_epochs),
+                    init_ckpt=None,
+                    use_early_stop=False,
+                    early_eval_steps_phase=0,
+                    baseline_early_valid_phase=None,
+                )
+            elif warm_epochs > 0:
+                logger.warning(
+                    "warmstart_hf_epochs=%d but init_checkpoint_path is not set; skipping warm-start MGL native baseline phase.",
+                    warm_epochs,
+                )
+
+        primary_res = warm_res if warm_res is not None else scratch_res
+        if primary_res is None:
+            raise RuntimeError("MGL native baseline split evaluation enabled but no phase was executed.")
+
+        if scratch_res is not None and warm_res is not None:
+            primary_phase = "scratch+warmstart"
+            primary_epochs_total = int(scratch_epochs + warm_epochs)
+            epoch_validation_objectives = list(scratch_res["epoch_objectives"]) + list(
+                warm_res["epoch_objectives"]
+            )
+            early_eval = dict(warm_res.get("early_eval") or {})
+        else:
+            primary_phase = str(primary_res["phase"])
+            primary_epochs_total = int(primary_res["epochs_total"])
+            epoch_validation_objectives = list(primary_res["epoch_objectives"])
+            early_eval = dict(primary_res.get("early_eval") or {})
+
+        phase_list = [
+            r
+            for r in (scratch_res, warm_res)
+            if r is not None and int(r.get("steps", 0) or 0) > 0
+        ]
+        total_steps = sum(int(r.get("steps", 0) or 0) for r in phase_list)
+        train_score_mean = None
+        train_loss_mean = None
+        if total_steps > 0:
+            train_score_mean = sum(float(r["train_score_mean"]) * float(r["steps"]) for r in phase_list) / float(total_steps)
+            train_loss_mean = sum(float(r["train_loss_mean"]) * float(r["steps"]) for r in phase_list) / float(total_steps)
+        policy = primary_res["policy"]
+        main_valid_obj = float(primary_res["final_validation_objective"])
+        effective_early_steps = int(early_eval.get("steps") or 0)
+        early_validation_objective = early_eval.get("candidate_validation_objective")
+        scratch_epoch_eval = (
+            {
+                "phase": "scratch",
+                "epochs_total": int(scratch_res["epochs_total"]),
+                "objectives": list(scratch_res["epoch_objectives"]),
+                "final_validation_objective": scratch_res["final_validation_objective"],
+            }
+            if scratch_res is not None and scratch_epochs > 0
+            else None
+        )
+        warmstart_epoch_eval = (
+            {
+                "phase": "warmstart",
+                "epochs_total": int(warm_res["epochs_total"]),
+                "objectives": list(warm_res["epoch_objectives"]),
+                "final_validation_objective": warm_res["final_validation_objective"],
+                "init_checkpoint_path": init_checkpoint_path,
+                "init_checkpoint_epoch": init_checkpoint_epoch,
+            }
+            if warm_res is not None and warm_epochs > 0
+            else None
+        )
+    else:
+        total_steps = int(get_total_hf_train_steps(cfg))
+        primary_phase = "single" if steps_per_epoch > 0 and epochs_total_cfg > 0 else "single_steps"
+        primary_epochs_total = int(epochs_total_cfg) if steps_per_epoch > 0 and epochs_total_cfg > 0 else 0
+        warm_res = _run_mgl_jssp_native_phase(
+            cfg=cfg,
+            device=device,
+            steps_per_epoch=max(int(steps_per_epoch), 1),
+            phase=primary_phase,
+            total_steps=total_steps,
+            phase_epochs=primary_epochs_total,
+            init_ckpt=init_checkpoint_path,
+            use_early_stop=True,
+            early_eval_steps_phase=int(early_eval_steps or 0) if early_eval_steps is not None else None,
+            baseline_early_valid_phase=baseline_early_valid,
+        )
+        epoch_validation_objectives = list(warm_res["epoch_objectives"])
+        early_eval = dict(warm_res.get("early_eval") or {})
+        policy = warm_res["policy"]
+        main_valid_obj = float(warm_res["final_validation_objective"])
+        train_score_mean = warm_res["train_score_mean"]
+        train_loss_mean = warm_res["train_loss_mean"]
+        effective_early_steps = int(early_eval.get("steps") or 0)
+        early_validation_objective = early_eval.get("candidate_validation_objective")
+        scratch_epoch_eval = None
+        warmstart_epoch_eval = None
+
+    size_objectives: Dict[int, float] = {int(cfg.train_problem_size): float(main_valid_obj)}
+    for size in cfg.valid_problem_sizes:
+        size_int = int(size)
+        if size_int in size_objectives:
+            continue
+        size_objectives[size_int] = float(
+            _evaluate_mgl_jssp_model(
+                model=policy,
+                cfg=cfg,
+                problem_size=size_int,
+                device=device,
+                num_episodes=cfg.num_validation_episodes,
+                batch_size=cfg.validation_batch_size,
+            )
+        )
+
+    gen_objectives = {k: v for k, v in size_objectives.items() if k != int(cfg.train_problem_size)}
+    max_gen_obj = max(gen_objectives.values()) if gen_objectives else main_valid_obj
+    generalization_penalty = max(0.0, max_gen_obj - main_valid_obj)
+
+    epoch_objective_mean: float | None = None
+    if epoch_validation_objectives:
+        epoch_objective_mean = float(sum(epoch_validation_objectives) / len(epoch_validation_objectives))
+
+    epoch_baseline_violations: int | None = None
+    epoch_better_than_baseline: bool | None = None
+    epoch_tail_baseline_violations: int | None = None
+    epoch_tail_better_than_baseline: bool | None = None
+    epoch_baseline_margins: List[float] | None = None
+    if baseline_epoch_objectives:
+        offset = max(int(baseline_epoch_compare_offset or 0), 0)
+        baseline_list_full = [float(v) for v in baseline_epoch_objectives]
+        baseline_list = baseline_list_full[offset : offset + int(primary_epochs_total)]
+        compare_len = min(len(epoch_validation_objectives), len(baseline_list))
+        epoch_baseline_margins = []
+        for i in range(compare_len):
+            epoch_baseline_margins.append(float(epoch_validation_objectives[i]) - baseline_list[i])
+        epoch_baseline_violations = int(sum(1 for m in epoch_baseline_margins if m > 0.0))
+        epoch_better_than_baseline = (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and epoch_baseline_violations == 0
+        )
+        tail_frac = float(baseline_epoch_tail_frac or 1.0)
+        tail_frac = min(max(tail_frac, 0.0), 1.0)
+        if (
+            compare_len == int(primary_epochs_total)
+            and compare_len == len(epoch_validation_objectives)
+            and compare_len > 0
+            and tail_frac > 0.0
+        ):
+            tail_count = int(math.ceil(tail_frac * float(compare_len)))
+            tail_count = max(1, min(tail_count, compare_len))
+            tail_margins = epoch_baseline_margins[compare_len - tail_count :]
+            epoch_tail_baseline_violations = int(sum(1 for m in tail_margins if m > 0.0))
+            epoch_tail_better_than_baseline = epoch_tail_baseline_violations == 0
+
+    agg_method = str(getattr(cfg, "size_aggregation", "legacy") or "legacy").strip().lower()
+    base_objective = epoch_objective_mean if epoch_objective_mean is not None else float(main_valid_obj)
+    if agg_method == "legacy":
+        hf_score = float(main_valid_obj) + cfg.generalization_penalty_weight * generalization_penalty
+        fitness_score = base_objective + cfg.generalization_penalty_weight * generalization_penalty
+    else:
+        hf_score = aggregate_objectives_by_size(
+            size_objectives,
+            method=agg_method,
+            cvar_alpha=float(getattr(cfg, "size_cvar_alpha", 0.2)),
+        )
+        fitness_score = float(hf_score)
+    if epoch_baseline_violations is not None:
+        fitness_score += float(baseline_epoch_violation_weight) * float(epoch_baseline_violations)
+
+    win_k = int(baseline_epoch_window_k or 10)
+    early_mean, late_mean = _epoch_window_means(epoch_validation_objectives, k=win_k)
+    epoch_window_eval: Dict[str, Any] = {
+        "k": int(win_k),
+        "early_mean": early_mean,
+        "late_mean": late_mean,
+        "objectives": list(epoch_validation_objectives),
+    }
+    base_early_mean: float | None = None
+    base_late_mean: float | None = None
+    if baseline_epoch_objectives:
+        offset = max(int(baseline_epoch_compare_offset or 0), 0)
+        baseline_slice = list(baseline_epoch_objectives)[offset : offset + int(primary_epochs_total)]
+        base_early_mean, base_late_mean = _epoch_window_means(baseline_slice, k=win_k)
+    baseline_epoch_window_eval: Dict[str, Any] = {
+        "early_mean": base_early_mean,
+        "late_mean": base_late_mean,
+    }
+    epoch_window_margins: Dict[str, float] | None = None
+    epoch_window_violations: int | None = None
+    epoch_window_better_than_baseline: bool | None = None
+    if (
+        early_mean is not None
+        and late_mean is not None
+        and base_early_mean is not None
+        and base_late_mean is not None
+    ):
+        early_margin = float(early_mean) - float(base_early_mean)
+        late_margin = float(late_mean) - float(base_late_mean)
+        epoch_window_margins = {"early": early_margin, "late": late_margin}
+        epoch_window_violations = int(sum(1 for m in (early_margin, late_margin) if m > 0.0))
+        epoch_window_better_than_baseline = epoch_window_violations == 0
+    if epoch_window_violations is not None:
+        fitness_score += float(baseline_epoch_window_violation_weight) * float(epoch_window_violations)
+
+    result = {
+        "hf_score": hf_score,
+        "fitness_score": fitness_score,
+        "validation_objective": main_valid_obj,
+        "generalization_penalty": generalization_penalty,
+        "generalization_objectives": gen_objectives,
+        "size_objectives": size_objectives,
+        "size_aggregation": agg_method,
+        "size_cvar_alpha": float(getattr(cfg, "size_cvar_alpha", 0.2)),
+        "epoch_objective_mean": epoch_objective_mean,
+        "epoch_baseline_violations": epoch_baseline_violations,
+        "epoch_better_than_baseline": epoch_better_than_baseline,
+        "epoch_tail_baseline_violations": epoch_tail_baseline_violations,
+        "epoch_tail_better_than_baseline": epoch_tail_better_than_baseline,
+        "baseline_epoch_window_eval": baseline_epoch_window_eval,
+        "epoch_window_margins": epoch_window_margins,
+        "epoch_window_violations": epoch_window_violations,
+        "epoch_window_better_than_baseline": epoch_window_better_than_baseline,
+        "scratch_epoch_eval": scratch_epoch_eval,
+        "warmstart_epoch_eval": warmstart_epoch_eval,
+        "train_score_mean": float(train_score_mean) if train_score_mean is not None else None,
+        "train_loss_mean": float(train_loss_mean) if train_loss_mean is not None else None,
+        "early_validation_objective": early_validation_objective,
+        "early_eval_steps": effective_early_steps,
+        "epoch_window_eval": epoch_window_eval,
+        "epoch_eval": {
+            "enabled": bool(steps_per_epoch),
+            "steps_per_epoch": int(steps_per_epoch) if steps_per_epoch > 0 else None,
+            "epochs_total": int(primary_epochs_total),
+            "objectives": epoch_validation_objectives,
+            "objective_mean": epoch_objective_mean,
+            "baseline_margins": epoch_baseline_margins,
+            "baseline_violations": epoch_baseline_violations,
+            "better_than_baseline": epoch_better_than_baseline,
+            "phase": primary_phase,
+            "baseline_compare_offset": int(baseline_epoch_compare_offset or 0),
+            "tail_frac": float(baseline_epoch_tail_frac or 1.0),
+            "tail_baseline_violations": epoch_tail_baseline_violations,
+            "tail_better_than_baseline": epoch_tail_better_than_baseline,
+        },
+        "early_eval": {
+            "enabled": bool(early_eval.get("enabled")),
+            "steps": int(early_eval.get("steps") or 0),
+            "baseline_validation_objective": early_eval.get("baseline_validation_objective"),
+            "candidate_validation_objective": early_eval.get("candidate_validation_objective"),
+            "early_stopped": bool(early_eval.get("early_stopped")),
+        },
+        "config": {
+            "hf": asdict(cfg),
+            "baseline_type": "mgl_jssp_native",
+            "init_checkpoint_path": init_checkpoint_path,
+            "init_checkpoint_epoch": (
+                int(init_checkpoint_epoch)
+                if init_checkpoint_epoch is not None
+                else _infer_epoch_from_checkpoint_path(str(init_checkpoint_path))
+                if init_checkpoint_path
+                else None
+            ),
+            "scratch_hf_epochs": int(scratch_hf_epochs or 0),
+            "warmstart_hf_epochs": int(warmstart_hf_epochs or 0),
+            "baseline_epoch_compare_offset": int(baseline_epoch_compare_offset or 0),
+            "baseline_epoch_violation_weight": float(baseline_epoch_violation_weight),
+            "baseline_epoch_tail_frac": float(baseline_epoch_tail_frac or 1.0),
+            "baseline_epoch_window_k": int(baseline_epoch_window_k or 10),
+            "baseline_epoch_window_violation_weight": float(baseline_epoch_window_violation_weight),
         },
     }
     try:
