@@ -1,0 +1,118 @@
+{
+  "generation": 3,
+  "pair_index": 15,
+  "g_entry": {
+    "id": "g003_009_ebb2e5c8",
+    "ir": {
+      "name": "all_pairs_gap_rank_blend_reweight_v1",
+      "intuition": "Reweight all pairs by blending normalized objective gap with a smooth rank-based weighting factor modulated by instance regret std, applying clamping for stability without changing pair topology.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "instance_obj_mad",
+          "rank",
+          "instance_regret_std"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_rank_blend",
+        "constraint_family": "clamp_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "sub",
+        "div",
+        "clamp",
+        "nan_to_num",
+        "mul",
+        "sqrt",
+        "exp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_mad = feature_cache['instance_obj_mad'].clamp_min(eps)\n    gap_scaled = gap / instance_obj_mad[b_idx]\n    rank = feature_cache['rank']\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta_rank = float(extra.get('beta_rank', 5.0))\n    rank_weight = 1.0 / (1.0 + (-beta_rank * rank_span).exp())\n    instance_regret_std = feature_cache['instance_regret_std'].clamp_min(eps)\n    regret_scale = instance_regret_std[b_idx].sqrt()\n    raw_weight = gap_scaled * rank_weight * regret_scale\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 3.0))\n    weight = raw_weight.clamp(min=clamp_lo, max=clamp_hi)\n    weight = weight.nan_to_num(nan=clamp_lo, posinf=clamp_hi, neginf=clamp_lo)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={\n        'builder': 'all_pairs_gap_rank_blend_reweight_v1',\n        'geometry_family': 'dense_all_pairs',\n        'cap_family': 'uncapped_full',\n        'weight_family': 'gap_rank_blend',\n        'constraint_family': 'clamp_only'\n    })"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_1ec7ffff",
+    "ir": {
+      "name": "loss_logsigmoid_004_cost_shifted_sum_normalized_repaired",
+      "intuition": "Removed the additive offset term that violated affine invariance and replaced it with a purely multiplicative interaction between log_prob difference and normalized cost gap. This ensures the loss respects scale and shift invariance by depending only on the relative difference (lpw - lpl) scaled by a normalized cost gap factor rather than subtracting a fixed offset proportional to the cost gap. Clamping is preserved for numerical stability.",
+      "pseudocode": "gap = cost_b - cost_a\nnorm_gap = gap / (1 + abs(gap))\nmargin = (lpw - lpl) * (1 - beta * norm_gap)\nx = alpha * scale * margin\nlosses = -logsigmoid(clamp(x, -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = sum(weighted_losses) / (sum(weight) + eps)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "scale_invariance"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "sum",
+        "add",
+        "sub",
+        "abs",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('beta', 0.05))\n    gap = cost_b - cost_a\n    norm_gap = gap / (1.0 + ops.abs(gap))\n    margin = (lpw - lpl) * (1.0 - beta * norm_gap)\n    x = alpha * scale * margin\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    loss = ops.sum(weighted_losses) / norm_factor\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
