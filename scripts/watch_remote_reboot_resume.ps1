@@ -61,6 +61,13 @@ function Build-Args {
         "--log-level", [string]$Cfg.LogLevel
     )
 
+    if ($Cfg.ContainsKey("RemoteCudaVisibleDevices")) {
+        $visibleDevices = [string]$Cfg.RemoteCudaVisibleDevices
+        if (-not [string]::IsNullOrWhiteSpace($visibleDevices)) {
+            $argList += @("--remote-cuda-visible-devices", $visibleDevices)
+        }
+    }
+
     if ($Cfg.ContainsKey("WatchMode")) {
         $watchMode = [string]$Cfg.WatchMode
         if (-not [string]::IsNullOrWhiteSpace($watchMode)) {

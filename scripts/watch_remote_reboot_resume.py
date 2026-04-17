@@ -339,6 +339,7 @@ def _launch_resume(
     config_path: str,
     remote_log_dir: str,
     python_bin: str,
+    remote_cuda_visible_devices: str,
     log_tz: str,
     log_level: str,
     timeout_s: float,
@@ -354,16 +355,18 @@ def _launch_resume(
         python_bin=python_bin,
         config_path=config_path,
     )
-    cmd = " && ".join(
-        [
-            f"cd {_q(remote_workdir)}",
-            f"mkdir -p {_q(remote_log_dir)}",
-            f"export PYTHONPATH={_q(remote_workdir)}:{_q(os.path.join(remote_workdir, 'PTP'))}:${{PYTHONPATH:-}}",
-            f"export LOG_TZ={_q(log_tz)}",
-            f"export LOG_LEVEL={_q(log_level)}",
-            ("nohup " + resume_cmd + f" > {_q(log_file)} 2>&1 < /dev/null & echo $!"),
-        ]
-    )
+    cmd_parts = [
+        f"cd {_q(remote_workdir)}",
+        f"mkdir -p {_q(remote_log_dir)}",
+        f"export PYTHONPATH={_q(remote_workdir)}:{_q(os.path.join(remote_workdir, 'PTP'))}:${{PYTHONPATH:-}}",
+        f"export LOG_TZ={_q(log_tz)}",
+        f"export LOG_LEVEL={_q(log_level)}",
+    ]
+    visible_devices = str(remote_cuda_visible_devices or "").strip()
+    if visible_devices:
+        cmd_parts.append(f"export CUDA_VISIBLE_DEVICES={_q(visible_devices)}")
+    cmd_parts.append("nohup " + resume_cmd + f" > {_q(log_file)} 2>&1 < /dev/null & echo $!")
+    cmd = " && ".join(cmd_parts)
     rs = client.run(cmd, timeout_s=timeout_s, use_bash_lc=True)
     if rs.returncode != 0:
         return None, None
@@ -386,6 +389,7 @@ def _attempt_resume(
     output_root_override: str,
     remote_log_dir: str,
     python_bin: str,
+    remote_cuda_visible_devices: str,
     log_tz: str,
     log_level: str,
     cmd_timeout_s: float,
@@ -471,6 +475,7 @@ def _attempt_resume(
         config_path=config_path,
         remote_log_dir=remote_log_dir,
         python_bin=python_bin,
+        remote_cuda_visible_devices=remote_cuda_visible_devices,
         log_tz=log_tz,
         log_level=log_level,
         timeout_s=cmd_timeout_s,
@@ -523,6 +528,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Extra SSH arg. Repeat as needed, e.g. --ssh-arg=-i --ssh-arg=/path/key",
     )
     p.add_argument("--python-bin", type=str, default="python")
+    p.add_argument(
+        "--remote-cuda-visible-devices",
+        type=str,
+        default="",
+        help="Optional CUDA_VISIBLE_DEVICES value to export before launching the remote resume command.",
+    )
     p.add_argument("--remote-log-dir", type=str, default="logs")
     p.add_argument(
         "--output-root-override",
@@ -565,6 +576,8 @@ def main() -> int:
         + f"python={sys.executable} ssh_bin={args.ssh_bin} "
         + f"connect_timeout_s={float(args.connect_timeout_s):.1f} command_timeout_s={cmd_timeout_s:.1f}"
     )
+    if str(args.remote_cuda_visible_devices or "").strip():
+        _log(f"watcher_remote_cuda_visible_devices {str(args.remote_cuda_visible_devices).strip()}")
     if args.ssh_arg:
         _log("watcher_ssh_args " + " ".join(str(x) for x in list(args.ssh_arg or [])))
 
@@ -602,6 +615,7 @@ def main() -> int:
                             output_root_override=args.output_root_override,
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
+                            remote_cuda_visible_devices=args.remote_cuda_visible_devices,
                             log_tz=args.log_tz,
                             log_level=args.log_level,
                             cmd_timeout_s=cmd_timeout_s,
@@ -619,6 +633,7 @@ def main() -> int:
                             output_root_override=args.output_root_override,
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
+                            remote_cuda_visible_devices=args.remote_cuda_visible_devices,
                             log_tz=args.log_tz,
                             log_level=args.log_level,
                             cmd_timeout_s=cmd_timeout_s,
@@ -639,6 +654,7 @@ def main() -> int:
                             output_root_override=args.output_root_override,
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
+                            remote_cuda_visible_devices=args.remote_cuda_visible_devices,
                             log_tz=args.log_tz,
                             log_level=args.log_level,
                             cmd_timeout_s=cmd_timeout_s,
@@ -659,6 +675,7 @@ def main() -> int:
                                 output_root_override=args.output_root_override,
                                 remote_log_dir=args.remote_log_dir,
                                 python_bin=args.python_bin,
+                                remote_cuda_visible_devices=args.remote_cuda_visible_devices,
                                 log_tz=args.log_tz,
                                 log_level=args.log_level,
                                 cmd_timeout_s=cmd_timeout_s,
