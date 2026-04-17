@@ -1,0 +1,111 @@
+{
+  "generation": 0,
+  "pair_index": 0,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_007_1d1d8cea",
+    "ir": {
+      "name": "weighted_advantage_margin_logsigmoid_scaled_sum_loss",
+      "intuition": "To reduce similarity to existing losses and improve distinction, I replaced norm with mean norm over advantage_gap for better scale stability, removed the fixed shift and introduced a learned dynamic margin using advantage_gap mean, and replaced sum aggregation with a weighted sum using weight but normalized by total weight to maintain scale. This emphasizes pairwise margin learning while ensuring outputs remain stable and differentiable, satisfying the pairwise mode and required signals.",
+      "pseudocode": "norm = max(mean(norm(advantage_gap, dim=1)), epsilon)\nx = alpha * scale * (log_prob_w - log_prob_l) / norm\nmargin = clamp(mean(advantage_gap), 0, 1)\nx = x - margin\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nif weight exists:\n  loss = loss * weight\nreturn sum(loss) / sum(weight)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "normalization_injected_dynamic_margin",
+        "other_hparams": ""
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "sum",
+        "sub",
+        "mul",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.5))\n    epsilon = 1e-6\n    # Compute mean norm of advantage gap vectors along dim=1, then mean over batch\n    norm_per_sample = ops.norm(advantage_gap)\n    mean_norm = ops.mean(norm_per_sample)\n    norm_adv_gap = ops.maximum(mean_norm, epsilon)\n\n    # Compute dynamic margin as mean clipped between 0 and 1\n    margin_raw = ops.mean(advantage_gap)\n    margin = ops.clamp(margin_raw, 0.0, 1.0)\n\n    x = ops.sub(ops.mul(alpha * scale, ops.div(ops.sub(lpw, lpl), norm_adv_gap)), margin)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss = loss * weight\n    weighted_sum = ops.sum(loss)\n    weight_sum = ops.sum(weight)\n    loss_scaled = ops.div(weighted_sum, ops.maximum(weight_sum, epsilon))\n    return loss_scaled",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
