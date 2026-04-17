@@ -1,0 +1,82 @@
+{
+  "builder_id": "g000_011_351a24d3",
+  "cost": 960.0,
+  "perf": -0.16549987792969745,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": -0.16549987792969745,
+  "best_perf_anchor": -0.16549987792969745,
+  "threshold": -0.16549987792969745,
+  "generation": 0,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g000_011_351a24d3",
+    "f_id": "fseed_000_9cfa032c",
+    "score": -0.16549987792969745,
+    "final_score": -0.16549987792969745,
+    "stage": "high_fidelity",
+    "stage_final": "high_fidelity",
+    "phase": "builder",
+    "generation": 0,
+    "pair_reason": "ok_stage3_offline_minitrain",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "builder_all_pairs_gap_bandpass_ops_min_fixed",
+      "intuition": "Reweight all pairs by a triangular bandpass on normalized gap scaled by instance obj range and modulated by instance log_prob std, using ops.minimum operator to ensure compatibility.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob",
+          "instance_obj_range",
+          "instance_log_prob_std"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_bandpass",
+        "constraint_family": "clamp_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "gap_bandpass",
+        "minimum",
+        "tanh",
+        "clamp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_log_prob_std = feature_cache['instance_log_prob_std']\n    gap_scaled = gap / instance_obj_range[b_idx].clamp_min(eps)\n    lower = float(extra.get('bandpass_lower', 0.1))\n    upper = float(extra.get('bandpass_upper', 0.5))\n    peak = float(extra.get('bandpass_peak', 0.3))\n    left_slope = 1.0 / (peak - lower + eps)\n    right_slope = 1.0 / (upper - peak + eps)\n    weight_left = (gap_scaled - lower) * left_slope\n    weight_right = (upper - gap_scaled) * right_slope\n    raw = ops.minimum(weight_left, weight_right).clamp(min=0.0)\n    log_std_mod = ops.tanh(instance_log_prob_std[b_idx])\n    raw = raw * (0.5 + 0.5 * log_std_mod)\n    clamp_lo = 0.25\n    clamp_hi = 3.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 1,
+  "ir": {
+    "name": "builder_all_pairs_gap_bandpass_ops_min_fixed",
+    "intuition": "Reweight all pairs by a triangular bandpass on normalized gap scaled by instance obj range and modulated by instance log_prob std, using ops.minimum operator to ensure compatibility.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob",
+        "instance_obj_range",
+        "instance_log_prob_std"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_bandpass",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_bandpass",
+      "minimum",
+      "tanh",
+      "clamp"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_log_prob_std = feature_cache['instance_log_prob_std']\n    gap_scaled = gap / instance_obj_range[b_idx].clamp_min(eps)\n    lower = float(extra.get('bandpass_lower', 0.1))\n    upper = float(extra.get('bandpass_upper', 0.5))\n    peak = float(extra.get('bandpass_peak', 0.3))\n    left_slope = 1.0 / (peak - lower + eps)\n    right_slope = 1.0 / (upper - peak + eps)\n    weight_left = (gap_scaled - lower) * left_slope\n    weight_right = (upper - gap_scaled) * right_slope\n    raw = ops.minimum(weight_left, weight_right).clamp(min=0.0)\n    log_std_mod = ops.tanh(instance_log_prob_std[b_idx])\n    raw = raw * (0.5 + 0.5 * log_std_mod)\n    clamp_lo = 0.25\n    clamp_hi = 3.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+  }
+}

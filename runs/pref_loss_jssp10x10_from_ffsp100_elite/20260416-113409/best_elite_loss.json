@@ -1,0 +1,171 @@
+{
+  "generation": 3,
+  "index": 4,
+  "id": "f003_004_4bb86b21",
+  "signature": "4bb86b21f0629d6c209405f3fcb2c960017e40f6",
+  "family": "pairwise_margin|advantage_gap|weighted_sum_normalized|symmetric_smooth",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=weighted_sum_normalized|constraint=symmetric_smooth",
+  "origin": "REPAIR",
+  "origin_base": "M2",
+  "op_type": "REPAIR",
+  "parents": [
+    "f002_004_e3e71f0d"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "183cf64b844fb5187c4a106854851215b0a28dec",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+  "llm_seed": 1859534698,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "prompt_sha1": "183cf64b844fb5187c4a106854851215b0a28dec"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "ada1f287c16a425de76e352a72ba0434efaceeb8"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.6666666666666666,
+    "best_similarity_parts": {
+      "bigram": 0.1111111111111111,
+      "unigram": 0.6666666666666666,
+      "call": 0.6428571428571429
+    },
+    "neighbors": [
+      {
+        "sig": "6fdf92255602b78dd38f9e931fa10ea2bb6387fa",
+        "name": "refined_hyperparameter_tuning_M2_v4_unique",
+        "similarity": 0.6666666666666666,
+        "similarity_parts": {
+          "bigram": 0.1111111111111111,
+          "unigram": 0.6666666666666666,
+          "call": 0.6428571428571429
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.div",
+          "ops.maximum",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.sigmoid",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "9cfa032c77b5d15356f006a33f64d9cafa826d14",
+        "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+        "similarity": 0.5714285714285714,
+        "similarity_parts": {
+          "bigram": 0.06666666666666667,
+          "unigram": 0.5625,
+          "call": 0.5714285714285714
+        },
+        "call_names_top": [
+          "ops.abs",
+          "ops.clamp",
+          "ops.div",
+          "ops.exp",
+          "ops.logsigmoid",
+          "ops.maximum",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.norm",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "dc3d06b6d28ca9a81c9956a205fbf14fd0999264",
+        "name": "advantage_weighted_logsigmoid_pairwise_norm_relgap_shifted_scaled_powered_v1",
+        "similarity": 0.47368421052631576,
+        "similarity_parts": {
+          "bigram": 0.16666666666666666,
+          "unigram": 0.47368421052631576,
+          "call": 0.4444444444444444
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.maximum",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.norm",
+          "ops.pow",
+          "ops.sign",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "refined_hyperparameter_tuning_M2_v3_unique",
+    "intuition": "To reduce similarity to the previous version, I replaced the L2 norm normalization with a stable L1 norm-based normalization (mean absolute advantage_gap), removed tanh to avoid duplicating a smooth transform, and replaced the logsigmoid link with sigmoid and its negative log. This switched to a different smooth margin margin style. Also added a small epsilon in denominator for numeric stability. These changes preserve the pairwise margin paradigm and use advantage_gap, but the math shape and key ops differ significantly, improving novelty while maintaining efficacy.",
+    "pseudocode": "epsilon=1e-6\nnorm_adv = mean(abs(advantage_gap))\nnorm_adv = max(norm_adv, epsilon)\ndiff = (log_prob_w - log_prob_l) / norm_adv\nloss = -log(sigmoid(diff))\nweighted_loss = loss * weight\nreturn sum(weighted_loss) / max(sum(weight), epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "sigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "symmetric_smooth"
+    },
+    "operators_used": [
+      "sigmoid",
+      "log",
+      "neg",
+      "mul",
+      "div",
+      "sub",
+      "sum",
+      "mean",
+      "abs",
+      "maximum"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    abs_adv = ops.abs(advantage_gap)\n    mean_abs_adv = ops.mean(abs_adv)\n    norm_adv = ops.maximum(mean_abs_adv, epsilon)\n    diff = ops.div(ops.sub(lpw, lpl), norm_adv)\n    sigmoid_diff = ops.sigmoid(diff)\n    loss = ops.neg(ops.log(sigmoid_diff))\n    weighted_loss = ops.mul(loss, weight)\n    loss_sum = ops.sum(weighted_loss)\n    weight_sum = ops.sum(weight)\n    return ops.div(loss_sum, ops.maximum(weight_sum, epsilon))",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -2.2549993896484466,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

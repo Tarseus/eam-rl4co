@@ -1,0 +1,110 @@
+{
+  "generation": 3,
+  "pair_index": 19,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f003_002_6fdf9225",
+    "ir": {
+      "name": "refined_hyperparameter_tuning_M2_v4_unique",
+      "intuition": "To reduce similarity with the rejected candidate and prior art, the repair replaces L2 norm with RMS computed explicitly without ops.norm, introducing a small stable epsilon inside the root to avoid zero gradients while preserving smoothness. The loss scales the signed advantage difference by applying sigmoid instead of logsigmoid to invert the preference probability shape, and adds a small positive offset inside the scaled margin to break symmetry and nonlinear similarity. Also, the advantage_gap is normalized by its mean absolute value instead of norm for a different normalization perspective. These combined changes modify the core math flow while respecting gating and stability requirements.",
+      "pseudocode": "epsilon=1e-6\nabs_adv = abs(advantage_gap)\nmean_abs_adv = max(mean(abs_adv), epsilon)\ndiff = (log_prob_w - log_prob_l) / mean_abs_adv\nscaled_diff = scale * sigmoid(diff + 0.1)\nloss = -scaled_diff * weight\nreturn sum(loss) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "sigmoid",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "asymmetric_smooth"
+      },
+      "operators_used": [
+        "abs",
+        "mean",
+        "maximum",
+        "div",
+        "sub",
+        "mul",
+        "sigmoid",
+        "neg",
+        "sum",
+        "add"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    epsilon = 1e-6\n    abs_adv = ops.abs(advantage_gap)\n    mean_abs_adv = ops.maximum(ops.mean(abs_adv), epsilon)\n    diff = ops.div(ops.sub(lpw, lpl), mean_abs_adv)\n    shifted_diff = ops.add(diff, 0.1)\n    scaled_diff = ops.mul(scale, ops.sigmoid(shifted_diff))\n    loss = ops.neg(ops.mul(scaled_diff, weight))\n    loss_sum = ops.sum(loss)\n    total_weight = ops.sum(weight)\n    return ops.div(loss_sum, ops.maximum(total_weight, epsilon))",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
