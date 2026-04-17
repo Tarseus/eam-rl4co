@@ -1,0 +1,113 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "g000_000_e255fb91",
+  "signature": "e255fb91d7ca08875d4b373b09cd11059341b444",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
+  "origin": "M2",
+  "origin_base": "M2",
+  "op_type": "M2",
+  "parents": [
+    "bootstrap_g_003"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+  "llm_seed": 1073003404,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+      "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb"
+    }
+  ],
+  "ir": {
+    "name": "builder_all_pairs_gap_linear_tuned_002",
+    "intuition": "Fine-tuned the pairwise gap linear weighting hyperparameters to improve stability and contrast in pair weights, reducing the clamping range from [0.25, 4.0] to [0.2, 3.0], thereby emphasizing more significant gaps while maintaining non-negativity and boundedness.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob",
+        "obj_z",
+        "rank",
+        "regret"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_linear",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_linear"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 3.0))\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": true,
+      "cv_threshold": 0.1,
+      "pass_rate_threshold": 0.75,
+      "eligible_instances": 8,
+      "observed_cv_values": [
+        0.2637046388678462,
+        0.26370461623317193,
+        0.26370461623317193,
+        0.2637046388678462,
+        0.2637046388678462,
+        0.26370461623317193,
+        0.26370461623317193,
+        0.2637046388678462
+      ]
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "generation": 0,
+  "index": 4,
+  "id": "g000_004_75a9f5fa",
+  "signature": "75a9f5fab141ea1549acbae1c87333178c6fa49f",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid_scaled_clamped|constraint=clamp_only",
+  "origin": "REPAIR",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "REPAIR",
+  "parents": [
+    "bootstrap_g_000",
+    "bootstrap_g_001",
+    "bootstrap_g_002",
+    "bootstrap_g_003",
+    "bootstrap_g_004"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "9629ef35e9d60711e19dba5012e3d1f4b58de70c",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+  "llm_seed": 270916581,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "prompt_sha1": "697f81f70afbabff4c8db465439cb56f1b6b13a0"
+    },
+    {
+      "attempt": 0,
+      "op": "M3",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+      "prompt_sha1": "bdfd81186505fb99da028b803919142d0aa1deb1"
+    },
+    {
+      "attempt": 0,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "9629ef35e9d60711e19dba5012e3d1f4b58de70c"
+    }
+  ],
+  "ir": {
+    "name": "all_pairs_gap_sigmoid_scaled",
+    "intuition": "Vectorized weighting of all pairs by a sigmoid of the positive gap with configurable sigmoid center and sharpness, clamped to ensure nonnegativity and no per-instance normalization, preserving dense all-pair topology.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_sigmoid_scaled_clamped",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "sigmoid",
+      "clamp",
+      "sub",
+      "mul"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 1.5))\n    tau = float(extra.get('weight_tau', 3.0))\n    weight_raw = (gap - beta) * tau\n    weight_sig = weight_raw.sigmoid()\n    weight = weight_sig.clamp(min=0.25, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled_clamped'})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": false,
+      "cv_threshold": 0.0,
+      "pass_rate_threshold": 1.0,
+      "eligible_instances": 8,
+      "observed_cv_values": []
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": 0.028486013412475586,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  },
+  "builder_perf": 0.028486013412475586,
+  "builder_cost": 960.0,
+  "builder_feasible": true,
+  "builder_threshold": 0.028486013412475586,
+  "builder_best_perf": 0.028486013412475586,
+  "selection_sort_key": [
+    0.0,
+    960.0,
+    0.028486013412475586
+  ]
+}

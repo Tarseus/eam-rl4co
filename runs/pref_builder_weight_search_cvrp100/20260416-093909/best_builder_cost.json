@@ -1,0 +1,78 @@
+{
+  "builder_id": "g000_009_581d930c",
+  "cost": 960.0,
+  "perf": 0.0,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": 0.0,
+  "best_perf_anchor": 0.0,
+  "threshold": 0.0,
+  "generation": 1,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g000_009_581d930c",
+    "f_id": "fseed_000_3c3e0ea7",
+    "score": 0.0,
+    "final_score": null,
+    "stage": "gate",
+    "stage_final": "none",
+    "phase": "builder",
+    "generation": 1,
+    "pair_reason": "ok_gate_only",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "all_pairs_gap_linear_clamp_stable_002",
+      "intuition": "Computes nonnegative gap-linear weights for all improving pairs with explicit clamping to enforce numerical stability and bounded weights, preserving all pair topology without imports or loops.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_linear",
+        "constraint_family": "clamp"
+      },
+      "operators_used": [
+        "all_pairs",
+        "gap_linear",
+        "clamp",
+        "where",
+        "sub"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamp'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamp'})"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 6,
+  "ir": {
+    "name": "all_pairs_gap_linear_clamp_stable_002",
+    "intuition": "Computes nonnegative gap-linear weights for all improving pairs with explicit clamping to enforce numerical stability and bounded weights, preserving all pair topology without imports or loops.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_linear",
+      "constraint_family": "clamp"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_linear",
+      "clamp",
+      "where",
+      "sub"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamp'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamp'})"
+  }
+}
