@@ -1,0 +1,278 @@
+preset: simple
+search_mode: builder_only
+seed: 1234
+output_root: runs/pref_builder_weight_search_tsp50
+
+metric_mode: minimize
+improve_eps: 0.0
+improve_eps_calibration:
+  enabled: false
+  N: 8
+  sigma_mult: 2.0
+  eps_floor: 0.0
+
+stage3_multifidelity:
+  enabled: false
+  rounds: []
+stage3_early_prune:
+  enabled: true
+  scenario_name: tsp50
+  max_init_ratio_to_baseline: 2.0
+cheap_gate_on: true
+high_fidelity_on: true
+seed_with_po4cops_default: false
+llm_init_only: true
+builder_min_coverage: 0.0
+builder_max_pairs_per_instance: 8192
+builder_min_instance_weight_cv: 0.10
+builder_min_instance_weight_cv_pass_rate: 0.75
+proxy_joint_swap_check_mode: synthetic
+proxy_joint_batch_pass_rate_threshold: 0.9
+joint_gate_repair_enabled: true
+joint_gate_repair_max_attempts: 8
+joint_gate_repair_prompt_path: PTP/prompts/free_loss_forward_error_repair.txt
+joint_gate_repair_only_failure_kinds: ["forward_error","backward_error","joint_preference_violation","pref_batch_to_loss_batch_error","loss_not_finite","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_grad_not_finite","numeric_stress_missing_grads","sandbox_builder_gate_failed","sandbox_runtime_error","sandbox_timeout","sandbox_no_result","sandbox_result_invalid","sandbox_gate_failed"]
+joint_numeric_stress_enabled: true
+joint_numeric_stress_margin: 120.0
+joint_numeric_stress_aux_scale: 32.0
+stage0_sandbox_gate_enabled: true
+stage0_sandbox_gate_only_when_hf: true
+stage0_sandbox_gate_hard_block_hf: true
+stage0_sandbox_timeout_s: 25
+stage0_sandbox_batch_size: 8
+stage0_sandbox_k: 16
+stage0_sandbox_rounds: 1
+stage0_sandbox_variants: ["visible", "hidden"]
+stage0_sandbox_hard_failure_kinds: ["pref_batch_to_loss_batch_error","forward_error","backward_error","loss_not_finite","missing_grads","grad_not_finite","numeric_stress_forward_error","numeric_stress_backward_error","numeric_stress_loss_not_finite","numeric_stress_missing_grads","numeric_stress_grad_not_finite"]
+
+loss_transfer_seed:
+  enabled: true
+  source_loss_path: artifacts/loss_archive/tsp100_best_current/best_loss.json
+  keep_source_fitness: true
+  reset_history: false
+  re_eval_current_protocol: true
+
+builder_search_space:
+  enabled: true
+  mode: reweight_only
+  fixed_pair_builder: all_pairs
+  pair_weight_normalization: none
+  require_instance_stats: true
+  require_instance_conditioning: true
+  instance_stat_keys:
+    - instance_obj_mean
+    - instance_obj_std
+    - instance_obj_median
+    - instance_obj_mad
+    - instance_obj_min
+    - instance_obj_max
+    - instance_obj_range
+    - instance_log_prob_mean
+    - instance_log_prob_std
+    - instance_log_prob_range
+    - instance_regret_mean
+    - instance_regret_std
+    - instance_regret_max
+  seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+  allow_freeform_weight_family: false
+  allow_uniform_none: false
+
+devices: ["cuda:1"]
+mp:
+  enabled: true
+  processes: 1
+  start_method: spawn
+
+eval_stages:
+  stage0_gate: true
+  stage1_proxy: false
+  stage2_micro_unroll: false
+  stage3_high_fidelity: true
+
+proxy_gate_repair:
+  enabled: true
+  max_repairs_per_gen: 32
+  max_attempts_per_pair: 4
+  repair_builder_on_builder_gate_fail: true
+  repair_loss_on_joint_gate_fail: true
+
+drop_pref_cache_before_micro_unroll: true
+
+budgets:
+  generations: 10
+  pairing_budget_per_gen: 16
+  high_fidelity_top_m: 32
+  hf_epochs: 10
+  scratch_hf_epochs: 5
+  warmstart_hf_epochs: 5
+
+f1_steps: 200
+hf_epochs: 10
+hf_instances_per_epoch: 100000
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
+baseline_epoch_compare_offset: 0
+baseline_epoch_violation_weight: 1.0
+baseline_epoch_tail_frac: 1.0
+baseline_epoch_window_k: 10
+baseline_epoch_window_violation_weight: 0.0
+early_eval_steps: 0
+train_problem_size: 50
+valid_problem_sizes: [50]
+train_batch_size: 64
+num_validation_episodes: 10000
+validation_batch_size: 64
+proxy_problem_size: 50
+proxy_batch_size: 64
+proxy_batches: 2
+pomo_size: null
+loss_observables: [seq_len, log_prob_mean, advantage, entropy, log_prob_step]
+ref_policy_source: none
+scratch_init_seed: 1234
+backend: rl4co
+env_name: tsp
+generator_params:
+  num_loc: 50
+policy_name: pomo
+policy_kwargs:
+  po4cops_compat: true
+  embed_dim: 128
+  num_encoder_layers: 6
+  decoder_layer_num: 1
+  qkv_dim: 16
+  num_heads: 8
+  feedforward_hidden: 512
+  tanh_clipping: 50
+  eval_type: argmax
+  val_decode_type: greedy
+  test_decode_type: greedy
+rollout_strategy: auto
+objective_sign: neg_reward
+learning_rate: 0.0003
+weight_decay: 0.000001
+
+baseline:
+  metrics_csv: baseline/metrics.csv
+  checkpoint: baseline/tsp50_epoch_135.ckpt
+  checkpoint_epoch: 135
+  scratch_start_epoch: 0
+  val_column: val/reward
+  mini_eval_paths:
+    epoch1_inst100000: baseline/mini_eval/baseline_minitrain_tsp50_epoch1_inst100000.json
+    epoch2_inst100000: baseline/mini_eval/baseline_minitrain_tsp50_epoch2_inst100000.json
+  checkpoints:
+    - baseline/tsp50_epoch_135.ckpt
+  include_scratch: true
+  multiseed_compare_enabled: false
+  scenarios:
+    - name: tsp50
+      problem: tsp
+      env_name: tsp
+      train_problem_size: 50
+      valid_problem_sizes: [50]
+      generator_params:
+        num_loc: 50
+      baseline:
+        mini_eval_paths:
+          epoch1_inst100000: baseline/mini_eval/baseline_minitrain_tsp50_epoch1_inst100000.json
+          epoch2_inst100000: baseline/mini_eval/baseline_minitrain_tsp50_epoch2_inst100000.json
+        checkpoints:
+          - baseline/tsp50_epoch_135.ckpt
+
+builder_pair_budget:
+  per_instance: 8192
+  total: 8192
+
+population:
+  n_candidates_builder: 16
+  n_candidates_loss: 1
+  keep_top_k: 8
+
+builder_llm:
+  enabled: true
+  offline_mode: false
+  parent_p: 5
+  seed_reserve: 0
+  exploration:
+    enabled: true
+    stagnation_generations: 3
+    replace_p: 0.7
+  family_diversity:
+    enabled: true
+    min_per_family: 1
+    elite_max_per_family: 2
+    parent_max_per_family: 1
+    include_unknown: false
+  proposal_family_quota:
+    enabled: true
+    min_per_weight_family: 1
+    max_per_weight_family: 0
+    target_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+    seed_missing_families: true
+  search_space:
+    enabled: true
+    mode: reweight_only
+    fixed_pair_builder: all_pairs
+    pair_weight_normalization: none
+    require_instance_stats: true
+    require_instance_conditioning: true
+    instance_stat_keys:
+      - instance_obj_mean
+      - instance_obj_std
+      - instance_obj_median
+      - instance_obj_mad
+      - instance_obj_min
+      - instance_obj_max
+      - instance_obj_range
+      - instance_log_prob_mean
+      - instance_log_prob_std
+      - instance_log_prob_range
+      - instance_regret_mean
+      - instance_regret_std
+      - instance_regret_max
+    seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
+    allow_freeform_weight_family: false
+    allow_uniform_none: false
+  operator_bank:
+    init:
+      - { name: GEN, count: 4 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 4 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
+    per_gen:
+      - { name: GEN, count: 4 }
+      - { name: PARADIGM_SHIFT, count: 6 }
+      - { name: STRUCTURE_SHIFT, count: 4 }
+      - { name: CONSTRAINT_INJECT, count: 4 }
+      - { name: XOVER, count: 2 }
+      - { name: TUNE, count: 2 }
+  novelty:
+    enabled: true
+    max_similarity: 1.0
+    neighbors: 3
+    apply_to_elites: false
+  init_num_E1: 6
+  init_num_E2: 4
+  init_num_M1: 4
+  init_num_M2: 4
+  num_E1: 8
+  num_E2: 8
+  num_M1: 8
+  num_M2: 8
+  repair:
+    enabled: true
+    max_attempts: 8
+    simplify_first: true
+
+loss_llm:
+  enabled: false
+
+llm_prompts:
+  builder_paradigm_shift: PTP/prompts/pref_builder_paradigm_shift.txt
+  builder_structure_shift: PTP/prompts/pref_builder_structure_shift.txt
+  builder_constraint_inject: PTP/prompts/pref_builder_constraint_inject.txt
+  loss_paradigm_shift: PTP/prompts/free_loss_paradigm_shift.txt
+  loss_structure_shift: PTP/prompts/free_loss_structure_shift.txt
+  loss_constraint_inject: PTP/prompts/free_loss_constraint_inject.txt

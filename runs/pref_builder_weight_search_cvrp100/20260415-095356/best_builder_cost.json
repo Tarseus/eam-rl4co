@@ -1,0 +1,80 @@
+{
+  "builder_id": "g003_004_b0e9b1fb",
+  "cost": 960.0,
+  "perf": -0.021045446395874023,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": -0.021045446395874023,
+  "best_perf_anchor": -0.021045446395874023,
+  "threshold": -0.021045446395874023,
+  "generation": 3,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g003_004_b0e9b1fb",
+    "f_id": "fseed_000_3c3e0ea7",
+    "score": -0.021045446395874023,
+    "final_score": -0.021045446395874023,
+    "stage": "high_fidelity",
+    "stage_final": "high_fidelity",
+    "phase": "builder",
+    "generation": 3,
+    "pair_reason": "ok_stage3_offline_minitrain",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "all_pairs_gap_sigmoid_scaled_v2",
+      "intuition": "Uses a scaled sigmoid weighting on the all-pairs gap with an adjustable temperature and offset to smoothly emphasize mid-range gaps, shifting emphasis from large gaps to a bandpass-like focus within the gap distribution.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_sigmoid_bandpass",
+        "constraint_family": "clamp_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "gap_linear",
+        "sigmoid",
+        "sub",
+        "mul",
+        "clamp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    # Parameters controlling sigmoid bandpass: lower and upper offsets and a temperature (scale)\n    offset_low = float(extra.get('offset_low', 0.5))\n    offset_high = float(extra.get('offset_high', 2.5))\n    temp = float(extra.get('gap_temp', 4.0))\n    # Compute two sigmoids to create a bandpass effect\n    sigmoid_low = ops.sigmoid(temp * (gap_pos - offset_low))\n    sigmoid_high = ops.sigmoid(temp * (gap_pos - offset_high))\n    # Weight is difference of sigmoids, emphasizing gaps between offset_low and offset_high\n    raw_weight = sigmoid_low - sigmoid_high\n    weight = raw_weight.clamp(min=0.0, max=1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 1,
+  "ir": {
+    "name": "all_pairs_gap_sigmoid_scaled_v2",
+    "intuition": "Uses a scaled sigmoid weighting on the all-pairs gap with an adjustable temperature and offset to smoothly emphasize mid-range gaps, shifting emphasis from large gaps to a bandpass-like focus within the gap distribution.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_sigmoid_bandpass",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_linear",
+      "sigmoid",
+      "sub",
+      "mul",
+      "clamp"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    # Parameters controlling sigmoid bandpass: lower and upper offsets and a temperature (scale)\n    offset_low = float(extra.get('offset_low', 0.5))\n    offset_high = float(extra.get('offset_high', 2.5))\n    temp = float(extra.get('gap_temp', 4.0))\n    # Compute two sigmoids to create a bandpass effect\n    sigmoid_low = ops.sigmoid(temp * (gap_pos - offset_low))\n    sigmoid_high = ops.sigmoid(temp * (gap_pos - offset_high))\n    # Weight is difference of sigmoids, emphasizing gaps between offset_low and offset_high\n    raw_weight = sigmoid_low - sigmoid_high\n    weight = raw_weight.clamp(min=0.0, max=1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})"
+  }
+}

@@ -77,10 +77,10 @@ builder_search_space:
   allow_freeform_weight_family: false
   allow_uniform_none: false
 
-devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+devices: ["cuda:0"]
 mp:
   enabled: true
-  processes: 4
+  processes: 1
   start_method: spawn
 
 eval_stages:

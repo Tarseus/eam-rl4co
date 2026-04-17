@@ -58,6 +58,6 @@ echo "Log: $LOG_PATH"
 nohup "${CMD[@]}" >"$LOG_PATH" 2>&1 &
 echo "Started PID: $!"
 
-if [[ "$TAIL_LOG" != "0" ]]; then
-  tail -f "$LOG_PATH"
-fi
+# if [[ "$TAIL_LOG" != "0" ]]; then
+#   tail -f "$LOG_PATH"
+# fi

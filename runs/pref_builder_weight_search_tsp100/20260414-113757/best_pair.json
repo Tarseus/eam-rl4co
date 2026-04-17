@@ -74,15 +74,15 @@
   "device_str": "cuda:0",
   "device_physical_str": "cuda:0",
   "device_logical_str": "cuda:0",
-  "cheap_gate_on": false,
-  "high_fidelity_on": true,
+  "cheap_gate_on": true,
+  "high_fidelity_on": false,
   "eval_budget_signature": "4cca2a2fd7c2917c",
   "score": -0.04693133087158241,
   "proxy_metrics": {
     "cheap_effective_grad_ratio": 1.0,
     "cheap_semantic_pass_rate": 1.0
   },
-  "seed_signature": null,
+  "seed_signature": [],
   "descriptor": null,
   "joint_gate_repaired": false,
   "joint_gate_repair_attempts": 0,
@@ -99,34 +99,9 @@
   "f_static_reason": "",
   "f_compile_ok": true,
   "f_compile_reason": "ok",
-  "sandbox_gate": {
-    "ok": true,
-    "generation": 4,
-    "pair_index": 8,
-    "failure_kind": null,
-    "reason": "ok",
-    "checks": [
-      {
-        "variant": "visible",
-        "round": 0,
-        "builder_gate_ok": true,
-        "joint_gate_ok": true,
-        "joint_failure_kind": null
-      },
-      {
-        "variant": "hidden",
-        "round": 0,
-        "builder_gate_ok": true,
-        "joint_gate_ok": false,
-        "joint_failure_kind": "joint_preference_violation"
-      }
-    ],
-    "exit_code": 0,
-    "sandbox_log": "stage0_sandbox/gen004_pair008_g003_013_924385e_fseed_000_1ec7ff/subprocess.log",
-    "sandbox_result": "stage0_sandbox/gen004_pair008_g003_013_924385e_fseed_000_1ec7ff/result.json"
-  },
-  "sandbox_gate_ok": true,
-  "sandbox_gate_reason": "ok",
+  "sandbox_gate": null,
+  "sandbox_gate_ok": null,
+  "sandbox_gate_reason": null,
   "builder_gate_ok": true,
   "builder_gate_reason": "ok",
   "builder_gate_trace": {
@@ -211,15 +186,15 @@
   "co_invariance_ok": true,
   "co_sensitivity_visible_ok": true,
   "co_sensitivity_visible_reason": "ok",
-  "co_sensitivity_visible_abs_delta": 0.014635205268859863,
-  "co_sensitivity_visible_rel_delta": 0.0064310013984150175,
+  "co_sensitivity_visible_abs_delta": 0.013286590576171875,
+  "co_sensitivity_visible_rel_delta": 0.0059127173927343854,
   "co_sensitivity_visible_trace": {
     "failed_gate": null,
     "metric_name": "delta_loss_under_objective_perturbation",
     "observed": {
-      "abs_delta": 0.014635205268859863,
-      "rel_delta": 0.0064310013984150175,
-      "grad_ratio": 0.983096796300137
+      "abs_delta": 0.013286590576171875,
+      "rel_delta": 0.0059127173927343854,
+      "grad_ratio": 0.9834439144331643
     },
     "threshold": {
       "min_abs_delta": 0.001,
@@ -233,10 +208,10 @@
     "where_failed": null,
     "counterexamples": [
       {
-        "loss_small": 1.1451812982559204,
-        "loss_large": 1.1305460929870605,
-        "log_prob_w": -2.7951407432556152,
-        "log_prob_l": -5.581541061401367
+        "loss_small": 1.1302037239074707,
+        "loss_large": 1.1169171333312988,
+        "log_prob_w": -2.5058560371398926,
+        "log_prob_l": -0.6080269813537598
       }
     ],
     "variant": "visible"
@@ -248,14 +223,14 @@
   "co_sensitivity_hidden_trace": null,
   "co_invariance_visible_ok": true,
   "co_invariance_visible_reason": "ok",
-  "co_invariance_visible_abs_delta": 0.029324054718017578,
-  "co_invariance_visible_rel_delta": 0.008808675263875665,
+  "co_invariance_visible_abs_delta": 0.023727774620056152,
+  "co_invariance_visible_rel_delta": 0.007605606054191266,
   "co_invariance_visible_trace": {
     "failed_gate": null,
     "metric_name": "delta_loss_under_affine_transform",
     "observed": {
-      "abs_delta": 0.029324054718017578,
-      "rel_delta": 0.008808675263875665
+      "abs_delta": 0.023727774620056152,
+      "rel_delta": 0.007605606054191266
     },
     "threshold": {
       "max_abs_delta": 0.001,
@@ -270,14 +245,14 @@
       {
         "a": 7.0,
         "b": 3.0,
-        "loss_raw": 1.6791605949401855,
-        "loss_affine": 1.649836540222168,
-        "log_prob_w": -4.140709400177002,
-        "log_prob_l": -3.7124571800231934,
-        "cost_a_raw": 0.05681955814361572,
-        "cost_a_affine": 3.3977370262145996,
-        "cost_b_raw": 0.11135733127593994,
-        "cost_b_affine": 3.779501438140869
+        "loss_raw": 1.5717511177062988,
+        "loss_affine": 1.5480233430862427,
+        "log_prob_w": -5.203301906585693,
+        "log_prob_l": -4.786235332489014,
+        "cost_a_raw": 0.21002870798110962,
+        "cost_a_affine": 4.470201015472412,
+        "cost_b_raw": 0.5579791069030762,
+        "cost_b_affine": 6.905853748321533
       }
     ],
     "variant": "visible"
@@ -292,9 +267,7 @@
   "elapsed_s": 5231.69149184227,
   "stage": "high_fidelity",
   "phase": "builder",
-  "hf_cuda_diagnostics": "hf_subprocess/gen004_pair008_cuda_0/cuda_diagnostics.jsonl",
-  "proxy_score": 0.0,
-  "hf_log_file": "gen004_pair008_cuda_0_g003_013_924385e0_fseed_000_1ec7ffff.log",
+  "seed_records": {},
   "fitness": {
     "per_init": {
       "scratch": {
@@ -673,44 +646,7 @@
     "cheap_only": false,
     "proxy_score": 0.0
   },
-  "better_than_baseline_mean": true,
-  "better_than_baseline_strict": false,
-  "better_than_baseline_all_scenarios": true,
-  "stage3_all_scenarios_negative": true,
-  "stage3_nonnegative_scenario_count": 0,
-  "stage3_worst_scenario_delta": -0.04693133087158241,
-  "stage3_any_error": false,
-  "stage3_runtime_error_count": 0,
-  "stage3_runtime_error_inits": [],
-  "hf_subprocess_log": "hf_subprocess/gen004_pair008_cuda_0/subprocess.log",
-  "hf_subprocess_result": "hf_subprocess/gen004_pair008_cuda_0/result.json",
-  "better_than_incumbent": true,
-  "stages_enabled": {
-    "stage0_gate": true,
-    "stage1_proxy": false,
-    "stage2_micro_unroll": false,
-    "stage3_high_fidelity": true
-  },
-  "stages_ran": [
-    "stage0_gate",
-    "stage3_high_fidelity"
-  ],
-  "stages_skipped": {
-    "stage1_proxy": "disabled",
-    "stage2_micro_unroll": "disabled"
-  },
-  "stage_final": "high_fidelity",
-  "final_score": -0.04693133087158241,
-  "metric_mode": "minimize",
-  "compare_target": "incumbent",
-  "improve_eps": 0.0,
-  "last_phase_label": "builder",
-  "last_phase_reference_score": -0.039157918167114225,
-  "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
-  "reference_score": -0.044727600860595906,
-  "delta_vs_incumbent": 0.0022037300109865043,
-  "delta_vs_last_phase": 0.0077734127044681856,
-  "better_than_last_phase": true,
+  "cached": false,
   "score_history": [
     {
       "generation": 4,

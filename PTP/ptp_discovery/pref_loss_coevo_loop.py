@@ -30,9 +30,11 @@ from fitness.free_loss_fidelity import (
     FreeLossFidelityConfig,
     PrefBatch,
     PrefBuilder,
+    _empty_cuda_cache_for_device,
     baseline_epoch_objectives_from_metrics_csv,
     extract_feature_cache,
     evaluate_free_loss_candidate,
+    evaluate_native_baseline_mgl_jssp,
     evaluate_po_baseline_rl4co,
     get_rollout_debug_events,
     reset_rollout_debug_events,
@@ -253,6 +255,20 @@ def _maybe_auto_flush_pref_cache(
 def _repo_root_dir() -> str:
     # This file lives at PTP/ptp_discovery/pref_loss_coevo_loop.py.
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def _stage3_cleanup_eval_device(device_str: str | None) -> None:
+    try:
+        gc.collect()
+    except Exception:  # noqa: BLE001
+        pass
+    if not torch.cuda.is_available():
+        return
+    try:
+        dev = torch.device(str(device_str or "cuda"))
+    except Exception:  # noqa: BLE001
+        return
+    _empty_cuda_cache_for_device(dev, collect_garbage=True, synchronize=True)
 
 
 def _abs_from_repo_root(path: str) -> str:
@@ -1033,6 +1049,9 @@ def _build_stage3_eval_signature(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
 
 def _stage3_baseline_eval_mode(cfg_yaml: Mapping[str, Any]) -> str:
     env_name = str(cfg_yaml.get("env_name") or cfg_yaml.get("problem") or "tsp").strip().lower()
+    policy_name = str(cfg_yaml.get("policy_name", "") or "").strip().lower()
+    if env_name == "jssp" and policy_name in {"mgl", "mgl_jssp", "mgl-jssp"}:
+        return "native_mgl_baseline"
     # CVRP and FFSP compare against the native PO objective so the stage3 baseline
     # matches the paper training loss rather than the reference free-loss surrogate.
     return "native_po_loss" if env_name in {"cvrp", "ffsp"} else "ref_free_loss"
@@ -1070,6 +1089,22 @@ def _evaluate_stage3_reference_baseline(
 ) -> Dict[str, Any]:
     eval_mode = _stage3_baseline_eval_mode(cfg_yaml)
     init_ckpt_abs = _abs_from_repo_root(str(init_ckpt)) if init_ckpt else None
+
+    if str(eval_mode) == "native_mgl_baseline":
+        return evaluate_native_baseline_mgl_jssp(
+            hf_cfg,
+            init_checkpoint_path=init_ckpt_abs,
+            init_checkpoint_epoch=None,
+            scratch_hf_epochs=int(cfg_yaml.get("scratch_hf_epochs", 0) or 0),
+            warmstart_hf_epochs=int(cfg_yaml.get("warmstart_hf_epochs", 0) or 0),
+            baseline_epoch_compare_offset=int(cfg_yaml.get("baseline_epoch_compare_offset", 0) or 0),
+            baseline_epoch_violation_weight=float(cfg_yaml.get("baseline_epoch_violation_weight", 1.0)),
+            baseline_epoch_tail_frac=float(cfg_yaml.get("baseline_epoch_tail_frac", 1.0) or 1.0),
+            baseline_epoch_window_k=int(cfg_yaml.get("baseline_epoch_window_k", 10) or 10),
+            baseline_epoch_window_violation_weight=float(
+                cfg_yaml.get("baseline_epoch_window_violation_weight", 1.0) or 1.0
+            ),
+        )
 
     if str(eval_mode) == "native_po_loss":
         return evaluate_po_baseline_rl4co(
@@ -1215,7 +1250,9 @@ def _stage3_pre_minitrain_eval(
     offline_val_by_size: Mapping[int, str] | None = None,
 ) -> Tuple[Dict[int, float], float]:
     from fitness.free_loss_fidelity import (
+        _build_mgl_jssp_model,
         _evaluate_rl4co_model,
+        _is_mgl_jssp_cfg,
         _load_policy_weights_from_checkpoint,
         _rl4co_build_env,
         _rl4co_build_policy,
@@ -1274,28 +1311,40 @@ def _stage3_pre_minitrain_eval(
         device_str = "cpu"
     device = torch.device(device_str)
 
-    env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
-    policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
-    if init_checkpoint:
-        _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
-    policy = policy.to(device)
-    policy.eval()
+    env = None
+    policy = None
+    try:
+        if _is_mgl_jssp_cfg(hf_cfg):
+            # MGL JSSP uses its native model wrapper instead of the generic RL4CO policy builder.
+            policy = _build_mgl_jssp_model(hf_cfg, problem_size=int(train_problem_size))
+            rollout_strategy = "mgl_sampling"
+        else:
+            env = _rl4co_build_env(hf_cfg, int(train_problem_size)).to(device)
+            policy, rollout_strategy = _rl4co_build_policy(hf_cfg, env)
+        if init_checkpoint:
+            _load_policy_weights_from_checkpoint(policy, _abs_from_repo_root(str(init_checkpoint)))
+        policy = policy.to(device)
+        policy.eval()
 
-    by_size: Dict[int, float] = {}
-    for sz in valid_problem_sizes:
-        obj = _evaluate_rl4co_model(
-            policy=policy,
-            cfg=hf_cfg,
-            problem_size=int(sz),
-            device=device,
-            num_episodes=int(num_validation_episodes),
-            batch_size=int(hf_cfg.validation_batch_size),
-            rollout_strategy=str(rollout_strategy),
-        )
-        by_size[int(sz)] = float(obj)
+        by_size: Dict[int, float] = {}
+        for sz in valid_problem_sizes:
+            obj = _evaluate_rl4co_model(
+                policy=policy,
+                cfg=hf_cfg,
+                problem_size=int(sz),
+                device=device,
+                num_episodes=int(num_validation_episodes),
+                batch_size=int(hf_cfg.validation_batch_size),
+                rollout_strategy=str(rollout_strategy),
+            )
+            by_size[int(sz)] = float(obj)
 
-    aggregated = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
-    return by_size, float(aggregated)
+        aggregated = float(sum(by_size[int(sz)] for sz in valid_problem_sizes) / max(len(valid_problem_sizes), 1))
+        return by_size, float(aggregated)
+    finally:
+        policy = None
+        env = None
+        _stage3_cleanup_eval_device(str(device))
 
 
 def _ensure_stage3_baseline_mini_eval(
@@ -1311,27 +1360,34 @@ def _ensure_stage3_baseline_mini_eval(
     _record_stage3_baseline_mini_eval_path(cfg_yaml, str(mini_eval_path))
 
     expected_sig = _build_stage3_eval_signature(cfg_yaml)
+    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
+    if not init_specs:
+        raise ValueError("stage3 baseline requires at least one init source (scratch and/or baseline.checkpoints)")
+    expected_init_names = [str(init_name) for init_name, _ in init_specs]
     existing = None
     if os.path.isfile(_abs_from_repo_root(str(mini_eval_path))):
         try:
             existing = _load_baseline_mini_eval(str(mini_eval_path))
         except Exception:  # noqa: BLE001
             existing = None
+    existing_per_init: Dict[str, Any] = {}
     if (
         isinstance(existing, Mapping)
         and existing.get("eval_signature") == expected_sig
         and isinstance(existing.get("per_init"), Mapping)
     ):
-        return {
-            "path": str(mini_eval_path),
-            "cached": True,
-            "regenerated": False,
-            "eval_signature": expected_sig,
+        existing_per_init = {
+            str(init_name): dict(init_payload)
+            for init_name, init_payload in dict(existing.get("per_init") or {}).items()
+            if str(init_name) in expected_init_names and isinstance(init_payload, Mapping)
         }
-
-    init_specs = _stage3_init_specs_from_baseline_cfg(cfg_yaml)
-    if not init_specs:
-        raise ValueError("stage3 baseline requires at least one init source (scratch and/or baseline.checkpoints)")
+        if all(init_name in existing_per_init for init_name in expected_init_names):
+            return {
+                "path": str(mini_eval_path),
+                "cached": True,
+                "regenerated": False,
+                "eval_signature": expected_sig,
+            }
 
     scratch_init_seed = int(_resolve_training_seed(cfg_yaml))
     train_problem_size = int(cfg_yaml.get("train_problem_size", 20) or 20)
@@ -1369,63 +1425,74 @@ def _ensure_stage3_baseline_mini_eval(
     hf_cfg = _build_hf_cfg(cfg_hf, seed=int(scratch_init_seed), device_str=str(device_str))
 
     objective_sign = str(cfg_yaml.get("objective_sign", "neg_reward") or "neg_reward")
-    per_init: Dict[str, Any] = {}
-    for init_name, init_ckpt in init_specs:
-        pre_by_size, pre_agg = _stage3_pre_minitrain_eval(
-            cfg_yaml=cfg_yaml,
-            init_checkpoint=init_ckpt,
-            train_problem_size=int(train_problem_size),
-            valid_problem_sizes=list(valid_problem_sizes),
-            num_validation_episodes=int(num_validation_episodes),
-            train_batch_size=int(train_batch_size),
-            scratch_init_seed=int(scratch_init_seed),
-            offline_train=(str(offline_train) if offline_train else None),
-            offline_val_by_size=offline_val_by_size,
-        )
-        fitness = _evaluate_stage3_reference_baseline(
-            cfg_yaml=cfg_yaml,
-            hf_cfg=hf_cfg,
-            operator_whitelist=operator_whitelist,
-            init_ckpt=init_ckpt,
-        )
-        by_size, agg = _extract_stage3_size_objectives(fitness, valid_sizes=valid_problem_sizes)
+    per_init: Dict[str, Any] = dict(existing_per_init)
 
-        per_init[str(init_name)] = {
-            "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
-            "pre_val_reward_by_size": {
-                str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
-                for k, v in pre_by_size.items()
+    def _write_baseline_payload(*, complete: bool) -> None:
+        payload: Dict[str, Any] = {
+            "schema_version": 1,
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "config_path": None,
+            "eval_signature": expected_sig,
+            "per_init": dict(per_init),
+            "reference": {
+                "builder_ir": asdict(_ref_builder_ir()),
+                "loss_ir": asdict(_ref_loss_ir()),
             },
-            "pre_aggregated_objective": float(pre_agg),
-            "pre_aggregated_reward": float((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg)),
-            "val_objective_by_size": {str(int(k)): float(v) for k, v in by_size.items()},
-            "val_reward_by_size": {
-                str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
-                for k, v in by_size.items()
-            },
-            "aggregated_objective": float(agg),
-            "aggregated_reward": float((-float(agg)) if objective_sign == "neg_reward" else float(agg)),
-            "delta_objective_post_minus_pre": float(float(agg) - float(pre_agg)),
-            "delta_reward_post_minus_pre": float(
-                ((-float(agg)) if objective_sign == "neg_reward" else float(agg))
-                - ((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg))
-            ),
-            "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+            "complete": bool(complete),
         }
+        resolved_path = _abs_from_repo_root(str(mini_eval_path))
+        _atomic_write_json(resolved_path, payload)
+        _BASELINE_MINI_EVAL_CACHE[resolved_path] = dict(payload)
 
-    payload: Dict[str, Any] = {
-        "schema_version": 1,
-        "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
-        "config_path": None,
-        "eval_signature": expected_sig,
-        "per_init": per_init,
-        "reference": {
-            "builder_ir": asdict(_ref_builder_ir()),
-            "loss_ir": asdict(_ref_loss_ir()),
-        },
-    }
-    _atomic_write_json(_abs_from_repo_root(str(mini_eval_path)), payload)
-    _BASELINE_MINI_EVAL_CACHE[_abs_from_repo_root(str(mini_eval_path))] = dict(payload)
+    for init_name, init_ckpt in init_specs:
+        if str(init_name) in per_init:
+            continue
+        try:
+            pre_by_size, pre_agg = _stage3_pre_minitrain_eval(
+                cfg_yaml=cfg_yaml,
+                init_checkpoint=init_ckpt,
+                train_problem_size=int(train_problem_size),
+                valid_problem_sizes=list(valid_problem_sizes),
+                num_validation_episodes=int(num_validation_episodes),
+                train_batch_size=int(train_batch_size),
+                scratch_init_seed=int(scratch_init_seed),
+                offline_train=(str(offline_train) if offline_train else None),
+                offline_val_by_size=offline_val_by_size,
+            )
+            fitness = _evaluate_stage3_reference_baseline(
+                cfg_yaml=cfg_yaml,
+                hf_cfg=hf_cfg,
+                operator_whitelist=operator_whitelist,
+                init_ckpt=init_ckpt,
+            )
+            by_size, agg = _extract_stage3_size_objectives(fitness, valid_sizes=valid_problem_sizes)
+
+            per_init[str(init_name)] = {
+                "pre_val_objective_by_size": {str(int(k)): float(v) for k, v in pre_by_size.items()},
+                "pre_val_reward_by_size": {
+                    str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
+                    for k, v in pre_by_size.items()
+                },
+                "pre_aggregated_objective": float(pre_agg),
+                "pre_aggregated_reward": float((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg)),
+                "val_objective_by_size": {str(int(k)): float(v) for k, v in by_size.items()},
+                "val_reward_by_size": {
+                    str(int(k)): float((-float(v)) if objective_sign == "neg_reward" else float(v))
+                    for k, v in by_size.items()
+                },
+                "aggregated_objective": float(agg),
+                "aggregated_reward": float((-float(agg)) if objective_sign == "neg_reward" else float(agg)),
+                "delta_objective_post_minus_pre": float(float(agg) - float(pre_agg)),
+                "delta_reward_post_minus_pre": float(
+                    ((-float(agg)) if objective_sign == "neg_reward" else float(agg))
+                    - ((-float(pre_agg)) if objective_sign == "neg_reward" else float(pre_agg))
+                ),
+                "init_checkpoint": str(init_ckpt) if init_ckpt else None,
+            }
+            _write_baseline_payload(complete=all(name in per_init for name in expected_init_names))
+        finally:
+            _stage3_cleanup_eval_device(str(device_str))
+
     return {
         "path": str(mini_eval_path),
         "cached": False,
@@ -1517,6 +1584,120 @@ def _atomic_write_json(path: str, payload: Mapping[str, Any]) -> None:
 def _load_json(path: str) -> Any:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def _normalize_tracked_pair_values_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    raw = cfg_yaml.get("tracked_pair_values", {}) or {}
+    if not isinstance(raw, Mapping):
+        return {"enabled": False, "targets": []}
+
+    targets_out: List[Dict[str, Any]] = []
+    for idx, item in enumerate(raw.get("targets", []) or []):
+        if not isinstance(item, Mapping):
+            continue
+        try:
+            generation = int(item.get("generation"))
+            pair_index = int(item.get("pair_index"))
+        except (TypeError, ValueError):
+            continue
+        filename = str(item.get("filename", "") or "").strip()
+        if not filename:
+            filename = f"tracked_pair_{idx:02d}_gen{generation}_pair{pair_index}.json"
+        targets_out.append(
+            {
+                "name": str(item.get("name", f"gen{generation}_pair{pair_index}") or f"gen{generation}_pair{pair_index}"),
+                "generation": int(generation),
+                "pair_index": int(pair_index),
+                "g_id": (str(item.get("g_id")).strip() if item.get("g_id") is not None else None),
+                "f_id": (str(item.get("f_id")).strip() if item.get("f_id") is not None else None),
+                "filename": filename,
+                "output_root_latest_filename": str(item.get("output_root_latest_filename", "") or "").strip(),
+            }
+        )
+
+    return {
+        "enabled": bool(raw.get("enabled", False)) and bool(targets_out),
+        "targets": targets_out,
+    }
+
+
+def _persist_tracked_pair_values(
+    *,
+    cfg_yaml: Mapping[str, Any],
+    run_dir: str | None,
+    records: Sequence[Mapping[str, Any]],
+) -> int:
+    cfg = _normalize_tracked_pair_values_cfg(cfg_yaml)
+    if not bool(cfg.get("enabled", False)):
+        return 0
+    if not run_dir:
+        return 0
+
+    saved = 0
+    output_root = str(cfg_yaml.get("output_root", "") or "").strip()
+    for rec in records:
+        if not isinstance(rec, Mapping):
+            continue
+        try:
+            rec_generation = int(rec.get("generation"))
+            rec_pair_index = int(rec.get("pair_index"))
+        except (TypeError, ValueError):
+            continue
+        for target in cfg.get("targets", []):
+            if rec_generation != int(target.get("generation")):
+                continue
+            if rec_pair_index != int(target.get("pair_index")):
+                continue
+            target_g_id = target.get("g_id")
+            if target_g_id is not None and str(rec.get("g_id", "")).strip() != str(target_g_id):
+                continue
+            target_f_id = target.get("f_id")
+            if target_f_id is not None and str(rec.get("f_id", "")).strip() != str(target_f_id):
+                continue
+
+            effective_score = _pair_record_effective_score(rec)
+            score_value = rec.get("score")
+            payload = {
+                "name": str(target.get("name", "")),
+                "generation": int(rec_generation),
+                "pair_index": int(rec_pair_index),
+                "g_id": str(rec.get("g_id", "")).strip(),
+                "f_id": str(rec.get("f_id", "")).strip(),
+                "value": (
+                    float(effective_score)
+                    if effective_score is not None and math.isfinite(float(effective_score))
+                    else (
+                        float(score_value)
+                        if isinstance(score_value, (int, float)) and math.isfinite(float(score_value))
+                        else score_value
+                    )
+                ),
+                "score": (
+                    float(score_value)
+                    if isinstance(score_value, (int, float)) and math.isfinite(float(score_value))
+                    else score_value
+                ),
+                "effective_score": (
+                    float(effective_score)
+                    if effective_score is not None and math.isfinite(float(effective_score))
+                    else None
+                ),
+                "stage": rec.get("stage"),
+                "stage_final": rec.get("stage_final", rec.get("stage")),
+                "phase": rec.get("phase"),
+                "pair_ok": rec.get("pair_ok"),
+                "pair_reason": rec.get("pair_reason"),
+                "run_dir": os.path.abspath(str(run_dir)),
+                "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            run_value_path = os.path.join(str(run_dir), str(target.get("filename")))
+            _atomic_write_json(run_value_path, payload)
+            latest_filename = str(target.get("output_root_latest_filename", "") or "").strip()
+            if output_root and latest_filename:
+                latest_path = os.path.join(output_root, latest_filename)
+                _atomic_write_json(latest_path, payload)
+            saved += 1
+    return int(saved)
 
 
 def _b64_pickle(obj: Any) -> str:
@@ -7417,13 +7598,15 @@ def _propose_builders_for_generation(
                 failure_summary,
             )
             if bool(llm_init_only) and not out:
-                LOGGER.error(
-                    "Builder generation %d produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. "
-                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, or invalid LLM JSON/code. "
-                    "failure_samples=%s",
-                    int(generation),
-                    llm_failure_samples,
+                msg = (
+                    "Builder generation "
+                    f"{int(generation)} produced zero valid proposals while llm_init_only=true; "
+                    "all LLM attempts failed and seed/backfill is disabled. "
+                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, "
+                    f"or invalid LLM JSON/code. failure_samples={llm_failure_samples}"
                 )
+                LOGGER.error(msg)
+                raise RuntimeError(msg)
 
     # Mutations/crossover and fresh seeds.
     if bool(llm_init_only):
@@ -8189,13 +8372,15 @@ def _propose_losses_for_generation(
                 failure_summary,
             )
             if bool(llm_init_only) and not out:
-                LOGGER.error(
-                    "Loss generation %d produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. "
-                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, or invalid LLM JSON/code. "
-                    "failure_samples=%s",
-                    int(generation),
-                    llm_failure_samples,
+                msg = (
+                    "Loss generation "
+                    f"{int(generation)} produced zero valid proposals while llm_init_only=true; "
+                    "all LLM attempts failed and seed/backfill is disabled. "
+                    "Common causes: missing OPENAI_API_KEY, missing openai package, offline_mode=true, "
+                    f"or invalid LLM JSON/code. failure_samples={llm_failure_samples}"
                 )
+                LOGGER.error(msg)
+                raise RuntimeError(msg)
 
     if bool(llm_init_only):
         return out[:pop_f]
@@ -11852,6 +12037,11 @@ def run_pref_loss_coevo(
         for sig in eval_sigs_to_load:
             loaded_total += int(load_pair_cache_from_pairs_jsonl(caches=caches, pairs_jsonl_path=pairs_jsonl, eval_sig=sig))
         LOGGER.info("Loaded %d cached pair records from pairs.jsonl (eval_sigs=%s)", loaded_total, eval_sigs_to_load)
+        _persist_tracked_pair_values(
+            cfg_yaml=cfg_yaml,
+            run_dir=run_dir,
+            records=list(caches.pair_cache.values()),
+        )
         rebuilt_pair_score_history_map = _rebuild_pair_score_history_map(list(caches.pair_cache.values()))
         if rebuilt_pair_score_history_map:
             pair_score_history_map = dict(rebuilt_pair_score_history_map)
@@ -11961,6 +12151,11 @@ def run_pref_loss_coevo(
                     caches.set_pair(cache_key0, rec0)
                     _append_pair_score_history(pair_score_history_map, rec0)
                     _append_jsonl(pairs_jsonl, [rec0])
+                    _persist_tracked_pair_values(
+                        cfg_yaml=cfg_yaml,
+                        run_dir=run_dir,
+                        records=[rec0],
+                    )
                     if bool(rec0.get("pair_ok")) and final_score0 is not None and math.isfinite(float(final_score0)):
                         reevaluated_transfer_seed_baseline = dict(rec0)
                         LOGGER.info(
@@ -15210,6 +15405,11 @@ def run_pref_loss_coevo(
             )
 
         _append_jsonl(pairs_jsonl, pair_records)
+        _persist_tracked_pair_values(
+            cfg_yaml=cfg_yaml,
+            run_dir=run_dir,
+            records=pair_records,
+        )
         _append_jsonl(gate_jsonl, gate_records)
         _append_jsonl(gate_repair_jsonl, gate_repair_records_gen)
         _append_jsonl(gate_repair_jsonl, joint_gate_repair_attempt_records_gen)
