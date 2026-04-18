@@ -1,10 +1,13 @@
+import json
 from pathlib import Path
-from typing import Any
+import sys
+from typing import Any, Sequence
 
 import lightning as L
 import torch
 from torch.utils.data import DataLoader
 
+from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
 from rl4co.models.zoo.mgl_jssp.data import (
     JSSPInstanceDataset,
     JSSPShapeBucketSampler,
@@ -24,6 +27,21 @@ from rl4co.utils.optim_helpers import create_optimizer
 from rl4co.utils.pylogger import get_pylogger
 
 log = get_pylogger(__name__)
+
+_DEFAULT_FREE_LOSS_OBSERVABLES = ("seq_len", "log_prob_mean", "advantage")
+
+
+def _normalize_free_loss_observables(observables: Sequence[str] | None) -> tuple[str, ...]:
+    values = observables if observables else _DEFAULT_FREE_LOSS_OBSERVABLES
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in values:
+        key = str(raw or "").strip()
+        if not key or key in seen:
+            continue
+        out.append(key)
+        seen.add(key)
+    return tuple(out) if out else _DEFAULT_FREE_LOSS_OBSERVABLES
 
 
 class MGLJSSPModel(L.LightningModule):
@@ -58,6 +76,12 @@ class MGLJSSPModel(L.LightningModule):
         init_external_checkpoint_path: str | None = None,
         metrics: dict | None = None,
         log_on_step: bool = False,
+        alpha: float = 1.0,
+        free_loss_ir_json_path: str | None = None,
+        pref_builder_ir_json_path: str | None = None,
+        pref_pair_json_path: str | None = None,
+        pref_builder_kwargs: dict | None = None,
+        free_loss_observables: Sequence[str] | None = None,
         # Phase 4: Bucket-by-shape options
         use_shape_buckets: bool = True,
         bucket_drop_last: bool = False,
@@ -84,6 +108,7 @@ class MGLJSSPModel(L.LightningModule):
         self.pair_mode = str(pair_mode or "anchor_best").strip().lower()
         self.po_impl = str(po_impl or "bt").strip().lower()
         self.po_alpha = float(po_alpha)
+        self.alpha = float(alpha)
         self.val_B = int(val_B)
         self.test_B = int(test_B)
         self.use_greedy = bool(greedy)
@@ -95,6 +120,16 @@ class MGLJSSPModel(L.LightningModule):
         # Phase 4: Bucket-by-shape options
         self.use_shape_buckets = bool(use_shape_buckets)
         self.bucket_drop_last = bool(bucket_drop_last)
+        self.free_loss_ir_json_path = free_loss_ir_json_path
+        self.pref_builder_ir_json_path = pref_builder_ir_json_path
+        self.pref_pair_json_path = pref_pair_json_path
+        self.pref_builder_kwargs = {} if pref_builder_kwargs is None else dict(pref_builder_kwargs)
+        self.free_loss_observables = _normalize_free_loss_observables(free_loss_observables)
+        self.free_loss = None
+        self.pref_builder = None
+        self._pref_extract_feature_cache = None
+        self._pref_build_runtime_observables = None
+        self._pref_batch_cls = None
         # Parse allowed_shapes: [[10,10], [15,15], [20,20]] -> [(10,10), (15,15), (20,20)]
         if allowed_shapes is None:
             self.allowed_shapes = None
@@ -106,6 +141,17 @@ class MGLJSSPModel(L.LightningModule):
 
         if self.baseline not in {"bopo", "rl", "po"}:
             raise ValueError(f"Unsupported MGL JSSP baseline: {self.baseline!r}")
+        self._resolve_pref_pair_artifacts()
+        self._free_loss_enabled = bool(self.free_loss_ir_json_path)
+        if self.pref_builder_ir_json_path:
+            self._load_pref_builder()
+        if self._free_loss_enabled:
+            self._load_free_loss()
+        elif self.pref_builder is not None:
+            log.warning(
+                "pref_builder_ir_json_path is set but free_loss_ir_json_path is missing; "
+                "the builder will be ignored"
+            )
         # Phase 3: All RL/PO/BOPO support batch_size > 1 for 10x10
         if self.B <= 0 or self.val_B <= 0 or self.test_B <= 0:
             raise ValueError("B / val_B / test_B must be positive.")
@@ -141,6 +187,237 @@ class MGLJSSPModel(L.LightningModule):
                 f"Unsupported external checkpoint format for MGL JSSP init: {path.as_posix()}"
             )
         log.info("Loaded external MGL checkpoint from %s", path.as_posix())
+
+    @staticmethod
+    def _ensure_ptp_root_on_path() -> None:
+        repo_root = Path(__file__).resolve().parents[4]
+        ptp_root = repo_root / "PTP"
+        ptp_root_str = str(ptp_root.resolve())
+        if ptp_root.is_dir() and ptp_root_str not in sys.path:
+            sys.path.insert(0, ptp_root_str)
+
+    def _load_free_loss_runtime_helpers(self) -> None:
+        if (
+            self._pref_extract_feature_cache is not None
+            and self._pref_build_runtime_observables is not None
+            and self._pref_batch_cls is not None
+        ):
+            return
+
+        self._ensure_ptp_root_on_path()
+        try:
+            from fitness.free_loss_fidelity import (
+                PrefBatch,
+                build_runtime_observables,
+                extract_feature_cache,
+            )
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import PTP free-loss runtime modules. "
+                "Ensure the repository still contains the PTP/ directory."
+            ) from exc
+
+        self._pref_extract_feature_cache = extract_feature_cache
+        self._pref_build_runtime_observables = build_runtime_observables
+        self._pref_batch_cls = PrefBatch
+
+    def _resolve_pref_pair_artifacts(self) -> None:
+        if self.pref_pair_json_path is None:
+            return
+
+        pair_path = Path(self.pref_pair_json_path).expanduser()
+        if not pair_path.is_file():
+            raise FileNotFoundError(
+                f"pref_pair_json_path does not exist: {pair_path.as_posix()}"
+            )
+
+        run_dir = pair_path.parent
+        builder_path = run_dir / "best_builder.json"
+        loss_path = run_dir / "best_loss.json"
+        if self.pref_builder_ir_json_path is None:
+            if not builder_path.is_file():
+                raise FileNotFoundError(
+                    "best_builder.json not found next to pref_pair_json_path: "
+                    f"{builder_path.as_posix()}"
+                )
+            self.pref_builder_ir_json_path = builder_path.as_posix()
+        if self.free_loss_ir_json_path is None:
+            if not loss_path.is_file():
+                raise FileNotFoundError(
+                    "best_loss.json not found next to pref_pair_json_path: "
+                    f"{loss_path.as_posix()}"
+                )
+            self.free_loss_ir_json_path = loss_path.as_posix()
+
+        try:
+            with pair_path.open("r", encoding="utf-8") as f:
+                pair_payload = json.load(f)
+            pair_gid = str(pair_payload.get("g_id", "")).strip()
+            pair_fid = str(pair_payload.get("f_id", "")).strip()
+        except Exception:
+            return
+
+        for expected_id, artifact_path, key in (
+            (pair_gid, self.pref_builder_ir_json_path, "id"),
+            (pair_fid, self.free_loss_ir_json_path, "id"),
+        ):
+            if not expected_id or not artifact_path:
+                continue
+            try:
+                with Path(artifact_path).expanduser().open("r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                actual_id = str(payload.get(key, "")).strip()
+            except Exception:
+                continue
+            if actual_id and actual_id != expected_id:
+                log.warning(
+                    "Resolved artifact %s id=%s does not match pref_pair expected id=%s",
+                    artifact_path,
+                    actual_id,
+                    expected_id,
+                )
+
+    def _load_pref_builder(self) -> None:
+        if self.pref_builder_ir_json_path is None:
+            raise ValueError(
+                "pref_builder_ir_json_path must be set before loading a preference builder."
+            )
+
+        self._ensure_ptp_root_on_path()
+        try:
+            from ptp_discovery.pref_builder_compiler import compile_preference_builder
+            from ptp_discovery.pref_builder_ir import ir_from_json as pref_builder_ir_from_json
+        except ImportError as exc:
+            raise ImportError(
+                "Failed to import PTP preference-builder modules. "
+                "Ensure the repository still contains the PTP/ directory."
+            ) from exc
+        self._load_free_loss_runtime_helpers()
+
+        path = Path(self.pref_builder_ir_json_path).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"pref_builder_ir_json_path does not exist: {path.as_posix()}"
+            )
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        ir_obj = payload.get("ir", payload)
+        ir = pref_builder_ir_from_json(ir_obj)
+        self.pref_builder = compile_preference_builder(ir)
+
+    def _load_free_loss(self) -> None:
+        if self.free_loss_ir_json_path is None:
+            raise ValueError(
+                "When pref-pair/free-loss training is enabled, free_loss_ir_json_path must be set."
+            )
+        path = Path(self.free_loss_ir_json_path).expanduser()
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"free_loss_ir_json_path does not exist: {path.as_posix()}"
+            )
+        with path.open("r", encoding="utf-8") as f:
+            payload = json.load(f)
+        ir_obj = payload.get("ir", payload)
+        ir = ir_from_json(ir_obj)
+        self.free_loss = compile_free_loss(ir)
+
+    def _free_loss_rollout(
+        self, instances: list[dict[str, Any]]
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        if self.free_loss is None:
+            raise RuntimeError("free_loss is not compiled; check pref_pair/free-loss paths.")
+        self._load_free_loss_runtime_helpers()
+        if self._pref_extract_feature_cache is None or self._pref_build_runtime_observables is None:
+            raise RuntimeError("Free-loss runtime helpers are not initialized.")
+
+        trajs, logits, makespans, entropies = solve_jsp(
+            instances,
+            batch_size_per_instance=self.B,
+            device=str(self.device),
+            encoder=self.encoder,
+            decoder=self.decoder,
+            use_greedy=self.use_greedy,
+        )
+
+        num_instances = len(instances)
+        num_steps = int(trajs.size(1))
+        num_jobs = int(instances[0]["j"])
+        logits_reshaped = logits.view(num_instances, self.B, num_steps, num_jobs)
+        trajs_reshaped = trajs.view(num_instances, self.B, num_steps)
+        objective = makespans.view(num_instances, self.B).float()
+        reward_matrix = -objective
+
+        step_log_prob = torch.log_softmax(logits_reshaped, dim=-1).gather(
+            -1, trajs_reshaped.unsqueeze(-1)
+        ).squeeze(-1)
+        log_likelihood = step_log_prob.sum(dim=-1)
+        entropy_total = entropies.view(num_instances, self.B, num_steps).sum(dim=-1)
+        seq_len = torch.full_like(log_likelihood, float(num_steps))
+
+        extra = self._pref_build_runtime_observables(
+            reward_matrix,
+            log_likelihood,
+            observables=self.free_loss_observables,
+            seq_len=seq_len,
+            log_prob_step=step_log_prob if "log_prob_step" in set(self.free_loss_observables) else None,
+            entropy=entropy_total,
+            seq_len_fallback=num_steps,
+        )
+        feature_cache = self._pref_extract_feature_cache(
+            objective=objective,
+            log_prob=log_likelihood,
+            extra=extra,
+        )
+
+        loss_batch: dict[str, torch.Tensor]
+        pair_count_value = 0
+        if self.pref_builder is not None:
+            pref_batch = self.pref_builder.build_fn(
+                feature_cache,
+                {
+                    "alpha": self.alpha,
+                    "hyperparams": dict(self.pref_builder_kwargs),
+                    **self.pref_builder_kwargs,
+                },
+            )
+            pair_count_value = int(pref_batch.num_examples())
+            loss_batch = (
+                pref_batch.to_pairwise_loss_batch(feature_cache) if pair_count_value > 0 else {}
+            )
+        else:
+            loss_batch = {}
+
+        if not loss_batch:
+            mask = objective[:, :, None] < objective[:, None, :]
+            b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)
+            pair_count_value = int(b_idx.numel())
+            if pair_count_value > 0:
+                if self._pref_batch_cls is None:
+                    raise RuntimeError("Preference batch class is not initialized.")
+                pref_batch = self._pref_batch_cls(
+                    mode="pairwise",
+                    pair_idx=(b_idx, winner_idx, loser_idx),
+                )
+                loss_batch = pref_batch.to_pairwise_loss_batch(feature_cache)
+
+        if pair_count_value == 0:
+            advantage = reward_matrix - reward_matrix.mean(dim=1, keepdim=True)
+            loss = -(advantage.detach() * log_likelihood).mean()
+        else:
+            loss = self.free_loss.loss_fn(
+                batch=loss_batch,
+                model_output=feature_cache,
+                extra={"alpha": self.alpha},
+            )
+
+        best_makespan = objective.min(dim=1)[0].min()
+        reward = -best_makespan.to(self.device)
+        best_per_instance = objective.min(dim=1)[0].clamp_min(1e-8)
+        worst_per_instance = objective.max(dim=1)[0].clamp_min(1e-8)
+        quality = (worst_per_instance / best_per_instance).mean()
+        aux_metric = quality.to(device=self.device, dtype=torch.float32)
+        pair_count = torch.tensor(float(pair_count_value), device=self.device)
+        return loss, reward, aux_metric, pair_count
 
     def _filter_instances_by_allowed_shapes(
         self, instances: list[dict[str, Any]], split_name: str, data_dir: str
@@ -312,6 +589,9 @@ class MGLJSSPModel(L.LightningModule):
             shape = (ins["j"], ins["m"])
             if shape != first_shape:
                 raise ValueError(f"All instances must have same shape: instance 0 is {first_shape[0]}x{first_shape[1]}, instance {i} is {shape[0]}x{shape[1]}")
+
+        if self._free_loss_enabled:
+            return self._free_loss_rollout(instances)
 
         if self.baseline == "bopo":
             better, worse, best_makespan, total_num_pairs = sample_training_pair(
