@@ -1,0 +1,2597 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/jssp10x10_builder_weight_search_from_best_loss.yaml",
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_builder_weight_search_jssp10x10_from_best_loss/20260417-123033",
+  "preset": "simple",
+  "search_mode": "builder_only",
+  "alternating_schedule": {
+    "enabled": false,
+    "start_phase": "loss",
+    "loss_generations": 0,
+    "builder_generations": 0,
+    "final_loss_generations": 0,
+    "rounds": 0
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "improve_eps_calibration": null,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "last_generation": 9,
+  "best_so_far": {
+    "score": -4.589993896484202,
+    "builder_id": "g007_008_2fd3ec71",
+    "loss_id": "fseed_000_4bb86b21",
+    "stage_final": "high_fidelity",
+    "generation": 7,
+    "phase": "builder",
+    "stage3_all_scenarios_negative": true,
+    "stage3_nonnegative_scenario_count": 0,
+    "stage3_worst_scenario_delta": -4.589993896484202
+  },
+  "best_builder_cost": {
+    "builder_id": "g007_008_2fd3ec71",
+    "cost": 960.0,
+    "perf": -4.589993896484202,
+    "metric_mode": "minimize",
+    "slack": 0.0,
+    "best_perf": -4.589993896484202,
+    "best_perf_anchor": -4.589993896484202,
+    "threshold": -4.589993896484202,
+    "generation": 7,
+    "phase": "builder",
+    "perf_ref": {
+      "g_id": "g007_008_2fd3ec71",
+      "f_id": "fseed_000_4bb86b21",
+      "score": -4.589993896484202,
+      "final_score": -4.589993896484202,
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "phase": "builder",
+      "generation": 7,
+      "pair_reason": "ok_stage3_offline_minitrain",
+      "pair_ok": true,
+      "g_ir": {
+        "name": "all_pairs_gap_regret_blend_v1",
+        "intuition": "Shift weighting paradigm to blend normalized positive gap with instance regret mean modulation, leveraging a smooth sigmoid of rank difference for non-linear blending under fixed all-pairs topology.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "rank",
+            "instance_obj_mad",
+            "instance_regret_mean"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_regret_blend",
+          "constraint_family": "clamp_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "sigmoid",
+          "clamp",
+          "div",
+          "sub",
+          "mul",
+          "exp"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_regret_blend_v1', 'weight_family': 'gap_regret_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 0.9))\n    beta = float(extra.get('beta', 3.5))\n    gamma = float(extra.get('gamma', 0.75))\n    base_weight = norm_gap * (instance_regret_mean[b_idx].clamp_min(eps).pow(alpha))\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    weight_raw = base_weight * blend + 0.05 * (instance_regret_mean[b_idx].clamp_min(eps).pow(gamma))\n    weight = weight_raw.clamp(0.1, 3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_regret_blend_v1', 'weight_family': 'gap_regret_blend'})"
+      },
+      "cost": 960.0
+    },
+    "feasible_count": 1
+  },
+  "builder_cost_archive": {
+    "g000_002_38cc6670": {
+      "builder_id": "g000_002_38cc6670",
+      "perf": -3.28499694824211,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_002_38cc6670",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -3.28499694824211,
+        "final_score": -3.28499694824211,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 0,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_rank_blend_instance_conditioned",
+          "intuition": "Reweight all pairs using objective gap normalized by instance objective MAD, modulated smoothly by rank difference and instance regret std to condition pair weights on instance-level statistics",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank",
+              "instance_regret_std",
+              "instance_obj_mad"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    # Build all pairs mask for pairs where winner better than loser\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    # Compute pair gap (loser obj - winner obj), clamped at 0\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    # Normalize gap by instance objective MAD for stable instance scaling\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    # Compute rank difference (loser rank - winner rank)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    # Params from extra or defaults\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 5.0))\n    gamma = float(extra.get('gamma', 0.5))\n    # Base weight is normalized gap times instance_regret_std^alpha\n    base_weight = norm_gap * (instance_regret_std[b_idx].clamp_min(eps) ** alpha)\n    # Blend factor using sigmoid on beta*rank_diff\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    # Modulate blend by instance regret std powered by gamma to condition pair weight\n    weight_raw = base_weight * blend * (instance_regret_std[b_idx].clamp_min(eps) ** gamma)\n    # Clamp weights to keep them in [0.25, 4.0]\n    weight = weight_raw.clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_rank_blend_instance_conditioned', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -3.28499694824211,
+      "threshold": -3.28499694824211,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -3.28499694824211
+      ],
+      "generation": 0,
+      "phase": "builder"
+    },
+    "g000_000_b65850b3": {
+      "builder_id": "g000_000_b65850b3",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_000_b65850b3",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_softmax_004",
+          "intuition": "reweight all_pairs using a softmax over gap scaled by instance obj_std for smoother probabilistic weighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "instance_obj_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_softmax",
+            "exp",
+            "scatter_max",
+            "scatter_sub",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_scale = feature_cache['instance_obj_std']\n    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)\n    max_gap_per_instance = torch.full((objective.shape[0],), float('-inf'), device=objective.device, dtype=objective.dtype)\n    max_gap_per_instance.scatter_reduce_(0, b_idx, gap_scaled, reduce='amax', include_self=True)\n    gap_normalized = gap_scaled - max_gap_per_instance[b_idx]\n    exp_gap = torch.exp(gap_normalized.clamp(min=-20.0, max=20.0))\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = exp_gap.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.28499694824211,
+      "threshold": -3.28499694824211,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.1350018310547512
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g000_003_580eac85": {
+      "builder_id": "g000_003_580eac85",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_003_580eac85",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_regret_blend_000",
+          "intuition": "all-pairs weighting blending gap magnitude with instance-local regret scale for adaptive importance",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "instance_regret_std",
+              "instance_regret_max",
+              "instance_regret_mean",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_regret_blend"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    # Construct all pairs where objective[i,j] < objective[i,k] (winner, loser)\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_regret_blend'})\n    eps = 1e-6\n    # Raw gap differences per pair (loser - winner) > 0\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Instance-level regret statistics for conditioning\n    regret_std = feature_cache['instance_regret_std'][b_idx].clamp_min(eps)\n    regret_max = feature_cache['instance_regret_max'][b_idx].clamp_min(eps)\n    regret_mean = feature_cache['instance_regret_mean'][b_idx].clamp_min(eps)\n    instance_obj_mad = feature_cache['instance_obj_mad'][b_idx].clamp_min(eps)\n    # Normalize gap by instance obj MAD for stable scaling\n    gap_scaled = gap / instance_obj_mad\n    # Define a blending coefficient alpha that increases with regret variability\n    alpha = (regret_std / (regret_max + eps)).clamp(0.0, 1.0)\n    # Basic linear gap weight\n    weight_gap_linear = gap_scaled.clamp_min(0.0)\n    # Regret modulation factor emphasizing pairs in instances with larger regret_mean\n    regret_mod = 1.0 + torch.sqrt(regret_mean)\n    # Blend linear gap weight with regret modulation using alpha\n    raw_weight = alpha * weight_gap_linear * regret_mod + (1.0 - alpha) * weight_gap_linear\n    # Clamp final weights to range [0.25, 4.0]\n    weight = raw_weight.clamp_min(0.25).clamp_max(4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.28499694824211,
+      "threshold": -3.28499694824211,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.1500054931641444
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g000_001_11ef9af6": {
+      "builder_id": "g000_001_11ef9af6",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g000_001_11ef9af6",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_linear_002",
+          "intuition": "all-pairs weighting by gap linear scaled and clamped via instance_obj_std for stable instance-local conditioning",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    instance_obj_scale = feature_cache.get('instance_obj_std', None)\n    if instance_obj_scale is None:\n        instance_obj_scale = feature_cache['instance_obj_mad']\n    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)\n    raw = gap_scaled.clamp_min(0.0)\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.28499694824211,
+      "threshold": -3.28499694824211,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        4.750009765625009
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g001_002_05cad6a4": {
+      "builder_id": "g001_002_05cad6a4",
+      "perf": -2.7050067138670784,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g001_002_05cad6a4",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -2.7050067138670784,
+        "final_score": -2.7050067138670784,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_rank_blend_instance_conditioned_v6",
+          "intuition": "Reweight all valid pairs by objective gap normalized by instance objective MAD, modulated smoothly by rank difference and instance regret std with adjusted hyperparameters and a rebalanced weighting formula to create a distinct gap_rank_blend variant, ensuring a true paradigm shift in weighting while preserving all-pair topology and instance conditioning.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank",
+              "instance_regret_mean",
+              "instance_obj_range"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend_v6",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 0.7))\n    beta = float(extra.get('beta', 4.2))\n    gamma = float(extra.get('gamma', 0.8))\n    # Modified weighting formula for paradigm shift\n    base_weight = (norm_gap + 0.1) * (instance_regret_std[b_idx].clamp_min(eps).pow(alpha))\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    weight_raw = base_weight * blend + 0.05 * (instance_regret_std[b_idx].clamp_min(eps).pow(gamma))\n    weight = weight_raw.clamp(0.1, 3.5)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={\n            'builder': 'all_pairs_gap_rank_blend_instance_conditioned_v6',\n            'weight_family': 'gap_rank_blend_v6'\n        }\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.390001831054633,
+      "threshold": -3.390001831054633,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -2.7050067138670784
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g001_001_78171830": {
+      "builder_id": "g001_001_78171830",
+      "perf": -1.7199963378905068,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g001_001_78171830",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.7199963378905068,
+        "final_score": -1.7199963378905068,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_rank_blend_instance_conditioned_v2",
+          "intuition": "Reweight all pairs by blending normalized objective gap with sigmoid-rank difference and instance regret std, explicitly modulated by instance_obj_mad and instance_regret_std, preserving all pairs; distinct weight_family enforces real weighting update under reweight-only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "log_prob",
+              "instance_log_prob_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend_v2",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    # Build all pairs mask where winner better than loser\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    # Compute gap and normalize by instance_obj_mad\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    # Compute rank difference\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    # Get parameters from extra\n    alpha = float(extra.get('alpha', 1.2))\n    beta = float(extra.get('beta', 4.5))\n    gamma = float(extra.get('gamma', 0.7))\n    delta = float(extra.get('delta', 0.6))\n    # Base weight: norm_gap powered and scaled by instance_regret_std^alpha\n    base_weight = (norm_gap.clamp_min(eps).pow(alpha)) * (instance_regret_std[b_idx].clamp_min(eps).pow(alpha))\n    # Blend factor using sigmoid on beta * rank_diff\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    # Instance-conditioned modulation with instance_regret_std and instance_obj_mad\n    modulator = (instance_regret_std[b_idx].clamp_min(eps).pow(gamma)) * (instance_obj_mad[b_idx].clamp_min(eps).pow(delta))\n    # Final weight calculation\n    weight_raw = base_weight * blend * modulator\n    # Clamp to keep weights reasonable\n    weight = weight_raw.clamp(0.25, 4.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={\n            'builder': 'all_pairs_gap_rank_blend_instance_conditioned_v2',\n            'weight_family': 'gap_rank_blend_v2'\n        }\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.390001831054633,
+      "threshold": -3.390001831054633,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -1.7199963378905068
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g001_003_b2710eb8": {
+      "builder_id": "g001_003_b2710eb8",
+      "perf": -0.689996337890534,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g001_003_b2710eb8",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -0.689996337890534,
+        "final_score": -0.689996337890534,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "simple_gap_rank_blend_reweight",
+          "intuition": "Combines the core idea of gap-based pair weighting with additional instance-level modulation to enhance robustness while maintaining simplicity. Uses pairwise gap scaled by object MAD, then modulates with rank difference via a sigmoid blend, and incorporates a monotonic transform with clamping for stable, non-negative weights.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank",
+              "instance_regret_std",
+              "instance_obj_mad"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    base_weight = norm_gap * (instance_regret_std[b_idx].clamp_min(eps) ** 1.0)\n    blend = 1.0 / (1.0 + (-(extra.get('beta', 5.0) * rank_diff)).exp())\n    weight_raw = base_weight * blend * (instance_regret_std[b_idx].clamp_min(eps) ** 1.0)\n    weight = weight_raw.clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder':'simple_gap_rank_blend_reweight'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.390001831054633,
+      "threshold": -3.390001831054633,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.689996337890534
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g001_000_d38a32fe": {
+      "builder_id": "g001_000_d38a32fe",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g001_000_d38a32fe",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 2,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_linear_instance_std_scaled",
+          "intuition": "Reweight all pairs by linearly scaled normalized gap using instance objective std, emphasizing stable instance-local pairwise signal scaling without blending",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.shape[0]\n    if pair_count == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_linear_instance_std_scaled', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    instance_obj_std = feature_cache.get('instance_obj_std', None)\n    if instance_obj_std is None:\n        instance_obj_std = feature_cache['instance_obj_mad']\n    norm_gap = gap / instance_obj_std[b_idx].clamp_min(eps)\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = norm_gap.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_linear_instance_std_scaled', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.390001831054633,
+      "threshold": -3.390001831054633,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        2.2449957275391625
+      ],
+      "generation": 2,
+      "phase": "builder"
+    },
+    "g001_004_e259a468": {
+      "builder_id": "g001_004_e259a468",
+      "perf": -3.390001831054633,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g001_004_e259a468",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -3.390001831054633,
+        "final_score": -3.390001831054633,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 1,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_regret_blend_instance_conditioned_v2",
+          "intuition": "Weight all pairs by objective gap normalized by instance obj MAD, blended smoothly by instance regret mean power-modulated sigmoid of regret difference to ensure strong instance-conditioned weighting integrating regret blend.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_range",
+              "instance_regret_mean",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_regret_blend",
+            "sigmoid",
+            "pow",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-6\n    # Build mask of pairs where winner better than loser\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # If no pairs, return empty PrefBatch with correct topology\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_regret_blend_instance_conditioned_v2', 'weight_family': 'gap_regret_blend'})\n    # Compute objective gap (loser - winner), clamped at 0\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    # Normalize gap per-instance by obj MAD\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 5.0))\n    # Compute regret difference (loser - winner) per pair\n    regret_diff = instance_regret_mean[b_idx] * beta\n    # Use a sigmoid blend modulated by regret difference, powered by alpha\n    blend = norm_gap * (instance_regret_mean[b_idx].clamp_min(eps) ** alpha) * (1.0 / (1.0 + (-regret_diff).exp()))\n    # Clamp weights to range [0.25, 4.0]\n    weight = blend.clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_regret_blend_instance_conditioned_v2', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -3.390001831054633,
+      "threshold": -3.390001831054633,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -3.390001831054633
+      ],
+      "generation": 1,
+      "phase": "builder"
+    },
+    "g002_000_66ab37eb": {
+      "builder_id": "g002_000_66ab37eb",
+      "perf": 1.4200134277344887,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g002_000_66ab37eb",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 1.4200134277344887,
+        "final_score": 1.4200134277344887,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 2,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_smart_reweight",
+          "intuition": "Combine the original pairwise gap normalization with instance-level modulation using object MAD and regret std to achieve a robust, instance-conditioned weighting that emphasizes meaningful pairs while maintaining simplicity and stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "instance_obj_mad",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "div",
+            "clamp",
+            "mul",
+            "sub",
+            "abs"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    b_idx, winner_idx, loser_idx = (objective[:, :, None] < objective[:, None, :]).nonzero(as_tuple=True)\n    eps = 1e-6\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    modulated_weight = (norm_gap * instance_regret_std[b_idx].clamp_min(eps)).clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=modulated_weight, meta={'builder': 'pairwise_smart_reweight', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.279999389648424,
+      "threshold": -3.279999389648424,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.4200134277344887
+      ],
+      "generation": 2,
+      "phase": "builder"
+    },
+    "g002_004_f6efac49": {
+      "builder_id": "g002_004_f6efac49",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g002_004_f6efac49",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_rank_blend_instance_conditioned_v6",
+          "intuition": "Weight all pairs by margin normalized by instance obj MAD and scaled by instance regret std; blend pair margin powered by alpha with sigmoid of scaled rank difference modulated by instance regret std, explicitly conditioning pair weights by instance-level regret std to ensure instance conditioning.",
+          "implementation_hint": {
+            "expects": [
+              "rank",
+              "log_prob",
+              "instance_obj_mad",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "sub",
+            "div",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    # Build mask of pairs where winner better (lower objective) than loser\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Return empty PrefBatch if no pairs\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_instance_conditioned_v6', 'weight_family': 'margin_rank_blend'})\n    # Margin (loser - winner), clamped nonnegative\n    margin = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    # Normalize margin by instance obj MAD safely\n    norm_margin = margin / instance_obj_mad[b_idx].clamp_min(eps)\n    # Scale margin by instance regret std (rescaling per instance)\n    scaled_margin = norm_margin * instance_regret_std[b_idx].clamp_min(eps)\n    # Rank difference (loser - winner)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    # Get alpha and beta hyperparams from extra\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 5.0))\n    # Base weight: scaled margin powered by alpha\n    base_weight = scaled_margin.pow(alpha)\n    # Instance-condition pairwise sigmoid blend modulated by -beta * rank difference scaled by instance regret std\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    # Multiply blend further by instance regret std powered by alpha to enforce instance conditioning path\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).pow(alpha)\n    weight_raw = base_weight * blend * instance_modulation\n    # Clamp final weights to avoid extremes\n    weight = weight_raw.clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_instance_conditioned_v6', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.279999389648424,
+      "threshold": -3.279999389648424,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        3.920001831054833
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g002_001_e9a18ac3": {
+      "builder_id": "g002_001_e9a18ac3",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g002_001_e9a18ac3",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_rank_blend_instance_conditioned_v6_clamped_tiezone",
+          "intuition": "Preserves gap_rank_blend weighting with added tie-zone suppression and explicit clamping to enhance stability without changing pair topology or weight family.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank",
+              "instance_regret_std",
+              "instance_obj_mad"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend_v6",
+            "constraint_family": "clamp_tiezone"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "div",
+            "sub",
+            "mul",
+            "exp",
+            "abs"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_rank_blend_instance_conditioned_v6_clamped_tiezone', 'weight_family': 'gap_rank_blend_v6'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 0.7))\n    beta = float(extra.get('beta', 4.2))\n    gamma = float(extra.get('gamma', 0.8))\n    base_weight = (norm_gap + 0.1) * (instance_regret_std[b_idx].clamp_min(eps).pow(alpha))\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    weight_raw = base_weight * blend + 0.05 * (instance_regret_std[b_idx].clamp_min(eps).pow(gamma))\n    # Tie-zone suppression: suppress weights when norm_gap near zero\n    tiezone_width = float(extra.get('tiezone_width', 0.05))\n    tiezone_mask = (norm_gap.abs() > tiezone_width).to(weight_raw.dtype)\n    # Clamp weights after suppression for stability\n    weight = (weight_raw * tiezone_mask).clamp(0.1, 3.5)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_rank_blend_instance_conditioned_v6_clamped_tiezone', 'weight_family': 'gap_rank_blend_v6'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.279999389648424,
+      "threshold": -3.279999389648424,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.6600048828124727
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g002_002_4aa7e9d8": {
+      "builder_id": "g002_002_4aa7e9d8",
+      "perf": -3.279999389648424,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g002_002_4aa7e9d8",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -3.279999389648424,
+        "final_score": -3.279999389648424,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 2,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "instance_conditioned_weight_bias",
+          "intuition": "Adjusting pairwise weights by explicitly scaling the objective gap with a normalized instance-specific measure (MAD) and modulating with a sigmoid of regret difference ensures stable, instance-aware weighting. Tuning epsilon, clamp bounds, and scaling factors enhances numerical stability and control over the weighting influence while preserving the fixed pair topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_range",
+              "instance_regret_mean",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_regret_blend",
+            "sigmoid",
+            "pow",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-8\n    # Build mask of pairs where winner has higher objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Return empty if no pairs\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'instance_conditioned_weight_bias', 'weight_family': 'gap_regret_blend'})\n    # Objective gap clamped at zero\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    # Normalize gap by instance MAD, with epsilon\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    # Modulate by a sigmoid of regret difference scaled by a hyperparameter\n    alpha_scaling = float(extra.get('alpha_scale', 10.0))\n    regret_scaled = instance_regret_mean[b_idx] * alpha_scaling\n    regret_drive = ( -regret_scaled ).exp()\n    sigmoid_mod = 1.0 / (1.0 + regret_drive)\n    # Final weight computation with configurable clip bounds\n    weight = (norm_gap * sigmoid_mod).clamp(0.1, 10.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'instance_conditioned_weight_bias', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -3.279999389648424,
+      "threshold": -3.279999389648424,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -3.279999389648424
+      ],
+      "generation": 2,
+      "phase": "builder"
+    },
+    "g002_003_76296a0d": {
+      "builder_id": "g002_003_76296a0d",
+      "perf": 0.19000549316410797,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g002_003_76296a0d",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.19000549316410797,
+        "final_score": 0.19000549316410797,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 2,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_pair_blend_v2",
+          "intuition": "This builder combines instance-conditioned gap weighting with adaptive sigmoid modulation based on regret std, incorporating both parents' ideas for robust, nuanced pair weighting. It emphasizes stable, non-negative weights by blending normalized objective gaps with regret-based sigmoid scaling, offering a simple yet effective reweighting scheme that leverages pairwise and instance statistics harmoniously.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "rank",
+              "instance_regret_std",
+              "instance_obj_mad"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_rank_blend",
+            "sigmoid",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "exp",
+            "pow"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    regret_scale = (instance_regret_std[b_idx].clamp_min(eps).pow(1.0))\n    blend = 1.0 / (1.0 + (-(float(extra.get('beta', 4.0)) * (rank[b_idx, loser_idx] - rank[b_idx, winner_idx]))).exp())\n    weight = norm_gap * regret_scale * blend\n    weight = weight.clamp(0.25, 4.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={'builder': 'reweighted_pair_blend_v2', 'weight_family': 'gap_rank_blend'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.279999389648424,
+      "threshold": -3.279999389648424,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.19000549316410797
+      ],
+      "generation": 2,
+      "phase": "builder"
+    },
+    "g003_001_a4d73ce0": {
+      "builder_id": "g003_001_a4d73ce0",
+      "perf": -1.7899926757812636,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g003_001_a4d73ce0",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.7899926757812636,
+        "final_score": -1.7899926757812636,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "rank_gap_mad_exp_rankmodulation",
+          "intuition": "Weight pairs by normalizing the positive objective gap with instance MAD and modulate weights via an exponential decay on the absolute scaled rank difference, emphasizing pairs with smaller rank gaps and stabilizing weights with clamping. This creates instance-conditioned, smooth, and numerically stable pairwise weights distinct from sigmoid blends.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_median"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "abs",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    eps = 1e-8\n    # Build mask: winner better (lower) objective than loser\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'rank_gap_mad_exp_rankmodulation', 'weight_family': 'gap_rank_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    beta = float(extra.get('beta', 5.0))\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    rank_mod = (-beta * rank_diff.abs()).exp()\n    weight = (norm_gap * rank_mod).clamp(0.05, 5.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'rank_gap_mad_exp_rankmodulation', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -2.6449908447265216,
+      "threshold": -2.6449908447265216,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -1.7899926757812636
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g003_004_afb28088": {
+      "builder_id": "g003_004_afb28088",
+      "perf": -2.6449908447265216,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g003_004_afb28088",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -2.6449908447265216,
+        "final_score": -2.6449908447265216,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "margin_regret_blend_instance_conditioned",
+          "intuition": "Weights scale positive pairwise margin by instance regret std and normalize margin by instance_obj_mad to ensure strong instance conditioning; modulate with sigmoid of rank difference for smooth pairwise blending, preserving fixed all-pairs topology and stable numerical behavior.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "instance_regret_std",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sigmoid",
+            "clamp",
+            "sub",
+            "mul",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    rank = feature_cache['rank']\n    eps = 1e-8\n    # Build mask for pairs where winner objective > loser objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Return empty PrefBatch if no pairs\n    if b_idx.numel() == 0:\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx, winner_idx, loser_idx),\n            weight=None,\n            meta={'builder': 'margin_regret_blend_instance_conditioned', 'weight_family': 'margin_regret_blend'})\n    margin_raw = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    margin_norm = margin_raw / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 5.0))\n    sigmoid_mod = 1.0 / (1.0 + (-beta * rank_diff).exp())\n    weight = margin_norm * instance_regret_std[b_idx].clamp_min(eps) * sigmoid_mod\n    weight = weight.clamp(0.25, 4.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={'builder': 'margin_regret_blend_instance_conditioned', 'weight_family': 'margin_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -2.6449908447265216,
+      "threshold": -2.6449908447265216,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -2.6449908447265216
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g003_000_7e67e99f": {
+      "builder_id": "g003_000_7e67e99f",
+      "perf": -0.630001831054642,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g003_000_7e67e99f",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -0.630001831054642,
+        "final_score": -0.630001831054642,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_linear_scaled_by_objstd",
+          "intuition": "Weights pairs by the objective gap linearly scaled and clamped, normalized by instance_obj_std for stable instance-conditioned scaling, ensuring nonnegative weights and preserving all-pairs topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_range",
+              "instance_regret_max"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "div",
+            "sub",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_std = feature_cache['instance_obj_std']\n    eps = 1e-8\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_linear_scaled_by_objstd', 'weight_family': 'gap_linear'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_std[b_idx].clamp_min(eps)\n    clamp_lo = float(extra.get('clamp_lo', 0.05))\n    clamp_hi = float(extra.get('clamp_hi', 5.0))\n    weight = norm_gap.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_linear_scaled_by_objstd', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -2.6449908447265216,
+      "threshold": -2.6449908447265216,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.630001831054642
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g003_002_3a848004": {
+      "builder_id": "g003_002_3a848004",
+      "perf": 1.9399975585938591,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g003_002_3a848004",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 1.9399975585938591,
+        "final_score": 1.9399975585938591,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "instance_mad_regret_sigmoid_modulated_gap",
+          "intuition": "Weights pairs by the objective gap normalized via instance MAD, modulated by a sigmoid of the scaled instance regret mean, shifting the influence with an adjustable exponent to introduce a novel nonlinear weighting. This preserves instance conditioning and all-pairs topology while distinctly reshaping the weight function away from direct linear blends.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "instance_regret_mean",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_regret_blend",
+            "sigmoid",
+            "pow",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-8\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None,\n                        meta={'builder': 'instance_mad_regret_sigmoid_modulated_gap', 'weight_family': 'gap_regret_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    alpha_scale = float(extra.get('alpha_scale', 12.0))\n    beta = float(extra.get('beta', 2.0))\n    regret_scaled = instance_regret_mean[b_idx] * alpha_scale\n    sigmoid_mod = 1.0 / (1.0 + (-regret_scaled).exp())\n    sigmoid_mod_pow = sigmoid_mod.pow(beta)\n    weight = (norm_gap * sigmoid_mod_pow).clamp(0.05, 15.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight,\n                    meta={'builder': 'instance_mad_regret_sigmoid_modulated_gap', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -2.6449908447265216,
+      "threshold": -2.6449908447265216,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.9399975585938591
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g003_003_827336d8": {
+      "builder_id": "g003_003_827336d8",
+      "perf": -1.6049963378906114,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g003_003_827336d8",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.6049963378906114,
+        "final_score": -1.6049963378906114,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 3,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_rank_blend_tiezone_constraint",
+          "intuition": "Preserve margin_rank_blend weighting while applying a tie-zone filter to suppress pairs with minimal margin, enhancing stability without changing pair topology or weighting family.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "tie_zone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend",
+            "sigmoid",
+            "clamp",
+            "pow",
+            "sub",
+            "div",
+            "mul",
+            "exp",
+            "abs",
+            "ge"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    # Pair mask where winner's objective is less than loser's\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_tiezone_constraint', 'weight_family': 'margin_rank_blend'})\n    # Margin (loser - winner), clamped nonnegative\n    margin = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    # Normalize margin by instance obj MAD\n    norm_margin = margin / instance_obj_mad[b_idx].clamp_min(eps)\n    # Scaling margin by instance regret std\n    scaled_margin = norm_margin * instance_regret_std[b_idx].clamp_min(eps)\n    # Rank difference\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    # Hyperparams\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 5.0))\n    tie_zone_thresh = float(extra.get('tie_zone_thresh', 0.05))  # Minimal normalized margin below which weight suppressed\n    # Base weight computation\n    base_weight = scaled_margin.pow(alpha)\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).pow(alpha)\n    raw_weight = base_weight * blend * instance_modulation\n    # Tie-zone filtering: zero weights for pairs with normalized margin below threshold\n    tie_zone_mask = (norm_margin >= tie_zone_thresh)\n    constrained_weight = raw_weight * tie_zone_mask.to(raw_weight.dtype)\n    # Clamp final weights to stable finite range\n    weight = constrained_weight.clamp(0.25, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_tiezone_constraint', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -2.6449908447265216,
+      "threshold": -2.6449908447265216,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -1.6049963378906114
+      ],
+      "generation": 3,
+      "phase": "builder"
+    },
+    "g004_001_222b1ba7": {
+      "builder_id": "g004_001_222b1ba7",
+      "perf": 1.2649914550781887,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g004_001_222b1ba7",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 1.2649914550781887,
+        "final_score": 1.2649914550781887,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 4,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_rank_blend_instance_conditioned_v2",
+          "intuition": "Weights positive objective gap by instance_obj_mad-normalized gap and modulates with a sigmoid of scaled rank difference, scaled further by instance_regret_mean to ensure strong per-instance conditioning; preserves fixed all-pairs topology and applies stable clamping.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_max"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sigmoid",
+            "clamp",
+            "sub",
+            "div",
+            "mul",
+            "maximum"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-8\n    # Mask for all pairs where winner objective less than loser objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx, winner_idx, loser_idx),\n            weight=None,\n            meta={'builder': 'all_pairs_gap_rank_blend_instance_conditioned_v2', 'weight_family': 'gap_rank_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 4.0))\n    sigmoid_mod = 1.0 / (1.0 + (-beta * rank_diff).exp())\n    weight_raw = norm_gap * sigmoid_mod * instance_regret_mean[b_idx].clamp_min(eps)\n    weight = weight_raw.clamp(0.1, 5.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={'builder': 'all_pairs_gap_rank_blend_instance_conditioned_v2', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -0.694996948242192,
+      "threshold": -0.694996948242192,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.2649914550781887
+      ],
+      "generation": 4,
+      "phase": "builder"
+    },
+    "g004_000_987a6995": {
+      "builder_id": "g004_000_987a6995",
+      "perf": -0.694996948242192,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g004_000_987a6995",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -0.694996948242192,
+        "final_score": -0.694996948242192,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 4,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "gap_linear_objstd_scaling_v2",
+          "intuition": "Weights pairs by positive objective gap linearly normalized by instance_obj_std, improving instance-conditioned scaling and preserving full all-pairs topology with clamped weights for numerical stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "div",
+            "max"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_std = feature_cache['instance_obj_std']\n    eps = 1e-8\n    # Build mask for pairs where winner objective > loser objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Return empty PrefBatch if no pairs\n    if b_idx.numel() == 0:\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx, winner_idx, loser_idx),\n            weight=None,\n            meta={'builder': 'gap_linear_objstd_scaling_v2', 'weight_family': 'gap_linear'})\n    # Compute positive gap normalized by instance std\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_std[b_idx].clamp_min(eps)\n    # Clamp weights for numeric stability\n    weight = norm_gap.clamp(0.1, 4.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={'builder': 'gap_linear_objstd_scaling_v2', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -0.694996948242192,
+      "threshold": -0.694996948242192,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -0.694996948242192
+      ],
+      "generation": 4,
+      "phase": "builder"
+    },
+    "g005_001_5fc1441e": {
+      "builder_id": "g005_001_5fc1441e",
+      "perf": -0.32999145507801586,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_001_5fc1441e",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -0.32999145507801586,
+        "final_score": -0.32999145507801586,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "gap_rank_blend_mad_sigmoid_mod",
+          "intuition": "Weights pairs by positive objective gap normalized by instance MAD and modulated by a sigmoid transformation of rank difference, blending margin and rank signals in a non-linear manner while preserving the full all-pairs topology with stable clamping.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "clamp_min",
+            "sub",
+            "div",
+            "sigmoid"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    eps = 1e-8\n    # Mask for pairs where winner objective > loser objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_rank_blend_mad_sigmoid_mod', 'weight_family': 'gap_rank_blend'})\n    # Compute positive objective gap normalized by instance MAD\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    # Compute rank difference modulation with configurable beta\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 2.5))\n    sigmoid_mod = (rank_diff * (-beta)).exp().add(1.0).reciprocal()\n    # Combined weight with clamping for numeric stability\n    weight = (norm_gap * sigmoid_mod).clamp(0.05, 3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'gap_rank_blend_mad_sigmoid_mod', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -1.9049938964843705,
+      "threshold": -1.9049938964843705,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.32999145507801586
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_003_bf91691c": {
+      "builder_id": "g005_003_bf91691c",
+      "perf": -1.9049938964843705,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_003_bf91691c",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.9049938964843705,
+        "final_score": -1.9049938964843705,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_rank_blend_clamp_eps_guard",
+          "intuition": "Preserve margin_rank_blend weighting while adding clamp with epsilon guards to prevent extreme weights and improve numerical stability under reweight_only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "clamp_eps_guard"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_rank_blend",
+            "exp",
+            "clamp",
+            "pow",
+            "mul",
+            "sub",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_clamp_eps_guard', 'weight_family': 'margin_rank_blend'})\n    margin = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin / instance_obj_mad[b_idx].clamp_min(eps)\n    scaled_margin = norm_margin * instance_regret_std[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 5.0))\n    base_weight = scaled_margin.pow(alpha)\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).pow(alpha)\n    raw_weight = base_weight * blend * instance_modulation\n    weight = raw_weight.clamp(min=0.2, max=3.5)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_clamp_eps_guard', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -1.9049938964843705,
+      "threshold": -1.9049938964843705,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -1.9049938964843705
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g005_000_7c0fe62b": {
+      "builder_id": "g005_000_7c0fe62b",
+      "perf": 3.6100177001953853,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g005_000_7c0fe62b",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 3.6100177001953853,
+        "final_score": 3.6100177001953853,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 5,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "gap_linear_objrange_regretmean_scaled_v2",
+          "intuition": "Weights pairs by positive objective gap linearly normalized by instance_obj_range, scaled and modulated by instance_regret_mean to achieve strong instance-conditioned weighting while preserving full all-pairs topology with clamped stable weights.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "instance_obj_range",
+              "instance_regret_mean"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "div",
+            "mul",
+            "max"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-8\n    # Build mask for pairs where winner objective > loser objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Return empty PrefBatch if no pairs\n    if b_idx.numel() == 0:\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx, winner_idx, loser_idx),\n            weight=None,\n            meta={'builder': 'gap_linear_objrange_regretmean_scaled_v2', 'weight_family': 'gap_linear'})\n    # Compute positive gap normalized by instance obj range\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_range[b_idx].clamp_min(eps)\n    # Modulate weights by instance regret mean clamped for stability\n    weight_raw = norm_gap * instance_regret_mean[b_idx].clamp_min(eps)\n    # Clamp weight to keep numeric stability\n    weight = weight_raw.clamp(0.1, 4.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={'builder': 'gap_linear_objrange_regretmean_scaled_v2', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -1.9049938964843705,
+      "threshold": -1.9049938964843705,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        3.6100177001953853
+      ],
+      "generation": 5,
+      "phase": "builder"
+    },
+    "g006_005_d5ef48bd": {
+      "builder_id": "g006_005_d5ef48bd",
+      "perf": -1.509996948242133,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_005_d5ef48bd",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.509996948242133,
+        "final_score": -1.509996948242133,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_bandpass_regret_mean_mod_v2",
+          "intuition": "Use a normalized gap bandpass weighting modulated multiplicatively by instance_regret_mean power to produce instance-conditioned, nonnegative, reweight-only pair weights that reflect pairwise gap with stable normalization and clamping.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "instance_obj_mad",
+              "instance_regret_mean"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp",
+            "div",
+            "pow",
+            "mul",
+            "min",
+            "max",
+            "to"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-6\n    # Construct all pairs where objective[winner] < objective[loser]\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx, winner_idx, loser_idx),\n            weight=None,\n            meta={'builder': 'all_pairs_gap_bandpass_regret_mean_mod_v2', 'weight_family': 'gap_bandpass'}\n        )\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    band_center = float(extra.get('band_center', 1.0))\n    band_width = float(extra.get('band_width', 0.6))\n    lower_cut = band_center - band_width / 2.0\n    upper_cut = band_center + band_width / 2.0\n    # Hard bandpass mask: 1 if normalized gap in [lower_cut, upper_cut], else 0\n    bandpass_mask = ((norm_gap >= lower_cut) & (norm_gap <= upper_cut)).to(norm_gap.dtype)\n    gamma = float(extra.get('gamma', 1.0))\n    # Instance conditioning with power of instance_regret_mean\n    instance_mod = instance_regret_mean[b_idx].clamp_min(eps).pow(gamma)\n    raw_weight = bandpass_mask * norm_gap * instance_mod\n    # Clamp to prevent extremes\n    weight = raw_weight.clamp(min=0.1, max=4.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=weight,\n        meta={'builder': 'all_pairs_gap_bandpass_regret_mean_mod_v2', 'weight_family': 'gap_bandpass'}\n    )"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.4100097656249773,
+      "threshold": -3.4100097656249773,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -1.509996948242133
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_007_86de3230": {
+      "builder_id": "g006_007_86de3230",
+      "perf": -1.6749975585936454,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_007_86de3230",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.6749975585936454,
+        "final_score": -1.6749975585936454,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_softmax_tuned",
+          "intuition": "Adjusting the pair weight modulation by tuning the temperature parameter in the softmax to balance sensitivity to gap scaled by objective_std, aiming for more stable and effective weights under reweight_only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_softmax",
+            "exp",
+            "scatter_max",
+            "scatter_sub",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    eps = 1e-6\n    thr = float(extra.get('gap_temperature', 0.25))  # Tuned softmax temperature\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_scale = feature_cache['instance_obj_std']\n    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)\n    max_gap_per_instance = torch.full((objective.shape[0],), float('-inf'), device=objective.device, dtype=objective.dtype)\n    max_gap_per_instance.scatter_reduce_(0, b_idx, gap_scaled, reduce='amax', include_self=True)\n    gap_normalized = gap_scaled - max_gap_per_instance[b_idx]\n    exp_gap = torch.exp(gap_normalized / thr)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = exp_gap.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.4100097656249773,
+      "threshold": -3.4100097656249773,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -1.6749975585936454
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_006_34ae7d53": {
+      "builder_id": "g006_006_34ae7d53",
+      "perf": 0.0,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_006_34ae7d53",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.0,
+        "final_score": null,
+        "stage": "gate",
+        "stage_final": "none",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_gate_only",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_sigmoid_instance_mod",
+          "intuition": "Weight pairs by gap scaled by instance-level objective MAD and modulated by a sigmoid blend of rank difference scaled by instance regret std, ensuring instance-conditioned, nonnegative weights with stable clamping under reweight_only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_eps_guard"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "clamp_min",
+            "sub",
+            "div",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_sigmoid_instance_mod', 'weight_family': 'gap_rank_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 3.0))\n    regret_std_clamped = instance_regret_std[b_idx].clamp_min(eps)\n    sigmoid_blend = 1.0 / (1.0 + (-beta * rank_diff * regret_std_clamped).exp())\n    raw_weight = norm_gap * sigmoid_blend * regret_std_clamped\n    weight = raw_weight.clamp(min=0.1, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_sigmoid_instance_mod', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.4100097656249773,
+      "threshold": -3.4100097656249773,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.0949963378907341
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g006_004_8a5df452": {
+      "builder_id": "g006_004_8a5df452",
+      "perf": -3.4100097656249773,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_004_8a5df452",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -3.4100097656249773,
+        "final_score": -3.4100097656249773,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_rank_blend_sqrt_range_clamp",
+          "intuition": "Reweight all pairs by positive normalized margin blended with rank differences, using instance_obj_range as normalization with square root scaling for smoother conditioning, preserving fixed all-pairs topology and stable clamping.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_range",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "clamp"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "sqrt",
+            "div",
+            "sigmoid",
+            "mul",
+            "pow"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_clamp', 'weight_family': 'margin_rank_blend'})\n    margin_raw = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin_raw / instance_obj_range[b_idx].clamp_min(eps)\n    # Use square root scaling of normalized margin for smooth conditioning\n    scaled_margin = norm_margin.sqrt()\n    # Scale by instance regret std for instance conditioning\n    scaled_margin = scaled_margin * instance_regret_std[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 6.0))\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).sqrt()\n    raw_weight = scaled_margin * blend * instance_modulation\n    weight = raw_weight.clamp(min=0.15, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_clamp', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -3.4100097656249773,
+      "threshold": -3.4100097656249773,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -3.4100097656249773
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g006_003_6504dfd8": {
+      "builder_id": "g006_003_6504dfd8",
+      "perf": -0.6099884033202443,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g006_003_6504dfd8",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -0.6099884033202443,
+        "final_score": -0.6099884033202443,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 6,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_regret_blend_clamp_eps_guard_v1",
+          "intuition": "Weights pairs by margin normalized by instance_obj_mad and modulated via a smooth sigmoid blend on rank difference scaled by instance_regret_std, switching the weighting family to margin_regret_blend to satisfy paradigm shift while retaining epsilon clamp guards and full all-pairs coverage.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_mean",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_regret_blend",
+            "constraint_family": "clamp_eps_guard"
+          },
+          "operators_used": [
+            "all_pairs",
+            "margin_regret_blend",
+            "exp",
+            "clamp",
+            "pow",
+            "mul",
+            "sub",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_regret_blend_clamp_eps_guard_v1', 'weight_family': 'margin_regret_blend'})\n    margin = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 5.0))\n    base_weight = norm_margin.pow(alpha)\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).pow(alpha)\n    raw_weight = base_weight * blend * instance_modulation\n    weight = raw_weight.clamp(min=0.2, max=3.5)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_regret_blend_clamp_eps_guard_v1', 'weight_family': 'margin_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.4100097656249773,
+      "threshold": -3.4100097656249773,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.6099884033202443
+      ],
+      "generation": 6,
+      "phase": "builder"
+    },
+    "g007_004_47015932": {
+      "builder_id": "g007_004_47015932",
+      "perf": -1.1099932861327488,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_004_47015932",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.1099932861327488,
+        "final_score": -1.1099932861327488,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_rank_blend_sqrt_range_tiezone",
+          "intuition": "Reweight all pairs by positive normalized margin blended with rank differences using instance_obj_range, applying tie-zone filtering to zero near-equal margin pairs for stability while preserving pairwise topology and clamp-based bounds.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_range",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "tie_zone"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "sqrt",
+            "div",
+            "sigmoid",
+            "mul",
+            "pow",
+            "abs"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    tie_zone = float(extra.get('tie_zone', 0.05))\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_tiezone', 'weight_family': 'margin_rank_blend'})\n    margin_raw = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin_raw / instance_obj_range[b_idx].clamp_min(eps)\n    scaled_margin = norm_margin.sqrt()\n    scaled_margin = scaled_margin * instance_regret_std[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 6.0))\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).sqrt()\n    raw_weight = scaled_margin * blend * instance_modulation\n    # Tie-zone filtering: zero weights when normalized margin below tie_zone\n    raw_weight = raw_weight * (norm_margin > tie_zone).to(dtype=raw_weight.dtype)\n    weight = raw_weight.clamp(min=0.15, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_tiezone', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -4.589993896484202,
+      "threshold": -4.589993896484202,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -1.1099932861327488
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_011_e831fe4a": {
+      "builder_id": "g007_011_e831fe4a",
+      "perf": -2.0250030517577216,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_011_e831fe4a",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -2.0250030517577216,
+        "final_score": -2.0250030517577216,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "gap_rank_blend_mad_exp_window_mod",
+          "intuition": "Reweights all pairs by positive objective gap normalized by instance MAD, modulated by an exponential window on rank difference for smooth nonlinear blending, replacing sigmoid with a smoother weighting and applying clamping after blending.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "instance_obj_mad",
+              "rank"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "clamp_min",
+            "sub",
+            "div",
+            "exp",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    eps = 1e-8\n    # Mask pairs where winner objective > loser objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'gap_rank_blend_mad_exp_window_mod', 'weight_family': 'gap_rank_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = (rank[b_idx, loser_idx] - rank[b_idx, winner_idx]).abs()\n    beta = float(extra.get('weight_beta', 3.0))\n    # Smooth exponential window decreasing weight with rank difference\n    rank_mod = ( - beta * rank_diff ).exp()\n    # Blend normalized gap and rank modulation multiplicatively\n    raw_weight = norm_gap * rank_mod\n    # Clamp weight for numerical stability and bounded influence\n    weight = raw_weight.clamp(min=0.05, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'gap_rank_blend_mad_exp_window_mod', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -4.589993896484202,
+      "threshold": -4.589993896484202,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -2.0250030517577216
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_009_4b0bdbf0": {
+      "builder_id": "g007_009_4b0bdbf0",
+      "perf": 0.47499694824227845,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_009_4b0bdbf0",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 0.47499694824227845,
+        "final_score": 0.47499694824227845,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweighted_all_pairs_instance_fusion",
+          "intuition": "Combine the pairwise gap and rank signals from parent ideas to produce a robust, instance-conditioned weighting scheme that emphasizes normalized margin and rank difference, with adaptive clamping for numerical stability. This leverages the strengths of existing methods while exploring a novel blend that enhances stability and expressiveness under reweight_only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "div",
+            "clamp",
+            "sqrt",
+            "sigmoid",
+            "mul",
+            "pow",
+            "max"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    # Build pairwise mask for winner < loser based on objective\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'reweighted_all_pairs_instance_fusion', 'weight_family': 'gap_rank_blend'})\n    # Calculate normalized margin using objective difference scaled by MAD\n    margin = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin / instance_obj_mad[b_idx].clamp_min(eps)\n    # Square root scaling for smoother conditioning\n    scaled_margin = norm_margin.sqrt()\n    # Modulate by instance regret std for each pair\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).sqrt()\n    # Incorporate rank difference scaled by instance std\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    rank_blend_factor = 1.0 / (1.0 + (-5.0 * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    # Final weight combines normalized margin, rank blend, and instance modulation\n    raw_weight = scaled_margin * rank_blend_factor * instance_modulation\n    # Clamp for numerical stability and non-negativity\n    final_weight = raw_weight.clamp(0.2, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=final_weight, meta={'builder': 'reweighted_all_pairs_instance_fusion', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -4.589993896484202,
+      "threshold": -4.589993896484202,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.47499694824227845
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_003_f7a2a147": {
+      "builder_id": "g007_003_f7a2a147",
+      "perf": -4.454997558593732,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_003_f7a2a147",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -4.454997558593732,
+        "final_score": -4.454997558593732,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_rank_blend_sqrt_range_clamp",
+          "intuition": "Reweight all pairs by positive normalized gap blended with rank differences, using instance_obj_range as normalization with square root scaling and instance regret std scaling for stable, instance-conditioned weighting, preserving fixed all-pairs topology and clamping for numeric stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_median",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_rank_blend",
+            "constraint_family": "clamp"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "sqrt",
+            "div",
+            "sigmoid",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_rank_blend_sqrt_range_clamp', 'weight_family': 'gap_rank_blend'})\n    gap_raw = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap_raw / instance_obj_range[b_idx].clamp_min(eps)\n    scaled_gap = norm_gap.sqrt() * instance_regret_std[b_idx].clamp_min(eps).sqrt()\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 6.0))\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    raw_weight = scaled_gap * blend\n    weight = raw_weight.clamp(min=0.15, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_rank_blend_sqrt_range_clamp', 'weight_family': 'gap_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -4.589993896484202,
+      "threshold": -4.589993896484202,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -4.454997558593732
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g007_008_2fd3ec71": {
+      "builder_id": "g007_008_2fd3ec71",
+      "perf": -4.589993896484202,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g007_008_2fd3ec71",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -4.589993896484202,
+        "final_score": -4.589993896484202,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 7,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_regret_blend_v1",
+          "intuition": "Shift weighting paradigm to blend normalized positive gap with instance regret mean modulation, leveraging a smooth sigmoid of rank difference for non-linear blending under fixed all-pairs topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_mad",
+              "instance_regret_mean"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sigmoid",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_mean = feature_cache['instance_regret_mean']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_regret_blend_v1', 'weight_family': 'gap_regret_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 0.9))\n    beta = float(extra.get('beta', 3.5))\n    gamma = float(extra.get('gamma', 0.75))\n    base_weight = norm_gap * (instance_regret_mean[b_idx].clamp_min(eps).pow(alpha))\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    weight_raw = base_weight * blend + 0.05 * (instance_regret_mean[b_idx].clamp_min(eps).pow(gamma))\n    weight = weight_raw.clamp(0.1, 3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_regret_blend_v1', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -4.589993896484202,
+      "threshold": -4.589993896484202,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -4.589993896484202
+      ],
+      "generation": 7,
+      "phase": "builder"
+    },
+    "g008_000_a707a55d": {
+      "builder_id": "g008_000_a707a55d",
+      "perf": -2.429996948242092,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_000_a707a55d",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -2.429996948242092,
+        "final_score": -2.429996948242092,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_margin_rank_blend_sqrt_range_tiezone",
+          "intuition": "Inject tie-zone suppression on normalized margins to explicitly constrain overly similar pairs, preserving original margin_rank_blend weighting with stable sqrt-range scaling.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_range",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "margin_rank_blend",
+            "constraint_family": "tie_zone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "sqrt",
+            "div",
+            "sigmoid",
+            "mul",
+            "pow",
+            "abs",
+            "logical_and"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_tiezone', 'weight_family': 'margin_rank_blend'})\n    margin_raw = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin_raw / instance_obj_range[b_idx].clamp_min(eps)\n    scaled_margin = norm_margin.sqrt()\n    scaled_margin = scaled_margin * instance_regret_std[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 6.0))\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).sqrt()\n    raw_weight = scaled_margin * blend * instance_modulation\n    # Tie-zone suppression: zero weights where norm_margin is very small (near zero margin pairs)\n    tie_zone_eps = float(extra.get('tie_zone_eps', 0.02))\n    tie_zone_mask = (norm_margin > tie_zone_eps)  \n    final_weight = raw_weight * tie_zone_mask.float()\n    # Clamp weights to stable range\n    weight = final_weight.clamp(min=0.15, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_tiezone', 'weight_family': 'margin_rank_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.4799999999999045,
+      "threshold": -3.4799999999999045,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -2.429996948242092
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g008_003_86f441fc": {
+      "builder_id": "g008_003_86f441fc",
+      "perf": -3.4799999999999045,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_003_86f441fc",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -3.4799999999999045,
+        "final_score": -3.4799999999999045,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_regret_blend_v2",
+          "intuition": "Weight all pairs by normalized positive gap blended with a sigmoid of rank difference, modulated by instance regret max powered by gamma, providing a new instance-conditioned regret blend paradigm under full all-pairs topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_std",
+              "instance_regret_max"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sigmoid",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "pow",
+            "exp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_std = feature_cache['instance_obj_std']\n    instance_regret_max = feature_cache['instance_regret_max']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_regret_blend_v2', 'weight_family': 'gap_regret_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_std[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    alpha = float(extra.get('alpha', 1.0))\n    beta = float(extra.get('beta', 4.0))\n    gamma = float(extra.get('gamma', 1.0))\n    base_weight = norm_gap.pow(alpha) * (instance_regret_max[b_idx].clamp_min(eps).pow(gamma))\n    blend = 1.0 / (1.0 + (-(beta * rank_diff)).exp())\n    raw_weight = base_weight * blend + 0.05 * (instance_regret_max[b_idx].clamp_min(eps).pow(gamma * 0.5))\n    weight = raw_weight.clamp(0.1, 3.5)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_regret_blend_v2', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -3.4799999999999045,
+      "threshold": -3.4799999999999045,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -3.4799999999999045
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g008_001_89ca9fb6": {
+      "builder_id": "g008_001_89ca9fb6",
+      "perf": 1.2950146484375864,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g008_001_89ca9fb6",
+        "f_id": "fseed_000_4bb86b21",
+        "score": 1.2950146484375864,
+        "final_score": 1.2950146484375864,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 8,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_linear_instance_std_mod_v1",
+          "intuition": "Use a direct linear gap weighting normalized by instance objective standard deviation and modulated by instance regret std to produce smooth nonnegative weights, preserving all-pairs topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "instance_obj_std",
+              "instance_regret_std"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "div",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_std = feature_cache['instance_obj_std']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-8\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_linear_instance_std_mod_v1', 'weight_family': 'gap_linear'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_std[b_idx].clamp_min(eps)\n    gamma = float(extra.get('gamma', 1.0))\n    instance_mod = instance_regret_std[b_idx].clamp_min(eps).pow(gamma)\n    weight_raw = norm_gap * instance_mod\n    weight = weight_raw.clamp(min=0.05, max=4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_linear_instance_std_mod_v1', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -3.4799999999999045,
+      "threshold": -3.4799999999999045,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        1.2950146484375864
+      ],
+      "generation": 8,
+      "phase": "builder"
+    },
+    "g009_002_18798e31": {
+      "builder_id": "g009_002_18798e31",
+      "perf": -1.680004272460792,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_002_18798e31",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -1.680004272460792,
+        "final_score": -1.680004272460792,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "pairwise_weight_crossover",
+          "intuition": "Combine the pairwise gap and rank difference signals conditioned on instance statistics, integrating the gap_regret_blend approach with the monotonic rank modulation of parent 0. This leverages the robustness of gap normalization with adaptive modulation via instance maximum regret, while incorporating a sigmoid-based rank blend for smoothness and stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "rank",
+              "instance_obj_max",
+              "instance_regret_max"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_regret_blend",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sigmoid",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "pow",
+            "max"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_max = feature_cache['instance_obj_max']\n    instance_regret_max = feature_cache['instance_regret_max']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'pairwise_weight_crossover', 'weight_family': 'gap_regret_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / (instance_obj_max[b_idx].clamp_min(eps))\n    rank_diff = (rank[b_idx, loser_idx] - rank[b_idx, winner_idx])\n    # Sigmoid blend on rank difference for smooth monotonicity\n    rank_blend = 1.0 / (1.0 + (-(float(extra.get('rank_blend_factor', 4.0)) * rank_diff)).exp())\n    # Base weight: normalized gap blended by instance regret max, modulated by rank blend\n    base_weight = norm_gap.pow(float(extra.get('gap_power', 1.0))) * (instance_regret_max[b_idx].clamp_min(eps).pow(float(extra.get('regret_power', 1.0))))\n    # Combined weight with rank blending\n    weight = base_weight * rank_blend\n    # Clamp for stability\n    weight = weight.clamp(0.1, 4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'pairwise_weight_crossover', 'weight_family': 'gap_regret_blend'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": true,
+      "best_perf": -1.680004272460792,
+      "threshold": -1.680004272460792,
+      "slack": 0.0,
+      "selection_sort_key": [
+        0.0,
+        960.0,
+        -1.680004272460792
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_000_20df58e8": {
+      "builder_id": "g009_000_20df58e8",
+      "perf": -0.3849920654296284,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_000_20df58e8",
+        "f_id": "fseed_000_4bb86b21",
+        "score": -0.3849920654296284,
+        "final_score": -0.3849920654296284,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_linear_regret_max_clamp_fixed",
+          "intuition": "Weight all pairs by normalized positive gap scaled by instance regret max powered by gamma, clamped for stability, preserving full all-pairs topology and the gap_linear weighting paradigm without using unavailable keys.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "instance_obj_std",
+              "instance_regret_median"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "div",
+            "sub",
+            "mul",
+            "pow"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    instance_obj_std = feature_cache['instance_obj_std']\n    instance_regret_max = feature_cache['instance_regret_max']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_linear_regret_max_clamp_fixed', 'weight_family': 'gap_linear'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_std[b_idx].clamp_min(eps)\n    gamma = float(extra.get('gamma', 1.0))\n    instance_mod = instance_regret_max[b_idx].clamp_min(eps).pow(gamma)\n    raw_weight = norm_gap * instance_mod\n    weight = raw_weight.clamp(min=0.1, max=4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_linear_regret_max_clamp_fixed', 'weight_family': 'gap_linear'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": -1.680004272460792,
+      "threshold": -1.680004272460792,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        -0.3849920654296284
+      ],
+      "generation": 9,
+      "phase": "builder"
+    }
+  },
+  "best_pair_ids": {
+    "builder_id": "g007_008_2fd3ec71",
+    "loss_id": "fseed_000_4bb86b21"
+  },
+  "best_score": -4.589993896484202,
+  "best_stage_final": "high_fidelity",
+  "best_gen": 7,
+  "best_phase": "builder",
+  "best_pair_score_history": [
+    {
+      "generation": 7,
+      "pair_index": 12,
+      "phase": "builder",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -4.589993896484202,
+      "eval_budget_signature": "42e3c848d65b8fe7",
+      "reference_score": -4.454997558593732
+    }
+  ],
+  "best_pair_score_history_summary": {
+    "count": 1,
+    "scores": [
+      -4.589993896484202
+    ],
+    "best": -4.589993896484202,
+    "worst": -4.589993896484202,
+    "mean": -4.589993896484202,
+    "latest": -4.589993896484202
+  }
+}

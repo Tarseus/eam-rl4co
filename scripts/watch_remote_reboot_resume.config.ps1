@@ -24,7 +24,7 @@ $WatchRemoteRebootResumeConfig = @{
         "-oServerAliveCountMax=3"
     )
 
-    RemotePythonBin       = "/data1/gushengda/anaconda3/envs/rlco1/bin/python3.11"
+    RemotePythonBin       = "/data1/gushengda/anaconda3/envs/rlco1/bin/python"
     RemoteLogDir          = "logs"
     LogTz                 = "Asia/Shanghai"
     LogLevel              = "INFO"

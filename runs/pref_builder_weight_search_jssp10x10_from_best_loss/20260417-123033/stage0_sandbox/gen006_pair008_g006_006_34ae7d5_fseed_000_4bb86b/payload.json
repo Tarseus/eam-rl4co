@@ -1,0 +1,118 @@
+{
+  "generation": 6,
+  "pair_index": 8,
+  "g_entry": {
+    "id": "g006_006_34ae7d53",
+    "ir": {
+      "name": "all_pairs_gap_sigmoid_instance_mod",
+      "intuition": "Weight pairs by gap scaled by instance-level objective MAD and modulated by a sigmoid blend of rank difference scaled by instance regret std, ensuring instance-conditioned, nonnegative weights with stable clamping under reweight_only constraints.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob",
+          "instance_obj_mad",
+          "rank"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_rank_blend",
+        "constraint_family": "clamp_eps_guard"
+      },
+      "operators_used": [
+        "all_pairs",
+        "clamp",
+        "clamp_min",
+        "sub",
+        "div",
+        "mul",
+        "exp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_sigmoid_instance_mod', 'weight_family': 'gap_rank_blend'})\n    gap = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_gap = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 3.0))\n    regret_std_clamped = instance_regret_std[b_idx].clamp_min(eps)\n    sigmoid_blend = 1.0 / (1.0 + (-beta * rank_diff * regret_std_clamped).exp())\n    raw_weight = norm_gap * sigmoid_blend * regret_std_clamped\n    weight = raw_weight.clamp(min=0.1, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_sigmoid_instance_mod', 'weight_family': 'gap_rank_blend'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_4bb86b21",
+    "ir": {
+      "name": "refined_hyperparameter_tuning_M2_v3_unique",
+      "intuition": "To reduce similarity to the previous version, I replaced the L2 norm normalization with a stable L1 norm-based normalization (mean absolute advantage_gap), removed tanh to avoid duplicating a smooth transform, and replaced the logsigmoid link with sigmoid and its negative log. This switched to a different smooth margin margin style. Also added a small epsilon in denominator for numeric stability. These changes preserve the pairwise margin paradigm and use advantage_gap, but the math shape and key ops differ significantly, improving novelty while maintaining efficacy.",
+      "pseudocode": "epsilon=1e-6\nnorm_adv = mean(abs(advantage_gap))\nnorm_adv = max(norm_adv, epsilon)\ndiff = (log_prob_w - log_prob_l) / norm_adv\nloss = -log(sigmoid(diff))\nweighted_loss = loss * weight\nreturn sum(weighted_loss) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "sigmoid",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "symmetric_smooth"
+      },
+      "operators_used": [
+        "sigmoid",
+        "log",
+        "neg",
+        "mul",
+        "div",
+        "sub",
+        "sum",
+        "mean",
+        "abs",
+        "maximum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    abs_adv = ops.abs(advantage_gap)\n    mean_abs_adv = ops.mean(abs_adv)\n    norm_adv = ops.maximum(mean_abs_adv, epsilon)\n    diff = ops.div(ops.sub(lpw, lpl), norm_adv)\n    sigmoid_diff = ops.sigmoid(diff)\n    loss = ops.neg(ops.log(sigmoid_diff))\n    weighted_loss = ops.mul(loss, weight)\n    loss_sum = ops.sum(weighted_loss)\n    weight_sum = ops.sum(weight)\n    return ops.div(loss_sum, ops.maximum(weight_sum, epsilon))",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
