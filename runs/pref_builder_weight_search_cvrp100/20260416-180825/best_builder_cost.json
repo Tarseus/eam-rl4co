@@ -1,28 +1,28 @@
 {
-  "builder_id": "g000_004_75a9f5fa",
+  "builder_id": "g000_013_5b9ce761",
   "cost": 960.0,
-  "perf": 0.028486013412475586,
+  "perf": 0.0,
   "metric_mode": "minimize",
   "slack": 0.0,
-  "best_perf": 0.028486013412475586,
-  "best_perf_anchor": 0.028486013412475586,
-  "threshold": 0.028486013412475586,
-  "generation": 0,
+  "best_perf": 0.0,
+  "best_perf_anchor": 0.0,
+  "threshold": 0.0,
+  "generation": 1,
   "phase": "builder",
   "perf_ref": {
-    "g_id": "g000_004_75a9f5fa",
+    "g_id": "g000_013_5b9ce761",
     "f_id": "fseed_000_3c3e0ea7",
-    "score": 0.028486013412475586,
-    "final_score": 0.028486013412475586,
-    "stage": "high_fidelity",
-    "stage_final": "high_fidelity",
+    "score": 0.0,
+    "final_score": null,
+    "stage": "gate",
+    "stage_final": "none",
     "phase": "builder",
-    "generation": 0,
-    "pair_reason": "ok_stage3_offline_minitrain",
+    "generation": 1,
+    "pair_reason": "ok_gate_only",
     "pair_ok": true,
     "g_ir": {
-      "name": "all_pairs_gap_sigmoid_scaled",
-      "intuition": "Vectorized weighting of all pairs by a sigmoid of the positive gap with configurable sigmoid center and sharpness, clamped to ensure nonnegativity and no per-instance normalization, preserving dense all-pair topology.",
+      "name": "builder_all_pairs_gap_sigmoid_bandpass_010",
+      "intuition": "preserve all_pairs geometry, reweight with a smooth bandpass sigmoid emphasizing medium gaps",
       "implementation_hint": {
         "expects": [
           "objective",
@@ -34,24 +34,22 @@
       "hyperparams": {
         "geometry_family": "dense_all_pairs",
         "cap_family": "uncapped_full",
-        "weight_family": "gap_sigmoid_scaled_clamped",
+        "weight_family": "gap_sigmoid_bandpass",
         "constraint_family": "clamp_only"
       },
       "operators_used": [
         "all_pairs",
         "sigmoid",
-        "clamp",
-        "sub",
-        "mul"
+        "clamp"
       ],
-      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 1.5))\n    tau = float(extra.get('weight_tau', 3.0))\n    weight_raw = (gap - beta) * tau\n    weight_sig = weight_raw.sigmoid()\n    weight = weight_sig.clamp(min=0.25, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled_clamped'})"
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    # bandpass with sigmoid: amplify mid-range gaps, suppress very small and very large\n    tau = float(extra.get('weight_tau', 1.0))\n    beta = float(extra.get('weight_beta', 5.0))\n    s1 = 1.0 / (1.0 + (-(raw - 0.3 * tau) * beta).exp())  # rising sigmoid centered near 0.3 * tau\n    s2 = 1.0 / (1.0 + (-(raw - 0.7 * tau) * -beta).exp()) # falling sigmoid centered near 0.7 * tau\n    weight_raw = raw * (s1 * s2)\n    clamp_lo = 0.1\n    clamp_hi = 3.0\n    weight = weight_raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})"
     },
     "cost": 960.0
   },
-  "feasible_count": 1,
+  "feasible_count": 8,
   "ir": {
-    "name": "all_pairs_gap_sigmoid_scaled",
-    "intuition": "Vectorized weighting of all pairs by a sigmoid of the positive gap with configurable sigmoid center and sharpness, clamped to ensure nonnegativity and no per-instance normalization, preserving dense all-pair topology.",
+    "name": "builder_all_pairs_gap_sigmoid_bandpass_010",
+    "intuition": "preserve all_pairs geometry, reweight with a smooth bandpass sigmoid emphasizing medium gaps",
     "implementation_hint": {
       "expects": [
         "objective",
@@ -63,16 +61,14 @@
     "hyperparams": {
       "geometry_family": "dense_all_pairs",
       "cap_family": "uncapped_full",
-      "weight_family": "gap_sigmoid_scaled_clamped",
+      "weight_family": "gap_sigmoid_bandpass",
       "constraint_family": "clamp_only"
     },
     "operators_used": [
       "all_pairs",
       "sigmoid",
-      "clamp",
-      "sub",
-      "mul"
+      "clamp"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    beta = float(extra.get('weight_beta', 1.5))\n    tau = float(extra.get('weight_tau', 3.0))\n    weight_raw = (gap - beta) * tau\n    weight_sig = weight_raw.sigmoid()\n    weight = weight_sig.clamp(min=0.25, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled_clamped'})"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = b_idx.numel()\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    # bandpass with sigmoid: amplify mid-range gaps, suppress very small and very large\n    tau = float(extra.get('weight_tau', 1.0))\n    beta = float(extra.get('weight_beta', 5.0))\n    s1 = 1.0 / (1.0 + (-(raw - 0.3 * tau) * beta).exp())  # rising sigmoid centered near 0.3 * tau\n    s2 = 1.0 / (1.0 + (-(raw - 0.7 * tau) * -beta).exp()) # falling sigmoid centered near 0.7 * tau\n    weight_raw = raw * (s1 * s2)\n    clamp_lo = 0.1\n    clamp_hi = 3.0\n    weight = weight_raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_bandpass'})"
   }
 }
