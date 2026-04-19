@@ -1,0 +1,119 @@
+{
+  "generation": 2,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g001_010_11058c93",
+    "ir": {
+      "name": "builder_all_pairs_gap_bandpass_weighted",
+      "intuition": "All pairs geometry with gap-based bandpass weighting to emphasize intermediate gap strengths, avoiding extremes and preserving all pairs structure under clamp constraints.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_bandpass_clamped",
+        "constraint_family": "clamp_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "clamp",
+        "sub",
+        "mul",
+        "min",
+        "max"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass_clamped'})\n\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n\n    # Bandpass parameters - emphasize mid-range gaps\n    low_thresh = float(extra.get('bandpass_low', 0.3))\n    high_thresh = float(extra.get('bandpass_high', 2.5))\n    tau = float(extra.get('weight_tau', 1.0))\n\n    # Weight ramps linearly from 0 at low_thresh to 1 at midpoint\n    midpoint = 0.5 * (low_thresh + high_thresh)\n    # Ramp up factor (0 at low_thresh, 1 at midpoint)\n    ramp_up = (gap_pos - low_thresh).clamp(min=0.0, max=midpoint - low_thresh) / max(midpoint - low_thresh, 1e-6)\n    # Ramp down factor (1 at midpoint, 0 at high_thresh)\n    ramp_down = (high_thresh - gap_pos).clamp(min=0.0, max=high_thresh - midpoint) / max(high_thresh - midpoint, 1e-6)\n\n    weight_unclamped = tau * gap_pos * ramp_up * ramp_down\n\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 3.0))\n    weight = weight_unclamped.clamp(min=clamp_lo, max=clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass_clamped'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_3c3e0ea7",
+    "ir": {
+      "name": "pairwise_margin_adaptive_scaled_bias_v8_distinct_fixed_repaired_clamped_weight",
+      "intuition": "Ensures stable weight variance by clamping weights to prevent zero variance, preserving original adaptive scaled bias and delta_rank margin scaling.",
+      "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + eps\ndelta_rank_mean = mean(delta_rank)\ndiff = delta_rank - delta_rank_mean\ndelta_rank_var = mean(diff * diff) + eps\ndelta_rank_std = sqrt(delta_rank_var)\ncv = delta_rank_std / abs_delta_rank_mean\nbeta = 0.15 * sigmoid(-15 * (cv - 0.2))\nbias_dynamic = bias * softplus(0.5 * delta_rank) / (abs_delta_rank_mean + 0.2)\nscaled_bias = tanh(gamma * bias_dynamic)\nmargin_scale_raw = delta_rank_std / (abs_delta_rank_mean + 0.1)\nmargin_scale = 1.3 * sigmoid(12 * (margin_scale_raw - 0.15))\nscaled_margin = margin * margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -14, 14)\nclamped_weight = clamp(weight, min=eps)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * clamped_weight\nloss = sum(weighted_loss)\nreturn loss.mean()",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "delta_rank",
+        "link_family": "logsigmoid",
+        "agg_family": "sum",
+        "constraint_family": "adaptive_scaled_bias_dynamic_v4"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "add",
+        "sub",
+        "neg",
+        "sum",
+        "abs",
+        "mean",
+        "div",
+        "sqrt",
+        "tanh",
+        "sigmoid",
+        "softplus"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 2.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + eps\n    delta_rank_mean = ops.mean(delta_rank)\n    diff = ops.sub(delta_rank, delta_rank_mean)\n    delta_rank_var = ops.mean(ops.mul(diff, diff)) + eps\n    delta_rank_std = ops.sqrt(delta_rank_var)\n\n    cv = ops.div(delta_rank_std, abs_delta_rank_mean)\n    beta = ops.mul(0.15, ops.sigmoid(ops.neg(ops.mul(15.0, ops.sub(cv, 0.2)))))\n\n    sp_arg = ops.mul(0.5, delta_rank)\n    bias_dynamic = ops.div(ops.mul(bias, ops.softplus(sp_arg)), ops.add(abs_delta_rank_mean, 0.2))\n    scaled_bias = ops.tanh(ops.mul(gamma, bias_dynamic))\n\n    margin = ops.sub(lpw, lpl)\n    margin_scale_raw = ops.div(delta_rank_std, ops.add(abs_delta_rank_mean, 0.1))\n    margin_scale = ops.mul(1.3, ops.sigmoid(ops.mul(12.0, ops.sub(margin_scale_raw, 0.15))))\n    scaled_margin = ops.mul(margin, margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n\n    x = ops.clamp(biased_margin, -14.0, 14.0)\n\n    clamped_weight = ops.clamp(weight, eps, None)\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, clamped_weight)\n\n    loss = ops.sum(weighted_loss)\n    return loss.mean()",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

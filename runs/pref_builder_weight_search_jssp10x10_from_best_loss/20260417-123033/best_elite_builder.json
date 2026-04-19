@@ -1,0 +1,132 @@
+{
+  "generation": 6,
+  "index": 4,
+  "id": "g006_004_8a5df452",
+  "signature": "8a5df452ca70d3465aefb1a2e79587db3cbb7040",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=margin_rank_blend|constraint=clamp",
+  "origin": "PARADIGM_SHIFT",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "BUILDER_PARADIGM_SHIFT",
+  "parents": [
+    "g005_001_5fc1441e",
+    "g001_001_78171830",
+    "g004_000_987a6995",
+    "g005_003_bf91691c",
+    "g003_004_afb28088"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "29355076fbb580fae985ff54213b80ca83e51791",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+  "llm_seed": 411896097,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "prompt_sha1": "29355076fbb580fae985ff54213b80ca83e51791"
+    }
+  ],
+  "ir": {
+    "name": "all_pairs_margin_rank_blend_sqrt_range_clamp",
+    "intuition": "Reweight all pairs by positive normalized margin blended with rank differences, using instance_obj_range as normalization with square root scaling for smoother conditioning, preserving fixed all-pairs topology and stable clamping.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "rank",
+        "instance_obj_range",
+        "instance_regret_std"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "margin_rank_blend",
+      "constraint_family": "clamp"
+    },
+    "operators_used": [
+      "all_pairs",
+      "clamp",
+      "sub",
+      "sqrt",
+      "div",
+      "sigmoid",
+      "mul",
+      "pow"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_regret_std = feature_cache['instance_regret_std']\n    eps = 1e-6\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_clamp', 'weight_family': 'margin_rank_blend'})\n    margin_raw = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx]).clamp_min(0.0)\n    norm_margin = margin_raw / instance_obj_range[b_idx].clamp_min(eps)\n    # Use square root scaling of normalized margin for smooth conditioning\n    scaled_margin = norm_margin.sqrt()\n    # Scale by instance regret std for instance conditioning\n    scaled_margin = scaled_margin * instance_regret_std[b_idx].clamp_min(eps)\n    rank_diff = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta = float(extra.get('beta', 6.0))\n    blend = 1.0 / (1.0 + (-beta * rank_diff * instance_regret_std[b_idx].clamp_min(eps)).exp())\n    instance_modulation = instance_regret_std[b_idx].clamp_min(eps).sqrt()\n    raw_weight = scaled_margin * blend * instance_modulation\n    weight = raw_weight.clamp(min=0.15, max=3.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_sqrt_range_clamp', 'weight_family': 'margin_rank_blend'})"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": true,
+      "cv_threshold": 0.1,
+      "pass_rate_threshold": 0.75,
+      "eligible_instances": 8,
+      "observed_cv_values": [
+        0.45491781049546437,
+        0.45491781049546437,
+        0.45491781049546437,
+        0.4549178515856967,
+        0.45491781049546437,
+        0.45491781049546437,
+        0.45491781049546437,
+        0.4549178515856967
+      ]
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  },
+  "builder_perf": -3.4100097656249773,
+  "builder_cost": 960.0,
+  "builder_feasible": true,
+  "builder_threshold": -3.4100097656249773,
+  "builder_best_perf": -3.4100097656249773,
+  "selection_sort_key": [
+    0.0,
+    960.0,
+    -3.4100097656249773
+  ]
+}
