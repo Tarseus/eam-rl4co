@@ -1,0 +1,652 @@
+{
+  "generation": 5,
+  "pair_index": 6,
+  "g_id": "g000_001_b7b73ae8",
+  "f_id": "fseed_000_9cfa032c",
+  "g_ir": {
+    "name": "all_pairs_gap_linear_range_std_instance_cond_v5",
+    "intuition": "Weights pairs by objective gap scaled linearly and modulated multiplicatively by instance-level statistics including instance objective range and instance log-probability std deviation, explicitly conditioning pair weights on instance difficulty for stable and nonnegative weighting consistent across all pairs.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob",
+        "instance_obj_range",
+        "instance_log_prob_std"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_linear",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_linear",
+      "clamp",
+      "nan_to_num",
+      "reciprocal",
+      "mul"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_linear_range_std_instance_cond_v5', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_log_prob_std = feature_cache['instance_log_prob_std']\n    range_safe = instance_obj_range[b_idx].clamp_min(eps)\n    log_prob_std_safe = instance_log_prob_std[b_idx].clamp_min(eps)\n    inv_range = 1.0 / range_safe\n    inv_log_prob_std = 1.0 / log_prob_std_safe\n    # Instance-stat conditioned multiplicative modulation\n    instance_modulation = inv_range * inv_log_prob_std\n    raw_weight = gap * instance_modulation\n    weight = raw_weight.nan_to_num(nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = weight.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_linear_range_std_instance_cond_v5', 'weight_family': 'gap_linear'})"
+  },
+  "f_ir": {
+    "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4_repaired",
+    "intuition": "Fixes instance weight variance by safely accessing weight and advantage_gap with fallbacks, clamps norm margin division for numeric stability, preserves original margin scaling and weighted mean aggregation, and includes advantage_gap in expects.",
+    "pseudocode": "eps=1e-6\nlpw=batch['log_prob_w']\nlpl=batch['log_prob_l']\nweight=batch.get('weight', ones_like(lpw))\nadv_gap=batch.get('advantage_gap', zeros_like(lpw))\nmean_adv=mean(adv_gap)\nmargin=exp(clamp(abs(mean_adv),0,1))-1\nnorm_vals=norm(adv_gap)\nnorm=max(mean(norm_vals), eps)\nx_raw=(lpw - lpl)/norm\nx=margin*x_raw\nx=clamp(x,-20,20)\nloss=-logsigmoid(x)\nloss_w=loss*weight\nreturn sum(loss_w)/max(sum(weight), eps)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_mean",
+      "constraint_family": "normalization_exponential_margin"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "norm",
+      "mean",
+      "maximum",
+      "neg",
+      "mul",
+      "sub",
+      "div",
+      "abs",
+      "exp",
+      "sum",
+      "ones_like",
+      "zeros_like"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batch.get('advantage_gap', ops.zeros_like(lpw))\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), eps)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), eps))\n    return loss_mean",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:1",
+  "device_str": "cuda:1",
+  "device_physical_str": "cuda:1",
+  "device_logical_str": "cuda:0",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "a6a1026ec822d243",
+  "score": Infinity,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 1.0,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": null,
+  "descriptor": null,
+  "scheduler_launch_cuda_diag": {
+    "captured_at": "2026-04-18 15:49:55",
+    "cuda_visible_devices": "1,2,4,5",
+    "torch_cuda_available": true,
+    "torch_device_count": 4,
+    "requested_devices": [
+      "cuda:0",
+      "cuda:1",
+      "cuda:2",
+      "cuda:3"
+    ],
+    "torch_devices": [],
+    "nvidia_smi": {
+      "available": true,
+      "gpus": [
+        {
+          "index": 0,
+          "uuid": "GPU-d60dbc87-f9aa-7707-3d51-d221529af6c4",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 2,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 1,
+          "uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 2,
+          "uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 3,
+          "uuid": "GPU-5d955087-9d4e-305e-4e25-e659cb32b172",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 2,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 4,
+          "uuid": "GPU-7ef3bdec-8ec2-2c44-6c48-9a9e719997ae",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 5,
+          "uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        }
+      ],
+      "processes": [
+        {
+          "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
+          "gpu_index": 1,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        },
+        {
+          "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
+          "gpu_index": 2,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        },
+        {
+          "gpu_uuid": "GPU-7ef3bdec-8ec2-2c44-6c48-9a9e719997ae",
+          "gpu_index": 4,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        },
+        {
+          "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
+          "gpu_index": 5,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        }
+      ]
+    }
+  },
+  "worker_start_cuda_diag": {
+    "captured_at": "2026-04-18 15:49:57",
+    "cuda_visible_devices": "1",
+    "torch_cuda_available": true,
+    "torch_device_count": 1,
+    "requested_devices": [
+      "cuda:0"
+    ],
+    "torch_devices": [
+      {
+        "label": "cuda:0",
+        "index": 0,
+        "name": "NVIDIA GeForce RTX 3090",
+        "memory_total_mb": 24259,
+        "memory_free_mb": 23140,
+        "memory_used_mb": 1118,
+        "memory_allocated_mb": 0,
+        "memory_reserved_mb": 0,
+        "max_memory_allocated_mb": 0,
+        "max_memory_reserved_mb": 0
+      }
+    ],
+    "nvidia_smi": {
+      "available": true,
+      "gpus": [
+        {
+          "index": 0,
+          "uuid": "GPU-d60dbc87-f9aa-7707-3d51-d221529af6c4",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 256,
+          "util_gpu_pct": 2,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 1,
+          "uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 1118,
+          "util_gpu_pct": 2,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 2,
+          "uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 874,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 3,
+          "uuid": "GPU-5d955087-9d4e-305e-4e25-e659cb32b172",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 2,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 4,
+          "uuid": "GPU-7ef3bdec-8ec2-2c44-6c48-9a9e719997ae",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        },
+        {
+          "index": 5,
+          "uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
+          "name": "NVIDIA GeForce RTX 3090",
+          "memory_total_mb": 24576,
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
+        }
+      ],
+      "processes": [
+        {
+          "gpu_uuid": "GPU-d60dbc87-f9aa-7707-3d51-d221529af6c4",
+          "gpu_index": 0,
+          "pid": 112491,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 254
+        },
+        {
+          "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
+          "gpu_index": 1,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        },
+        {
+          "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
+          "gpu_index": 1,
+          "pid": 112494,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 254
+        },
+        {
+          "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
+          "gpu_index": 2,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        },
+        {
+          "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
+          "gpu_index": 2,
+          "pid": 112502,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 254
+        },
+        {
+          "gpu_uuid": "GPU-7ef3bdec-8ec2-2c44-6c48-9a9e719997ae",
+          "gpu_index": 4,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        },
+        {
+          "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
+          "gpu_index": 5,
+          "pid": 84375,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
+          "used_gpu_memory_mb": 862
+        }
+      ]
+    }
+  },
+  "hf_cuda_diagnostics": "hf_subprocess/gen005_pair006_cuda_1/cuda_diagnostics.jsonl",
+  "proxy_score": 0.0,
+  "joint_gate_repaired": true,
+  "joint_gate_repair_attempts": 2,
+  "f_id_before_repair": "fseed_000_9cfa032c",
+  "f_id_after_repair": "377416bb725dd1b090efd803133446013a8bae3d",
+  "joint_gate_repair_reports": [
+    {
+      "record_type": "joint_gate_repair_attempt",
+      "ts": "2026-04-18 15:49:59",
+      "generation": 5,
+      "pair_index": 6,
+      "stage": "joint_gate",
+      "g_id": "g000_001_b7b73ae8",
+      "f_id_before": "fseed_000_9cfa032c",
+      "attempt": 1,
+      "failure_kind_before": "sandbox_builder_gate_failed",
+      "joint_gate_trace_before": {
+        "failed_gate": "PreferenceBuilder",
+        "failure_kind": "sandbox_builder_gate_failed",
+        "metric": {
+          "metric_name": "instance_weight_cv_pass_rate",
+          "observed_value": 0.0,
+          "threshold": 0.75,
+          "direction": ">="
+        },
+        "cv_threshold": 0.1,
+        "eligible_instances": 8,
+        "observed_cv_min": 0.0,
+        "observed_cv_mean": 0.0,
+        "observed_cv_max": 0.0,
+        "sandbox": {
+          "reason": "builder gate failed: instance_weight_cv_too_low",
+          "result": "stage0_sandbox/gen005_pair006_g000_001_b7b73ae_fseed_000_9cfa03/result.json",
+          "log": "stage0_sandbox/gen005_pair006_g000_001_b7b73ae_fseed_000_9cfa03/subprocess.log",
+          "exit_code": 0
+        }
+      },
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": true,
+          "cv_threshold": 0.1,
+          "pass_rate_threshold": 0.75,
+          "eligible_instances": 8,
+          "observed_cv_values": [
+            0.6101802023714009,
+            0.6101802023714009,
+            0.6101802023714009,
+            0.610180247425704,
+            0.6101802023714009,
+            0.6101802023714009,
+            0.6101802023714009,
+            0.610180247425704
+          ]
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "code_before": {
+        "sha1": "24acfda48cfa53ae413b138960d332c813c078a0",
+        "length": 715,
+        "prefix": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n ",
+        "suffix": "-20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean"
+      },
+      "static_ok": false,
+      "compile_ok": false,
+      "final_ok": false,
+      "repair_call_ok": true,
+      "repair_prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_forward_error_repair.txt",
+      "expects_repair_ok": true,
+      "f_id_after": "d1868ce2a525064ab791826203d86ada8aaf3d8b",
+      "code_after": {
+        "sha1": "622e056263f92fc45158d32db1a57bf06419b9fb",
+        "length": 752,
+        "prefix": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batc",
+        "suffix": "(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), eps))\n    return loss_mean"
+      },
+      "static_reason": "implementation_hint.expects must include at least one objective signal from {delta_z, delta_rank, delta_regret, cost_a, cost_b, cost_gap, advantage_w, advantage_l, advantage_gap}.",
+      "static_trace": null,
+      "joint_gate_trace_after": null
+    },
+    {
+      "record_type": "joint_gate_repair_attempt",
+      "ts": "2026-04-18 15:49:59",
+      "generation": 5,
+      "pair_index": 6,
+      "stage": "joint_gate",
+      "g_id": "g000_001_b7b73ae8",
+      "f_id_before": "fseed_000_9cfa032c",
+      "attempt": 2,
+      "failure_kind_before": null,
+      "joint_gate_trace_before": null,
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": true,
+          "cv_threshold": 0.1,
+          "pass_rate_threshold": 0.75,
+          "eligible_instances": 8,
+          "observed_cv_values": [
+            0.6101802023714009,
+            0.6101802023714009,
+            0.6101802023714009,
+            0.610180247425704,
+            0.6101802023714009,
+            0.6101802023714009,
+            0.6101802023714009,
+            0.610180247425704
+          ]
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "code_before": {
+        "sha1": "622e056263f92fc45158d32db1a57bf06419b9fb",
+        "length": 752,
+        "prefix": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batc",
+        "suffix": "(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), eps))\n    return loss_mean"
+      },
+      "static_ok": true,
+      "compile_ok": true,
+      "final_ok": true,
+      "repair_call_ok": true,
+      "repair_prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_forward_error_repair.txt",
+      "expects_repair_ok": true,
+      "f_id_after": "377416bb725dd1b090efd803133446013a8bae3d",
+      "code_after": {
+        "sha1": "622e056263f92fc45158d32db1a57bf06419b9fb",
+        "length": 752,
+        "prefix": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    advantage_gap = batc",
+        "suffix": "(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), eps))\n    return loss_mean"
+      },
+      "static_reason": "",
+      "static_trace": null,
+      "joint_gate_trace_after": {
+        "failed_gate": null,
+        "failure_kind": null,
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 0.6899080276489258,
+          "loss_swap": 0.6963991522789001,
+          "swap_ok": true,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 0.6899080276489258
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [],
+        "variant": "visible"
+      }
+    }
+  ],
+  "builder_gate_repaired": false,
+  "builder_gate_repair_attempts": 0,
+  "g_id_before_repair": null,
+  "g_id_after_repair": null,
+  "builder_gate_repair_reports": [],
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "sandbox_gate": {
+    "ok": false,
+    "generation": 5,
+    "pair_index": 6,
+    "failure_kind": "sandbox_builder_gate_failed",
+    "reason": "builder gate failed: instance_weight_cv_too_low",
+    "trace": {
+      "failed_gate": "PreferenceBuilder",
+      "failure_kind": "instance_weight_cv_too_low",
+      "metric": {
+        "metric_name": "instance_weight_cv_pass_rate",
+        "observed_value": 0.0,
+        "threshold": 0.75,
+        "direction": ">="
+      },
+      "cv_threshold": 0.1,
+      "eligible_instances": 8,
+      "observed_cv_min": 0.0,
+      "observed_cv_mean": 0.0,
+      "observed_cv_max": 0.0
+    },
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen005_pair006_g000_001_b7b73ae_fseed_000_9cfa03/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen005_pair006_g000_001_b7b73ae_fseed_000_9cfa03/result.json"
+  },
+  "sandbox_gate_ok": false,
+  "sandbox_gate_reason": "builder gate failed: instance_weight_cv_too_low",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": true,
+      "cv_threshold": 0.1,
+      "pass_rate_threshold": 0.75,
+      "eligible_instances": 8,
+      "observed_cv_values": [
+        0.6101802023714009,
+        0.6101802023714009,
+        0.6101802023714009,
+        0.610180247425704,
+        0.6101802023714009,
+        0.6101802023714009,
+        0.6101802023714009,
+        0.610180247425704
+      ]
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "joint_gate_ok": false,
+  "joint_gate_reason": "sandbox_gate_failed: builder gate failed: instance_weight_cv_too_low",
+  "joint_gate_trace": {
+    "failed_gate": "PreferenceBuilder",
+    "failure_kind": "sandbox_builder_gate_failed",
+    "metric": {
+      "metric_name": "instance_weight_cv_pass_rate",
+      "observed_value": 0.0,
+      "threshold": 0.75,
+      "direction": ">="
+    },
+    "cv_threshold": 0.1,
+    "eligible_instances": 8,
+    "observed_cv_min": 0.0,
+    "observed_cv_mean": 0.0,
+    "observed_cv_max": 0.0,
+    "sandbox": {
+      "reason": "builder gate failed: instance_weight_cv_too_low",
+      "result": "stage0_sandbox/gen005_pair006_g000_001_b7b73ae_fseed_000_9cfa03/result.json",
+      "log": "stage0_sandbox/gen005_pair006_g000_001_b7b73ae_fseed_000_9cfa03/subprocess.log",
+      "exit_code": 0
+    }
+  },
+  "pair_ok": false,
+  "pair_reason": "stage0_sandbox_failed",
+  "elapsed_s": 17.022679328918457
+}
