@@ -1,0 +1,116 @@
+{
+  "generation": 1,
+  "pair_index": 13,
+  "g_entry": {
+    "id": "g001_003_6b4f2d48",
+    "ir": {
+      "name": "builder_all_pairs_gap_regret_blend_instance_mad_std_clamp",
+      "intuition": "Blend gap scaled by instance MAD with regret span scaled by instance regret std, using instance local statistics to weight pairs in all-pairs topology with stable clamping.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob",
+          "obj_z",
+          "rank",
+          "regret",
+          "instance_obj_mad",
+          "instance_regret_std"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_regret_blend",
+        "constraint_family": "clamp_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "gap_regret_blend",
+        "clamp",
+        "nan_to_num"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    regret = feature_cache['regret']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_regret_blend_instance_mad_std_clamp', 'weight_family': 'gap_regret_blend'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_regret_std = feature_cache['instance_regret_std']\n    gap_scaled = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    regret_span = (regret[b_idx, loser_idx] - regret[b_idx, winner_idx]) / instance_regret_std[b_idx].clamp_min(eps)\n    lambda_regret = float(extra.get('lambda_regret', 1.2))\n    beta_gap = float(extra.get('beta_gap', 1.0))\n    beta_regret = float(extra.get('beta_regret', 1.0))\n    # Weighted linear blend with configurable betas\n    raw_weight = (beta_gap * gap_scaled + lambda_regret * beta_regret * regret_span).clamp_min(0.0)\n    raw_weight = torch.nan_to_num(raw_weight, nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = float(extra.get('clamp_lo', 0.2))\n    clamp_hi = float(extra.get('clamp_hi', 3.5))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    meta = {'builder': 'all_pairs_gap_regret_blend_instance_mad_std_clamp', 'weight_family': 'gap_regret_blend', 'constraint_family': 'clamp_only'}\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta=meta)"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v7",
+      "intuition": "Refined margin calculation to use a smoother exponential scaling of advantage_gap shifted and clamped to maintain positive margin above 1, ensuring strict monotonicity and preventing zero or near-zero margins that could cause swap violations. Reduced clamping range of advantage_gap to (-1,1) to avoid extreme exponentials and improved clamp of multiplier x to (-10,10) to prevent gradient explosion. These changes stabilize margin behavior and preserve pairwise ordering, resolving joint preference violation.",
+      "pseudocode": "epsilon=1e-6\nclamped_adv = clamp(advantage_gap, -1, 1)\nmargin = clamp(exp(clamped_adv + 1) - 1, 1.01, 5)\nx = margin * (log_prob_w - log_prob_l)\nx = clamp(x, -10, 10)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "exponential_margin_per_pair"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "exp",
+        "sub",
+        "mul",
+        "neg",
+        "sum",
+        "maximum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    clamped_adv = ops.clamp(advantage_gap, -1.0, 1.0)\n    margin_unclamped = ops.sub(ops.exp(ops.add(clamped_adv, 1.0)), 1.0)\n    margin = ops.clamp(margin_unclamped, 1.01, 5.0)\n    x_raw = ops.sub(lpw, lpl)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -10.0, 10.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

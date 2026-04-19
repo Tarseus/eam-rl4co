@@ -1,53 +1,68 @@
 {
-  "generation": 0,
-  "index": 11,
-  "id": "g000_011_351a24d3",
-  "signature": "351a24d3057587292ef8b3b6ea4dd099c009e3f8",
-  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_bandpass|constraint=clamp_only",
+  "generation": 6,
+  "index": 13,
+  "id": "g006_013_26de42cc",
+  "signature": "26de42cc1883e95a541490c29094f4a73f79b041",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
   "origin": "REPAIR",
   "origin_base": "PARADIGM_SHIFT",
   "op_type": "REPAIR",
   "parents": [
-    "bootstrap_g_000",
-    "bootstrap_g_001",
-    "bootstrap_g_004"
+    "g004_010_c960123d",
+    "g001_002_85f68388",
+    "g001_004_3bcc4e40",
+    "g000_011_351a24d3",
+    "g002_012_fd9e1752"
   ],
   "attempt": 0,
-  "prompt_sha1": "248969346840dd892126d417b2236532e55a3852",
+  "prompt_sha1": "c5778a216d0acb652097ebc0a66a4e04fdb4d547",
   "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-  "llm_seed": 116516721,
+  "llm_seed": 1014776752,
   "history": [
     {
       "attempt": 0,
       "side": "builder",
       "llm_op": "BUILDER_PARADIGM_SHIFT",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
-      "prompt_sha1": "1880d1060bd83018c87b1f90ff2e87198289fc5f"
+      "prompt_sha1": "8413f82ab9a76a1964d4ee61e62ce7209d3982e4"
     },
     {
       "attempt": 0,
       "op": "M3",
       "llm_op": "M3",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
-      "prompt_sha1": "5d0f51d89a7516b3accfb0370236da63f67f7a56"
+      "prompt_sha1": "f8bae51abac22172b0b26ed5040f40531f48507b"
     },
     {
       "attempt": 0,
       "op": "REPAIR",
       "llm_op": "REPAIR",
       "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
-      "prompt_sha1": "248969346840dd892126d417b2236532e55a3852"
+      "prompt_sha1": "1f523510f5e1a7a7ea5015a5f8dae2b5757cd263"
+    },
+    {
+      "attempt": 1,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "9c5c650dc65301b8c9a912464808837b1f8da135"
+    },
+    {
+      "attempt": 2,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "c5778a216d0acb652097ebc0a66a4e04fdb4d547"
     }
   ],
   "ir": {
-    "name": "builder_all_pairs_gap_bandpass_ops_min_fixed",
-    "intuition": "Reweight all pairs by a triangular bandpass on normalized gap scaled by instance obj range and modulated by instance log_prob std, using ops.minimum operator to ensure compatibility.",
+    "name": "builder_all_pairs_gap_linear_invregret_rerank",
+    "intuition": "Weight all pairs by the normalized gap multiplied by a reversed rank factor of instance_log_prob_range and an inversely ranked modulator from instance_regret_std, with correct dtype-safe rank computation via argsort().",
     "implementation_hint": {
       "expects": [
         "objective",
-        "log_prob",
         "instance_obj_range",
-        "instance_log_prob_std"
+        "instance_regret_std"
       ],
       "returns": "PrefBatch",
       "mode": "pairwise"
@@ -55,17 +70,20 @@
     "hyperparams": {
       "geometry_family": "dense_all_pairs",
       "cap_family": "uncapped_full",
-      "weight_family": "gap_bandpass",
+      "weight_family": "gap_linear",
       "constraint_family": "clamp_only"
     },
     "operators_used": [
       "all_pairs",
-      "gap_bandpass",
-      "minimum",
-      "tanh",
-      "clamp"
+      "clamp",
+      "div",
+      "sub",
+      "argsort",
+      "mul",
+      "add",
+      "sub"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_log_prob_std = feature_cache['instance_log_prob_std']\n    gap_scaled = gap / instance_obj_range[b_idx].clamp_min(eps)\n    lower = float(extra.get('bandpass_lower', 0.1))\n    upper = float(extra.get('bandpass_upper', 0.5))\n    peak = float(extra.get('bandpass_peak', 0.3))\n    left_slope = 1.0 / (peak - lower + eps)\n    right_slope = 1.0 / (upper - peak + eps)\n    weight_left = (gap_scaled - lower) * left_slope\n    weight_right = (upper - gap_scaled) * right_slope\n    raw = ops.minimum(weight_left, weight_right).clamp(min=0.0)\n    log_std_mod = ops.tanh(instance_log_prob_std[b_idx])\n    raw = raw * (0.5 + 0.5 * log_std_mod)\n    clamp_lo = 0.25\n    clamp_hi = 3.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamp_only'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_log_prob_range = feature_cache['instance_log_prob_range'].clamp_min(eps)\n    gap_scaled = gap / instance_log_prob_range[b_idx]\n    instance_regret_std = feature_cache['instance_regret_std'].clamp_min(eps)\n    # Compute ascending ranks for instance_regret_std\n    sorted_regret_std_indices = instance_regret_std.argsort()\n    ranks = torch.empty_like(sorted_regret_std_indices, dtype=torch.long)\n    ranks[sorted_regret_std_indices] = torch.arange(instance_regret_std.size(0), device=instance_regret_std.device)\n    inv_regret_rank = 1.0 - ranks.to(dtype=gap_scaled.dtype) / (instance_regret_std.size(0) - 1 + eps)\n    # Compute ascending ranks for instance_log_prob_range\n    sorted_logprob_indices = instance_log_prob_range.argsort()\n    ranks_logprob = torch.empty_like(sorted_logprob_indices, dtype=torch.long)\n    ranks_logprob[sorted_logprob_indices] = torch.arange(instance_log_prob_range.size(0), device=instance_log_prob_range.device)\n    rev_logprob_rank = 1.0 - ranks_logprob.to(dtype=gap_scaled.dtype) / (instance_log_prob_range.size(0) - 1 + eps)\n    raw_weight = gap_scaled * rev_logprob_rank[b_idx] * inv_regret_rank[b_idx]\n    clamp_lo = float(extra.get('clamp_lo', 0.05))\n    clamp_hi = float(extra.get('clamp_hi', 10.0))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    meta = {'builder': 'all_pairs', 'weight_family': 'gap_linear', 'constraint_family': 'clamp_only'}\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta=meta)"
   },
   "compile_ok": true,
   "compile_reason": "ok",
@@ -105,21 +123,21 @@
       "pass_rate_threshold": 0.75,
       "eligible_instances": 8,
       "observed_cv_values": [
-        0.39804906526219647,
-        0.39804906526219647,
-        0.39804906526219647,
-        0.39804906526219647,
-        0.39804906526219647,
-        0.39804906526219647,
-        0.39804906526219647,
-        0.39804906526219647
+        0.6416889484598725,
+        0.6416889715292914,
+        0.6416889909143187,
+        0.6416889925367184,
+        0.641688973489708,
+        0.6416888956349617,
+        0.6082195586634941,
+        0.0
       ]
     },
     "builder_pref_cache_hit": false,
     "memory_metric_available": false,
     "memory_device": "cpu"
   },
-  "fitness": -0.16549987792969745,
+  "fitness": Infinity,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
@@ -128,14 +146,14 @@
       0
     ]
   },
-  "builder_perf": -0.16549987792969745,
+  "builder_perf": -0.09099922180175923,
   "builder_cost": 960.0,
   "builder_feasible": true,
-  "builder_threshold": -0.16549987792969745,
-  "builder_best_perf": -0.16549987792969745,
+  "builder_threshold": -0.09099922180175923,
+  "builder_best_perf": -0.09099922180175923,
   "selection_sort_key": [
     0.0,
     960.0,
-    -0.16549987792969745
+    -0.09099922180175923
   ]
 }

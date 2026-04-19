@@ -1,17 +1,18 @@
 {
   "generation": 1,
   "pair_index": 9,
-  "g_id": "g001_005_fc8d687a",
+  "g_id": "g001_004_3bcc4e40",
   "f_id": "fseed_000_9cfa032c",
   "g_ir": {
-    "name": "builder_all_pairs_gap_bandpass_sigmoid_logprob_modulated",
-    "intuition": "Reweight all pairs by a triangular bandpass on gap normalized by instance_obj_mad, modulated by a smooth sigmoid of instance_log_prob_range to enhance weighting sensitivity to log-prob dispersion within instances.",
+    "name": "all_pairs_margin_rank_blend_topk_clamp_uncapped_tiezone_reweight",
+    "intuition": "Reweights all pairs using margin_rank_blend adjusted by instance MAD and log_prob std, applies top-k capping with vectorized masking, clamps weights for numeric stability, and enforces a tiezone clamp constraint; preserves the all_pairs dense topology with the original capping family 'uncapped_full' as required by reweight_only.",
     "implementation_hint": {
       "expects": [
         "objective",
         "log_prob",
         "instance_obj_mad",
-        "instance_log_prob_range"
+        "instance_log_prob_std",
+        "rank"
       ],
       "returns": "PrefBatch",
       "mode": "pairwise"
@@ -19,18 +20,18 @@
     "hyperparams": {
       "geometry_family": "dense_all_pairs",
       "cap_family": "uncapped_full",
-      "weight_family": "gap_bandpass",
-      "constraint_family": "clamp_only"
+      "weight_family": "margin_rank_blend",
+      "constraint_family": "tiezone_clamp_reweight"
     },
     "operators_used": [
       "all_pairs",
-      "gap_bandpass",
-      "sigmoid",
-      "minimum",
+      "margin_rank_blend",
       "clamp",
-      "tanh"
+      "abs",
+      "sigmoid",
+      "pow"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    gap_scaled = gap / instance_obj_mad[b_idx].clamp_min(eps)\n    lower = float(extra.get('bandpass_lower', 0.15))\n    upper = float(extra.get('bandpass_upper', 0.6))\n    peak = float(extra.get('bandpass_peak', 0.35))\n    left_slope = 1.0 / (peak - lower + eps)\n    right_slope = 1.0 / (upper - peak + eps)\n    weight_left = (gap_scaled - lower) * left_slope\n    weight_right = (upper - gap_scaled) * right_slope\n    raw_bandpass = ops.minimum(weight_left, weight_right).clamp(min=0.0)\n    log_prob_range = feature_cache['instance_log_prob_range']\n    sigmoid_beta = float(extra.get('sigmoid_beta', 5.0))\n    sigmoid_w = 1.0 / (1.0 + (-sigmoid_beta * (log_prob_range[b_idx] - 0.5)).exp())\n    modulation = 0.5 + 0.5 * sigmoid_w  # range approx [0.5,1]\n    raw = raw_bandpass * modulation\n    clamp_lo = 0.2\n    clamp_hi = 3.5\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_margin_rank_blend_topk_clamp_uncapped_tiezone_reweight', 'weight_family': 'margin_rank_blend'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_mad = feature_cache['instance_obj_mad'].clamp_min(eps)\n    gap_scaled = gap / instance_obj_mad[b_idx]\n    rank_span = feature_cache['rank'][b_idx, loser_idx] - feature_cache['rank'][b_idx, winner_idx]\n    beta_rank = float(extra.get('beta_rank', 4.0))\n    gamma = float(extra.get('gamma', 0.5))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    instance_log_prob_std = feature_cache['instance_log_prob_std'].clamp_min(eps)\n    margin_abs = margin_abs / instance_log_prob_std[b_idx]\n    raw_weights = (1.0 / (margin_abs + eps).pow(gamma)) * (1.0 / (1.0 + (-beta_rank * rank_span).exp()))\n    raw_weights = raw_weights.clamp_min(0.0)\n    tiezone_eps = float(extra.get('tiezone_eps', 0.03))\n    tiezone_mask = margin_abs >= tiezone_eps\n    raw_weights = raw_weights * tiezone_mask.to(raw_weights.dtype)\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 3.0))\n    weight = raw_weights.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_margin_rank_blend_topk_clamp_uncapped_tiezone_reweight', 'weight_family': 'margin_rank_blend'})"
   },
   "f_ir": {
     "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
@@ -85,7 +86,7 @@
   "seed_signature": null,
   "descriptor": null,
   "scheduler_launch_cuda_diag": {
-    "captured_at": "2026-04-17 02:36:58",
+    "captured_at": "2026-04-17 10:46:36",
     "cuda_visible_devices": "1,2,4,5",
     "torch_cuda_available": true,
     "torch_device_count": 4,
@@ -106,34 +107,34 @@
           "memory_total_mb": 24576,
           "memory_used_mb": 7796,
           "util_gpu_pct": 100,
-          "util_mem_pct": 34
+          "util_mem_pct": 37
         },
         {
           "index": 1,
           "uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 1600,
-          "util_gpu_pct": 19,
-          "util_mem_pct": 3
+          "memory_used_mb": 17610,
+          "util_gpu_pct": 40,
+          "util_mem_pct": 9
         },
         {
           "index": 2,
           "uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 1564,
-          "util_gpu_pct": 38,
-          "util_mem_pct": 6
+          "memory_used_mb": 1590,
+          "util_gpu_pct": 17,
+          "util_mem_pct": 1
         },
         {
           "index": 3,
           "uuid": "GPU-5d955087-9d4e-305e-4e25-e659cb32b172",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 726,
-          "util_gpu_pct": 19,
-          "util_mem_pct": 3
+          "memory_used_mb": 10478,
+          "util_gpu_pct": 17,
+          "util_mem_pct": 2
         },
         {
           "index": 4,
@@ -149,9 +150,9 @@
           "uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 15704,
-          "util_gpu_pct": 100,
-          "util_mem_pct": 26
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
         }
       ],
       "processes": [
@@ -165,71 +166,57 @@
         {
           "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
           "gpu_index": 1,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
         },
         {
           "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
           "gpu_index": 1,
-          "pid": 200210,
+          "pid": 187169,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
-          "used_gpu_memory_mb": 736
+          "used_gpu_memory_mb": 16746
         },
         {
           "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
           "gpu_index": 2,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
         },
         {
           "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
           "gpu_index": 2,
-          "pid": 200213,
+          "pid": 187172,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
-          "used_gpu_memory_mb": 700
+          "used_gpu_memory_mb": 726
         },
         {
           "gpu_uuid": "GPU-5d955087-9d4e-305e-4e25-e659cb32b172",
           "gpu_index": 3,
-          "pid": 200216,
+          "pid": 187175,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
-          "used_gpu_memory_mb": 724
+          "used_gpu_memory_mb": 10614
         },
         {
           "gpu_uuid": "GPU-7ef3bdec-8ec2-2c44-6c48-9a9e719997ae",
           "gpu_index": 4,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
         },
         {
           "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
           "gpu_index": 5,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
-        },
-        {
-          "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
-          "gpu_index": 5,
-          "pid": 75971,
-          "process_name": "python",
-          "used_gpu_memory_mb": 7420
-        },
-        {
-          "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
-          "gpu_index": 5,
-          "pid": 85623,
-          "process_name": "python",
-          "used_gpu_memory_mb": 7420
         }
       ]
     }
   },
   "worker_start_cuda_diag": {
-    "captured_at": "2026-04-17 02:36:59",
+    "captured_at": "2026-04-17 10:46:38",
     "cuda_visible_devices": "0",
     "torch_cuda_available": true,
     "torch_device_count": 1,
@@ -260,24 +247,24 @@
           "memory_total_mb": 24576,
           "memory_used_mb": 8050,
           "util_gpu_pct": 100,
-          "util_mem_pct": 32
+          "util_mem_pct": 33
         },
         {
           "index": 1,
           "uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 1600,
-          "util_gpu_pct": 18,
-          "util_mem_pct": 2
+          "memory_used_mb": 3402,
+          "util_gpu_pct": 9,
+          "util_mem_pct": 1
         },
         {
           "index": 2,
           "uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 1564,
-          "util_gpu_pct": 18,
+          "memory_used_mb": 1590,
+          "util_gpu_pct": 19,
           "util_mem_pct": 3
         },
         {
@@ -285,9 +272,9 @@
           "uuid": "GPU-5d955087-9d4e-305e-4e25-e659cb32b172",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 726,
-          "util_gpu_pct": 19,
-          "util_mem_pct": 3
+          "memory_used_mb": 13140,
+          "util_gpu_pct": 11,
+          "util_mem_pct": 1
         },
         {
           "index": 4,
@@ -303,9 +290,9 @@
           "uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
           "name": "NVIDIA GeForce RTX 3090",
           "memory_total_mb": 24576,
-          "memory_used_mb": 15704,
-          "util_gpu_pct": 97,
-          "util_mem_pct": 1
+          "memory_used_mb": 864,
+          "util_gpu_pct": 0,
+          "util_mem_pct": 0
         }
       ],
       "processes": [
@@ -319,72 +306,58 @@
         {
           "gpu_uuid": "GPU-d60dbc87-f9aa-7707-3d51-d221529af6c4",
           "gpu_index": 0,
-          "pid": 215626,
+          "pid": 203856,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 254
         },
         {
           "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
           "gpu_index": 1,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
         },
         {
           "gpu_uuid": "GPU-bf241a87-4b7f-b16c-2d49-4dcd5e06fb56",
           "gpu_index": 1,
-          "pid": 200210,
+          "pid": 187169,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
-          "used_gpu_memory_mb": 736
+          "used_gpu_memory_mb": 2624
         },
         {
           "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
           "gpu_index": 2,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
         },
         {
           "gpu_uuid": "GPU-cb45df08-9848-39d1-b8df-b98f01ef1ef0",
           "gpu_index": 2,
-          "pid": 200213,
+          "pid": 187172,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
-          "used_gpu_memory_mb": 700
+          "used_gpu_memory_mb": 726
         },
         {
           "gpu_uuid": "GPU-5d955087-9d4e-305e-4e25-e659cb32b172",
           "gpu_index": 3,
-          "pid": 200216,
+          "pid": 187175,
           "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
-          "used_gpu_memory_mb": 724
+          "used_gpu_memory_mb": 13276
         },
         {
           "gpu_uuid": "GPU-7ef3bdec-8ec2-2c44-6c48-9a9e719997ae",
           "gpu_index": 4,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
         },
         {
           "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
           "gpu_index": 5,
-          "pid": 26027,
-          "process_name": "python",
+          "pid": 183284,
+          "process_name": "/data1/gushengda/anaconda3/envs/rlco1/bin/python",
           "used_gpu_memory_mb": 862
-        },
-        {
-          "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
-          "gpu_index": 5,
-          "pid": 75971,
-          "process_name": "python",
-          "used_gpu_memory_mb": 7420
-        },
-        {
-          "gpu_uuid": "GPU-f8a5efc5-f4e6-2ee9-1b29-64d1ed13006c",
-          "gpu_index": 5,
-          "pid": 85623,
-          "process_name": "python",
-          "used_gpu_memory_mb": 7420
         }
       ]
     }
@@ -430,8 +403,8 @@
       }
     ],
     "exit_code": 0,
-    "sandbox_log": "stage0_sandbox/gen001_pair009_g001_005_fc8d687_fseed_000_9cfa03/subprocess.log",
-    "sandbox_result": "stage0_sandbox/gen001_pair009_g001_005_fc8d687_fseed_000_9cfa03/result.json"
+    "sandbox_log": "stage0_sandbox/gen001_pair009_g001_004_3bcc4e4_fseed_000_9cfa03/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen001_pair009_g001_004_3bcc4e4_fseed_000_9cfa03/result.json"
   },
   "sandbox_gate_ok": true,
   "sandbox_gate_reason": "ok",
@@ -471,14 +444,14 @@
       "pass_rate_threshold": 0.75,
       "eligible_instances": 8,
       "observed_cv_values": [
-        0.42184064582417985,
-        0.42184064582417985,
-        0.42184064582417985,
-        0.42184064582417985,
-        0.4218406172195372,
-        0.4218406172195372,
-        0.4218406172195372,
-        0.42184064582417985
+        0.23189020345048292,
+        0.23189020345048292,
+        0.23189020345048292,
+        0.23189020345048292,
+        0.23189020345048292,
+        0.23189020345048292,
+        0.23189020345048292,
+        0.23189020345048292
       ]
     },
     "builder_pref_cache_hit": false,
@@ -494,11 +467,11 @@
       "grad_w_pass_rate": 1.0,
       "grad_l_pass_rate": 1.0,
       "effective_grad_ratio": 1.0,
-      "loss": 0.6912258863449097,
-      "loss_swap": 0.6950743198394775,
+      "loss": 0.6911200284957886,
+      "loss_swap": 0.6951804757118225,
       "swap_ok": true,
       "swap_check_mode": "data",
-      "swap_ref_loss": 0.6912258863449097
+      "swap_ref_loss": 0.6911200284957886
     },
     "threshold": {
       "min_pass_rate": 0.8,
@@ -519,15 +492,15 @@
   "co_invariance_ok": true,
   "co_sensitivity_visible_ok": true,
   "co_sensitivity_visible_reason": "ok",
-  "co_sensitivity_visible_abs_delta": 0.010485827922821045,
-  "co_sensitivity_visible_rel_delta": 0.007409871269581784,
+  "co_sensitivity_visible_abs_delta": 0.0018224716186523438,
+  "co_sensitivity_visible_rel_delta": 0.0013135492154791224,
   "co_sensitivity_visible_trace": {
     "failed_gate": null,
     "metric_name": "delta_loss_under_objective_perturbation",
     "observed": {
-      "abs_delta": 0.010485827922821045,
-      "rel_delta": 0.007409871269581784,
-      "grad_ratio": 0.5487768176101129
+      "abs_delta": 0.0018224716186523438,
+      "rel_delta": 0.0013135492154791224,
+      "grad_ratio": 0.6467916673298549
     },
     "threshold": {
       "min_abs_delta": 0.001,
@@ -541,10 +514,10 @@
     "where_failed": null,
     "counterexamples": [
       {
-        "loss_small": 0.7128009796142578,
-        "loss_large": 0.7023151516914368,
-        "log_prob_w": -4.5657057762146,
-        "log_prob_l": -2.8986716270446777
+        "loss_small": 0.6946315765380859,
+        "loss_large": 0.6928091049194336,
+        "log_prob_w": -0.9133909940719604,
+        "log_prob_l": -0.5492167472839355
       }
     ],
     "variant": "visible"
@@ -578,10 +551,10 @@
       {
         "a": 7.0,
         "b": 3.0,
-        "loss_raw": 0.6929352879524231,
-        "loss_affine": 0.6929352879524231,
-        "log_prob_w": -5.1071319580078125,
-        "log_prob_l": -5.787380218505859
+        "loss_raw": 0.6983434557914734,
+        "loss_affine": 0.6983434557914734,
+        "log_prob_w": -6.592185974121094,
+        "log_prob_l": -7.254790306091309
       }
     ],
     "variant": "visible"
@@ -591,7 +564,7 @@
   "co_invariance_hidden_abs_delta": null,
   "co_invariance_hidden_rel_delta": null,
   "co_invariance_hidden_trace": null,
-  "hf_log_file": "gen001_pair009_cuda_0_g001_005_fc8d687a_fseed_000_9cfa032c.log",
+  "hf_log_file": "gen001_pair009_cuda_0_g001_004_3bcc4e40_fseed_000_9cfa032c.log",
   "pair_ok": false,
   "pair_reason": "stage3_early_pruned",
   "stage3_early_prune": {
@@ -4055,5 +4028,5 @@
     "scratch",
     "ckpt_100"
   ],
-  "elapsed_s": 1112.3908667564392
+  "elapsed_s": 1112.3054988384247
 }
