@@ -1,14 +1,15 @@
 {
-  "id": "g000_011_351a24d3",
+  "id": "g008_006_99ad29cc",
   "ir": {
-    "name": "builder_all_pairs_gap_bandpass_ops_min_fixed",
-    "intuition": "Reweight all pairs by a triangular bandpass on normalized gap scaled by instance obj range and modulated by instance log_prob std, using ops.minimum operator to ensure compatibility.",
+    "name": "all_pairs_margin_rank_blend_clamp_tiezone_v2",
+    "intuition": "Preserves margin_rank_blend weighting with explicit tie-zone zeroing, stronger clamp bounds, and an eps-guarded rank reweight for stable pairwise weights under reweight_only constraints",
     "implementation_hint": {
       "expects": [
         "objective",
         "log_prob",
-        "instance_obj_range",
-        "instance_log_prob_std"
+        "instance_obj_mad",
+        "instance_log_prob_std",
+        "rank"
       ],
       "returns": "PrefBatch",
       "mode": "pairwise"
@@ -16,67 +17,48 @@
     "hyperparams": {
       "geometry_family": "dense_all_pairs",
       "cap_family": "uncapped_full",
-      "weight_family": "gap_bandpass",
-      "constraint_family": "clamp_only"
+      "weight_family": "margin_rank_blend",
+      "constraint_family": "tiezone_clamp_epsguard"
     },
     "operators_used": [
       "all_pairs",
-      "gap_bandpass",
-      "minimum",
-      "tanh",
-      "clamp"
+      "margin_rank_blend",
+      "clamp",
+      "tie_zone_mask",
+      "eps_guard",
+      "argsort",
+      "div",
+      "mul",
+      "sigmoid"
     ],
-    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_range = feature_cache['instance_obj_range']\n    instance_log_prob_std = feature_cache['instance_log_prob_std']\n    gap_scaled = gap / instance_obj_range[b_idx].clamp_min(eps)\n    lower = float(extra.get('bandpass_lower', 0.1))\n    upper = float(extra.get('bandpass_upper', 0.5))\n    peak = float(extra.get('bandpass_peak', 0.3))\n    left_slope = 1.0 / (peak - lower + eps)\n    right_slope = 1.0 / (upper - peak + eps)\n    weight_left = (gap_scaled - lower) * left_slope\n    weight_right = (upper - gap_scaled) * right_slope\n    raw = ops.minimum(weight_left, weight_right).clamp(min=0.0)\n    log_std_mod = ops.tanh(instance_log_prob_std[b_idx])\n    raw = raw * (0.5 + 0.5 * log_std_mod)\n    clamp_lo = 0.25\n    clamp_hi = 3.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend', 'constraint_family': 'tiezone_clamp_epsguard'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_scale = feature_cache['instance_obj_mad'][b_idx].clamp_min(eps)\n    gap_scaled = gap / instance_obj_scale\n    rank = feature_cache['rank']\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    beta_rank = float(extra.get('beta_rank', 5.0))\n    gamma = float(extra.get('gamma', 0.6))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    margin_abs = margin_abs / feature_cache['instance_log_prob_std'][b_idx].clamp_min(eps)\n    raw_weight = torch.sigmoid(beta_rank * rank_span) / (margin_abs + eps).pow(gamma)\n    raw_weight = torch.nan_to_num(raw_weight, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    tiezone_threshold = float(extra.get('tiezone_threshold', 0.12))\n    tie_zone_mask = (gap_scaled > tiezone_threshold)\n    weight = raw_weight * tie_zone_mask.to(raw_weight.dtype)\n    clamp_lo = 0.15\n    clamp_hi = 2.5\n    weight = weight.clamp(clamp_lo, clamp_hi)\n    # Apply eps guard on denominator like rank_span to ensure numeric stability\n    rank_span_epsguard = rank_span.clamp_min(eps)\n    reweight_factor = 1.0 / rank_span_epsguard.float()\n    weight = weight * reweight_factor\n    weight = weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend', 'constraint_family': 'tiezone_clamp_epsguard'})"
   },
   "stage": "high_fidelity",
-  "stage_final": "high_fidelity",
-  "score": -0.16549987792969745,
-  "final_score": -0.16549987792969745,
-  "stages_enabled": {
-    "stage0_gate": true,
-    "stage1_proxy": false,
-    "stage2_micro_unroll": false,
-    "stage3_high_fidelity": true
-  },
-  "stages_ran": [
-    "stage0_gate",
-    "stage3_high_fidelity"
-  ],
-  "stages_skipped": {
-    "stage1_proxy": "disabled",
-    "stage2_micro_unroll": "disabled"
-  },
+  "score": -0.18299922943115376,
   "pair_ok": true,
   "pair_reason": "ok_stage3_offline_minitrain",
-  "compare_target": "incumbent",
-  "metric_mode": "minimize",
-  "improve_eps": 0.0,
-  "reference_score": 0.03650093078612571,
-  "better_than_incumbent": true,
-  "best_pair_generation": 0,
+  "best_pair_generation": 8,
   "best_pair_phase": "builder",
-  "best_pair_last_phase_label": "builder",
-  "best_pair_last_phase_reference_score": 0.03650093078612571,
   "score_history": [
     {
-      "generation": 0,
-      "pair_index": 1,
+      "generation": 8,
+      "pair_index": 10,
       "phase": "builder",
       "stage": "high_fidelity",
       "stage_final": "high_fidelity",
-      "score": -0.16549987792969745,
+      "score": -0.18299922943115376,
       "eval_budget_signature": "a6a1026ec822d243",
-      "reference_score": 0.03650093078612571
+      "reference_score": -0.16549987792969745
     }
   ],
   "score_history_summary": {
     "count": 1,
     "scores": [
-      -0.16549987792969745
+      -0.18299922943115376
     ],
-    "best": -0.16549987792969745,
-    "worst": -0.16549987792969745,
-    "mean": -0.16549987792969745,
-    "latest": -0.16549987792969745
+    "best": -0.18299922943115376,
+    "worst": -0.18299922943115376,
+    "mean": -0.18299922943115376,
+    "latest": -0.18299922943115376
   }
 }
