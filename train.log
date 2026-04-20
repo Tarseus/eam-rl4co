@@ -14698,3 +14698,24 @@ torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 4 h
 [2026-04-19 08:47:26,278][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
 [2026-04-19 08:47:26,278][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
 [2026-04-19 08:47:26,278][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-04-20 03:01:19,271][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-20 03:01:19,274][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-20 03:01:19,309][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-20 03:01:23,190][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-20 03:01:23,563][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-20 03:01:23,626][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-20 03:01:23,627][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-20 03:01:23,629][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-20 03:01:23,629][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-20 03:01:23,630][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-20 03:01:23,630][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-20 03:01:23,632][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-20 03:01:23,635][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-20 03:01:23,642][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-20 03:01:23,643][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-20 03:01:31,763][rl4co.models.zoo.mgl_jssp.model][INFO] - Filtered train split by allowed_shapes: 30000 -> 5000 instances
+[2026-04-20 03:01:31,904][rl4co.models.zoo.mgl_jssp.model][INFO] - Filtered val split by allowed_shapes: 600 -> 100 instances
+[2026-04-20 03:01:31,910][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-20 03:01:31,911][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-20 03:01:31,911][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 5000 instances, 5000 batches
+[2026-04-20 03:01:31,911][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
