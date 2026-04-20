@@ -112,6 +112,7 @@ CMD=(
 has_devices_override=false
 has_accelerator_override=false
 has_progress_override=false
+has_allowed_shapes_override=false
 for arg in "$@"; do
   case "$arg" in
     trainer.devices=*)
@@ -122,6 +123,9 @@ for arg in "$@"; do
       ;;
     trainer.enable_progress_bar=*)
       has_progress_override=true
+      ;;
+    model.allowed_shapes=*|+model.allowed_shapes=*)
+      has_allowed_shapes_override=true
       ;;
   esac
 done
@@ -134,6 +138,10 @@ if [[ "$has_devices_override" == "false" ]]; then
 fi
 if [[ "$has_progress_override" == "false" ]]; then
   CMD+=("+trainer.enable_progress_bar=false")
+fi
+if [[ "$has_allowed_shapes_override" == "false" ]]; then
+  # Keep the 10x10 full-train run on the same shape-restricted data regime as the baseline.
+  CMD+=("+model.allowed_shapes=[[10,10]]")
 fi
 
 CMD+=("$@")

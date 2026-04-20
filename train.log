@@ -14380,6 +14380,30 @@ torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 4 h
 [2026-04-18 10:35:03,673][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-18 10:39:55,879][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-18 10:43:50,100][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-18 10:40:13,166][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-18 10:40:13,169][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-18 10:40:13,206][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-18 10:40:17,063][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-18 10:40:17,430][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-18 10:40:17,489][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-18 10:40:17,489][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-18 10:40:17,492][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-18 10:40:17,492][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-18 10:40:17,493][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-18 10:40:17,493][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-18 10:40:17,495][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-18 10:40:17,498][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-18 10:40:17,507][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-18 10:40:17,508][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x10: 5000 instances, 5000 batches
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x10: 5000 instances, 5000 batches
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x15: 5000 instances, 5000 batches
+[2026-04-18 10:40:24,770][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
+[2026-04-18 10:40:24,771][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
+[2026-04-18 10:40:24,771][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
 [2026-04-19 05:33:03,778][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
 [2026-04-19 05:33:03,782][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
 [2026-04-19 05:33:03,823][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.CVRPEnv>
