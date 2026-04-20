@@ -1,7 +1,7 @@
 {
   "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/cvrp100_builder_weight_search_from_archive.yaml",
   "seed": 1234,
-  "next_generation": 9,
+  "next_generation": 10,
   "preset": "simple",
   "search_mode": "builder_only",
   "alternating_schedule": {
@@ -4584,6 +4584,475 @@
       ],
       "generation": 8,
       "phase": "builder"
+    },
+    "g009_005_d57e8e2e": {
+      "builder_id": "g009_005_d57e8e2e",
+      "perf": 0.05121767520904541,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_005_d57e8e2e",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.05121767520904541,
+        "final_score": 0.05121767520904541,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_sigmoid_clamped_custom_001",
+          "intuition": "Reweight all pairs with a sigmoid-smoothed positive gap emphasizing moderate margins, clamped explicitly to maintain finite nonnegative weights, preserving full all_pairs topology and using pure tensor ops.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sigmoid",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    beta = float(extra.get('weight_beta', 1.0))\n    raw = (gap_pos * tau).sigmoid() * beta\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.05121767520904541
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_001_95cb99bb": {
+      "builder_id": "g009_001_95cb99bb",
+      "perf": 0.06856894493103027,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_001_95cb99bb",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.06856894493103027,
+        "final_score": 0.06856894493103027,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_square_clamp_001",
+          "intuition": "Reweight all pairs with squared gap values to amplify larger differences more than linear gap weighting, preserving all-pairs topology and using explicit clamping for stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "square",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_square_clamp_001', 'weight_family': 'gap_square'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    weight = raw * raw\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_square_clamp_001', 'weight_family': 'gap_square'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.06856894493103027
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_010_28f3c19c": {
+      "builder_id": "g009_010_28f3c19c",
+      "perf": 0.03713172674179077,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_010_28f3c19c",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.03713172674179077,
+        "final_score": 0.03713172674179077,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_inverse_sigmoid_001",
+          "intuition": "Reweight all pairs by a non-linear inverse sigmoid transform of the positive gap, emphasizing small but meaningful gaps and compressing large gaps, with explicit clamping to maintain stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_inverse_sigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "clamp",
+            "sigmoid",
+            "nan_to_num"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_inverse_sigmoid'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    # Inverse sigmoid transform: weight = 1 - sigmoid(beta * gap), beta > 0 for scaling\n    beta = float(extra.get('weight_beta', 5.0))\n    raw = 1.0 - ops.sigmoid(beta * gap_pos)\n    # Replace NaNs/inf to ensure finite weights\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=1.0, neginf=0.0)\n    clamp_lo = 0.1\n    clamp_hi = 3.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_inverse_sigmoid'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.03713172674179077
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_011_f1205a2c": {
+      "builder_id": "g009_011_f1205a2c",
+      "perf": 0.04854762554168701,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_011_f1205a2c",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.04854762554168701,
+        "final_score": 0.04854762554168701,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "gap_linear_sigmoid_reweight",
+          "intuition": "Combine the linear emphasis on positive gaps from parent 2 with the sigmoid softening from parent 0, enabling smooth and robust weighting that highlights meaningful pairs while preserving the all_pairs topology. This crossover enhances sensitivity to significant gaps without overreacting to outliers.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_positive",
+            "sigmoid",
+            "mul",
+            "sub",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'reweight_pairwise', 'weight_family': 'gap_sigmoid'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Emphasize positive gaps linearly with clamping\n    weight_linear = gap.clamp(min=0.25, max=4.0)\n    # Sigmoid softening with configurable gamma\n    sigmoid_weight = torch.sigmoid(gap * extra.get('weight_gamma', 5.0))\n    # Clamp sigmoid weights to avoid extremes\n    weight_sigmoid = sigmoid_weight.clamp(0.0, 1.0)\n    # Average the linear and sigmoid emphasis for robust weighting\n    weight = (weight_linear + weight_sigmoid) * 0.5\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'reweight_pairwise', 'weight_family': 'gap_sigmoid'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.04854762554168701
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_006_a15455ee": {
+      "builder_id": "g009_006_a15455ee",
+      "perf": 0.04018235206604004,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_006_a15455ee",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.04018235206604004,
+        "final_score": 0.04018235206604004,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "builder_all_pairs_gap_square_reweight_v2",
+          "intuition": "finetuned: reweight pairwise gaps with a more aggressive lower clamp and a softened upper clamp to emphasize large gaps, while preserving fixed pair topology for local reweighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_square"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_square_reweight_v2', 'weight_family': 'gap_square'})\n    raw_gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Clamp parameters: lower clamp is slightly tighter, upper clamp slightly more relaxed\n    clamp_lo = float(extra.get('clamp_lo', 0.15))\n    clamp_hi = float(extra.get('clamp_hi', 5.0))\n    weight = raw_gap.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_square_reweight_v2', 'weight_family': 'gap_square'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.04018235206604004
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_012_cc5a3575": {
+      "builder_id": "g009_012_cc5a3575",
+      "perf": 0.0471951961517334,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_012_cc5a3575",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.0471951961517334,
+        "final_score": 0.0471951961517334,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_bandpass_clip_v1",
+          "intuition": "Reweight all improving pairs using a bandpass weighting that highlights pairs with gaps within a configurable range, suppressing very small and very large gaps via clamping; preserves all-pairs topology and introduces a new gap filtering paradigm.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass_clipped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "sub",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_gap_bandpass_clip_v1', 'weight_family': 'gap_bandpass_clipped'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    low_cut = float(extra.get('gap_bandpass_low', 0.5))\n    high_cut = float(extra.get('gap_bandpass_high', 3.0))\n    # Bandpass weighting: linearly ramp up from low_cut to 1.0, then ramp down to zero at high_cut\n    weight_high = (high_cut - gap_pos).clamp_min(0.0)\n    weight_low = (gap_pos - low_cut).clamp_min(0.0)\n    raw_weight = (weight_high * weight_low) / ( (high_cut - low_cut) ** 2 )\n    scaled_weight = raw_weight * tau\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = scaled_weight.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_gap_bandpass_clip_v1', 'weight_family': 'gap_bandpass_clipped'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.0471951961517334
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_003_5184dc64": {
+      "builder_id": "g009_003_5184dc64",
+      "perf": 0.048003971576690674,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_003_5184dc64",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.048003971576690674,
+        "final_score": 0.048003971576690674,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "all_pairs_gap_softsigmoid_enhanced",
+          "intuition": "Apply a sharpened soft sigmoid weighting on all pairs to smoothly emphasize moderate gaps with configurable slope and clamp for numerical stability, preserving fixed all-pair topology.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softsigmoid_enhanced",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "sigmoid",
+            "clamp",
+            "neg",
+            "mul",
+            "add"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softsigmoid_enhanced'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gamma = float(extra.get('weight_gamma', 10.0))  # sharpen sigmoid slope\n    clamp_lo = float(extra.get('clamp_lo', 0.2))\n    clamp_hi = float(extra.get('clamp_hi', 3.5))\n    # Shift sigmoid to center near zero gap, magnify moderate gaps smoothly\n    raw = torch.sigmoid(gamma * gap) - 0.5\n    raw = raw.clamp_min(0.0)  # zero weight for negative or zero gap\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softsigmoid_enhanced'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.048003971576690674
+      ],
+      "generation": 9,
+      "phase": "builder"
+    },
+    "g009_013_b4d7a87c": {
+      "builder_id": "g009_013_b4d7a87c",
+      "perf": 0.037358760833740234,
+      "cost_samples": [
+        960.0
+      ],
+      "perf_ref": {
+        "g_id": "g009_013_b4d7a87c",
+        "f_id": "fseed_000_3c3e0ea7",
+        "score": 0.037358760833740234,
+        "final_score": 0.037358760833740234,
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "phase": "builder",
+        "generation": 9,
+        "pair_reason": "ok_stage3_offline_minitrain",
+        "pair_ok": true,
+        "g_ir": {
+          "name": "reweight_combined_smooth_clamp",
+          "intuition": "This builder combines the linear gap emphasis from the 'gap_linear' family with a smooth monotonic transform (softplus) to maintain non-negativity and stability, while applying explicit clamping for robustness. It leverages the fixed all_pairs topology and enhances the original linear weighting with a softer, more stable shape to better discriminate large gaps without instability near zero.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_combined_smooth_clamp",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "gap_linear",
+            "ops_softplus",
+            "ops_clamp",
+            "ops_mul",
+            "ops_sub",
+            "ops_zeros_like"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'reweight_combined_smooth_clamp', 'weight_family': 'gap_combined_smooth_clamp'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    # Focus on linear gap\n    raw_weight = gap.clamp_min(0.0)\n    # Apply smooth monotonic transform for stability and smooth discrimination\n    smooth_weight = ops.softplus(raw_weight)\n    # Explicit clamping to ensure numeric stability\n    weight = ops.clamp(smooth_weight, 0.0, extra.get('max_weight', 10.0))\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'reweight_combined_smooth_clamp', 'weight_family': 'gap_combined_smooth_clamp'})"
+        },
+        "cost": 960.0
+      },
+      "num_records": 1,
+      "cost": 960.0,
+      "feasible": false,
+      "best_perf": 0.0,
+      "threshold": 0.0,
+      "slack": 0.0,
+      "selection_sort_key": [
+        1.0,
+        960.0,
+        0.037358760833740234
+      ],
+      "generation": 9,
+      "phase": "builder"
     }
   },
   "best_score": 0.024189412593841553,
@@ -5540,14 +6009,111 @@
         "eval_budget_signature": "f79d752b6c1aa3b8",
         "reference_score": 0.024189412593841553
       }
+    ],
+    "g009_005_d57e8e2e::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 1,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.05121767520904541,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_001_95cb99bb::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 3,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.06856894493103027,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_010_28f3c19c::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 4,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.03713172674179077,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_011_f1205a2c::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 7,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.04854762554168701,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_006_a15455ee::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 8,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.04018235206604004,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_012_cc5a3575::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 10,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.0471951961517334,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_003_5184dc64::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 12,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.048003971576690674,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
+    ],
+    "g009_013_b4d7a87c::fseed_000_3c3e0ea7": [
+      {
+        "generation": 9,
+        "pair_index": 14,
+        "phase": "builder",
+        "stage": "high_fidelity",
+        "stage_final": "high_fidelity",
+        "score": 0.037358760833740234,
+        "eval_budget_signature": "f79d752b6c1aa3b8",
+        "reference_score": 0.024189412593841553
+      }
     ]
   },
-  "rng_state_b64": "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",
+  "rng_state_b64": "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",
   "seen_g": [
     "014b8689332c141c55199f9b7926a09bdd2064f3",
     "01a1d4c59cf8c680c7966cb40fecb34f2136bb1d",
     "024dbbce2832dbd0eab4d4f35a31cd908e2d8a6b",
     "02d5d2a15f48d7712f593aca2646bfc4eb36fc88",
+    "0319590754218269ba0ae98cecf48d4e65d524af",
     "0491a683fe3c277dd8948fa29266cf2a5fd16ba8",
     "04fea29239b75e279377bee3ad6cd366d4dba874",
     "0799aaf42182065a5699b024abdf2dafaf11f8d8",
@@ -5570,10 +6136,13 @@
     "1f29d9af3f9e000b27423873dfacfb630824e76a",
     "21e68c6d70b8cfa69aabb5ac8685432ee195b1ba",
     "22c9de98ce80556dad938e19ac7e25650e3219c1",
+    "2543f8000457d902192c112a89dba2ae61c174e3",
     "25c1a71ee455b07f8cbfd4e0635d478699507371",
     "2600e81136cfbfd0f50388c5dcfa022835acd4a4",
+    "28f3c19c689a7808f9be2b916cccd0e348508e28",
     "2dc8fae640d39047f87f6bfe23d6106520a4e482",
     "2e467ed91a623458fa4bcd9ff0ab4b5db4e21c59",
+    "2fcb8173775fb8e0ad744a5aa4bc5acc63cc78a3",
     "323715f03f0c07b579bd35720507ccbd7d1a977e",
     "35f73f2a91ac719dd176c773e3b4c2e6b2625dd1",
     "37e2b117de68a1c4d54733448af07b5e3096d14a",
@@ -5590,6 +6159,7 @@
     "4a6e27ef7ed5a52f5988f67cc035f362befe627c",
     "4eb31bf90959b11fbe129921c09ff1c5b6e173fd",
     "4fdcf3b7af63e790c20cacc7f7b5ebd742cce1da",
+    "5184dc64bf30704acde220b71ea8de2e51c403ca",
     "51cfd3c13ed1da0e650751f6e2ff71abad706572",
     "53175a1084dc149d823ca6f7858ed8fe10e04d6e",
     "57bb80b6f65470ec40ba2b21fbb96dd5bacb7ba5",
@@ -5606,6 +6176,7 @@
     "6c8164233f2c47ae9b98bac6a859dfecc9577cfa",
     "6d35ba06c6d162b2b0ff50b3c5e448815beec540",
     "72722c55ce60eca125fb152193d8edb5e302fbdc",
+    "7558fe18c69c89f284126e25756b5258e7b86ad5",
     "7a610579b455e9fda37c903a7540fddd47ca541d",
     "7a9af5b355b649544831161d094c8b07f2ec59cc",
     "7b7f11ec698e44ce430d087a33b15b04f1ef3f7d",
@@ -5626,12 +6197,14 @@
     "9143862570025d13c7ebcfb7e32baae8dc26f72a",
     "934b7822cc6a323924e60e5c88cc748ad9015a4b",
     "934e79f9be07656a8481cb36ff0435d7b0f0512c",
+    "95cb99bb9ec259cf59e9ab816a65efc25f8cee26",
     "960a2711afffd2704209cb9617d58aaa3e788c42",
     "970e875de0e72b70442c7162a8ac512d8e28863b",
     "9a0f9cefd8dbef1fd917c2520fda9851b64ec45c",
     "9ab00b6009f1f448f99f18bfd488e09b76407176",
     "9c77ff22e68fd9290d3db5115aefc45db94a93bd",
     "9efeca7c3b65a26bd736ff951b41021472b1f16e",
+    "a15455eeccce48c04a7a666e552f022e03bf3dfb",
     "a553c475dba33c7df72c9d16ad8be6029a304cb8",
     "a74efa9f4e9390f0732fc4d8058015064b8c9339",
     "a7cfa3c5bdfa937f3fc3574888d8ed111dcae5c8",
@@ -5645,14 +6218,18 @@
     "b482947b2c790212958fb81222a26d3833d45906",
     "b4b23e04d3ebd11063d2b9c28dd02a9ece90f9c8",
     "b4b3032e6e794736db447f1f1c80efaad3f43ae4",
+    "b4d7a87c3ef7c6fa974429430334a211f6004d3b",
     "b6b3fb610f231b367990ea10d09f8cb2e6b1ac0c",
     "b7f86920e34bd0033909ba43a3fec222b503c682",
+    "b8b176dc3b2f9d533b670ccab2401fa9989d79d8",
     "bb4407bcd88e6ae257e4c0182074f2a6305af294",
     "bded9ef83f40708704c6b72dedc6de2e8ab1208b",
+    "c19474eca18bbbc09215eeea82eafd8a4f8cff46",
     "c3390a0bdc493694c6b18c936b23ecc34f1643c9",
     "c3e87aef3e7947c1d495b0e0d1500ce69293b24a",
     "c7e20cec526215ef99fc86acfa50ef4e30e64a21",
     "cb4eb0eaaf8af4ac7bba0fb5fa5adea2b6e4a4dd",
+    "cc5a35753b0ea9266975d49807515057d74f5e5d",
     "cd35ee129e2edcc23538f6b0ed1adbc0bab1f877",
     "cdf156df45d353f859104d843559267acad976b8",
     "d050cd2103f746485a91ab74c1261eee6bb7e5b8",
@@ -5660,6 +6237,7 @@
     "d305aa60b9e67e14d2507d9b30b2c372e83b9fcf",
     "d420a6cd670720ccb23d1d583fdf4860611be627",
     "d42257f9e53fcd96f173f4da89ce732fdf89843d",
+    "d57e8e2e40c2a6aad3c415fa0f388c7e07b7d88e",
     "d699d1f7c11386997561d1ff2041b44d3d94e561",
     "d8bd6ad78404b3912d7573900c209ea1f53c3d71",
     "d95f06d521071a368234a729427e94167150de4c",
@@ -5676,8 +6254,10 @@
     "ea3afe53d4bb6145bb86e2df9aacf035958d6b7d",
     "ee9ea4905a0a57d5cf61c5e1df7d37a4182241dc",
     "ef04469b4844add75b0a6c10e08ebb4fae50c6da",
+    "effc7406c4c424193033b3287743c96a0123c0a9",
     "f06917828ded80605b1b08e866bbb2e4086c0602",
     "f103cd5f554996ecc2e72d8a27f099c0d43ed464",
+    "f1205a2cb62d6702a0d1a85fca95f41bfe452811",
     "f3c2a8ad354d9a973fc14e6f1c5ee2efc8ec51c9",
     "f768e5d77b038da3f7775e34cc8234af7859fade",
     "f8c0dd39d1d6ddbc4346b3733ede164b79e3bcbc",
@@ -5787,7 +6367,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -6141,7 +6721,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -6399,7 +6979,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -6636,7 +7216,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -6751,7 +7331,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -6986,7 +7566,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -7348,7 +7928,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -7570,7 +8150,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -7766,7 +8346,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -8120,7 +8700,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": Infinity,
+      "fitness": 0.0,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -8378,7 +8958,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -8615,7 +9195,7 @@
         "memory_metric_available": false,
         "memory_device": "cpu"
       },
-      "fitness": 0.0,
+      "fitness": Infinity,
       "descriptor": {
         "x": 0.0,
         "y": 0.0,
@@ -10140,7 +10720,7 @@
     ]
   },
   "archive_f": {},
-  "stagnation_generations": 8,
+  "stagnation_generations": 9,
   "schema_version": 1,
-  "saved_at": "2026-04-18 15:37:07"
+  "saved_at": "2026-04-18 19:21:00"
 }
