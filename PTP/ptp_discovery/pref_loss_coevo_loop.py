@@ -2223,7 +2223,16 @@ def _hf_subprocess_env_and_device(
     if dev.startswith("cuda:"):
         idx = dev.split(":", 1)[1].strip()
         if idx:
-            env["CUDA_VISIBLE_DEVICES"] = str(idx)
+            visible_raw = str(os.environ.get("CUDA_VISIBLE_DEVICES", "") or "").strip()
+            visible_list = [part.strip() for part in visible_raw.split(",") if part.strip()]
+            try:
+                logical_idx = int(idx)
+            except ValueError:
+                logical_idx = -1
+            if 0 <= logical_idx < len(visible_list):
+                env["CUDA_VISIBLE_DEVICES"] = visible_list[logical_idx]
+            else:
+                env["CUDA_VISIBLE_DEVICES"] = str(idx)
             return env, "cuda:0"
     return env, dev
 
@@ -2322,9 +2331,20 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
                 break
 
             task = dict(pending.pop(next_idx))
-            physical_device = str(task.get("device_str", ""))
+            logical_device = str(task.get("device_str", ""))
+            physical_device = logical_device
+            if logical_device.startswith("cuda:"):
+                idx = logical_device.split(":", 1)[1].strip()
+                visible_raw = str(os.environ.get("CUDA_VISIBLE_DEVICES", "") or "").strip()
+                visible_list = [part.strip() for part in visible_raw.split(",") if part.strip()]
+                try:
+                    logical_idx = int(idx)
+                except ValueError:
+                    logical_idx = -1
+                if 0 <= logical_idx < len(visible_list):
+                    physical_device = f"cuda:{visible_list[logical_idx]}"
             env, worker_device = _hf_subprocess_env_and_device(
-                physical_device,
+                logical_device,
                 task.get("cfg_yaml") if isinstance(task.get("cfg_yaml"), Mapping) else None,
             )
             task["device_physical_str"] = physical_device

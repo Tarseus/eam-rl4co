@@ -8,7 +8,7 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 GPU_ID="${1:-0}"
 shift 1 || true
 
-EXP_NAME="scheduling/l2d-pomo-jssp-sll-10j10m"
+EXP_NAME="scheduling/mgl-jssp-sll-paper"
 MAX_EPOCHS=20
 
 export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
@@ -19,9 +19,9 @@ export LOG_LEVEL
 
 mkdir -p "${ROOT_DIR}/logs"
 TS="$(date +%Y%m%d-%H%M%S)"
-RUN_DIR="${ROOT_DIR}/logs/train/runs/l2d_pomo_jssp_sll_10j10m_${TS}"
+RUN_DIR="${ROOT_DIR}/logs/train/runs/mgl-jssp-sll_10x10_${TS}"
 CKPT_DIR="${RUN_DIR}/checkpoints"
-LOG_PATH="${ROOT_DIR}/logs/l2d_pomo_jssp_sll_10j10m_${TS}.out"
+LOG_PATH="${ROOT_DIR}/logs/mgl-jssp-sll_10x10_${TS}.out"
 
 CMD=(
   "$PYTHON_BIN" -u run.py
@@ -40,7 +40,7 @@ CMD=(
   "trainer.max_epochs=${MAX_EPOCHS}"
   "+trainer.enable_progress_bar=false"
   "logger=csv"
-  "logger.csv.name=l2d_pomo_jssp_sll_10j10m"
+  "logger.csv.name=mgl-jssp-sll_10x10"
 )
 
 CMD+=("$@")
