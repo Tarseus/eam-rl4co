@@ -15,16 +15,37 @@ export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
 export LOG_TZ
 : "${LOG_LEVEL:=INFO}"
 export LOG_LEVEL
-if [[ -n "$VISIBLE_GPUS" ]]; then
-  export CUDA_VISIBLE_DEVICES="$VISIBLE_GPUS"
-fi
 
 LOG_DIR="${ROOT_DIR}/logs"
 mkdir -p "$LOG_DIR"
 TS="$(date +%Y%m%d-%H%M%S)"
 LOG_PATH="${LOG_DIR}/pref_loss_tsp100_family_ablation_${TS}.out"
+CONFIG_TO_RUN="$CONFIG_PATH"
 
-CMD=("$PYTHON_BIN" -u PTP/ptp_discovery/run_pref_loss_coevo.py --config "$CONFIG_PATH")
+if [[ -n "$VISIBLE_GPUS" ]]; then
+  export PTP_PHYSICAL_VISIBLE_GPUS="$VISIBLE_GPUS"
+  TMP_CONFIG="${LOG_DIR}/pref_loss_tsp100_family_ablation_${TS}.yaml"
+  "$PYTHON_BIN" - <<'PY' "$CONFIG_PATH" "$TMP_CONFIG" "$VISIBLE_GPUS"
+import sys
+from pathlib import Path
+import yaml
+
+src = Path(sys.argv[1])
+dst = Path(sys.argv[2])
+visible = [part.strip() for part in sys.argv[3].split(",") if part.strip()]
+cfg = yaml.safe_load(src.read_text(encoding="utf-8")) or {}
+cfg["devices"] = [f"cuda:{gpu}" for gpu in visible]
+mp = cfg.get("mp", {}) or {}
+if isinstance(mp, dict) and visible:
+    mp["processes"] = len(visible)
+    cfg["mp"] = mp
+dst.write_text(yaml.safe_dump(cfg, sort_keys=False, allow_unicode=True), encoding="utf-8")
+print(dst.as_posix())
+PY
+  CONFIG_TO_RUN="$TMP_CONFIG"
+fi
+
+CMD=("$PYTHON_BIN" -u PTP/ptp_discovery/run_pref_loss_coevo.py --config "$CONFIG_TO_RUN")
 case "$MODE" in
   start)
     ;;
@@ -48,7 +69,8 @@ case "$MODE" in
 esac
 
 echo "Running: ${CMD[*]}"
-echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES:-<inherited>}"
+echo "Visible physical GPUs=${VISIBLE_GPUS:-<config/default>}"
+echo "Config path=${CONFIG_TO_RUN}"
 echo "Log: $LOG_PATH"
 nohup "${CMD[@]}" >"$LOG_PATH" 2>&1 &
 echo "Started PID: $!"
