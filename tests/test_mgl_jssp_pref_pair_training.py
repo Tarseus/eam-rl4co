@@ -147,3 +147,42 @@ def test_mgl_jssp_pref_pair_rollout_produces_finite_loss(tmp_path, monkeypatch) 
     assert torch.isfinite(reward)
     assert torch.isfinite(aux_metric)
     assert pair_count.item() == 6.0
+
+
+def test_mgl_jssp_required_allowed_shapes_rejects_missing_allowed_shapes() -> None:
+    with pytest.raises(ValueError, match="required_allowed_shapes"):
+        MGLJSSPModel(
+            env=_DummyEnv(),
+            baseline="bopo",
+            B=4,
+            K=2,
+            required_allowed_shapes=[[10, 10]],
+        )
+
+
+def test_mgl_jssp_setup_enforces_expected_dataset_size(monkeypatch) -> None:
+    def _fake_load_dataset(data_dir: str, use_cached: bool = True, device: str = "cpu"):
+        if "train" in data_dir:
+            return [
+                {"j": 10, "m": 10, "name": "train_10x10"},
+                {"j": 15, "m": 15, "name": "train_15x15"},
+            ]
+        return [{"j": 10, "m": 10, "name": "val_10x10"}]
+
+    monkeypatch.setattr(mgl_model_module, "load_dataset", _fake_load_dataset)
+
+    model = MGLJSSPModel(
+        env=_DummyEnv(),
+        baseline="bopo",
+        B=4,
+        K=2,
+        train_data_dir="train",
+        val_data_dir="validation",
+        allowed_shapes=[[10, 10]],
+        required_allowed_shapes=[[10, 10]],
+        expected_train_dataset_size=2,
+        expected_val_dataset_size=1,
+    )
+
+    with pytest.raises(ValueError, match="train split size mismatch"):
+        model.setup(stage="fit")

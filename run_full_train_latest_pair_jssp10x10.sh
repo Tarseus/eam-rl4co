@@ -112,7 +112,9 @@ CMD=(
 has_devices_override=false
 has_accelerator_override=false
 has_progress_override=false
-has_allowed_shapes_override=false
+required_allowed_shapes_literal="[[10,10]]"
+expected_train_size=5000
+expected_val_size=100
 for arg in "$@"; do
   case "$arg" in
     trainer.devices=*)
@@ -125,7 +127,11 @@ for arg in "$@"; do
       has_progress_override=true
       ;;
     model.allowed_shapes=*|+model.allowed_shapes=*)
-      has_allowed_shapes_override=true
+      allowed_shapes_value="${arg#*=}"
+      if [[ "$allowed_shapes_value" != "$required_allowed_shapes_literal" ]]; then
+        echo "ERROR: JSSP10x10 full train must use model.allowed_shapes=${required_allowed_shapes_literal}, got ${allowed_shapes_value}" >&2
+        exit 1
+      fi
       ;;
   esac
 done
@@ -139,10 +145,12 @@ fi
 if [[ "$has_progress_override" == "false" ]]; then
   CMD+=("+trainer.enable_progress_bar=false")
 fi
-if [[ "$has_allowed_shapes_override" == "false" ]]; then
-  # Keep the 10x10 full-train run on the same shape-restricted data regime as the baseline.
-  CMD+=("+model.allowed_shapes=[[10,10]]")
-fi
+
+# Keep the 10x10 full-train run on the same shape-restricted data regime as the baseline.
+CMD+=("+model.allowed_shapes=${required_allowed_shapes_literal}")
+CMD+=("+model.required_allowed_shapes=${required_allowed_shapes_literal}")
+CMD+=("+model.expected_train_dataset_size=${expected_train_size}")
+CMD+=("+model.expected_val_dataset_size=${expected_val_size}")
 
 CMD+=("$@")
 
