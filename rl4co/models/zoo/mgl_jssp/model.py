@@ -44,6 +44,26 @@ def _normalize_free_loss_observables(observables: Sequence[str] | None) -> tuple
     return tuple(out) if out else _DEFAULT_FREE_LOSS_OBSERVABLES
 
 
+def _normalize_shape_list(
+    shapes: Sequence[Sequence[int]] | None,
+) -> list[tuple[int, int]] | None:
+    if shapes is None:
+        return None
+
+    normalized: list[tuple[int, int]] = []
+    for raw in shapes:
+        if len(raw) != 2:
+            raise ValueError(f"Each shape must have exactly 2 entries, got {raw!r}.")
+        normalized.append((int(raw[0]), int(raw[1])))
+    return normalized
+
+
+def _format_shape_list(shapes: Sequence[tuple[int, int]] | None) -> str:
+    if not shapes:
+        return "[]"
+    return "[" + ", ".join(f"{j}x{m}" for j, m in shapes) + "]"
+
+
 class MGLJSSPModel(L.LightningModule):
     def __init__(
         self,
@@ -86,6 +106,10 @@ class MGLJSSPModel(L.LightningModule):
         use_shape_buckets: bool = True,
         bucket_drop_last: bool = False,
         allowed_shapes: list[list[int]] | None = None,
+        required_allowed_shapes: list[list[int]] | None = None,
+        expected_train_dataset_size: int | None = None,
+        expected_val_dataset_size: int | None = None,
+        expected_test_dataset_size: int | None = None,
         **unused_kwargs,
     ):
         super().__init__()
@@ -131,10 +155,17 @@ class MGLJSSPModel(L.LightningModule):
         self._pref_build_runtime_observables = None
         self._pref_batch_cls = None
         # Parse allowed_shapes: [[10,10], [15,15], [20,20]] -> [(10,10), (15,15), (20,20)]
-        if allowed_shapes is None:
-            self.allowed_shapes = None
-        else:
-            self.allowed_shapes = [tuple(s) for s in allowed_shapes]
+        self.allowed_shapes = _normalize_shape_list(allowed_shapes)
+        self.required_allowed_shapes = _normalize_shape_list(required_allowed_shapes)
+        self.expected_train_dataset_size = (
+            None if expected_train_dataset_size is None else int(expected_train_dataset_size)
+        )
+        self.expected_val_dataset_size = (
+            None if expected_val_dataset_size is None else int(expected_val_dataset_size)
+        )
+        self.expected_test_dataset_size = (
+            None if expected_test_dataset_size is None else int(expected_test_dataset_size)
+        )
 
         if unused_kwargs:
             log.warning("Ignoring unused MGLJSSPModel kwargs: %s", sorted(unused_kwargs.keys()))
@@ -161,6 +192,18 @@ class MGLJSSPModel(L.LightningModule):
             raise ValueError(f"MGL JSSP BOPO requires B % K == 0, got B={self.B}, K={self.K}.")
         if self.po_alpha <= 0:
             raise ValueError(f"MGL JSSP po_alpha must be positive, got {self.po_alpha}.")
+        if self.required_allowed_shapes is not None:
+            if self.allowed_shapes is None:
+                raise ValueError(
+                    "required_allowed_shapes was provided but allowed_shapes is unset. "
+                    f"Expected {_format_shape_list(self.required_allowed_shapes)}."
+                )
+            if self.allowed_shapes != self.required_allowed_shapes:
+                raise ValueError(
+                    "allowed_shapes does not match required_allowed_shapes: "
+                    f"got {_format_shape_list(self.allowed_shapes)}, "
+                    f"expected {_format_shape_list(self.required_allowed_shapes)}."
+                )
 
         self.encoder = CAMEncoder3(15, hidden_size=enc_hidden, embed_size=enc_out)
         self.decoder = LSTMDecoder2(
@@ -443,6 +486,42 @@ class MGLJSSPModel(L.LightningModule):
             )
         return filtered
 
+    def _validate_dataset_shapes_and_size(
+        self,
+        instances: list[dict[str, Any]],
+        split_name: str,
+        expected_size: int | None,
+    ) -> None:
+        shape_counts: dict[tuple[int, int], int] = {}
+        for ins in instances:
+            shape = (int(ins["j"]), int(ins["m"]))
+            shape_counts[shape] = shape_counts.get(shape, 0) + 1
+
+        log.info(
+            "JSSP %s split loaded %d instances with shapes: %s",
+            split_name,
+            len(instances),
+            ", ".join(
+                f"{shape[0]}x{shape[1]}={count}"
+                for shape, count in sorted(shape_counts.items())
+            ) or "none",
+        )
+
+        if self.required_allowed_shapes is not None:
+            disallowed = sorted(set(shape_counts) - set(self.required_allowed_shapes))
+            if disallowed:
+                raise ValueError(
+                    f"{split_name} split contains shapes outside required_allowed_shapes: "
+                    f"got {_format_shape_list(disallowed)}, "
+                    f"required {_format_shape_list(self.required_allowed_shapes)}."
+                )
+
+        if expected_size is not None and len(instances) != expected_size:
+            raise ValueError(
+                f"{split_name} split size mismatch: got {len(instances)}, expected {expected_size}. "
+                f"allowed_shapes={_format_shape_list(self.allowed_shapes)}."
+            )
+
     def setup(self, stage: str | None = None) -> None:
         train_instances = load_dataset(self.train_data_dir, use_cached=self.use_cached, device="cpu")
         val_instances = load_dataset(self.val_data_dir, use_cached=self.use_cached, device="cpu")
@@ -452,12 +531,21 @@ class MGLJSSPModel(L.LightningModule):
         val_instances = self._filter_instances_by_allowed_shapes(
             val_instances, "val", self.val_data_dir
         )
+        self._validate_dataset_shapes_and_size(
+            train_instances, "train", self.expected_train_dataset_size
+        )
+        self._validate_dataset_shapes_and_size(
+            val_instances, "val", self.expected_val_dataset_size
+        )
         self.train_dataset = JSSPInstanceDataset(train_instances)
         self.val_dataset = JSSPInstanceDataset(val_instances)
         if self.test_data_dir:
             test_instances = load_dataset(self.test_data_dir, use_cached=self.use_cached, device="cpu")
             test_instances = self._filter_instances_by_allowed_shapes(
                 test_instances, "test", self.test_data_dir
+            )
+            self._validate_dataset_shapes_and_size(
+                test_instances, "test", self.expected_test_dataset_size
             )
             self.test_dataset = JSSPInstanceDataset(test_instances)
         else:
