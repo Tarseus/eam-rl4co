@@ -101,6 +101,15 @@ declare -A LOSS_OVERRIDE_MAP=(
   ["cvrp50_bopo"]=""
 )
 
+declare -A BOPO_SELECT_K_OVERRIDE_MAP=(
+  ["tsp50_rl"]=""
+  ["cvrp50_rl"]=""
+  ["tsp50_sll"]=""
+  ["cvrp50_sll"]=""
+  ["tsp50_bopo"]="10"
+  ["cvrp50_bopo"]="10"
+)
+
 PIDS=()
 LOG_PATHS=()
 RUN_DIRS=()
@@ -214,6 +223,7 @@ launch_one() {
   local val_file="${VAL_FILE_MAP[$key]}"
   local test_file="${TEST_FILE_MAP[$key]}"
   local loss_override="${LOSS_OVERRIDE_MAP[$key]}"
+  local bopo_select_k_override="${BOPO_SELECT_K_OVERRIDE_MAP[$key]}"
   local gpu_id="${GPU_IDS[$(( idx % ${#GPU_IDS[@]} ))]}"
   local run_dir="${RUN_ROOT}/${key}"
   local log_path="${LOG_DIR}/${key}_${TS}.out"
@@ -235,6 +245,9 @@ launch_one() {
 
   if [[ -n "$loss_override" ]]; then
     cmd+=("model.loss_type=${loss_override}")
+  fi
+  if [[ -n "$bopo_select_k_override" ]]; then
+    cmd+=("model.bopo_select_k=${bopo_select_k_override}")
   fi
 
   if [[ "$disable_rich_progress_bar" == "true" ]]; then

@@ -84,6 +84,7 @@ for idx in "${!EXPERIMENT_KEYS[@]}"; do
     "$PYTHON_BIN" -u run.py
     "experiment=${experiment}"
     "hydra.run.dir=${run_dir}"
+    "model.bopo_select_k=10"
   )
 
   if [[ "$disable_rich_progress_bar" == "true" ]]; then
