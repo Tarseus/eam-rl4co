@@ -23,7 +23,8 @@ model:
   alpha: 0.05
   bopo_pair_mode: anchor_best
   bopo_select_strategy: paper
-  bopo_select_k: 16
+  # Paper selection requires num_starts % bopo_select_k == 0.
+  bopo_select_k: 10
   bopo_select_quantile: 0.5
   num_starts: 50
   batch_size: 64
