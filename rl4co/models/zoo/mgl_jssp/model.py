@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
+from rl4co.models.rl.reinforce.preference_losses import sll_loss
 from rl4co.models.zoo.mgl_jssp.data import (
     JSSPInstanceDataset,
     JSSPShapeBucketSampler,
@@ -22,6 +23,8 @@ from rl4co.models.zoo.mgl_jssp.sampling import (
     sampling,
     solve_jsp,
     sro_loss,
+    solution_ratio,
+    trajectory_log_probs,
 )
 from rl4co.utils.optim_helpers import create_optimizer
 from rl4co.utils.pylogger import get_pylogger
@@ -90,6 +93,8 @@ class MGLJSSPModel(L.LightningModule):
         pair_mode: str = "anchor_best",
         po_impl: str = "bt",
         po_alpha: float = 1.0,
+        sll_impl: str = "sll",
+        sll_temperature: float = 1.0,
         val_B: int = 128,
         test_B: int = 128,
         greedy: int = 0,
@@ -132,6 +137,8 @@ class MGLJSSPModel(L.LightningModule):
         self.pair_mode = str(pair_mode or "anchor_best").strip().lower()
         self.po_impl = str(po_impl or "bt").strip().lower()
         self.po_alpha = float(po_alpha)
+        self.sll_impl = str(sll_impl or "sll").strip().lower()
+        self.sll_temperature = float(sll_temperature)
         self.alpha = float(alpha)
         self.val_B = int(val_B)
         self.test_B = int(test_B)
@@ -170,7 +177,7 @@ class MGLJSSPModel(L.LightningModule):
         if unused_kwargs:
             log.warning("Ignoring unused MGLJSSPModel kwargs: %s", sorted(unused_kwargs.keys()))
 
-        if self.baseline not in {"bopo", "rl", "po"}:
+        if self.baseline not in {"bopo", "rl", "po", "sll"}:
             raise ValueError(f"Unsupported MGL JSSP baseline: {self.baseline!r}")
         self._resolve_pref_pair_artifacts()
         self._free_loss_enabled = bool(self.free_loss_ir_json_path)
@@ -192,6 +199,12 @@ class MGLJSSPModel(L.LightningModule):
             raise ValueError(f"MGL JSSP BOPO requires B % K == 0, got B={self.B}, K={self.K}.")
         if self.po_alpha <= 0:
             raise ValueError(f"MGL JSSP po_alpha must be positive, got {self.po_alpha}.")
+        if self.sll_impl not in {"sll", "slim", "listnet"}:
+            raise ValueError(f"Unsupported MGL JSSP sll_impl: {self.sll_impl!r}")
+        if self.sll_temperature <= 0:
+            raise ValueError(
+                f"MGL JSSP sll_temperature must be positive, got {self.sll_temperature}."
+            )
         if self.required_allowed_shapes is not None:
             if self.allowed_shapes is None:
                 raise ValueError(
@@ -730,6 +743,48 @@ class MGLJSSPModel(L.LightningModule):
                 loss_i, quality_i = po_loss(samples_i, impl=self.po_impl, alpha=self.po_alpha)
                 total_loss = total_loss + loss_i
                 total_quality = total_quality + quality_i
+                best_makespan_list.append(makespans_reshaped[i].min())
+
+            loss = total_loss / num_instances
+            quality = total_quality / num_instances
+            best_makespan = torch.stack(best_makespan_list).min()
+
+            reward = -best_makespan.to(self.device)
+            aux_metric = torch.tensor(float(quality), dtype=torch.float32, device=self.device)
+            return loss, reward, aux_metric, None
+
+        if self.baseline == "sll":
+            trajs, logits, makespans, _ = solve_jsp(
+                instances,
+                batch_size_per_instance=self.B,
+                device=device,
+                encoder=self.encoder,
+                decoder=self.decoder,
+                use_greedy=self.use_greedy,
+            )
+
+            num_steps = trajs.size(1)
+            num_jobs = instances[0]["j"]
+            trajs_reshaped = trajs.view(num_instances, self.B, num_steps)
+            logits_reshaped = logits.view(num_instances, self.B, num_steps, num_jobs)
+            makespans_reshaped = makespans.view(num_instances, self.B)
+
+            total_loss = 0.0
+            total_quality = 0.0
+            best_makespan_list = []
+
+            for i in range(num_instances):
+                log_probs_i = trajectory_log_probs(logits_reshaped[i], trajs_reshaped[i]).unsqueeze(0)
+                reward_i = (-makespans_reshaped[i]).unsqueeze(0)
+                loss_i = sll_loss(
+                    reward_i,
+                    log_probs_i,
+                    alpha=self.alpha,
+                    impl=self.sll_impl,
+                    temperature=self.sll_temperature,
+                )
+                total_loss = total_loss + loss_i
+                total_quality = total_quality + solution_ratio(makespans_reshaped[i])
                 best_makespan_list.append(makespans_reshaped[i].min())
 
             loss = total_loss / num_instances
