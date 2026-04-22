@@ -1,0 +1,58 @@
+policy_kwargs: {}
+baseline: shared
+num_augment: 8
+augment_fn: dihedral8
+first_aug_identity: true
+feats: null
+num_starts: null
+batch_size: 64
+optimizer_kwargs:
+  lr: 0.0001
+  weight_decay: 1.0e-06
+lr_scheduler: MultiStepLR
+lr_scheduler_kwargs:
+  milestones:
+  - 200
+  gamma: 0.1
+train_data_size: 160000
+val_data_size: 10000
+test_data_size: 10000
+metrics:
+  train:
+  - loss
+  - reward
+  - max_reward
+  - delta_nll
+  - diversity_edge
+  - diversity_edge_entropy
+  - diversity_edge_simpson
+  - diversity_route
+  - diversity_edit_edge
+  - ga_cost_gain
+  - ga_cost_gain_rel
+  - t_decode
+  - t_ga
+  - t_diag
+  val:
+  - reward
+  - reward_no_ls
+  - max_reward
+  - max_reward_no_ls
+  - max_aug_reward
+  - max_aug_reward_no_ls
+  test:
+  - reward
+  - max_reward
+  - max_aug_reward
+val_batch_size: null
+test_batch_size: null
+optimizer: Adam
+lr_scheduler_interval: epoch
+lr_scheduler_monitor: val/reward
+generate_default_data: false
+shuffle_train_dataloader: false
+dataloader_num_workers: 0
+data_dir: data/
+log_on_step: true
+baseline_kwargs: {}
+reward_scale: null

@@ -1,0 +1,110 @@
+{
+  "generation": 0,
+  "pair_index": 15,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_000_2004d6f0",
+    "ir": {
+      "name": "loss_rank_weighted_logsigmoid_advantage_gap_repaired_v6",
+      "intuition": "This loss implements a stable pairwise ranking loss that avoids gradient saturation by applying a softplus transform to the advantage gap. It normalizes weights to maintain stable scaling and clamps margins and rank gaps to ensure gradients remain meaningful, enabling robust preference alignment.",
+      "pseudocode": "weight_mean_eps = mean(weight) + 1e-6\nweight_norm = weight / weight_mean_eps\nadv_gap_softplus = softplus(advantage_gap)\nmargin_raw = log_prob_w - log_prob_l\nmargin_clamped = clamp(margin_raw, -4, 4)\nrank_raw = rank_gap(log_prob_w, log_prob_l)\nrank_pos = max(rank_raw, 1.0)\nweighted_adv = adv_gap_softplus * weight_norm\nloss_per_pair = -logsigmoid(margin_clamped) * rank_pos * weighted_adv\nloss = mean(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_ranking",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "rank_weighted"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "mean",
+        "mul",
+        "sub",
+        "softplus",
+        "rank_gap",
+        "neg",
+        "clamp",
+        "div",
+        "add",
+        "max"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    adv_gap = batch['advantage_gap']\n    weight_mean_eps = ops.add(ops.mean(weight), 1e-6)\n    weight_norm = ops.div(weight, weight_mean_eps)\n    adv_gap_softplus = ops.softplus(adv_gap)\n    margin_raw = ops.sub(lpw, lpl)\n    margin = ops.clamp(margin_raw, -4.0, 4.0)\n    rank_raw = ops.rank_gap(lpw, lpl)\n    rank = ops.max(rank_raw, ops.ones_like(rank_raw).mul(1.0))\n    weighted_adv = ops.mul(adv_gap_softplus, weight_norm)\n    loss_per_pair = ops.mul(ops.mul(ops.neg(ops.logsigmoid(margin)), rank), weighted_adv)\n    return ops.mean(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

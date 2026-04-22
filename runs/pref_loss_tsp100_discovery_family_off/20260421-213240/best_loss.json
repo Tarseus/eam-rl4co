@@ -1,0 +1,61 @@
+{
+  "id": "f000_001_ac25db63",
+  "ir": {
+    "name": "loss_logsigmoid_001_cost_mean_stabilized",
+    "intuition": "Fixed affine invariance violation by replacing sum aggregation with mean to normalize loss scale, and included cost_gap with a small stabilizing constant inside the clamp to prevent large jump discontinuities; this improves stability against affine perturbations on the objective while still leveraging pairwise margin via log_prob difference modulated by cost_gap, weighted per instance.",
+    "pseudocode": "x = alpha * scale * (log_prob_w - log_prob_l) - 0.1 * cost_gap\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nif weight is not None: loss = loss * weight\nfinal_loss = mean(loss)",
+    "hyperparams": {
+      "scale": "1.9496803035382082",
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "cost_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "mean",
+      "constraint_family": "clamp_stabilized"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "cost_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_gap = batch['cost_gap']\n    # stabilized clamp with small epsilon added to cost_gap term to smooth gradients\n    epsilon = 1e-4\n    x = alpha * scale * (lpw - lpl) - 0.1 * cost_gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "stage": "high_fidelity",
+  "score": -0.01138016357421856,
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "best_pair_generation": 0,
+  "best_pair_phase": "loss",
+  "score_history": [
+    {
+      "generation": 0,
+      "pair_index": 11,
+      "phase": "loss",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": -0.01138016357421856,
+      "eval_budget_signature": "2a986e397fd6c3df",
+      "reference_score": -0.006879595947265393
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      -0.01138016357421856
+    ],
+    "best": -0.01138016357421856,
+    "worst": -0.01138016357421856,
+    "mean": -0.01138016357421856,
+    "latest": -0.01138016357421856
+  }
+}
