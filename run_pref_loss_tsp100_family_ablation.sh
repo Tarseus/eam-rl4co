@@ -75,4 +75,4 @@ echo "Log: $LOG_PATH"
 nohup "${CMD[@]}" >"$LOG_PATH" 2>&1 &
 echo "Started PID: $!"
 
-tail -f "$LOG_PATH"
+# tail -f "$LOG_PATH"
