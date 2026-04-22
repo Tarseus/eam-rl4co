@@ -15822,3 +15822,60 @@ OSError: [Errno 28] No space left on device
 [2026-04-21 02:14:04,908][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-21 02:14:23,162][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-21 02:14:36,274][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 03:02:21,498][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-21 03:02:21,503][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-21 03:02:21,580][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-21 03:02:26,321][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.POMO>
+[2026-04-21 03:02:26,704][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-21 03:02:26,706][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-21 03:02:26,709][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-21 03:02:26,709][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-21 03:02:26,710][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-21 03:02:26,710][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-21 03:02:26,713][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-21 03:02:26,717][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-21 03:02:26,726][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-21 03:02:26,728][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-21 03:02:26,748][rl4co.models.rl.common.base][INFO] - Setting up batch sizes for train/val/test
+[2026-04-21 03:02:26,748][rl4co.models.rl.common.base][INFO] - Generating default datasets. If found, they will not be overwritten
+[2026-04-21 03:02:26,749][rl4co.models.rl.common.base][INFO] - Setting up datasets
+[2026-04-21 03:02:26,812][rl4co.envs.common.base][WARNING] - val_file not set. Generating dataset instead
+[2026-04-21 03:02:26,843][rl4co.envs.common.base][INFO] - Loading test dataset from /data3/gushengda/eam-rl4co/data/jssp/taillard/10j_10m
+[2026-04-21 03:02:26,843][rl4co.envs.common.base][ERROR] - Provided file name /data3/gushengda/eam-rl4co/data/jssp/taillard/10j_10m not found. Make sure to provide a file in the right path first or unset test_file to generate data automatically instead
+[2026-04-21 03:02:28,382][rl4co.models.rl.common.base][INFO] - Instantiating optimizer <Adam>
+[2026-04-21 03:02:28,383][rl4co.models.rl.common.base][INFO] - Instantiating LR scheduler <MultiStepLR>
+[2026-04-21 03:42:20,710][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 04:21:26,617][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 05:00:34,170][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 05:41:59,080][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 06:29:08,858][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 07:18:56,262][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 08:03:39,219][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 08:43:13,335][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 11:06:05,564][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-21 12:52:45,603][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-21 12:52:45,608][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-21 12:52:45,659][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-21 12:52:50,137][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-21 12:52:50,412][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-21 12:52:50,470][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-21 12:52:50,471][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-21 12:52:50,473][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-21 12:52:50,474][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-21 12:52:50,475][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-21 12:52:50,475][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-21 12:52:50,477][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-21 12:52:50,481][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-21 12:52:50,514][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-21 12:52:50,515][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-21 12:59:28,504][rl4co.models.zoo.mgl_jssp.model][INFO] - JSSP train split loaded 30000 instances with shapes: 10x10=5000, 15x10=5000, 15x15=5000, 20x10=5000, 20x15=5000, 20x20=5000
+[2026-04-21 12:59:28,505][rl4co.models.zoo.mgl_jssp.model][INFO] - JSSP val split loaded 600 instances with shapes: 10x10=100, 15x10=100, 15x15=100, 20x10=100, 20x15=100, 20x20=100
+[2026-04-21 12:59:28,532][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-21 12:59:28,532][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 10x10: 5000 instances, 5000 batches
+[2026-04-21 12:59:28,532][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x10: 5000 instances, 5000 batches
+[2026-04-21 12:59:28,533][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-21 12:59:28,533][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x10: 5000 instances, 5000 batches
+[2026-04-21 12:59:28,533][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x15: 5000 instances, 5000 batches
+[2026-04-21 12:59:28,533][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 20x20: 5000 instances, 5000 batches
+[2026-04-21 12:59:28,533][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 30000 instances, 30000 batches
+[2026-04-21 12:59:28,533][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
