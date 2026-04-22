@@ -1,0 +1,105 @@
+{
+  "generation": 0,
+  "pair_index": 1,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_012_d67542d3",
+    "ir": {
+      "name": "pairwise_preference_signal_stabilized",
+      "intuition": "The original formulation subtracted alpha * cost_gap inside the difference of log probabilities, which can cause numerical instability if scales differ. This revision cleanly separates the log probability difference and advantage difference, then multiplies them. The cost_gap is scaled by alpha and subtracted outside the log prob difference to avoid invalid expects and combined scaling issues. The final score is clamped with max(0, -score) to focus only on negative preference signals for loss. This stabilizes numerical behavior and semantics while keeping the expression simple.",
+      "pseudocode": "delta_log_prob = log_prob_w - log_prob_l\nadv_diff = advantage_w - advantage_l\nscore = delta_log_prob * adv_diff - alpha * cost_gap\nloss = mean(max(0, -score))",
+      "hyperparams": {
+        "paradigm_family": "preference",
+        "signal_family": "advantage",
+        "link_family": "pairwise",
+        "agg_family": "mean",
+        "constraint_family": "cost"
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "maximum",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get(\"alpha\", 1.0))\n    log_prob_w = batch[\"log_prob_w\"]\n    log_prob_l = batch[\"log_prob_l\"]\n    advantage_w = batch.get(\"advantage_w\", ops.zeros_like(log_prob_w))\n    advantage_l = batch.get(\"advantage_l\", ops.zeros_like(log_prob_l))\n    cost_gap = batch[\"cost_gap\"]\n    delta_log_prob = ops.sub(log_prob_w, log_prob_l)\n    advantage_diff = ops.sub(advantage_w, advantage_l)\n    preference_score = ops.sub(ops.mul(delta_log_prob, advantage_diff), ops.mul(alpha, cost_gap))\n    loss = ops.mean(ops.maximum(ops.neg(preference_score), ops.zeros_like(preference_score)))\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

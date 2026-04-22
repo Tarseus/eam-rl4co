@@ -1,0 +1,109 @@
+{
+  "generation": 0,
+  "pair_index": 4,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_001_f707a236",
+    "ir": {
+      "name": "loss_logsigmoid_005_cost_scaled_signed_invariant_corrected_v3",
+      "intuition": "Fixed the affine invariance violation by removing the dependence on the sign of the scaled log_prob difference, which previously introduced sensitivity to affine shifts. Instead, reformulated the margin term as (alpha * scale * raw_diff - beta * cost_gap), thus directly combining score difference and cost gap linearly without sign operations. Clamped the margin input to [-20, 20] to stabilize gradients. Reduced the cost gap scaling factor beta to 0.02 for less sensitivity and normalized the final weighted loss by sum of weights to maintain stable training behavior regardless of batch size or weighting. This design respects affine invariance since it only uses linear combinations without nonsmooth sign operations and cost gap is directly scaled, ensuring stable margin losses aligned with preferences.",
+      "pseudocode": "gap = cost_b - cost_a; raw_diff = log_prob_w - log_prob_l; alpha_scale_diff = alpha * scale * raw_diff; beta = 0.02; margin = alpha_scale_diff - beta * gap; margin_clamped = clamp(margin, -20, 20); loss = -logsigmoid(margin_clamped); weighted_loss = loss * weight; return sum(weighted_loss) / clamp(sum(weight), 1e-8, inf)",
+      "hyperparams": {
+        "scale": "1.9496803035382082",
+        "beta": "0.02",
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "mul",
+        "sub",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('hyperparams', {}).get('beta', 0.02))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = ops.sub(cost_b, cost_a).detach()\n    raw_diff = ops.sub(lpw, lpl)\n    alpha_scale_diff = ops.mul(ops.mul(alpha, scale), raw_diff)\n    margin = ops.sub(alpha_scale_diff, ops.mul(beta, gap))\n    margin_clamped = ops.clamp(margin, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(margin_clamped))\n    weighted_loss = ops.mul(loss, weight)\n    total_weight = ops.sum(weight)\n    return ops.sum(weighted_loss) / ops.clamp(total_weight, 1e-8, float('inf'))",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
