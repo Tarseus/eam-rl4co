@@ -27,6 +27,9 @@ CMD=(
   "$PYTHON_BIN" -u run.py
   "experiment=${EXP_NAME}"
   "hydra.run.dir=${RUN_DIR}"
+  # Prevent mixed-shape training: restrict dataset to 10x10 only.
+  "model.allowed_shapes=[[10,10]]"
+  "model.required_allowed_shapes=[[10,10]]"
   "~callbacks.learning_rate_monitor"
   "~callbacks.rich_progress_bar"
   "callbacks.model_checkpoint.dirpath=${CKPT_DIR}"
