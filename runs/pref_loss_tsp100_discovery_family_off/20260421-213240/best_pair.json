@@ -1,8 +1,8 @@
 {
-  "generation": 0,
-  "pair_index": 11,
+  "generation": 4,
+  "pair_index": 27,
   "g_id": "g_ref",
-  "f_id": "f000_001_ac25db63",
+  "f_id": "f004_000_55bdaa91",
   "g_ir": {
     "name": "ref_all_pairs_builder",
     "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
@@ -26,53 +26,58 @@
     "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
   },
   "f_ir": {
-    "name": "loss_logsigmoid_001_cost_mean_stabilized",
-    "intuition": "Fixed affine invariance violation by replacing sum aggregation with mean to normalize loss scale, and included cost_gap with a small stabilizing constant inside the clamp to prevent large jump discontinuities; this improves stability against affine perturbations on the objective while still leveraging pairwise margin via log_prob difference modulated by cost_gap, weighted per instance.",
-    "pseudocode": "x = alpha * scale * (log_prob_w - log_prob_l) - 0.1 * cost_gap\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nif weight is not None: loss = loss * weight\nfinal_loss = mean(loss)",
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_entropy_reg_safe",
+    "intuition": "Same pairwise weighted sum loss with advantage gap and entropy regularization, handling missing entropy_gap safely by fallback zero tensor.",
+    "pseudocode": "x = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nweighted_sum_loss = sum(weighted_loss)\nentropy_reg = gamma * mean(softplus(entropy_gap_safe))\nfinal_loss = weighted_sum_loss + entropy_reg\nreturn final_loss",
     "hyperparams": {
-      "scale": "1.9496803035382082",
       "paradigm_family": "pairwise_margin",
-      "signal_family": "cost_gap",
+      "signal_family": "advantage_gap_entropy_reg",
       "link_family": "logsigmoid",
-      "agg_family": "mean",
-      "constraint_family": "clamp_stabilized"
+      "agg_family": "weighted_sum",
+      "constraint_family": "none"
     },
     "operators_used": [
       "logsigmoid",
       "clamp",
-      "mean"
+      "sum",
+      "mul",
+      "add",
+      "mean",
+      "softplus",
+      "neg",
+      "sub"
     ],
     "implementation_hint": {
       "expects": [
         "log_prob_w",
         "log_prob_l",
         "weight",
-        "cost_gap"
+        "advantage_gap"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_gap = batch['cost_gap']\n    # stabilized clamp with small epsilon added to cost_gap term to smooth gradients\n    epsilon = 1e-4\n    x = alpha * scale * (lpw - lpl) - 0.1 * cost_gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    entropy_gap = batch.get('entropy_gap', lpw.new_zeros(lpw.shape))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, weight)\n    weighted_sum_loss = ops.sum(weighted_loss)\n\n    entropy_reg = ops.mul(gamma, ops.mean(ops.softplus(entropy_gap)))\n\n    final_loss = ops.add(weighted_sum_loss, entropy_reg)\n    return final_loss",
     "theoretical_basis": ""
   },
-  "device": "cuda:0",
-  "device_str": "cuda:0",
-  "device_physical_str": "cuda:0",
+  "device": "cuda:6",
+  "device_str": "cuda:6",
+  "device_physical_str": "cuda:6",
   "device_logical_str": "cuda:0",
-  "cheap_gate_on": true,
-  "high_fidelity_on": false,
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
   "eval_budget_signature": "2a986e397fd6c3df",
-  "score": -0.01138016357421856,
+  "score": -0.013122932052612057,
   "proxy_metrics": {
     "cheap_effective_grad_ratio": 1.0,
     "cheap_semantic_pass_rate": 1.0
   },
-  "seed_signature": [],
+  "seed_signature": null,
   "descriptor": null,
-  "joint_gate_repaired": true,
-  "joint_gate_repair_attempts": 1,
-  "f_id_before_repair": "f000_001_ac25db63",
-  "f_id_after_repair": "58174be53c5f33ef424690afd4edcef0e7ca5312",
+  "joint_gate_repaired": false,
+  "joint_gate_repair_attempts": 0,
+  "f_id_before_repair": null,
+  "f_id_after_repair": null,
   "builder_gate_repaired": false,
   "builder_gate_repair_attempts": 0,
   "g_id_before_repair": null,
@@ -84,9 +89,34 @@
   "f_static_reason": "",
   "f_compile_ok": true,
   "f_compile_reason": "ok",
-  "sandbox_gate": null,
-  "sandbox_gate_ok": null,
-  "sandbox_gate_reason": null,
+  "sandbox_gate": {
+    "ok": true,
+    "generation": 4,
+    "pair_index": 27,
+    "failure_kind": null,
+    "reason": "ok",
+    "checks": [
+      {
+        "variant": "visible",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      },
+      {
+        "variant": "hidden",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": false,
+        "joint_failure_kind": "joint_preference_violation"
+      }
+    ],
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen004_pair027_g_ref_f004_000_55bdaa9/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen004_pair027_g_ref_f004_000_55bdaa9/result.json"
+  },
+  "sandbox_gate_ok": true,
+  "sandbox_gate_reason": "ok",
   "builder_gate_ok": true,
   "builder_gate_reason": "ok",
   "builder_gate_trace": {
@@ -137,11 +167,11 @@
       "grad_w_pass_rate": 1.0,
       "grad_l_pass_rate": 1.0,
       "effective_grad_ratio": 1.0,
-      "loss": 454.4330139160156,
-      "loss_swap": 971.05908203125,
+      "loss": 4432.7568359375,
+      "loss_swap": 6573.27880859375,
       "swap_ok": true,
       "swap_check_mode": "data",
-      "swap_ref_loss": 454.4330139160156
+      "swap_ref_loss": 4432.7568359375
     },
     "threshold": {
       "min_pass_rate": 0.8,
@@ -162,15 +192,15 @@
   "co_invariance_ok": true,
   "co_sensitivity_visible_ok": true,
   "co_sensitivity_visible_reason": "ok",
-  "co_sensitivity_visible_abs_delta": 0.09743821620941162,
-  "co_sensitivity_visible_rel_delta": 0.03541301252124466,
+  "co_sensitivity_visible_abs_delta": 80.29420471191406,
+  "co_sensitivity_visible_rel_delta": 0.2521602118119308,
   "co_sensitivity_visible_trace": {
     "failed_gate": null,
     "metric_name": "delta_loss_under_objective_perturbation",
     "observed": {
-      "abs_delta": 0.09743821620941162,
-      "rel_delta": 0.03541301252124466,
-      "grad_ratio": 1.040592214167113
+      "abs_delta": 80.29420471191406,
+      "rel_delta": 0.2521602118119308,
+      "grad_ratio": 1.2922218566583064
     },
     "threshold": {
       "min_abs_delta": 0.001,
@@ -184,10 +214,10 @@
     "where_failed": null,
     "counterexamples": [
       {
-        "loss_small": 1.3270212411880493,
-        "loss_large": 1.424459457397461,
-        "log_prob_w": -3.1729607582092285,
-        "log_prob_l": -4.157962799072266
+        "loss_small": 119.06558227539062,
+        "loss_large": 199.3597869873047,
+        "log_prob_w": 0.020386099815368652,
+        "log_prob_l": -0.4069509506225586
       }
     ],
     "variant": "visible"
@@ -221,10 +251,10 @@
       {
         "a": 7.0,
         "b": 3.0,
-        "loss_raw": 1.8119895458221436,
-        "loss_affine": 1.8119895458221436,
-        "log_prob_w": -0.08302640914916992,
-        "log_prob_l": -2.2613039016723633
+        "loss_raw": 137.38417053222656,
+        "loss_affine": 137.38417053222656,
+        "log_prob_w": -3.1301987171173096,
+        "log_prob_l": -2.011054515838623
       }
     ],
     "variant": "visible"
@@ -236,22 +266,24 @@
   "co_invariance_hidden_trace": null,
   "pair_ok": true,
   "pair_reason": "ok_stage3_offline_minitrain",
-  "elapsed_s": 5428.230511665344,
+  "elapsed_s": 5391.32346701622,
   "stage": "high_fidelity",
   "phase": "loss",
-  "seed_records": {},
+  "hf_cuda_diagnostics": "hf_subprocess/gen004_pair027_cuda_6/cuda_diagnostics.jsonl",
+  "proxy_score": 0.0,
+  "hf_log_file": "gen004_pair027_cuda_6_g_ref_f004_000_55bdaa91.log",
   "fitness": {
     "per_init": {
       "scratch": {
         "obj_cand_by_size": {
-          "100": 7.9204614570617675
+          "100": 7.917595487976074
         },
         "obj_base_by_size": {
           "100": 7.939966323852539
         },
-        "obj_cand": 7.9204614570617675,
+        "obj_cand": 7.917595487976074,
         "obj_base": 7.939966323852539,
-        "delta": -0.019504866790771125,
+        "delta": -0.02237083587646449,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": null,
@@ -298,14 +330,14 @@
       },
       "ckpt_135": {
         "obj_cand_by_size": {
-          "100": 7.794834329223633
+          "100": 7.794214761352539
         },
         "obj_base_by_size": {
           "100": 7.798089789581299
         },
-        "obj_cand": 7.794834329223633,
+        "obj_cand": 7.794214761352539,
         "obj_base": 7.798089789581299,
-        "delta": -0.0032554603576659957,
+        "delta": -0.003875028228759625,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
@@ -424,14 +456,14 @@
         "per_init": {
           "scratch": {
             "obj_cand_by_size": {
-              "100": 7.9204614570617675
+              "100": 7.917595487976074
             },
             "obj_base_by_size": {
               "100": 7.939966323852539
             },
-            "obj_cand": 7.9204614570617675,
+            "obj_cand": 7.917595487976074,
             "obj_base": 7.939966323852539,
-            "delta": -0.019504866790771125,
+            "delta": -0.02237083587646449,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": null,
@@ -478,14 +510,14 @@
           },
           "ckpt_135": {
             "obj_cand_by_size": {
-              "100": 7.794834329223633
+              "100": 7.794214761352539
             },
             "obj_base_by_size": {
               "100": 7.798089789581299
             },
-            "obj_cand": 7.794834329223633,
+            "obj_cand": 7.794214761352539,
             "obj_base": 7.798089789581299,
-            "delta": -0.0032554603576659957,
+            "delta": -0.003875028228759625,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
@@ -531,18 +563,18 @@
             "rollout_debug_events": []
           }
         },
-        "delta_mean": -0.01138016357421856,
-        "delta_worst": -0.0032554603576659957
+        "delta_mean": -0.013122932052612057,
+        "delta_worst": -0.003875028228759625
       }
     },
     "scenario_names": [
       "tsp100"
     ],
-    "delta_mean": -0.01138016357421856,
-    "delta_worst": -0.0032554603576659957,
+    "delta_mean": -0.013122932052612057,
+    "delta_worst": -0.003875028228759625,
     "all_scenarios_negative": true,
     "nonnegative_scenario_count": 0,
-    "worst_scenario_delta": -0.01138016357421856,
+    "worst_scenario_delta": -0.013122932052612057,
     "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
     "baseline_mini_eval_paths": {
       "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
@@ -618,27 +650,64 @@
     "cheap_only": false,
     "proxy_score": 0.0
   },
-  "cached": false,
+  "better_than_baseline_mean": true,
+  "better_than_baseline_strict": true,
+  "better_than_baseline_all_scenarios": true,
+  "stage3_all_scenarios_negative": true,
+  "stage3_nonnegative_scenario_count": 0,
+  "stage3_worst_scenario_delta": -0.013122932052612057,
+  "stage3_any_error": false,
+  "stage3_runtime_error_count": 0,
+  "stage3_runtime_error_inits": [],
+  "hf_subprocess_log": "hf_subprocess/gen004_pair027_cuda_6/subprocess.log",
+  "hf_subprocess_result": "hf_subprocess/gen004_pair027_cuda_6/result.json",
+  "better_than_incumbent": true,
+  "stages_enabled": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "stages_ran": [
+    "stage0_gate",
+    "stage3_high_fidelity"
+  ],
+  "stages_skipped": {
+    "stage1_proxy": "disabled",
+    "stage2_micro_unroll": "disabled"
+  },
+  "stage_final": "high_fidelity",
+  "final_score": -0.013122932052612057,
+  "metric_mode": "minimize",
+  "compare_target": "incumbent",
+  "improve_eps": 0.0,
+  "last_phase_label": "baseline",
+  "last_phase_reference_score": Infinity,
+  "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
+  "reference_score": -0.012065986251831085,
+  "delta_vs_incumbent": 0.0010569458007809729,
+  "delta_vs_last_phase": Infinity,
+  "better_than_last_phase": true,
   "score_history": [
     {
-      "generation": 0,
-      "pair_index": 11,
+      "generation": 4,
+      "pair_index": 27,
       "phase": "loss",
       "stage": "high_fidelity",
       "stage_final": "high_fidelity",
-      "score": -0.01138016357421856,
+      "score": -0.013122932052612057,
       "eval_budget_signature": "2a986e397fd6c3df",
-      "reference_score": -0.006879595947265393
+      "reference_score": -0.012065986251831085
     }
   ],
   "score_history_summary": {
     "count": 1,
     "scores": [
-      -0.01138016357421856
+      -0.013122932052612057
     ],
-    "best": -0.01138016357421856,
-    "worst": -0.01138016357421856,
-    "mean": -0.01138016357421856,
-    "latest": -0.01138016357421856
+    "best": -0.013122932052612057,
+    "worst": -0.013122932052612057,
+    "mean": -0.013122932052612057,
+    "latest": -0.013122932052612057
   }
 }
