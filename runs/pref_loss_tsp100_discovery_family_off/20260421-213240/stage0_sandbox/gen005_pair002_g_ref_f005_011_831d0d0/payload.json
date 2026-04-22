@@ -1,0 +1,110 @@
+{
+  "generation": 5,
+  "pair_index": 2,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f005_011_831d0d04",
+    "ir": {
+      "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_clamp_norm_cost_gap_var_reg",
+      "intuition": "This loss combines pairwise log-sigmoid margin based on advantage_gap with a weighted average clamp normalization of the loss and adds a regularization term based on the variance of cost_gap to improve robustness.",
+      "pseudocode": "x = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nclamped_weighted_loss = clamp(weighted_loss, 0, clip_val)\nbase_loss = sum(clamped_weighted_loss) / (sum(weight) + eps)\ncost_var = variance of cost_gap weighted by weight\ncost_var_reg = cost_coeff * sqrt(cost_var)\nfinal_loss = base_loss + cost_var_reg\nreturn final_loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_cost_var",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_avg_clamp_norm_cost_var_reg",
+        "constraint_family": "normalization_cost_variance",
+        "other_hparams": "alpha, beta, scale, clip_val, cost_coeff"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "mul",
+        "add",
+        "sub",
+        "neg",
+        "div",
+        "sqrt"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-12\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', lpw.new_ones(lpw.shape))\n    advantage_gap = batch['advantage_gap']\n    zeros = lpw.new_zeros(lpw.shape)\n    cost_gap = batch.get('cost_gap', batch.get('cost_b', zeros) - batch.get('cost_a', zeros))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    clip_val = float(extra.get('clip_val', 10.0))\n    cost_coeff = float(extra.get('cost_coeff', 0.01))\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, weight)\n    clamped_weighted_loss = ops.clamp(weighted_loss, 0.0, clip_val)\n\n    weighted_sum = ops.sum(clamped_weighted_loss)\n    weight_sum = ops.sum(weight)\n\n    base_loss = ops.div(weighted_sum, ops.add(weight_sum, eps))\n\n    cost_mean = ops.div(ops.sum(ops.mul(cost_gap, weight)), ops.add(weight_sum, eps))\n    cost_diff = ops.sub(cost_gap, cost_mean)\n    cost_sq_diff = ops.mul(cost_diff, cost_diff)\n    weighted_cost_sq_diff = ops.mul(cost_sq_diff, weight)\n    cost_var = ops.div(ops.sum(weighted_cost_sq_diff), ops.add(weight_sum, eps))\n    cost_reg = ops.mul(cost_coeff, ops.sqrt(cost_var))\n\n    final_loss = ops.add(base_loss, cost_reg)\n    return final_loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
