@@ -4,16 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-HOST="${HOST:-g48}"
-REMOTE_REPO="${REMOTE_REPO:-/data1/gushengda/eam-rl4co}"
-REMOTE_PYTHON_BIN="${REMOTE_PYTHON_BIN:-/data1/gushengda/anaconda3/envs/rlco1/bin/python}"
-UNAME_S="$(uname -s 2>/dev/null || echo unknown)"
-if [[ "${UNAME_S}" =~ ^(MINGW|MSYS|CYGWIN) ]] && command -v ssh.exe >/dev/null 2>&1; then
-  DEFAULT_SSH_BIN="ssh.exe"
-else
-  DEFAULT_SSH_BIN="ssh"
-fi
-SSH_BIN="${SSH_BIN:-${DEFAULT_SSH_BIN}}"
+PYTHON_BIN="${PYTHON_BIN:-python}"
 
 JSSP_RL_GPU="${JSSP_RL_GPU:-1}"
 JSSP_PO_GPU="${JSSP_PO_GPU:-2}"
@@ -26,16 +17,16 @@ FFSP50_RL_MAX_EPOCHS="${FFSP50_RL_MAX_EPOCHS:-150}"
 
 DRY_RUN="${DRY_RUN:-0}"
 
+RL_RUN_DIR="${ROOT_DIR}/logs/train/runs/mgl-jssp-rl_bucketed-multishape_15x15_20260421-050017"
+PO_RUN_DIR="${ROOT_DIR}/logs/train/runs/mgl-jssp-po_bucketed-multishape_15x15_20260421-050017"
+
 usage() {
   cat <<'EOF'
 Usage:
-  ./run_g48_resume_jssp15x15_and_start_sll_ffsp50_rl.sh
+  bash run_g48_resume_jssp15x15_and_start_sll_ffsp50_rl.sh
 
 Environment overrides:
-  HOST=g48
-  SSH_BIN=ssh.exe
-  REMOTE_REPO=/data1/gushengda/eam-rl4co
-  REMOTE_PYTHON_BIN=/data1/gushengda/anaconda3/envs/rlco1/bin/python
+  PYTHON_BIN=python
   JSSP_RL_GPU=1
   JSSP_PO_GPU=2
   JSSP_SLL_GPU=3
@@ -52,32 +43,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-if [[ "${DRY_RUN}" != "0" ]]; then
-  echo "DRY_RUN=1"
-fi
-
-"${SSH_BIN}" "${HOST}" \
-  "HOST=${HOST@Q} \
-   REMOTE_REPO=${REMOTE_REPO@Q} \
-   REMOTE_PYTHON_BIN=${REMOTE_PYTHON_BIN@Q} \
-   JSSP_RL_GPU=${JSSP_RL_GPU@Q} \
-   JSSP_PO_GPU=${JSSP_PO_GPU@Q} \
-   JSSP_SLL_GPU=${JSSP_SLL_GPU@Q} \
-   FFSP50_RL_GPU=${FFSP50_RL_GPU@Q} \
-   JSSP_RESUME_MAX_EPOCHS=${JSSP_RESUME_MAX_EPOCHS@Q} \
-   JSSP_SLL_MAX_EPOCHS=${JSSP_SLL_MAX_EPOCHS@Q} \
-   FFSP50_RL_MAX_EPOCHS=${FFSP50_RL_MAX_EPOCHS@Q} \
-   DRY_RUN=${DRY_RUN@Q} \
-   bash -s" <<'REMOTE_SCRIPT'
-set -euo pipefail
-
-ROOT_DIR="${REMOTE_REPO}"
-PYTHON_BIN="${REMOTE_PYTHON_BIN}"
-
-RL_RUN_DIR="${ROOT_DIR}/logs/train/runs/mgl-jssp-rl_bucketed-multishape_15x15_20260421-050017"
-PO_RUN_DIR="${ROOT_DIR}/logs/train/runs/mgl-jssp-po_bucketed-multishape_15x15_20260421-050017"
-
 TIMESTAMP="$(date +%Y%m%d-%H%M%S)"
+
+export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
+export LOG_TZ="${LOG_TZ:-Asia/Shanghai}"
+export LOG_LEVEL="${LOG_LEVEL:-INFO}"
+export HYDRA_FULL_ERROR=1
+
 mkdir -p "${ROOT_DIR}/logs" "${ROOT_DIR}/logs/train/runs" "${ROOT_DIR}/baseline"
 
 quote_cmd() {
@@ -274,17 +246,6 @@ start_ffsp50_rl() {
   ) >/dev/null 2>&1 &
 }
 
-cd "${ROOT_DIR}"
-export PYTHONPATH="${ROOT_DIR}:${ROOT_DIR}/PTP:${PYTHONPATH:-}"
-export LOG_TZ="${LOG_TZ:-Asia/Shanghai}"
-export LOG_LEVEL="${LOG_LEVEL:-INFO}"
-export HYDRA_FULL_ERROR=1
-
-if [[ ! -x "${PYTHON_BIN}" ]]; then
-  echo "ERROR: python bin does not exist or is not executable: ${PYTHON_BIN}" >&2
-  exit 1
-fi
-
 "${PYTHON_BIN}" scripts/prepare_bopo_jsp_data.py >/dev/null
 
 resume_jssp_run \
@@ -304,4 +265,3 @@ resume_jssp_run \
 
 start_jssp_sll
 start_ffsp50_rl
-REMOTE_SCRIPT
