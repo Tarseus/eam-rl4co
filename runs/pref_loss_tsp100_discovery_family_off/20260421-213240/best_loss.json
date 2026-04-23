@@ -1,44 +1,45 @@
 {
-  "id": "f004_000_55bdaa91",
+  "id": "f007_012_34f8c97d",
   "ir": {
-    "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_entropy_reg_safe",
-    "intuition": "Same pairwise weighted sum loss with advantage gap and entropy regularization, handling missing entropy_gap safely by fallback zero tensor.",
-    "pseudocode": "x = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nweighted_sum_loss = sum(weighted_loss)\nentropy_reg = gamma * mean(softplus(entropy_gap_safe))\nfinal_loss = weighted_sum_loss + entropy_reg\nreturn final_loss",
+    "name": "pairwise_rankprob_advantage_blend_weighted_logsumexp_reg_safe",
+    "intuition": "Compute a stable pairwise ranking loss combining log probability differences and advantages, with entropy regularization for robustness, adding numerical clamps and safe defaults.",
+    "pseudocode": "eps = 1e-12\nlpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nweight = batch['weight']\nadv_w = batch['advantage_w']\n\nalpha, beta, gamma, scale extracted from extra\n\nlogits = alpha * scale * (lpw - lpl) + beta * adv_w\nlogits_clamped = clamp(logits, -20, 20)\nmax_logits = max(0, logits_clamped)\nsum_exp = exp(0 - max_logits) + exp(logits_clamped - max_logits)\nlogsumexp_vals = max_logits + log(clamp(min=eps)(sum_exp))\nloss_terms = -logits_clamped + logsumexp_vals\nweighted_loss = loss_terms * weight\nagg_loss = sum(weighted_loss)\n\nweighted_adv = weight * adv_w\nadv_sum = sum(weighted_adv) + eps\nadv_prob = weighted_adv / adv_sum\nadv_entropy = -sum(adv_prob * log(clamp(min=eps)(adv_prob)))\nreg_loss = gamma * adv_entropy\nfinal_loss = agg_loss + reg_loss\nreturn final_loss.mean()",
     "hyperparams": {
-      "paradigm_family": "pairwise_margin",
-      "signal_family": "advantage_gap_entropy_reg",
-      "link_family": "logsigmoid",
+      "paradigm_family": "pairwise_rankprob",
+      "signal_family": "advantage_w_entropy_reg",
+      "link_family": "logsumexp_manual",
       "agg_family": "weighted_sum",
-      "constraint_family": "none"
+      "constraint_family": "entropy_regularization"
     },
     "operators_used": [
-      "logsigmoid",
+      "exp",
+      "log",
       "clamp",
       "sum",
       "mul",
       "add",
-      "mean",
-      "softplus",
+      "sub",
       "neg",
-      "sub"
+      "max",
+      "zeros_like"
     ],
     "implementation_hint": {
       "expects": [
         "log_prob_w",
         "log_prob_l",
         "weight",
-        "advantage_gap"
+        "advantage_w"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    entropy_gap = batch.get('entropy_gap', lpw.new_zeros(lpw.shape))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, weight)\n    weighted_sum_loss = ops.sum(weighted_loss)\n\n    entropy_reg = ops.mul(gamma, ops.mean(ops.softplus(entropy_gap)))\n\n    final_loss = ops.add(weighted_sum_loss, entropy_reg)\n    return final_loss",
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-12\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_w = batch['advantage_w']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n\n    logits = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_w))\n    logits = ops.clamp(logits, -20.0, 20.0)\n\n    zeros = ops.zeros_like(logits)\n    max_logits = ops.max(zeros, logits)\n    sum_exp = ops.add(ops.exp(ops.sub(zeros, max_logits)), ops.exp(ops.sub(logits, max_logits)))\n    sum_exp = ops.clamp(sum_exp, min=eps)\n    logsumexp_vals = ops.add(max_logits, ops.log(sum_exp))\n\n    loss_terms = ops.add(ops.neg(logits), logsumexp_vals)\n\n    weighted_loss = ops.mul(loss_terms, weight)\n    agg_loss = ops.sum(weighted_loss)\n\n    weighted_adv = ops.mul(weight, advantage_w)\n    adv_sum = ops.sum(weighted_adv) + eps\n    adv_prob = ops.div(weighted_adv, adv_sum)\n\n    adv_prob_safe = ops.clamp(adv_prob, min=eps)\n    adv_entropy = ops.neg(ops.sum(ops.mul(adv_prob_safe, ops.log(adv_prob_safe))))\n\n    reg_loss = ops.mul(gamma, adv_entropy)\n\n    final_loss = ops.add(agg_loss, reg_loss)\n    return final_loss.mean()",
     "theoretical_basis": ""
   },
   "stage": "high_fidelity",
   "stage_final": "high_fidelity",
-  "score": -0.013122932052612057,
-  "final_score": -0.013122932052612057,
+  "score": -0.013935184860229377,
+  "final_score": -0.013935184860229377,
   "stages_enabled": {
     "stage0_gate": true,
     "stage1_proxy": false,
@@ -58,32 +59,32 @@
   "compare_target": "incumbent",
   "metric_mode": "minimize",
   "improve_eps": 0.0,
-  "reference_score": -0.012065986251831085,
+  "reference_score": -0.013122932052612057,
   "better_than_incumbent": true,
-  "best_pair_generation": 4,
+  "best_pair_generation": 7,
   "best_pair_phase": "loss",
   "best_pair_last_phase_label": "baseline",
   "best_pair_last_phase_reference_score": Infinity,
   "score_history": [
     {
-      "generation": 4,
-      "pair_index": 27,
+      "generation": 7,
+      "pair_index": 24,
       "phase": "loss",
       "stage": "high_fidelity",
       "stage_final": "high_fidelity",
-      "score": -0.013122932052612057,
+      "score": -0.013935184860229377,
       "eval_budget_signature": "2a986e397fd6c3df",
-      "reference_score": -0.012065986251831085
+      "reference_score": -0.013122932052612057
     }
   ],
   "score_history_summary": {
     "count": 1,
     "scores": [
-      -0.013122932052612057
+      -0.013935184860229377
     ],
-    "best": -0.013122932052612057,
-    "worst": -0.013122932052612057,
-    "mean": -0.013122932052612057,
-    "latest": -0.013122932052612057
+    "best": -0.013935184860229377,
+    "worst": -0.013935184860229377,
+    "mean": -0.013935184860229377,
+    "latest": -0.013935184860229377
   }
 }

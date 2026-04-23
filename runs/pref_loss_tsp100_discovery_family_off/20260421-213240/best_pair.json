@@ -1,8 +1,8 @@
 {
-  "generation": 4,
-  "pair_index": 27,
+  "generation": 7,
+  "pair_index": 24,
   "g_id": "g_ref",
-  "f_id": "f004_000_55bdaa91",
+  "f_id": "f007_012_34f8c97d",
   "g_ir": {
     "name": "ref_all_pairs_builder",
     "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
@@ -26,48 +26,49 @@
     "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
   },
   "f_ir": {
-    "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_entropy_reg_safe",
-    "intuition": "Same pairwise weighted sum loss with advantage gap and entropy regularization, handling missing entropy_gap safely by fallback zero tensor.",
-    "pseudocode": "x = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nweighted_sum_loss = sum(weighted_loss)\nentropy_reg = gamma * mean(softplus(entropy_gap_safe))\nfinal_loss = weighted_sum_loss + entropy_reg\nreturn final_loss",
+    "name": "pairwise_rankprob_advantage_blend_weighted_logsumexp_reg_safe",
+    "intuition": "Compute a stable pairwise ranking loss combining log probability differences and advantages, with entropy regularization for robustness, adding numerical clamps and safe defaults.",
+    "pseudocode": "eps = 1e-12\nlpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nweight = batch['weight']\nadv_w = batch['advantage_w']\n\nalpha, beta, gamma, scale extracted from extra\n\nlogits = alpha * scale * (lpw - lpl) + beta * adv_w\nlogits_clamped = clamp(logits, -20, 20)\nmax_logits = max(0, logits_clamped)\nsum_exp = exp(0 - max_logits) + exp(logits_clamped - max_logits)\nlogsumexp_vals = max_logits + log(clamp(min=eps)(sum_exp))\nloss_terms = -logits_clamped + logsumexp_vals\nweighted_loss = loss_terms * weight\nagg_loss = sum(weighted_loss)\n\nweighted_adv = weight * adv_w\nadv_sum = sum(weighted_adv) + eps\nadv_prob = weighted_adv / adv_sum\nadv_entropy = -sum(adv_prob * log(clamp(min=eps)(adv_prob)))\nreg_loss = gamma * adv_entropy\nfinal_loss = agg_loss + reg_loss\nreturn final_loss.mean()",
     "hyperparams": {
-      "paradigm_family": "pairwise_margin",
-      "signal_family": "advantage_gap_entropy_reg",
-      "link_family": "logsigmoid",
+      "paradigm_family": "pairwise_rankprob",
+      "signal_family": "advantage_w_entropy_reg",
+      "link_family": "logsumexp_manual",
       "agg_family": "weighted_sum",
-      "constraint_family": "none"
+      "constraint_family": "entropy_regularization"
     },
     "operators_used": [
-      "logsigmoid",
+      "exp",
+      "log",
       "clamp",
       "sum",
       "mul",
       "add",
-      "mean",
-      "softplus",
+      "sub",
       "neg",
-      "sub"
+      "max",
+      "zeros_like"
     ],
     "implementation_hint": {
       "expects": [
         "log_prob_w",
         "log_prob_l",
         "weight",
-        "advantage_gap"
+        "advantage_w"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    entropy_gap = batch.get('entropy_gap', lpw.new_zeros(lpw.shape))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, weight)\n    weighted_sum_loss = ops.sum(weighted_loss)\n\n    entropy_reg = ops.mul(gamma, ops.mean(ops.softplus(entropy_gap)))\n\n    final_loss = ops.add(weighted_sum_loss, entropy_reg)\n    return final_loss",
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-12\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_w = batch['advantage_w']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n\n    logits = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_w))\n    logits = ops.clamp(logits, -20.0, 20.0)\n\n    zeros = ops.zeros_like(logits)\n    max_logits = ops.max(zeros, logits)\n    sum_exp = ops.add(ops.exp(ops.sub(zeros, max_logits)), ops.exp(ops.sub(logits, max_logits)))\n    sum_exp = ops.clamp(sum_exp, min=eps)\n    logsumexp_vals = ops.add(max_logits, ops.log(sum_exp))\n\n    loss_terms = ops.add(ops.neg(logits), logsumexp_vals)\n\n    weighted_loss = ops.mul(loss_terms, weight)\n    agg_loss = ops.sum(weighted_loss)\n\n    weighted_adv = ops.mul(weight, advantage_w)\n    adv_sum = ops.sum(weighted_adv) + eps\n    adv_prob = ops.div(weighted_adv, adv_sum)\n\n    adv_prob_safe = ops.clamp(adv_prob, min=eps)\n    adv_entropy = ops.neg(ops.sum(ops.mul(adv_prob_safe, ops.log(adv_prob_safe))))\n\n    reg_loss = ops.mul(gamma, adv_entropy)\n\n    final_loss = ops.add(agg_loss, reg_loss)\n    return final_loss.mean()",
     "theoretical_basis": ""
   },
-  "device": "cuda:6",
-  "device_str": "cuda:6",
-  "device_physical_str": "cuda:6",
+  "device": "cuda:0",
+  "device_str": "cuda:0",
+  "device_physical_str": "cuda:0",
   "device_logical_str": "cuda:0",
   "cheap_gate_on": false,
   "high_fidelity_on": true,
   "eval_budget_signature": "2a986e397fd6c3df",
-  "score": -0.013122932052612057,
+  "score": -0.013935184860229377,
   "proxy_metrics": {
     "cheap_effective_grad_ratio": 1.0,
     "cheap_semantic_pass_rate": 1.0
@@ -91,8 +92,8 @@
   "f_compile_reason": "ok",
   "sandbox_gate": {
     "ok": true,
-    "generation": 4,
-    "pair_index": 27,
+    "generation": 7,
+    "pair_index": 24,
     "failure_kind": null,
     "reason": "ok",
     "checks": [
@@ -112,8 +113,8 @@
       }
     ],
     "exit_code": 0,
-    "sandbox_log": "stage0_sandbox/gen004_pair027_g_ref_f004_000_55bdaa9/subprocess.log",
-    "sandbox_result": "stage0_sandbox/gen004_pair027_g_ref_f004_000_55bdaa9/result.json"
+    "sandbox_log": "stage0_sandbox/gen007_pair024_g_ref_f007_012_34f8c97/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen007_pair024_g_ref_f007_012_34f8c97/result.json"
   },
   "sandbox_gate_ok": true,
   "sandbox_gate_reason": "ok",
@@ -167,11 +168,11 @@
       "grad_w_pass_rate": 1.0,
       "grad_l_pass_rate": 1.0,
       "effective_grad_ratio": 1.0,
-      "loss": 4432.7568359375,
-      "loss_swap": 6573.27880859375,
+      "loss": 3835.369140625,
+      "loss_swap": 5647.029296875,
       "swap_ok": true,
       "swap_check_mode": "data",
-      "swap_ref_loss": 4432.7568359375
+      "swap_ref_loss": 3835.369140625
     },
     "threshold": {
       "min_pass_rate": 0.8,
@@ -192,15 +193,15 @@
   "co_invariance_ok": true,
   "co_sensitivity_visible_ok": true,
   "co_sensitivity_visible_reason": "ok",
-  "co_sensitivity_visible_abs_delta": 80.29420471191406,
-  "co_sensitivity_visible_rel_delta": 0.2521602118119308,
+  "co_sensitivity_visible_abs_delta": 90.12517547607422,
+  "co_sensitivity_visible_rel_delta": 0.2652304538575874,
   "co_sensitivity_visible_trace": {
     "failed_gate": null,
     "metric_name": "delta_loss_under_objective_perturbation",
     "observed": {
-      "abs_delta": 80.29420471191406,
-      "rel_delta": 0.2521602118119308,
-      "grad_ratio": 1.2922218566583064
+      "abs_delta": 90.12517547607422,
+      "rel_delta": 0.2652304538575874,
+      "grad_ratio": 1.3774840125221097
     },
     "threshold": {
       "min_abs_delta": 0.001,
@@ -214,10 +215,10 @@
     "where_failed": null,
     "counterexamples": [
       {
-        "loss_small": 119.06558227539062,
-        "loss_large": 199.3597869873047,
-        "log_prob_w": 0.020386099815368652,
-        "log_prob_l": -0.4069509506225586
+        "loss_small": 124.83716583251953,
+        "loss_large": 214.96234130859375,
+        "log_prob_w": -3.255059242248535,
+        "log_prob_l": -5.910515308380127
       }
     ],
     "variant": "visible"
@@ -251,10 +252,10 @@
       {
         "a": 7.0,
         "b": 3.0,
-        "loss_raw": 137.38417053222656,
-        "loss_affine": 137.38417053222656,
-        "log_prob_w": -3.1301987171173096,
-        "log_prob_l": -2.011054515838623
+        "loss_raw": 111.67581939697266,
+        "loss_affine": 111.67581939697266,
+        "log_prob_w": -3.264946222305298,
+        "log_prob_l": -1.9740605354309082
       }
     ],
     "variant": "visible"
@@ -266,24 +267,24 @@
   "co_invariance_hidden_trace": null,
   "pair_ok": true,
   "pair_reason": "ok_stage3_offline_minitrain",
-  "elapsed_s": 5391.32346701622,
+  "elapsed_s": 5476.788926124573,
   "stage": "high_fidelity",
   "phase": "loss",
-  "hf_cuda_diagnostics": "hf_subprocess/gen004_pair027_cuda_6/cuda_diagnostics.jsonl",
+  "hf_cuda_diagnostics": "hf_subprocess/gen007_pair024_cuda_0/cuda_diagnostics.jsonl",
   "proxy_score": 0.0,
-  "hf_log_file": "gen004_pair027_cuda_6_g_ref_f004_000_55bdaa91.log",
+  "hf_log_file": "gen007_pair024_cuda_0_g_ref_f007_012_34f8c97d.log",
   "fitness": {
     "per_init": {
       "scratch": {
         "obj_cand_by_size": {
-          "100": 7.917595487976074
+          "100": 7.916876374816894
         },
         "obj_base_by_size": {
           "100": 7.939966323852539
         },
-        "obj_cand": 7.917595487976074,
+        "obj_cand": 7.916876374816894,
         "obj_base": 7.939966323852539,
-        "delta": -0.02237083587646449,
+        "delta": -0.02308994903564443,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": null,
@@ -330,14 +331,14 @@
       },
       "ckpt_135": {
         "obj_cand_by_size": {
-          "100": 7.794214761352539
+          "100": 7.793309368896485
         },
         "obj_base_by_size": {
           "100": 7.798089789581299
         },
-        "obj_cand": 7.794214761352539,
+        "obj_cand": 7.793309368896485,
         "obj_base": 7.798089789581299,
-        "delta": -0.003875028228759625,
+        "delta": -0.004780420684814324,
         "baseline_source": "mini_eval",
         "baseline_seed": null,
         "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
@@ -456,14 +457,14 @@
         "per_init": {
           "scratch": {
             "obj_cand_by_size": {
-              "100": 7.917595487976074
+              "100": 7.916876374816894
             },
             "obj_base_by_size": {
               "100": 7.939966323852539
             },
-            "obj_cand": 7.917595487976074,
+            "obj_cand": 7.916876374816894,
             "obj_base": 7.939966323852539,
-            "delta": -0.02237083587646449,
+            "delta": -0.02308994903564443,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": null,
@@ -510,14 +511,14 @@
           },
           "ckpt_135": {
             "obj_cand_by_size": {
-              "100": 7.794214761352539
+              "100": 7.793309368896485
             },
             "obj_base_by_size": {
               "100": 7.798089789581299
             },
-            "obj_cand": 7.794214761352539,
+            "obj_cand": 7.793309368896485,
             "obj_base": 7.798089789581299,
-            "delta": -0.003875028228759625,
+            "delta": -0.004780420684814324,
             "baseline_source": "mini_eval",
             "baseline_seed": null,
             "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
@@ -563,18 +564,18 @@
             "rollout_debug_events": []
           }
         },
-        "delta_mean": -0.013122932052612057,
-        "delta_worst": -0.003875028228759625
+        "delta_mean": -0.013935184860229377,
+        "delta_worst": -0.004780420684814324
       }
     },
     "scenario_names": [
       "tsp100"
     ],
-    "delta_mean": -0.013122932052612057,
-    "delta_worst": -0.003875028228759625,
+    "delta_mean": -0.013935184860229377,
+    "delta_worst": -0.004780420684814324,
     "all_scenarios_negative": true,
     "nonnegative_scenario_count": 0,
-    "worst_scenario_delta": -0.013122932052612057,
+    "worst_scenario_delta": -0.013935184860229377,
     "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
     "baseline_mini_eval_paths": {
       "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
@@ -655,12 +656,12 @@
   "better_than_baseline_all_scenarios": true,
   "stage3_all_scenarios_negative": true,
   "stage3_nonnegative_scenario_count": 0,
-  "stage3_worst_scenario_delta": -0.013122932052612057,
+  "stage3_worst_scenario_delta": -0.013935184860229377,
   "stage3_any_error": false,
   "stage3_runtime_error_count": 0,
   "stage3_runtime_error_inits": [],
-  "hf_subprocess_log": "hf_subprocess/gen004_pair027_cuda_6/subprocess.log",
-  "hf_subprocess_result": "hf_subprocess/gen004_pair027_cuda_6/result.json",
+  "hf_subprocess_log": "hf_subprocess/gen007_pair024_cuda_0/subprocess.log",
+  "hf_subprocess_result": "hf_subprocess/gen007_pair024_cuda_0/result.json",
   "better_than_incumbent": true,
   "stages_enabled": {
     "stage0_gate": true,
@@ -677,37 +678,37 @@
     "stage2_micro_unroll": "disabled"
   },
   "stage_final": "high_fidelity",
-  "final_score": -0.013122932052612057,
+  "final_score": -0.013935184860229377,
   "metric_mode": "minimize",
   "compare_target": "incumbent",
   "improve_eps": 0.0,
   "last_phase_label": "baseline",
   "last_phase_reference_score": Infinity,
   "better_than_incumbent_note": "stage3_high_fidelity compares final_score (HF score) against incumbent score.",
-  "reference_score": -0.012065986251831085,
-  "delta_vs_incumbent": 0.0010569458007809729,
+  "reference_score": -0.013122932052612057,
+  "delta_vs_incumbent": 0.0008122528076173197,
   "delta_vs_last_phase": Infinity,
   "better_than_last_phase": true,
   "score_history": [
     {
-      "generation": 4,
-      "pair_index": 27,
+      "generation": 7,
+      "pair_index": 24,
       "phase": "loss",
       "stage": "high_fidelity",
       "stage_final": "high_fidelity",
-      "score": -0.013122932052612057,
+      "score": -0.013935184860229377,
       "eval_budget_signature": "2a986e397fd6c3df",
-      "reference_score": -0.012065986251831085
+      "reference_score": -0.013122932052612057
     }
   ],
   "score_history_summary": {
     "count": 1,
     "scores": [
-      -0.013122932052612057
+      -0.013935184860229377
     ],
-    "best": -0.013122932052612057,
-    "worst": -0.013122932052612057,
-    "mean": -0.013122932052612057,
-    "latest": -0.013122932052612057
+    "best": -0.013935184860229377,
+    "worst": -0.013935184860229377,
+    "mean": -0.013935184860229377,
+    "latest": -0.013935184860229377
   }
 }

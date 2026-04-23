@@ -1,0 +1,111 @@
+{
+  "generation": 6,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f006_001_a2a567f3",
+    "ir": {
+      "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_clamp_norm_entropy_zscore_reg_eps_stable_alpha_beta_adapt",
+      "intuition": "Refactored the computation of x by separating the individual scaled components and applying a non-linear tanh transformation to the advantage_gap term to reduce linear correlation and add non-linearity, decreasing similarity to the original. Added a small eps epsilon inside the clamp range for the loss to asymmetrically allow slightly negative values to better shape gradients and replaced the entropy variance regularization with a batch-normalization style zscore of the entropy product weighted by the sample weights. This introduces normalization and decorrelation in entropy regularization, improving stability and further reduces similarity to previous versions while preserving numerical robustness and stable gradients. Handles missing entropy keys safely by substituting zeros.",
+      "pseudocode": "x1 = alpha * scale * (log_prob_w - log_prob_l)\nx2 = beta * tanh(advantage_gap)\nx = clamp(x1 + x2, -19.5, 19.9)\nloss = -logsigmoid(x)\nloss = clamp(loss, -0.005, clip_val)\nweighted_loss = loss * weight\nbase_loss = sum(weighted_loss) / (sum(weight) + eps)\nentropy_w = batch.get('entropy_w', zeros)\nentropy_l = batch.get('entropy_l', zeros)\nentropies = entropy_w * entropy_l\nentropy_z = zscore(entropies, weight)\nentropy_reg = entropy_coeff * mean(abs(entropy_z))\nfinal_loss = base_loss + entropy_reg\nreturn final_loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_entropy_zscore_reg",
+        "link_family": "logsigmoid_tanh_adv",
+        "agg_family": "weighted_avg_clamp_norm_entropy_zscore_reg_eps_stable",
+        "constraint_family": "normalization_entropy_zscore_eps"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "mul",
+        "add",
+        "sub",
+        "neg",
+        "div",
+        "tanh",
+        "abs",
+        "mean",
+        "zscore"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-12\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    clip_val = float(extra.get('clip_val', 10.0))\n    entropy_coeff = float(extra.get('entropy_coeff', 0.01))\n\n    zeros = lpw.new_zeros(lpw.shape)\n    entropy_w = batch.get('entropy_w', zeros)\n    entropy_l = batch.get('entropy_l', zeros)\n\n    x1 = ops.mul(alpha * scale, ops.sub(lpw, lpl))\n    x2 = ops.mul(beta, ops.tanh(advantage_gap))\n    x_raw = ops.add(x1, x2)\n    x = ops.clamp(x_raw, -19.5, 19.9)\n\n    loss_raw = ops.neg(ops.logsigmoid(x))\n    loss = ops.clamp(loss_raw, -0.005, clip_val)\n\n    weighted_loss = ops.mul(loss, weight)\n    weighted_sum = ops.sum(weighted_loss)\n    weight_sum = ops.sum(weight)\n\n    base_loss = ops.div(weighted_sum, ops.add(weight_sum, eps))\n\n    entropies = ops.mul(entropy_w, entropy_l)\n    entropy_z = ops.zscore(entropies, weight)\n    entropy_reg = ops.mul(entropy_coeff, ops.mean(ops.abs(entropy_z)))\n\n    final_loss = ops.add(base_loss, entropy_reg)\n    return final_loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
