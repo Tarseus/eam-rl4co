@@ -10,6 +10,8 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Sequence, Tuple
 
+import yaml
+
 
 def _repo_root_dir() -> Path:
     return Path(__file__).resolve().parents[1]
@@ -82,10 +84,14 @@ def _hydrate_candidate_irs(
         merged = dict(rec)
         cached = pairs_index.get(_pair_key(rec))
         if isinstance(cached, Mapping):
-            if not isinstance(merged.get("g_ir"), dict) and isinstance(cached.get("g_ir"), dict):
-                merged["g_ir"] = dict(cached.get("g_ir") or {})
-            if not isinstance(merged.get("f_ir"), dict) and isinstance(cached.get("f_ir"), dict):
-                merged["f_ir"] = dict(cached.get("f_ir") or {})
+            for key, value in cached.items():
+                if key not in merged or merged.get(key) in (None, "", [], {}):
+                    if isinstance(value, dict):
+                        merged[key] = dict(value)
+                    elif isinstance(value, list):
+                        merged[key] = list(value)
+                    else:
+                        merged[key] = value
         hydrated.append(merged)
     return hydrated
 
@@ -112,6 +118,49 @@ def _resolve_run_dir(run_dir_raw: str) -> Path:
     if not run_dir.is_absolute():
         run_dir = (_repo_root_dir() / run_dir).resolve()
     return run_dir
+
+
+def _resolve_config_path(config_path_raw: str) -> Path | None:
+    raw = str(config_path_raw or "").strip()
+    if not raw:
+        return None
+
+    candidates: List[Path] = []
+    p = Path(raw)
+    candidates.append(p)
+    if not p.is_absolute():
+        candidates.append((_repo_root_dir() / p).resolve())
+
+    normalized = raw.replace("\\", "/")
+    repo_root = _repo_root_dir()
+    repo_name = repo_root.name
+
+    if "/PTP/" in normalized:
+        suffix = normalized.split("/PTP/", 1)[1]
+        candidates.append((repo_root / "PTP" / suffix).resolve())
+    if f"/{repo_name}/" in normalized:
+        suffix = normalized.split(f"/{repo_name}/", 1)[1]
+        candidates.append((repo_root / suffix).resolve())
+
+    seen: set[str] = set()
+    for cand in candidates:
+        cand_s = str(cand)
+        if cand_s in seen:
+            continue
+        seen.add(cand_s)
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _load_experiment_cfg(checkpoint_payload: Mapping[str, Any]) -> Dict[str, Any]:
+    config_path = _resolve_config_path(str(checkpoint_payload.get("config_path") or ""))
+    if config_path is not None:
+        with config_path.open("r", encoding="utf-8-sig") as f:
+            payload = yaml.safe_load(f)
+        if isinstance(payload, dict):
+            return dict(payload)
+    return dict(checkpoint_payload)
 
 
 def _select_candidates(
@@ -212,7 +261,8 @@ def _coordinator_main(args: argparse.Namespace) -> int:
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"Missing checkpoint.json: {checkpoint_path}")
 
-    base_cfg = _load_json(checkpoint_path)
+    checkpoint_payload = _load_json(checkpoint_path)
+    base_cfg = _load_experiment_cfg(checkpoint_payload)
     replay_cfg = _build_no_gate_cfg(base_cfg, pure_no_gate=bool(args.pure_no_gate))
     all_candidates = _select_candidates(
         run_dir=run_dir,
