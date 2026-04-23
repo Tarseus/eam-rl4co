@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-04-01 13:20:15",
+  "config_path": null,
+  "eval_signature": {
+    "protocol": "stage3_online_minitrain_v1",
+    "baseline_eval_impl_version": 2,
+    "baseline_eval_mode": "ref_free_loss",
+    "scenario_name": "tsp100",
+    "env_name": "tsp",
+    "policy_name": "pomo",
+    "policy_kwargs": {
+      "po4cops_compat": true
+    },
+    "env_kwargs": {},
+    "rollout_strategy": "auto",
+    "objective_sign": "neg_reward",
+    "alpha": 0.05,
+    "po_impl": "bt",
+    "K": 32,
+    "train_problem_size": 100,
+    "valid_problem_sizes": [
+      100
+    ],
+    "train_batch_size": 64,
+    "num_validation_episodes": 512,
+    "validation_batch_size": 64,
+    "pomo_size": null,
+    "learning_rate": 0.0003,
+    "weight_decay": 1e-06,
+    "size_aggregation": "mean",
+    "size_cvar_alpha": 0.2,
+    "scratch_init_seed": 1234,
+    "data": {
+      "mode": "online",
+      "generator_params": {
+        "num_loc": 100
+      }
+    },
+    "include_scratch": true,
+    "checkpoints": [],
+    "budget_mode": "epochs",
+    "hf_epochs": 1,
+    "hf_instances_per_epoch": 100000
+  },
+  "per_init": {
+    "scratch": {
+      "pre_val_objective_by_size": {
+        "100": 50.56458139419556
+      },
+      "pre_val_reward_by_size": {
+        "100": -50.56458139419556
+      },
+      "pre_aggregated_objective": 50.56458139419556,
+      "pre_aggregated_reward": -50.56458139419556,
+      "val_objective_by_size": {
+        "100": 8.021251797676086
+      },
+      "val_reward_by_size": {
+        "100": -8.021251797676086
+      },
+      "aggregated_objective": 8.021251797676086,
+      "aggregated_reward": -8.021251797676086,
+      "delta_objective_post_minus_pre": -42.54332959651947,
+      "delta_reward_post_minus_pre": 42.54332959651947,
+      "init_checkpoint": null
+    }
+  },
+  "reference": {
+    "builder_ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+    },
+    "loss_ir": {
+      "name": "ref_logsigmoid",
+      "intuition": "Reference loss: negative logsigmoid on log-prob winner-loser gap.",
+      "pseudocode": "loss = -logsigmoid(alpha*(log_prob_w-log_prob_l))",
+      "hyperparams": {
+        "alpha": 1.0,
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "logprob_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "weight_optional"
+      },
+      "operators_used": [
+        "logsigmoid"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "cost_a",
+          "cost_b",
+          "log_prob_w",
+          "log_prob_l",
+          "weight"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    alpha = float(extra.get('alpha', 1.0))\n    logit = alpha * (batch['log_prob_w'] - batch['log_prob_l'])\n    w = batch.get('weight')\n    loss = -ops.logsigmoid(logit)\n    if w is not None:\n        loss = loss * w\n    return loss.mean()\n",
+      "theoretical_basis": ""
+    }
+  }
+}
