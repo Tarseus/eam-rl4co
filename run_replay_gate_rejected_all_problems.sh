@@ -11,7 +11,7 @@ GPU2="${GPU2:-2}"
 GPU3="${GPU3:-4}"
 GPU4="${GPU4:-5}"
 
-PAIR_REASONS="${PAIR_REASONS:-cheap_gate_failed,stage0_sandbox_failed,pref_semantic_failed,co_gate_failed}"
+PAIR_REASONS="${PAIR_REASONS:-cheap_gate_failed,pref_semantic_failed,co_gate_failed}"
 MIN_PER_GENERATION="${MIN_PER_GENERATION:-2}"
 PURE_NO_GATE="${PURE_NO_GATE:-0}"
 DRY_RUN="${DRY_RUN:-0}"
@@ -58,7 +58,7 @@ Within each problem, 4 GPUs are reused in two stages:
 
 Defaults:
   GPU1=1 GPU2=2 GPU3=3 GPU4=4
-  PAIR_REASONS=cheap_gate_failed,stage0_sandbox_failed,pref_semantic_failed,co_gate_failed
+  PAIR_REASONS=cheap_gate_failed,pref_semantic_failed,co_gate_failed
   MIN_PER_GENERATION=2
   LOSS_SAMPLE_SIZE=20
   WEIGHT_SAMPLE_SIZE=10
