@@ -3,11 +3,63 @@
   "pair_index": 31,
   "g_entry": {
     "id": "g_ref",
-    "ir": {}
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+    }
   },
   "f_entry": {
     "id": "f000_003_9fe5f4eb",
-    "ir": {}
+    "ir": {
+      "name": "pairwise_pref_cost_gap_stabilized",
+      "intuition": "Original loss scales the difference of log probabilities by the reciprocal of the absolute cost gap, which can cause numerical instability or extremely large gradients if cost_gap is near zero. This version stabilizes by clamping the denominator to a minimum epsilon (1e-4) to avoid huge scale values, and ensures weight is non-negative as required. This normalization prevents instability and overly large updates while preserving the pairwise preference signal based on cost gap.",
+      "pseudocode": "clamped_gap = clamp(abs(cost_gap), min=1e-4) scale = 1 / clamped_gap diff = log_prob_w - log_prob_l scaled_diff = diff * weight * scale loss = mean(logsigmoid(scaled_diff))",
+      "hyperparams": {
+        "paradigm_family": "ranking",
+        "signal_family": "costs",
+        "link_family": "pairwise",
+        "agg_family": "mean",
+        "constraint_family": "preference"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "abs",
+        "mul",
+        "clamp",
+        "mean",
+        "sub"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    epsilon = 1e-4\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n\n    clamped_gap = ops.clamp(ops.abs(cost_gap), min=epsilon)\n    scale = 1.0 / clamped_gap\n    diff = log_prob_w - log_prob_l\n    scaled_diff = diff * weight * scale\n\n    loss = ops.mean(ops.logsigmoid(scaled_diff))\n    return loss",
+      "theoretical_basis": ""
+    }
   },
   "cfg_yaml": {
     "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_tsp100_discovery.yaml",

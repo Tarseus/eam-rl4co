@@ -3,11 +3,64 @@
   "pair_index": 20,
   "g_entry": {
     "id": "g_ref",
-    "ir": {}
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+    }
   },
   "f_entry": {
     "id": "f000_002_d78865a2",
-    "ir": {}
+    "ir": {
+      "name": "loss_rankgap_tanh_advantage_repaired",
+      "intuition": "Shift from margin-based pairwise losses to a rank-gap based paradigm using the advantage signals and a smooth tanh link to penalize ranking errors proportionally to rank gap magnitude, fixing rank_gap input to include required cost_b for stable execution.",
+      "pseudocode": "cost_b = batch['cost_b']\ncost_a = batch['cost_a']\nadv_gap = advantage_w - advantage_l\nrg = rank_gap(adv_gap, cost_b)\nscaled_rg = clamp(alpha * rg, -10, 10)\nloss_per_pair = relu(tanh(scaled_rg) - (log_prob_w - log_prob_l))\nweighted_loss = loss_per_pair * weight\nfinal_loss = mean(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_rank_gap",
+        "signal_family": "advantage_gap",
+        "link_family": "tanh",
+        "agg_family": "mean",
+        "constraint_family": "clamp_nonneg_relu"
+      },
+      "operators_used": [
+        "rank_gap",
+        "clamp",
+        "tanh",
+        "relu",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_b",
+          "advantage_w",
+          "advantage_l"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    cost_a = batch.get('cost_a', None)\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n\n    gap_raw = adv_w - adv_l\n    rg = ops.rank_gap(gap_raw, cost_b)\n    scaled_rg = ops.clamp(alpha * rg, -10.0, 10.0)\n    link_val = ops.tanh(scaled_rg)\n    diff_log_prob = lpw - lpl\n    raw_loss = ops.relu(link_val - diff_log_prob)\n\n    if weight is not None:\n        raw_loss = raw_loss * weight\n\n    return ops.mean(raw_loss)",
+      "theoretical_basis": ""
+    }
   },
   "cfg_yaml": {
     "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_tsp100_discovery.yaml",

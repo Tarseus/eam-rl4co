@@ -3,11 +3,63 @@
   "pair_index": 3,
   "g_entry": {
     "id": "g_ref",
-    "ir": {}
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+    }
   },
   "f_entry": {
     "id": "f005_013_cd0c343b",
-    "ir": {}
+    "ir": {
+      "name": "loss_pairwise_regret_relu_split_advantage_gap",
+      "intuition": "Shift from margin-based or smooth monotonic link losses to a pairwise regression paradigm using regret signal with a ReLU-based asymmetric penalty. This loss penalizes underestimation of the winning log likelihood plus scaled advantage gap by regressing on a shifted margin, using separate handling of positive and negative parts to foster robust training and asymmetry.",
+      "pseudocode": "regret = delta_regret\nmargin = log_prob_w - log_prob_l + beta * advantage_gap - gamma\npos_penalty = relu(margin)\nneg_penalty = relu(-margin) * delta_regret_factor\nloss_per_pair = pos_penalty + neg_penalty\nweighted_loss = loss_per_pair * weight\nfinal_loss = mean(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_regression",
+        "signal_family": "delta_regret",
+        "link_family": "relu_asymmetric",
+        "agg_family": "mean",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "relu",
+        "mean",
+        "mul",
+        "add",
+        "sub"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_regret = batch['delta_regret']\n    adv_gap = batch['advantage_gap']\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n    gamma = float(extra.get('gamma', 0.1))\n\n    margin = ops.add(ops.sub(lpw, lpl), ops.mul(beta, adv_gap))\n    margin_shifted = ops.sub(margin, gamma)\n\n    pos_penalty = ops.relu(margin_shifted)                    # penalize over-margin\n    neg_penalty = ops.mul(ops.relu(ops.neg(margin_shifted)), delta_regret)  # scaled penalty for under-margin proportional to regret\n\n    loss_per_pair = ops.add(pos_penalty, neg_penalty)\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    return ops.mean(weighted_loss)",
+      "theoretical_basis": ""
+    }
   },
   "cfg_yaml": {
     "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/loss_only_tsp100_discovery.yaml",
