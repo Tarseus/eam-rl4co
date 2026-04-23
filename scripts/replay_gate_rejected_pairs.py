@@ -62,6 +62,34 @@ def _dedupe_keep_last(records: Sequence[Mapping[str, Any]]) -> List[Dict[str, An
     return list(out.values())
 
 
+def _load_pairs_index(run_dir: Path) -> Dict[Tuple[Any, ...], Dict[str, Any]]:
+    pairs_path = run_dir / "pairs.jsonl"
+    if not pairs_path.is_file():
+        return {}
+    out: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
+    for rec in _iter_jsonl(pairs_path):
+        out[_pair_key(rec)] = dict(rec)
+    return out
+
+
+def _hydrate_candidate_irs(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    pairs_index: Mapping[Tuple[Any, ...], Mapping[str, Any]],
+) -> List[Dict[str, Any]]:
+    hydrated: List[Dict[str, Any]] = []
+    for rec in rows:
+        merged = dict(rec)
+        cached = pairs_index.get(_pair_key(rec))
+        if isinstance(cached, Mapping):
+            if not isinstance(merged.get("g_ir"), dict) and isinstance(cached.get("g_ir"), dict):
+                merged["g_ir"] = dict(cached.get("g_ir") or {})
+            if not isinstance(merged.get("f_ir"), dict) and isinstance(cached.get("f_ir"), dict):
+                merged["f_ir"] = dict(cached.get("f_ir") or {})
+        hydrated.append(merged)
+    return hydrated
+
+
 def _build_no_gate_cfg(base_cfg: Mapping[str, Any], *, pure_no_gate: bool) -> Dict[str, Any]:
     cfg = dict(base_cfg)
     eval_stages = dict(cfg.get("eval_stages", {}) or {})
@@ -197,6 +225,8 @@ def _coordinator_main(args: argparse.Namespace) -> int:
     )
     if not all_candidates:
         raise SystemExit("No matching gate-rejected pairs found.")
+    pairs_index = _load_pairs_index(run_dir)
+    all_candidates = _hydrate_candidate_irs(all_candidates, pairs_index=pairs_index)
     candidates = _apply_shard(
         all_candidates,
         num_shards=int(args.num_shards),
