@@ -28,7 +28,7 @@ _configure_import_path()
 
 
 def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
-    with path.open("r", encoding="utf-8") as f:
+    with path.open("r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -39,7 +39,7 @@ def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
 
 
 def _load_json(path: Path) -> Dict[str, Any]:
-    with path.open("r", encoding="utf-8") as f:
+    with path.open("r", encoding="utf-8-sig") as f:
         payload = json.load(f)
     if not isinstance(payload, dict):
         raise ValueError(f"Expected dict JSON at {path}")
@@ -428,7 +428,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Replay previously gate-rejected (g,f) pairs at high fidelity with cheap gates disabled."
     )
-    p.add_argument("--run-dir", required=True, type=str, help="Run directory containing checkpoint.json and gate_reports.jsonl")
+    p.add_argument("--run-dir", default=None, type=str, help="Run directory containing checkpoint.json and gate_reports.jsonl")
     p.add_argument("--device", default="cuda:0", type=str, help="Replay device, e.g. cuda:0")
     p.add_argument("--pair-reasons", default="cheap_gate_failed", type=str, help="CSV of pair_reason values to replay")
     p.add_argument("--generation", default=None, type=str, help='Optional generation filter, integer or "latest"')
@@ -453,6 +453,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not args.payload:
             raise SystemExit("--worker requires --payload")
         return _worker_main(args)
+    if not args.run_dir:
+        raise SystemExit("--run-dir is required unless --worker is set")
     return _coordinator_main(args)
 
 
