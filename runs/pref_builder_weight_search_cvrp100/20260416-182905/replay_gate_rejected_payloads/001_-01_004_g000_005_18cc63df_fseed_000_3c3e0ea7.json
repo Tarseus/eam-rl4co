@@ -1,0 +1,4127 @@
+{
+  "generation": -1,
+  "pair_index": 4,
+  "g_entry": {
+    "id": "g000_005_18cc63df",
+    "ir": {}
+  },
+  "f_entry": {
+    "id": "fseed_000_3c3e0ea7",
+    "ir": {}
+  },
+  "cfg_yaml": {
+    "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/cvrp100_builder_weight_search_from_archive.yaml",
+    "seed": 1234,
+    "next_generation": 2,
+    "preset": "simple",
+    "search_mode": "builder_only",
+    "alternating_schedule": {
+      "enabled": false,
+      "start_phase": "loss",
+      "loss_generations": 0,
+      "builder_generations": 0,
+      "final_loss_generations": 0,
+      "rounds": 0
+    },
+    "metric_mode": "minimize",
+    "improve_eps": 0.0,
+    "improve_eps_calibration": null,
+    "eval_stages": {
+      "stage0_gate": false,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "best_so_far": {
+      "score": 0.02982121706008911,
+      "builder_id": "g_ref",
+      "loss_id": "fseed_000_3c3e0ea7",
+      "stage_final": "none",
+      "generation": -1,
+      "phase": "builder"
+    },
+    "best_builder_cost": null,
+    "builder_cost_archive": {},
+    "best_score": 0.02982121706008911,
+    "best_pair_ids": {
+      "builder_id": "g_ref",
+      "loss_id": "fseed_000_3c3e0ea7"
+    },
+    "best_stage_final": "none",
+    "best_gen": -1,
+    "best_phase": "builder",
+    "best_pair_score_history": [],
+    "best_pair_score_history_summary": {
+      "count": 0,
+      "scores": []
+    },
+    "pair_score_history_map": {},
+    "rng_state_b64": "gASVvA4AAAAAAABLAyhK2N9pRkqP5FQoigUiS8yeAIoFmCFU/gBKSTjBbkqsJHEoigVTdQ+lAIoFrvb9gQCKBaN1D5UASnoQkwRK6JVLeUo/uzZwigXYhXXxAErY+so1igVKmQrzAErlJv4AigVdKKvYAIoF9meb8gBK6idwb4oFB8TNjQCKBT8+tbAASuU48yaKBQja1cUASoCaqR6KBfxNAPoASsefdT1KfSijIooFqtSAuACKBcK2WpYAigXnwXXmAIoFM21/9ACKBYn7KMEAigUdSqewAIoFTrSypABK/OVNHkrHlgQzigWvN+2ZAEovVQELSvPb+yFKCAJhPYoFfwAWnQCKBZpdy/0ASk3ULQWKBafeg4cAigXaO3X+AIoFwLK03wCKBZKl1PwAigVX0B3yAIoFaVjhxwBKlDp6OooFj2kwgQCKBfUlyeUAigXsEy7NAIoFUsedrwBKvf+GC4oFIUfRngCKBbT7D6wAigWmVvruAIoF95pz+gCKBVAvGK4AigVI9Nz8AErTv412igVFy0CxAEqeibN8SnEuawpKS9JvcIoFg/OMgACKBUgXgpoASn1N9mmKBbU9sp0AigWfT8vMAIoFVZSolgCKBdizIPEASl7MQTuKBcpDpPQAigWaoI6VAIoF2Ltq8QBK3fuhKooFTf+8tQCKBV90O4EASkyXg3WKBUGSVYwASvUxdh+KBTX1VsoASvNi0CKKBXyyG50AigXlq9a2AEqbEBEVStKEGS6KBSz6MKUAigVFMZ2DAErLeVkaigXoE7uQAIoFA3GK7ACKBa+XjccAigUTfl+dAIoFacUpuABKU4xjBYoFlR+IvwCKBaHEgacASocl5XVKQBoPK4oFkdtbzQBKSOZDOooFne+12wBK5hxvU4oFQJbh9gCKBYKQ4LYASvDx9xKKBVYuuPcASvnZxgSKBXoWftMASpRGPF1KLaT1GooFg8ZwxgCKBW4oTJ8ASqVse3yKBRpmBI0ASrthlTSKBX7OXbAASswhBwFK5hbKXkqN4rYQSnPzJndK6OOxKooFXhfI0wBKLe4UVEokDDQhigX4PbGHAIoFF5YKsQCKBeonipUASre+eVpKvcLqfooFH4Ir3gBK/jWtDooFbssQkgBKfxl+aEpW66EtSt2yoV2KBfXv+bQASguWaE+KBUzy0vsAigX+Fk2nAEqPM0IKStdjmDeKBV7GzNcASpDyWwGKBWcTsdAAigULlqalAEpGJV1gSpH/Q0pKcEbVSkrz6copSqe1jG6KBbwhQ7AASmHWICNKyuwoc4oFtfHxrwBKi7U/K0opfKkGigXkxcP9AEr2b5dBStt2n1KKBT7+Yu0AStOhCgyKBZS1sbkASj8cMhpKpyqtCooFRC2StwCKBfUYL4kAigUfZ/yLAEqWSldUigXuoonsAIoFGgSx4QBKFE88Ekovz3UNigUjfgTgAEoMSUw1igW2dKG/AEqSMZhRigU/p/q1AEopjHUCigV9vt6bAEoAJB5RigWzciSAAIoFOUpL2wBK8vOEIYoFtJdt3ACKBYwIBfAASlfONEOKBZCcIocASoZD8wiKBWHNsbsAigXXvUX5AIoFQkcIoQBK8UnjeYoF1CuUwQBKJSzlNIoF+3tAgQCKBUlyF7kAigW4s6yUAIoFkW0a0ABKxshyL0oxafkfSsaVqTJK7wPjSYoFaJCZtQCKBeY3ydEASu1ZhTVKsMByf0rdQg4VigV2vk7+AEpcC5k6SpuWaA5KoIXOIooFuCE6wgBKL56yBEoGIBUQigXBpdTHAIoF573AkACKBdEaP+QASu2RjjZKUmgvPEqgEn0DigUNuo/zAIoFQxDX6gCKBd0eNbUASgekL0yKBY+pleMAShrTWFmKBbxU0vsAigV/E7TwAIoFbfuE3ABKgJ14OkrXDRI1Su+tjjRKJX1yOIoFUX5bpwBKmXm6bErNQh1qigUu0wONAEoy3VYaigX0/3fKAEreHYFcSp60iWWKBc8lLtUAigXXUKnBAEo4nnEIigUw8NHKAIoFXJWRywCKBcweHZ8AigVolDOTAEpAZpYFigVP5t/1AEqfZAgqigUeyauiAIoF/aPD1gBKT0rmfYoF9+L32QCKBXDauLUAigWFh+jLAEowtq96igUQ//7fAEqSkhcsSlz0KgpK3evteYoFtJFHlABK3nyQfIoF6uAQugBKB/dmNIoFdkx2/gCKBeoBScUASre0XUuKBSIeS4kASgHbpR+KBTJyUrEASkXU632KBTMXV+EASpo6lgtKXm+je4oFqBLz5gBKrsc/U4oFy8ve5wCKBcX86t4AigXkOyKiAEoG3q4ASlUpoUeKBeaYP4MAigWDoLPlAEoUL9lGigWeRsDDAIoFpzus+QCKBchgo8EASh3LDAqKBSZI9+gAigVc96reAIoFoDJK5ABK+VUFb0rnrah+SjUHEyeKBZd6cb0AigUglH+pAEpmIq9UigWQobmlAIoFfQeb0QCKBcfUWYYASmBSfGpKiGWyGIoFoXQ8oQCKBUl8sdoAStjMCUxKoNtMZEo38aQwigV1K9OPAIoFztCl7ABK7hoJG0r7G7seShqaHmGKBVPqqugASqkaPk5KYkgXDooFaG6NhABKlx5MOUrdUs9higWmj8KdAEoVFaBjigWv17WHAIoFcddFoABKJY3xWErbC38MigV0wc3HAIoFXIpa9gCKBVFJNOEAigXmhj/LAEqD2exXigUpt43UAIoFztmnnQBK/pOAb0o1h3YbigW2jd+vAEqWdyFFSmaTyxpK04r5fkprY4JpSnotimmKBVpAX/oAigWA73PxAIoF3AVVvgCKBWHuHtcASpVN6jCKBd5wW4YASnuVVwRKgQ+zJ0q0xFNhigWMlXiTAIoFZIi7yACKBZE0TdAAigXaVg3MAEq5ATBsigUwhkzeAIoFh3n9zQCKBbHdk48ASorcPz2KBRWNX9UASs0j2mpKQx6ME4oFCkYhwACKBQSYfJIASg35sBVK2Rj9aEocgi8USviHeTxKUKzLK4oF9+KRgQBKpwURdooFQc/6iABKF91OJUqTXA8tSqiYg3hK88BLQYoFmySHlABK+SZUPIoFHQB3lwBKkjLHcYoFr5LEtwBK6bPtX4oFTMiCpwCKBXSoV6MASusShCyKBSM8ZNkAigXfKlu4AEqPCalhSt3eK09KwqhzCooFyRG9nABKDFVgeIoF86sygABKz78sEErdwRxkSnnVflNKrJZoHIoF9yE+7wBKuvONdUoJffUAigVYFzvhAEr4GRIcSpv2MH9KUMmGekrj6k4/Sma83S1KqaAVO4oF0FnY/QBK2ZzOIkrtyqUsigU/C4iiAIoFKXZ5zABKbNSpD4oFF21sigBKttG4ZooFcLDXhwBKRPkWdooFIgQMrwCKBcgFLMgASmWBK0eKBem7b9QASiBUO0dKpsOxMkpBkd8GigV8mUb5AIoFwBze9gCKBShOI/UAigXmJgyYAIoFrYZLmgBKPWkHXkoY1FkKSha4FVdK5JRQSUreW1A+SkA2Yn+KBc5f168AigX1sCqXAEpGgSlwSrHqtgFKaTqOIErLHO8GSo9IzF1K51jjG0oZbKB/igUSKuCPAErLo6NligWcXBPnAEr0oTFlSizsFm2KBQEf3+MAigXLJ9vHAIoF1KkM5ACKBTEc9eQASv29HxmKBVusQaMASsw2Fz2KBahTh8IAigVzQNSFAErPltQeigXjM7TDAEqZn1RsSix5TV2KBdbvgfAAigVvJJ68AIoFbvXH6gCKBQbsYo4AigVxqmWcAEq20ZYqSmEs1CVKmptEa4oF0DYbzACKBchOteUAigW+DtP5AIoF7s3riACKBR2hO4wAigXpeBuSAEqG6fxZSrO2NgKKBcM/RbQAigU2Lu/+AEo2fEgVShOVMTSKBWk/T/MAigVcajjrAIoFEc0kvABKeYoaA4oFqW3XxwBKP60OU4oFOsaQvQBKqvBWeYoFbZT8+gCKBQPIEcMASutukHhKA881RErv0CVBSo7GilqKBVgp8ZsAigVYqMarAIoFwA731QBKsd8OIYoFrS0b5QBKVOTwJ4oFZc78kABKEo/rMUpKZS4uSgMDF1JKztrUG4oFP0Q1sACKBTYD8IIAigWpVwbQAIoFeRs2mwBKtIQYU0r37HweigX0tUqWAEoX/4cUSmJWi3lK69irZUp7J11HigXb7ha4AIoFux9gzgBKAc2hXUoY3DALSsX/CWaKBQDK+M8ASr+vwEhKjBVgNooFbl382wCKBUfbedsAigVQOXHMAIoFB3WfkQBK9CvmREqxrecIigWjvM20AEray0ZaSmdwWgeKBSVyhvUAigVJZsKeAIoFVkprwQBKDyQNHYoFHRmkuQCKBX643vsASj96LjeKBVirDqoASu/dmR1KQAkMe0o5NcNbigVWPN2CAIoFNBO71ABKYDkUe4oFgB5A6QBKWI4uQooFL+2RmgCKBZo6EqUAigWDv3ndAErSH0JjSu+z1VyKBRpMo5kAigVNEu7BAIoFhgu2kgBKS0fELkrPm3I3SvXmWnlK+3kqR4oFhuuMmQBKJ2MKYUptrUQPSnHPfipKlYK2SooFKBC/jwCKBUOJH54ASuTVPiCKBVdJoL4AigWyY3P9AIoFA69vhgCKBYTYoZcASkJophlKk651B4oFzUTKwABKu0LqZEo8qngBigXe2aSiAEpGIkkyigUY8Qb7AErlTUkJigWLOfDvAEqvKBcKigUIk+PRAIoF1haa+wBKYD7FZ0rFKRRlSqjG6jiKBegqz6YAigX/va60AIoFtv5z4QCKBeuBEcsAigVd/p/eAIoFnqus/QBK1cnYPooF8+/uiACKBcmm1pEASkreBXuKBVNhN4MAigXPxTuiAIoFrJfOzACKBTey0uwASo6r8RFKg47NAEpp/M0YSvvG0XiKBWN6MvgAigU1mCGUAIoF7o+D5wBKdFr7aEqYh4NwigUNfJ/TAIoFrraMgQBKjvo+LUrI+ZUPSgZSXzKKBR9EBqMATXIBdJROh5Qu",
+    "seen_g": [
+      "04306945e6cc79f3cb2aa90d736a8a0fdb06c8c6",
+      "11058c93b51e49d476d8d2696f09bca612c732ff",
+      "183a0a6c6f917e1f526652acf816c5cd142e108e",
+      "18cc63df1f3c392560176f7dc498744048a47ae1",
+      "2a2a36498a606007be5ea89666848250eb016d66",
+      "3d4f03819f9de3ffe78165d0eab8c22cdd8098e3",
+      "4c66e263280a19cbe41b49f9aa2b307d03013d66",
+      "56b48e9b9b4d3d2cf3fddb4f865c62c99e9779de",
+      "5b2f5325d0928a8bb3ca0566c1fec82b10991d94",
+      "5d7c1a6ae2682658e88670fd5bdcf83b779ed617",
+      "63e1747b0fe29b32bd8b7711a1177e0eb2fcd2cb",
+      "699c36410dadfcb6562ced54e22a4d9a8aec41ae",
+      "6f1130115ecb3c3d7a5f8bb766f044a129b7fed9",
+      "847a0afbaf19b868ab4f70be3b248a7cf7308f34",
+      "acbeac3aacf47d94c06733b2d653fd3401287859",
+      "c3c60914fa4156fb462e00e498659c1912499fbf",
+      "c70c485cc2edf684795405fcc2b474dc41d00ca5",
+      "dbb2065f02fa09089d4ad2daa7c93f86f6e42c69",
+      "df41c3f91a2c71743284eb46f9ba8bfc157ce74e",
+      "e0f7a0e0cea7a11f845a8d400b69b3c3886400f4",
+      "e255fb91d7ca08875d4b373b09cd11059341b444",
+      "e9c675e5809dd80ea9496a215598fa417edb412d",
+      "f8d1dfbd11768cb8198288ffd8afe44d88d607ba",
+      "fa96fac1ae58ec1db669713468df1028af2d6107",
+      "fcd2a6b94f04f4918705076456c4958c7b1c1fff"
+    ],
+    "seen_f": [
+      "3c3e0ea7959c3b4abe893c568ca674b41a4b29df"
+    ],
+    "resident_pop_g": [
+      {
+        "generation": 0,
+        "index": 0,
+        "id": "g000_000_e255fb91",
+        "signature": "e255fb91d7ca08875d4b373b09cd11059341b444",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
+        "origin": "M2",
+        "origin_base": "M2",
+        "op_type": "M2",
+        "parents": [
+          "bootstrap_g_003"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+        "llm_seed": 1073003404,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "M2",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+            "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tuned_002",
+          "intuition": "Fine-tuned the pairwise gap linear weighting hyperparameters to improve stability and contrast in pair weights, reducing the clamping range from [0.25, 4.0] to [0.2, 3.0], thereby emphasizing more significant gaps while maintaining non-negativity and boundedness.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 3.0))\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2637046388678462,
+              0.26370461623317193,
+              0.26370461623317193,
+              0.2637046388678462,
+              0.2637046388678462,
+              0.26370461623317193,
+              0.26370461623317193,
+              0.2637046388678462
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 1,
+        "id": "g000_001_5b2f5325",
+        "signature": "5b2f5325d0928a8bb3ca0566c1fec82b10991d94",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamp_only",
+        "origin": "REPAIR",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "REPAIR",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "e4928f577b5cfed5cad6ee090f832466f5232b32",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+        "llm_seed": 277292886,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4a31420d415776e853c2e9ae302dee946a35d6a5"
+          },
+          {
+            "attempt": 0,
+            "op": "M3",
+            "llm_op": "M3",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+            "prompt_sha1": "a0c8b2cfc97545af65425259cbbd68300ff5ffbd"
+          },
+          {
+            "attempt": 0,
+            "op": "REPAIR",
+            "llm_op": "REPAIR",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+            "prompt_sha1": "e4928f577b5cfed5cad6ee090f832466f5232b32"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_softmax_002",
+          "intuition": "Compute nonnegative gap weights via softmax-like exponentiation on clamped positive gaps without imports, preserving all pairs topology and using pure vectorized tensor ops.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp",
+            "sub",
+            "nonzero"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap = gap.clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_unclamped = (gap * tau).exp()\n    weight = weight_unclamped.clamp(min=0.01, max=4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823,
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 3,
+        "id": "g000_003_3d4f0381",
+        "signature": "3d4f03819f9de3ffe78165d0eab8c22cdd8098e3",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "8c4adcb40a999110973d1806161beba6dedf20b0",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 381946419,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "8c4adcb40a999110973d1806161beba6dedf20b0"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_square_005",
+          "intuition": "reweight all pairs with squared gap emphasizing larger differences more strongly",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_square"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0) * gap.clamp_min(0.0)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 5,
+        "id": "g000_005_18cc63df",
+        "signature": "18cc63df1f3c392560176f7dc498744048a47ae1",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear_clamped|constraint=clamp_only",
+        "origin": "E1",
+        "origin_base": "E1",
+        "op_type": "E1",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "c67db933e5822fcbde8ec9a73badea8f5c9145ce",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+        "llm_seed": 1298922895,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "E1",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+            "prompt_sha1": "c67db933e5822fcbde8ec9a73badea8f5c9145ce"
+          }
+        ],
+        "ir": {
+          "name": "reweight_gap_linear_with_clamp",
+          "intuition": "Combine the gap_linear weight idea from parent 1 with a monotonic clamp schedule inspired by parental constraints to enhance robustness while preserving pairwise structure. This approach maintains the fixed all_pairs topology, keeps pair construction intact, and applies a non-negative, clamped weight function that is simple and effective.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_clamped'})\n    raw_weight = gap.clamp_min(0.0)\n    clamp_lo = extra.get('clamp_lo', 0.25)\n    clamp_hi = extra.get('clamp_hi', 4.0)\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 6,
+        "id": "g000_006_f8d1dfbd",
+        "signature": "f8d1dfbd11768cb8198288ffd8afe44d88d607ba",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square_clamped|constraint=clamp_only",
+        "origin": "REPAIR",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "REPAIR",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "f8b1bfd7ba31f3fa0542c4994e8556f7d987f093",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+        "llm_seed": 2066035487,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4fc97aabb13adeb66b91cc1c21de036bbb33758d"
+          },
+          {
+            "attempt": 0,
+            "op": "M3",
+            "llm_op": "M3",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+            "prompt_sha1": "802b537a8defb8f88ffd925a08c6c4bdeef6810d"
+          },
+          {
+            "attempt": 0,
+            "op": "REPAIR",
+            "llm_op": "REPAIR",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+            "prompt_sha1": "f8b1bfd7ba31f3fa0542c4994e8556f7d987f093"
+          }
+        ],
+        "ir": {
+          "name": "all_pairs_gap_square_clamped",
+          "intuition": "all pairwise comparisons weighted by squared positive objective gap with clamping to emphasize large gaps more strongly",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_clamped'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp(min=0.0)\n    gap_squared = gap_clamped * gap_clamped\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_raw = tau * gap_squared\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = weight_raw.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 8,
+        "id": "g000_008_e0f7a0e0",
+        "signature": "e0f7a0e0cea7a11f845a8d400b69b3c3886400f4",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=tiezone_filter",
+        "origin": "CONSTRAINT_INJECT",
+        "origin_base": "CONSTRAINT_INJECT",
+        "op_type": "BUILDER_CONSTRAINT_INJECT",
+        "parents": [
+          "bootstrap_g_001"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "f4f058b934d8e2b78e3ce3f4e7c900c878bb162b",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+        "llm_seed": 859131847,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+            "prompt_sha1": "f4f058b934d8e2b78e3ce3f4e7c900c878bb162b"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tiezone_001",
+          "intuition": "Adds tie-zone suppression to clamp weights around zero gap to improve stability while preserving gap_linear weighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tiezone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "abs",
+            "sub"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    # tie-zone threshold for suppressing near-zero gaps\n    tiezone_eps = 0.1\n    tiezone_mask = (raw >= tiezone_eps).to(dtype=raw.dtype)\n    # suppress weights inside tie-zone to zero\n    weight = raw * tiezone_mask\n    weight = weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 9,
+        "id": "g000_009_dbb2065f",
+        "signature": "dbb2065f02fa09089d4ad2daa7c93f86f6e42c69",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=tiezone_clamp",
+        "origin": "CONSTRAINT_INJECT",
+        "origin_base": "CONSTRAINT_INJECT",
+        "op_type": "BUILDER_CONSTRAINT_INJECT",
+        "parents": [
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "c927b7f3340adbda93ab7be3d274ad833735b2ef",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+        "llm_seed": 303174602,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+            "prompt_sha1": "c927b7f3340adbda93ab7be3d274ad833735b2ef"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tiezone_clamp_001",
+          "intuition": "Preserves gap_linear weighting with explicit tie-zone slope filtering and clamping to stabilize pair weights without normalization.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tiezone_clamp"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "tiezone_filter"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw_weight = gap.clamp_min(0.0)\n\n    # Tie-zone filtering: suppress weights for very small gaps (<= tiezone_eps)\n    tiezone_eps = float(extra.get('tiezone_eps', 0.1))\n    tiezone_slope = float(extra.get('tiezone_slope', 10.0))\n    tiezone_mask = raw_weight > tiezone_eps\n    # Smooth ramp: linear from 0 at tiezone_eps to 1 at tiezone_eps + 1/slope\n    ramp_width = 1.0 / tiezone_slope\n    ramp_start = tiezone_eps\n    ramp_end = tiezone_eps + ramp_width\n    ramp_mask = (raw_weight > ramp_start) & (raw_weight < ramp_end)\n    ramp_vals = (raw_weight - ramp_start) * tiezone_slope\n    scaled_weight = torch.where(tiezone_mask, torch.where(ramp_mask, ramp_vals, torch.ones_like(raw_weight)), torch.zeros_like(raw_weight)) * raw_weight\n\n    # Clamp weights to prevent extreme values\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = scaled_weight.clamp(clamp_lo, clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 12,
+        "id": "g000_012_04306945",
+        "signature": "04306945e6cc79f3cb2aa90d736a8a0fdb06c8c6",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "789f746bc03b42a6f2b1ad9f070c888831867607",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 717742554,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "789f746bc03b42a6f2b1ad9f070c888831867607"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_sigmoid_010",
+          "intuition": "reweight all pairs using a sigmoid transform of the gap to smoothly emphasize medium gaps",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_sigmoid"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap_raw = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})\n    gap = gap_raw.clamp_min(0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    # sigmoid centered at tau, sharpness 5.0\n    sig = 1.0 / (1.0 + (-5.0 * (gap - tau)).exp())\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = sig.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622890786892753,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622893968473588
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 1,
+        "id": "g001_001_4c66e263",
+        "signature": "4c66e263280a19cbe41b49f9aa2b307d03013d66",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
+        "origin": "E1",
+        "origin_base": "E1",
+        "op_type": "E1",
+        "parents": [
+          "g000_006_f8d1dfbd",
+          "g000_001_5b2f5325",
+          "g000_008_e0f7a0e0",
+          "g000_003_3d4f0381",
+          "g000_000_e255fb91"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "36bcace26d4af1687742d41f0fc8b119976e3da2",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+        "llm_seed": 1483262363,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "E1",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+            "prompt_sha1": "36bcace26d4af1687742d41f0fc8b119976e3da2"
+          }
+        ],
+        "ir": {
+          "name": "reweight_gap_linear_combined",
+          "intuition": "Combine the positive gap emphasis of gap_square with the monotonic, controlled weighting of gap_linear, leveraging the stable clamping and hyperparameter configurability from best-performing variants to produce flexible and robust pairwise weights with explicit bounds.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'reweight_gap_linear_combined', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw_linear = gap.clamp_min(0.0)\n    # Incorporate squared gap emphasis by square of positive gaps as additional signal\n    raw_square = raw_linear * raw_linear\n    # Combine signals with weighted sum (here equal weights, can be further hyperparameter tuned)\n    combined_raw = raw_linear + raw_square\n    # Clamp combined weights within bounds\n    clamp_lo = float(extra.get('clamp_lo', 0.2))\n    clamp_hi = float(extra.get('clamp_hi', 3.0))\n    weight = combined_raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'reweight_gap_linear_combined', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1150326625160549,
+              0.1150326625160549,
+              0.11503265215002972,
+              0.11503267288208008,
+              0.1150326625160549,
+              0.1150326625160549,
+              0.11503265215002972,
+              0.11503267288208008
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 2,
+        "id": "g001_002_183a0a6c",
+        "signature": "183a0a6c6f917e1f526652acf816c5cd142e108e",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "g000_000_e255fb91",
+          "g000_006_f8d1dfbd",
+          "g000_012_04306945",
+          "g000_008_e0f7a0e0",
+          "g000_009_dbb2065f"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "b2b497f1f54895912f4cc55ff8ac3096d65dbca1",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 1389377508,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "b2b497f1f54895912f4cc55ff8ac3096d65dbca1"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_softmax_001",
+          "intuition": "Reweights all pairs with a softmax-like exponential weighting of the positive objective gap, emphasizing relatively larger gaps smoothly without hard clamping.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp_min(0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    exp_weights = (gap_pos / tau).exp()\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 4.0))\n    weight = exp_weights.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823,
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 4,
+        "id": "g001_004_63e1747b",
+        "signature": "63e1747b0fe29b32bd8b7711a1177e0eb2fcd2cb",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "g000_000_e255fb91",
+          "g000_001_5b2f5325",
+          "g000_003_3d4f0381",
+          "g000_008_e0f7a0e0",
+          "g000_012_04306945"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "2542d58e91ad72e17c5525e57ee7c15b4276696e",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 1015019295,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "2542d58e91ad72e17c5525e57ee7c15b4276696e"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_square_tuned_001",
+          "intuition": "Reweights all pairs with squared gap emphasizing larger differences more strongly with tighter clamping for controlled weighting.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_square",
+            "clamp",
+            "nan_to_num"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0) * gap.clamp_min(0.0)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.3))\n    clamp_hi = float(extra.get('gap_upper_threshold', 2.5))\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2145203770817937,
+              0.2145203770817937,
+              0.21452036419430295,
+              0.2145203770817937,
+              0.2145203770817937,
+              0.2145203770817937,
+              0.21452036419430295,
+              0.2145203770817937
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 5,
+        "id": "g001_005_6f113011",
+        "signature": "6f1130115ecb3c3d7a5f8bb766f044a129b7fed9",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear_clamped|constraint=clamp_only",
+        "origin": "E1",
+        "origin_base": "E1",
+        "op_type": "E1",
+        "parents": [
+          "g000_006_f8d1dfbd",
+          "g000_000_e255fb91",
+          "g000_009_dbb2065f",
+          "g000_003_3d4f0381",
+          "g000_005_18cc63df"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "a223712aa85229ce4f0e49cbb643e2827f0f098b",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+        "llm_seed": 750287482,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "E1",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+            "prompt_sha1": "a223712aa85229ce4f0e49cbb643e2827f0f098b"
+          }
+        ],
+        "ir": {
+          "name": "reweight_gap_linear_clamped",
+          "intuition": "This preference builder combines the explicit pairwise gap linear weighting from parent 1 with a monotonic clamp schedule inspired by parent 4, ensuring non-negative, stable, and bounded pair weights. It preserves pair topology and applies a simple clamped linear function for robustness, leveraging multiple parent ideas to enhance stability and contrast.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'reweight_gap_linear_clamped', 'weight_family': 'gap_linear_clamped'})\n    raw_weight = gap.clamp_min(0.0)\n    clamp_lo = extra.get('clamp_lo', 0.25)\n    clamp_hi = extra.get('clamp_hi', 4.0)\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'reweight_gap_linear_clamped', 'weight_family': 'gap_linear_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 7,
+        "id": "g001_007_e9c675e5",
+        "signature": "e9c675e5809dd80ea9496a215598fa417edb412d",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid_scaled|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "g000_005_18cc63df",
+          "g000_000_e255fb91",
+          "g000_008_e0f7a0e0",
+          "g000_009_dbb2065f",
+          "g000_001_5b2f5325"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "76f31a2488f4d7a989ee2e04f7fb20ffd4daa6ac",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 1681226903,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "76f31a2488f4d7a989ee2e04f7fb20ffd4daa6ac"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_sigmoid_scaled_001",
+          "intuition": "Replace gap linear weighting with a smooth gap sigmoid weighting that softly emphasizes moderate gaps, differentiating the weighting paradigm and avoiding linear or exponential amplification, with explicit clamping for stability.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid_scaled",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "sub",
+            "sigmoid",
+            "clamp",
+            "nonzero"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clip = gap.clamp_min(0.0)\n    beta = float(extra.get('gap_beta', 5.0))\n    shift = float(extra.get('gap_shift', 1.0))\n    weight_raw = torch.sigmoid(beta * (gap_clip - shift))\n    clamp_lo = float(extra.get('clamp_lo', 0.05))\n    clamp_hi = float(extra.get('clamp_hi', 3.0))\n    weight = weight_raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid_scaled'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622890786892753,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622893968473588
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 8,
+        "id": "g001_008_c70c485c",
+        "signature": "c70c485cc2edf684795405fcc2b474dc41d00ca5",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_inverse_linear|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "g000_001_5b2f5325",
+          "g000_009_dbb2065f",
+          "g000_006_f8d1dfbd",
+          "g000_000_e255fb91",
+          "g000_003_3d4f0381"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "3c28375a2360d69c46c8903eed9cbd1970d93e92",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 1762044776,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "3c28375a2360d69c46c8903eed9cbd1970d93e92"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_inverse_linear_custom",
+          "intuition": "Uses inverse linear gap weighting to emphasize small positive gaps more heavily, shifting focus to near-tie comparisons with explicit clamping, preserving all pairs geometry.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_inverse_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "add",
+            "div"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_inverse_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=1e-6)  # avoid div by zero\n    beta = float(extra.get('weight_beta', 0.1))\n    raw_weight = 1.0 / (gap_pos + beta)\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_inverse_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.5927825896465996,
+              0.5927825896465996,
+              0.5927825896465996,
+              0.5927826302892906,
+              0.5927826302892906,
+              0.5927825896465996,
+              0.5927825896465996,
+              0.5927826302892906
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 9,
+        "id": "g001_009_fa96fac1",
+        "signature": "fa96fac1ae58ec1db669713468df1028af2d6107",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamp_only",
+        "origin": "STRUCTURE_SHIFT",
+        "origin_base": "STRUCTURE_SHIFT",
+        "op_type": "BUILDER_STRUCTURE_SHIFT",
+        "parents": [
+          "g000_001_5b2f5325"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "7ee83ba96ad893c62881007aa533200545b80054",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_structure_shift.txt",
+        "llm_seed": 1188600110,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_STRUCTURE_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_structure_shift.txt",
+            "prompt_sha1": "7ee83ba96ad893c62881007aa533200545b80054"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_softmax_shifted_clamp",
+          "intuition": "Apply a shifted gap before softmax exponentiation and clamp weights smoothly to improve stability, preserving pair topology and reweight_only constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp",
+            "sub",
+            "max"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap_raw = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_shift = float(extra.get('gap_shift', 0.1))\n    gap = (gap_raw - gap_shift).clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_unclamped = (gap * tau).exp()\n    clamp_min = float(extra.get('weight_clamp_min', 0.01))\n    clamp_max = float(extra.get('weight_clamp_max', 4.0))\n    weight = weight_unclamped.clamp(min=clamp_min, max=clamp_max)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.13380042282832097,
+              0.13380042282832097,
+              0.13380042282832097,
+              0.13380042282832097,
+              0.13380042282832097,
+              0.13380042282832097,
+              0.13380042282832097,
+              0.13380042282832097
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 1,
+        "index": 10,
+        "id": "g001_010_11058c93",
+        "signature": "11058c93b51e49d476d8d2696f09bca612c732ff",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_bandpass_clamped|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "g000_001_5b2f5325",
+          "g000_005_18cc63df",
+          "g000_000_e255fb91",
+          "g000_006_f8d1dfbd",
+          "g000_009_dbb2065f"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "4f9a4c6b2375c3f9e795f32a09b296e234f2b15f",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 998567415,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4f9a4c6b2375c3f9e795f32a09b296e234f2b15f"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_bandpass_weighted",
+          "intuition": "All pairs geometry with gap-based bandpass weighting to emphasize intermediate gap strengths, avoiding extremes and preserving all pairs structure under clamp constraints.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_bandpass_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "mul",
+            "min",
+            "max"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass_clamped'})\n\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_pos = gap.clamp(min=0.0)\n\n    # Bandpass parameters - emphasize mid-range gaps\n    low_thresh = float(extra.get('bandpass_low', 0.3))\n    high_thresh = float(extra.get('bandpass_high', 2.5))\n    tau = float(extra.get('weight_tau', 1.0))\n\n    # Weight ramps linearly from 0 at low_thresh to 1 at midpoint\n    midpoint = 0.5 * (low_thresh + high_thresh)\n    # Ramp up factor (0 at low_thresh, 1 at midpoint)\n    ramp_up = (gap_pos - low_thresh).clamp(min=0.0, max=midpoint - low_thresh) / max(midpoint - low_thresh, 1e-6)\n    # Ramp down factor (1 at midpoint, 0 at high_thresh)\n    ramp_down = (high_thresh - gap_pos).clamp(min=0.0, max=high_thresh - midpoint) / max(high_thresh - midpoint, 1e-6)\n\n    weight_unclamped = tau * gap_pos * ramp_up * ramp_down\n\n    clamp_lo = float(extra.get('clamp_lo', 0.1))\n    clamp_hi = float(extra.get('clamp_hi', 3.0))\n    weight = weight_unclamped.clamp(min=clamp_lo, max=clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              1.1234720061100376,
+              1.1234720061100376,
+              1.1234720061100376,
+              1.1234720061100376,
+              1.1234720061100376,
+              1.1234720061100376,
+              1.1234720061100376,
+              1.1234720061100376
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      }
+    ],
+    "resident_pop_f": [
+      {
+        "generation": -1,
+        "index": 0,
+        "id": "fseed_000_3c3e0ea7",
+        "signature": "3c3e0ea7959c3b4abe893c568ca674b41a4b29df",
+        "family": "pairwise_margin|delta_rank|sum|adaptive_scaled_bias_dynamic_v4",
+        "family_signature": "paradigm=pairwise_margin|signal=delta_rank|agg=sum|constraint=adaptive_scaled_bias_dynamic_v4",
+        "origin": "TRANSFER_SEED",
+        "origin_base": "f003_008_07ae6c82",
+        "op_type": "TRANSFER_SEED",
+        "parents": [
+          "f003_008_07ae6c82"
+        ],
+        "attempt": 0,
+        "prompt_sha1": null,
+        "prompt_path": null,
+        "llm_seed": null,
+        "history": [
+          {
+            "op": "TRANSFER_SEED",
+            "source_loss_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008/best_loss.json",
+            "source_pool": "artifact",
+            "source_id": "f003_008_07ae6c82"
+          }
+        ],
+        "novelty": null,
+        "ir": {
+          "name": "pairwise_margin_adaptive_scaled_bias_v8_distinct_fixed",
+          "intuition": "Fixed the runtime error by replacing unsupported ops.pow with manual squared difference via mul, preserving the adaptive scaled bias behavior with coefficient of variation and smooth nonlinearities.",
+          "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + 1e-6\ndelta_rank_mean = mean(delta_rank)\ndelta_rank_var = mean((delta_rank - delta_rank_mean) * (delta_rank - delta_rank_mean)) + 1e-6\ndelta_rank_std = sqrt(delta_rank_var)\ncv = delta_rank_std / abs_delta_rank_mean\nbeta = 0.15 * sigmoid(-15 * (cv - 0.2))\nbias_dynamic = bias * softplus(0.5 * delta_rank) / (abs_delta_rank_mean + 0.2)\nscaled_bias = tanh(gamma * bias_dynamic)\nmargin_scale_raw = delta_rank_std / (abs_delta_rank_mean + 0.1)\nmargin_scale = 1.3 * sigmoid(12 * (margin_scale_raw - 0.15))\nscaled_margin = margin * margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -14, 14)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss)",
+          "hyperparams": {
+            "paradigm_family": "pairwise_margin",
+            "signal_family": "delta_rank",
+            "link_family": "logsigmoid",
+            "agg_family": "sum",
+            "constraint_family": "adaptive_scaled_bias_dynamic_v4"
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp",
+            "mul",
+            "add",
+            "sub",
+            "neg",
+            "sum",
+            "abs",
+            "mean",
+            "div",
+            "sqrt",
+            "tanh",
+            "sigmoid",
+            "softplus"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_rank"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 2.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + 1e-6\n    delta_rank_mean = ops.mean(delta_rank)\n    diff = ops.sub(delta_rank, delta_rank_mean)\n    delta_rank_var = ops.mean(ops.mul(diff, diff)) + 1e-6\n    delta_rank_std = ops.sqrt(delta_rank_var)\n\n    cv = ops.div(delta_rank_std, abs_delta_rank_mean)\n    beta = ops.mul(0.15, ops.sigmoid(ops.neg(ops.mul(15.0, ops.sub(cv, 0.2)))))\n\n    sp_arg = ops.mul(0.5, delta_rank)\n    bias_dynamic = ops.div(ops.mul(bias, ops.softplus(sp_arg)), ops.add(abs_delta_rank_mean, 0.2))\n    scaled_bias = ops.tanh(ops.mul(gamma, bias_dynamic))\n\n    margin = ops.sub(lpw, lpl)\n    margin_scale_raw = ops.div(delta_rank_std, ops.add(abs_delta_rank_mean, 0.1))\n    margin_scale = ops.mul(1.3, ops.sigmoid(ops.mul(12.0, ops.sub(margin_scale_raw, 0.15))))\n    scaled_margin = ops.mul(margin, margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n\n    x = ops.clamp(biased_margin, -14.0, 14.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n\n    loss = ops.sum(weighted_loss)\n    return loss",
+          "theoretical_basis": ""
+        },
+        "static_ok": true,
+        "static_reason": "transfer_seed",
+        "static_trace": {},
+        "compile_ok": true,
+        "compile_reason": "transfer_seed",
+        "fitness": -0.0375637359619132,
+        "descriptor": null,
+        "source_loss_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008/best_loss.json",
+        "source_loss_id": "f003_008_07ae6c82",
+        "source_fitness": -0.0375637359619132
+      }
+    ],
+    "elites_g": [
+      {
+        "generation": 0,
+        "index": 0,
+        "id": "g000_000_e255fb91",
+        "signature": "e255fb91d7ca08875d4b373b09cd11059341b444",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
+        "origin": "M2",
+        "origin_base": "M2",
+        "op_type": "M2",
+        "parents": [
+          "bootstrap_g_003"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+        "llm_seed": 1073003404,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "M2",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+            "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tuned_002",
+          "intuition": "Fine-tuned the pairwise gap linear weighting hyperparameters to improve stability and contrast in pair weights, reducing the clamping range from [0.25, 4.0] to [0.2, 3.0], thereby emphasizing more significant gaps while maintaining non-negativity and boundedness.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 3.0))\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2637046388678462,
+              0.26370461623317193,
+              0.26370461623317193,
+              0.2637046388678462,
+              0.2637046388678462,
+              0.26370461623317193,
+              0.26370461623317193,
+              0.2637046388678462
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 1,
+        "id": "g000_001_5b2f5325",
+        "signature": "5b2f5325d0928a8bb3ca0566c1fec82b10991d94",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamp_only",
+        "origin": "REPAIR",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "REPAIR",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "e4928f577b5cfed5cad6ee090f832466f5232b32",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+        "llm_seed": 277292886,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4a31420d415776e853c2e9ae302dee946a35d6a5"
+          },
+          {
+            "attempt": 0,
+            "op": "M3",
+            "llm_op": "M3",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+            "prompt_sha1": "a0c8b2cfc97545af65425259cbbd68300ff5ffbd"
+          },
+          {
+            "attempt": 0,
+            "op": "REPAIR",
+            "llm_op": "REPAIR",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+            "prompt_sha1": "e4928f577b5cfed5cad6ee090f832466f5232b32"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_softmax_002",
+          "intuition": "Compute nonnegative gap weights via softmax-like exponentiation on clamped positive gaps without imports, preserving all pairs topology and using pure vectorized tensor ops.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp",
+            "sub",
+            "nonzero"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap = gap.clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_unclamped = (gap * tau).exp()\n    weight = weight_unclamped.clamp(min=0.01, max=4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823,
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 3,
+        "id": "g000_003_3d4f0381",
+        "signature": "3d4f03819f9de3ffe78165d0eab8c22cdd8098e3",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "8c4adcb40a999110973d1806161beba6dedf20b0",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 381946419,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "8c4adcb40a999110973d1806161beba6dedf20b0"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_square_005",
+          "intuition": "reweight all pairs with squared gap emphasizing larger differences more strongly",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_square"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0) * gap.clamp_min(0.0)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 5,
+        "id": "g000_005_18cc63df",
+        "signature": "18cc63df1f3c392560176f7dc498744048a47ae1",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear_clamped|constraint=clamp_only",
+        "origin": "E1",
+        "origin_base": "E1",
+        "op_type": "E1",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "c67db933e5822fcbde8ec9a73badea8f5c9145ce",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+        "llm_seed": 1298922895,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "E1",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+            "prompt_sha1": "c67db933e5822fcbde8ec9a73badea8f5c9145ce"
+          }
+        ],
+        "ir": {
+          "name": "reweight_gap_linear_with_clamp",
+          "intuition": "Combine the gap_linear weight idea from parent 1 with a monotonic clamp schedule inspired by parental constraints to enhance robustness while preserving pairwise structure. This approach maintains the fixed all_pairs topology, keeps pair construction intact, and applies a non-negative, clamped weight function that is simple and effective.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_clamped'})\n    raw_weight = gap.clamp_min(0.0)\n    clamp_lo = extra.get('clamp_lo', 0.25)\n    clamp_hi = extra.get('clamp_hi', 4.0)\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 6,
+        "id": "g000_006_f8d1dfbd",
+        "signature": "f8d1dfbd11768cb8198288ffd8afe44d88d607ba",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square_clamped|constraint=clamp_only",
+        "origin": "REPAIR",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "REPAIR",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "f8b1bfd7ba31f3fa0542c4994e8556f7d987f093",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+        "llm_seed": 2066035487,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4fc97aabb13adeb66b91cc1c21de036bbb33758d"
+          },
+          {
+            "attempt": 0,
+            "op": "M3",
+            "llm_op": "M3",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+            "prompt_sha1": "802b537a8defb8f88ffd925a08c6c4bdeef6810d"
+          },
+          {
+            "attempt": 0,
+            "op": "REPAIR",
+            "llm_op": "REPAIR",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+            "prompt_sha1": "f8b1bfd7ba31f3fa0542c4994e8556f7d987f093"
+          }
+        ],
+        "ir": {
+          "name": "all_pairs_gap_square_clamped",
+          "intuition": "all pairwise comparisons weighted by squared positive objective gap with clamping to emphasize large gaps more strongly",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_clamped'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp(min=0.0)\n    gap_squared = gap_clamped * gap_clamped\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_raw = tau * gap_squared\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = weight_raw.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 8,
+        "id": "g000_008_e0f7a0e0",
+        "signature": "e0f7a0e0cea7a11f845a8d400b69b3c3886400f4",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=tiezone_filter",
+        "origin": "CONSTRAINT_INJECT",
+        "origin_base": "CONSTRAINT_INJECT",
+        "op_type": "BUILDER_CONSTRAINT_INJECT",
+        "parents": [
+          "bootstrap_g_001"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "f4f058b934d8e2b78e3ce3f4e7c900c878bb162b",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+        "llm_seed": 859131847,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+            "prompt_sha1": "f4f058b934d8e2b78e3ce3f4e7c900c878bb162b"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tiezone_001",
+          "intuition": "Adds tie-zone suppression to clamp weights around zero gap to improve stability while preserving gap_linear weighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tiezone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "abs",
+            "sub"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    # tie-zone threshold for suppressing near-zero gaps\n    tiezone_eps = 0.1\n    tiezone_mask = (raw >= tiezone_eps).to(dtype=raw.dtype)\n    # suppress weights inside tie-zone to zero\n    weight = raw * tiezone_mask\n    weight = weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 9,
+        "id": "g000_009_dbb2065f",
+        "signature": "dbb2065f02fa09089d4ad2daa7c93f86f6e42c69",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=tiezone_clamp",
+        "origin": "CONSTRAINT_INJECT",
+        "origin_base": "CONSTRAINT_INJECT",
+        "op_type": "BUILDER_CONSTRAINT_INJECT",
+        "parents": [
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "c927b7f3340adbda93ab7be3d274ad833735b2ef",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+        "llm_seed": 303174602,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+            "prompt_sha1": "c927b7f3340adbda93ab7be3d274ad833735b2ef"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tiezone_clamp_001",
+          "intuition": "Preserves gap_linear weighting with explicit tie-zone slope filtering and clamping to stabilize pair weights without normalization.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tiezone_clamp"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "tiezone_filter"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw_weight = gap.clamp_min(0.0)\n\n    # Tie-zone filtering: suppress weights for very small gaps (<= tiezone_eps)\n    tiezone_eps = float(extra.get('tiezone_eps', 0.1))\n    tiezone_slope = float(extra.get('tiezone_slope', 10.0))\n    tiezone_mask = raw_weight > tiezone_eps\n    # Smooth ramp: linear from 0 at tiezone_eps to 1 at tiezone_eps + 1/slope\n    ramp_width = 1.0 / tiezone_slope\n    ramp_start = tiezone_eps\n    ramp_end = tiezone_eps + ramp_width\n    ramp_mask = (raw_weight > ramp_start) & (raw_weight < ramp_end)\n    ramp_vals = (raw_weight - ramp_start) * tiezone_slope\n    scaled_weight = torch.where(tiezone_mask, torch.where(ramp_mask, ramp_vals, torch.ones_like(raw_weight)), torch.zeros_like(raw_weight)) * raw_weight\n\n    # Clamp weights to prevent extreme values\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = scaled_weight.clamp(clamp_lo, clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 12,
+        "id": "g000_012_04306945",
+        "signature": "04306945e6cc79f3cb2aa90d736a8a0fdb06c8c6",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "789f746bc03b42a6f2b1ad9f070c888831867607",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 717742554,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "789f746bc03b42a6f2b1ad9f070c888831867607"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_sigmoid_010",
+          "intuition": "reweight all pairs using a sigmoid transform of the gap to smoothly emphasize medium gaps",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_sigmoid"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap_raw = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})\n    gap = gap_raw.clamp_min(0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    # sigmoid centered at tau, sharpness 5.0\n    sig = 1.0 / (1.0 + (-5.0 * (gap - tau)).exp())\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = sig.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622890786892753,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622893968473588
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      }
+    ],
+    "elites_f": [
+      {
+        "generation": -1,
+        "index": 0,
+        "id": "fseed_000_3c3e0ea7",
+        "signature": "3c3e0ea7959c3b4abe893c568ca674b41a4b29df",
+        "family": "pairwise_margin|delta_rank|sum|adaptive_scaled_bias_dynamic_v4",
+        "family_signature": "paradigm=pairwise_margin|signal=delta_rank|agg=sum|constraint=adaptive_scaled_bias_dynamic_v4",
+        "origin": "TRANSFER_SEED",
+        "origin_base": "f003_008_07ae6c82",
+        "op_type": "TRANSFER_SEED",
+        "parents": [
+          "f003_008_07ae6c82"
+        ],
+        "attempt": 0,
+        "prompt_sha1": null,
+        "prompt_path": null,
+        "llm_seed": null,
+        "history": [
+          {
+            "op": "TRANSFER_SEED",
+            "source_loss_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008/best_loss.json",
+            "source_pool": "artifact",
+            "source_id": "f003_008_07ae6c82"
+          }
+        ],
+        "novelty": null,
+        "ir": {
+          "name": "pairwise_margin_adaptive_scaled_bias_v8_distinct_fixed",
+          "intuition": "Fixed the runtime error by replacing unsupported ops.pow with manual squared difference via mul, preserving the adaptive scaled bias behavior with coefficient of variation and smooth nonlinearities.",
+          "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + 1e-6\ndelta_rank_mean = mean(delta_rank)\ndelta_rank_var = mean((delta_rank - delta_rank_mean) * (delta_rank - delta_rank_mean)) + 1e-6\ndelta_rank_std = sqrt(delta_rank_var)\ncv = delta_rank_std / abs_delta_rank_mean\nbeta = 0.15 * sigmoid(-15 * (cv - 0.2))\nbias_dynamic = bias * softplus(0.5 * delta_rank) / (abs_delta_rank_mean + 0.2)\nscaled_bias = tanh(gamma * bias_dynamic)\nmargin_scale_raw = delta_rank_std / (abs_delta_rank_mean + 0.1)\nmargin_scale = 1.3 * sigmoid(12 * (margin_scale_raw - 0.15))\nscaled_margin = margin * margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -14, 14)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss)",
+          "hyperparams": {
+            "paradigm_family": "pairwise_margin",
+            "signal_family": "delta_rank",
+            "link_family": "logsigmoid",
+            "agg_family": "sum",
+            "constraint_family": "adaptive_scaled_bias_dynamic_v4"
+          },
+          "operators_used": [
+            "logsigmoid",
+            "clamp",
+            "mul",
+            "add",
+            "sub",
+            "neg",
+            "sum",
+            "abs",
+            "mean",
+            "div",
+            "sqrt",
+            "tanh",
+            "sigmoid",
+            "softplus"
+          ],
+          "implementation_hint": {
+            "expects": [
+              "log_prob_w",
+              "log_prob_l",
+              "delta_rank"
+            ],
+            "returns": "scalar",
+            "mode": "pairwise"
+          },
+          "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 2.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + 1e-6\n    delta_rank_mean = ops.mean(delta_rank)\n    diff = ops.sub(delta_rank, delta_rank_mean)\n    delta_rank_var = ops.mean(ops.mul(diff, diff)) + 1e-6\n    delta_rank_std = ops.sqrt(delta_rank_var)\n\n    cv = ops.div(delta_rank_std, abs_delta_rank_mean)\n    beta = ops.mul(0.15, ops.sigmoid(ops.neg(ops.mul(15.0, ops.sub(cv, 0.2)))))\n\n    sp_arg = ops.mul(0.5, delta_rank)\n    bias_dynamic = ops.div(ops.mul(bias, ops.softplus(sp_arg)), ops.add(abs_delta_rank_mean, 0.2))\n    scaled_bias = ops.tanh(ops.mul(gamma, bias_dynamic))\n\n    margin = ops.sub(lpw, lpl)\n    margin_scale_raw = ops.div(delta_rank_std, ops.add(abs_delta_rank_mean, 0.1))\n    margin_scale = ops.mul(1.3, ops.sigmoid(ops.mul(12.0, ops.sub(margin_scale_raw, 0.15))))\n    scaled_margin = ops.mul(margin, margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n\n    x = ops.clamp(biased_margin, -14.0, 14.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n\n    loss = ops.sum(weighted_loss)\n    return loss",
+          "theoretical_basis": ""
+        },
+        "static_ok": true,
+        "static_reason": "transfer_seed",
+        "static_trace": {},
+        "compile_ok": true,
+        "compile_reason": "transfer_seed",
+        "fitness": -0.0375637359619132,
+        "descriptor": null,
+        "source_loss_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008/best_loss.json",
+        "source_loss_id": "f003_008_07ae6c82",
+        "source_fitness": -0.0375637359619132
+      }
+    ],
+    "diverse_elites_g": [
+      {
+        "id": "g000_000_e255fb91",
+        "signature": "e255fb91d7ca08875d4b373b09cd11059341b444",
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tuned_002",
+          "intuition": "Fine-tuned the pairwise gap linear weighting hyperparameters to improve stability and contrast in pair weights, reducing the clamping range from [0.25, 4.0] to [0.2, 3.0], thereby emphasizing more significant gaps while maintaining non-negativity and boundedness.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 3.0))\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        },
+        "fitness": Infinity,
+        "selection_sort_key": null,
+        "builder_perf": null,
+        "builder_cost": null,
+        "builder_feasible": null,
+        "archive_cell": [
+          0,
+          0
+        ],
+        "archive_score": Infinity
+      }
+    ],
+    "diverse_elites_f": [],
+    "hof_g": [
+      {
+        "generation": 0,
+        "index": 0,
+        "id": "g000_000_e255fb91",
+        "signature": "e255fb91d7ca08875d4b373b09cd11059341b444",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=clamp_only",
+        "origin": "M2",
+        "origin_base": "M2",
+        "op_type": "M2",
+        "parents": [
+          "bootstrap_g_003"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+        "llm_seed": 1073003404,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "M2",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m2.txt",
+            "prompt_sha1": "d39e55ff67ae108042243bf3b8d8d271b0e8b0eb"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tuned_002",
+          "intuition": "Fine-tuned the pairwise gap linear weighting hyperparameters to improve stability and contrast in pair weights, reducing the clamping range from [0.25, 4.0] to [0.2, 3.0], thereby emphasizing more significant gaps while maintaining non-negativity and boundedness.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob",
+              "obj_z",
+              "rank",
+              "regret"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 3.0))\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2637046388678462,
+              0.26370461623317193,
+              0.26370461623317193,
+              0.2637046388678462,
+              0.2637046388678462,
+              0.26370461623317193,
+              0.26370461623317193,
+              0.2637046388678462
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 1,
+        "id": "g000_001_5b2f5325",
+        "signature": "5b2f5325d0928a8bb3ca0566c1fec82b10991d94",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_softmax|constraint=clamp_only",
+        "origin": "REPAIR",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "REPAIR",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "e4928f577b5cfed5cad6ee090f832466f5232b32",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+        "llm_seed": 277292886,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4a31420d415776e853c2e9ae302dee946a35d6a5"
+          },
+          {
+            "attempt": 0,
+            "op": "M3",
+            "llm_op": "M3",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+            "prompt_sha1": "a0c8b2cfc97545af65425259cbbd68300ff5ffbd"
+          },
+          {
+            "attempt": 0,
+            "op": "REPAIR",
+            "llm_op": "REPAIR",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+            "prompt_sha1": "e4928f577b5cfed5cad6ee090f832466f5232b32"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_softmax_002",
+          "intuition": "Compute nonnegative gap weights via softmax-like exponentiation on clamped positive gaps without imports, preserving all pairs topology and using pure vectorized tensor ops.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_softmax",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "exp",
+            "clamp",
+            "sub",
+            "nonzero"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap = gap.clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_unclamped = (gap * tau).exp()\n    weight = weight_unclamped.clamp(min=0.01, max=4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823,
+              0.1103938085310823,
+              0.110393800769626,
+              0.110393800769626,
+              0.1103938085310823
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 3,
+        "id": "g000_003_3d4f0381",
+        "signature": "3d4f03819f9de3ffe78165d0eab8c22cdd8098e3",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "8c4adcb40a999110973d1806161beba6dedf20b0",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 381946419,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "8c4adcb40a999110973d1806161beba6dedf20b0"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_square_005",
+          "intuition": "reweight all pairs with squared gap emphasizing larger differences more strongly",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_square"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0) * gap.clamp_min(0.0)\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 5,
+        "id": "g000_005_18cc63df",
+        "signature": "18cc63df1f3c392560176f7dc498744048a47ae1",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear_clamped|constraint=clamp_only",
+        "origin": "E1",
+        "origin_base": "E1",
+        "op_type": "E1",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "c67db933e5822fcbde8ec9a73badea8f5c9145ce",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+        "llm_seed": 1298922895,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "E1",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_crossover.txt",
+            "prompt_sha1": "c67db933e5822fcbde8ec9a73badea8f5c9145ce"
+          }
+        ],
+        "ir": {
+          "name": "reweight_gap_linear_with_clamp",
+          "intuition": "Combine the gap_linear weight idea from parent 1 with a monotonic clamp schedule inspired by parental constraints to enhance robustness while preserving pairwise structure. This approach maintains the fixed all_pairs topology, keeps pair construction intact, and applies a non-negative, clamped weight function that is simple and effective.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_clamped'})\n    raw_weight = gap.clamp_min(0.0)\n    clamp_lo = extra.get('clamp_lo', 0.25)\n    clamp_hi = extra.get('clamp_hi', 4.0)\n    weight = raw_weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 6,
+        "id": "g000_006_f8d1dfbd",
+        "signature": "f8d1dfbd11768cb8198288ffd8afe44d88d607ba",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_square_clamped|constraint=clamp_only",
+        "origin": "REPAIR",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "REPAIR",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "f8b1bfd7ba31f3fa0542c4994e8556f7d987f093",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+        "llm_seed": 2066035487,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "4fc97aabb13adeb66b91cc1c21de036bbb33758d"
+          },
+          {
+            "attempt": 0,
+            "op": "M3",
+            "llm_op": "M3",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+            "prompt_sha1": "802b537a8defb8f88ffd925a08c6c4bdeef6810d"
+          },
+          {
+            "attempt": 0,
+            "op": "REPAIR",
+            "llm_op": "REPAIR",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+            "prompt_sha1": "f8b1bfd7ba31f3fa0542c4994e8556f7d987f093"
+          }
+        ],
+        "ir": {
+          "name": "all_pairs_gap_square_clamped",
+          "intuition": "all pairwise comparisons weighted by squared positive objective gap with clamping to emphasize large gaps more strongly",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_square_clamped",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "clamp",
+            "sub",
+            "mul"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_clamped'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap_clamped = gap.clamp(min=0.0)\n    gap_squared = gap_clamped * gap_clamped\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_raw = tau * gap_squared\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = weight_raw.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square_clamped'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403,
+              0.2736984121388403
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 8,
+        "id": "g000_008_e0f7a0e0",
+        "signature": "e0f7a0e0cea7a11f845a8d400b69b3c3886400f4",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=tiezone_filter",
+        "origin": "CONSTRAINT_INJECT",
+        "origin_base": "CONSTRAINT_INJECT",
+        "op_type": "BUILDER_CONSTRAINT_INJECT",
+        "parents": [
+          "bootstrap_g_001"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "f4f058b934d8e2b78e3ce3f4e7c900c878bb162b",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+        "llm_seed": 859131847,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+            "prompt_sha1": "f4f058b934d8e2b78e3ce3f4e7c900c878bb162b"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tiezone_001",
+          "intuition": "Adds tie-zone suppression to clamp weights around zero gap to improve stability while preserving gap_linear weighting",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tiezone_filter"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "abs",
+            "sub"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw = gap.clamp_min(0.0)\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    # tie-zone threshold for suppressing near-zero gaps\n    tiezone_eps = 0.1\n    tiezone_mask = (raw >= tiezone_eps).to(dtype=raw.dtype)\n    # suppress weights inside tie-zone to zero\n    weight = raw * tiezone_mask\n    weight = weight.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 9,
+        "id": "g000_009_dbb2065f",
+        "signature": "dbb2065f02fa09089d4ad2daa7c93f86f6e42c69",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_linear|constraint=tiezone_clamp",
+        "origin": "CONSTRAINT_INJECT",
+        "origin_base": "CONSTRAINT_INJECT",
+        "op_type": "BUILDER_CONSTRAINT_INJECT",
+        "parents": [
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "c927b7f3340adbda93ab7be3d274ad833735b2ef",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+        "llm_seed": 303174602,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_CONSTRAINT_INJECT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+            "prompt_sha1": "c927b7f3340adbda93ab7be3d274ad833735b2ef"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_linear_tiezone_clamp_001",
+          "intuition": "Preserves gap_linear weighting with explicit tie-zone slope filtering and clamping to stabilize pair weights without normalization.",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_linear",
+            "constraint_family": "tiezone_clamp"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_linear",
+            "clamp",
+            "tiezone_filter"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw_weight = gap.clamp_min(0.0)\n\n    # Tie-zone filtering: suppress weights for very small gaps (<= tiezone_eps)\n    tiezone_eps = float(extra.get('tiezone_eps', 0.1))\n    tiezone_slope = float(extra.get('tiezone_slope', 10.0))\n    tiezone_mask = raw_weight > tiezone_eps\n    # Smooth ramp: linear from 0 at tiezone_eps to 1 at tiezone_eps + 1/slope\n    ramp_width = 1.0 / tiezone_slope\n    ramp_start = tiezone_eps\n    ramp_end = tiezone_eps + ramp_width\n    ramp_mask = (raw_weight > ramp_start) & (raw_weight < ramp_end)\n    ramp_vals = (raw_weight - ramp_start) * tiezone_slope\n    scaled_weight = torch.where(tiezone_mask, torch.where(ramp_mask, ramp_vals, torch.ones_like(raw_weight)), torch.zeros_like(raw_weight)) * raw_weight\n\n    # Clamp weights to prevent extreme values\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = scaled_weight.clamp(clamp_lo, clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223,
+              0.3317405519799223
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      },
+      {
+        "generation": 0,
+        "index": 12,
+        "id": "g000_012_04306945",
+        "signature": "04306945e6cc79f3cb2aa90d736a8a0fdb06c8c6",
+        "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=gap_sigmoid|constraint=clamp_only",
+        "origin": "PARADIGM_SHIFT",
+        "origin_base": "PARADIGM_SHIFT",
+        "op_type": "BUILDER_PARADIGM_SHIFT",
+        "parents": [
+          "bootstrap_g_000",
+          "bootstrap_g_001",
+          "bootstrap_g_002",
+          "bootstrap_g_003",
+          "bootstrap_g_004"
+        ],
+        "attempt": 0,
+        "prompt_sha1": "789f746bc03b42a6f2b1ad9f070c888831867607",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+        "llm_seed": 717742554,
+        "history": [
+          {
+            "attempt": 0,
+            "side": "builder",
+            "llm_op": "BUILDER_PARADIGM_SHIFT",
+            "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+            "prompt_sha1": "789f746bc03b42a6f2b1ad9f070c888831867607"
+          }
+        ],
+        "ir": {
+          "name": "builder_all_pairs_gap_sigmoid_010",
+          "intuition": "reweight all pairs using a sigmoid transform of the gap to smoothly emphasize medium gaps",
+          "implementation_hint": {
+            "expects": [
+              "objective",
+              "log_prob"
+            ],
+            "returns": "PrefBatch",
+            "mode": "pairwise"
+          },
+          "hyperparams": {
+            "geometry_family": "dense_all_pairs",
+            "cap_family": "uncapped_full",
+            "weight_family": "gap_sigmoid",
+            "constraint_family": "clamp_only"
+          },
+          "operators_used": [
+            "all_pairs",
+            "gap_sigmoid"
+          ],
+          "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap_raw = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})\n    gap = gap_raw.clamp_min(0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    # sigmoid centered at tau, sharpness 5.0\n    sig = 1.0 / (1.0 + (-5.0 * (gap - tau)).exp())\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = sig.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_sigmoid'})"
+        },
+        "compile_ok": true,
+        "compile_reason": "ok",
+        "builder_static_ok": true,
+        "builder_static_reason": "ok",
+        "builder_static_trace": {
+          "failed_gate": null,
+          "checks": [
+            {
+              "metric_name": "pair_count",
+              "observed_value": 960,
+              "threshold": 1,
+              "direction": ">="
+            },
+            {
+              "metric_name": "coverage",
+              "observed_value": 1.0,
+              "threshold": 0.0,
+              "direction": ">="
+            },
+            {
+              "metric_name": "max_pairs_per_instance",
+              "observed_value": 120,
+              "threshold": 8192,
+              "direction": "<="
+            },
+            {
+              "metric_name": "semantic_pass_rate",
+              "observed_value": 1.0,
+              "threshold": 1.0,
+              "direction": ">="
+            }
+          ],
+          "instance_weight_cv_gate": {
+            "enabled": true,
+            "cv_threshold": 0.1,
+            "pass_rate_threshold": 0.75,
+            "eligible_instances": 8,
+            "observed_cv_values": [
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622890786892753,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.1762289237768317,
+              0.17622890786892753,
+              0.17622893968473588
+            ]
+          },
+          "builder_pref_cache_hit": false,
+          "memory_metric_available": false,
+          "memory_device": "cpu"
+        },
+        "fitness": Infinity,
+        "descriptor": {
+          "x": 0.0,
+          "y": 0.0,
+          "cell": [
+            0,
+            0
+          ]
+        }
+      }
+    ],
+    "hof_f": [],
+    "archive_g": {
+      "0,0": [
+        {
+          "id": "g000_000_e255fb91",
+          "signature": "e255fb91d7ca08875d4b373b09cd11059341b444",
+          "ir": {
+            "name": "builder_all_pairs_gap_linear_tuned_002",
+            "intuition": "Fine-tuned the pairwise gap linear weighting hyperparameters to improve stability and contrast in pair weights, reducing the clamping range from [0.25, 4.0] to [0.2, 3.0], thereby emphasizing more significant gaps while maintaining non-negativity and boundedness.",
+            "implementation_hint": {
+              "expects": [
+                "objective",
+                "log_prob",
+                "obj_z",
+                "rank",
+                "regret"
+              ],
+              "returns": "PrefBatch",
+              "mode": "pairwise"
+            },
+            "hyperparams": {
+              "geometry_family": "dense_all_pairs",
+              "cap_family": "uncapped_full",
+              "weight_family": "gap_linear",
+              "constraint_family": "clamp_only"
+            },
+            "operators_used": [
+              "all_pairs",
+              "gap_linear"
+            ],
+            "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = float(extra.get('gap_lower_threshold', 0.2))\n    clamp_hi = float(extra.get('gap_upper_threshold', 3.0))\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+          },
+          "descriptor": {
+            "x": 0.0,
+            "y": 0.0,
+            "cell": [
+              0,
+              0
+            ]
+          },
+          "fitness": Infinity,
+          "selection_sort_key": null,
+          "builder_perf": null,
+          "builder_cost": null,
+          "builder_feasible": null,
+          "archive_cell": [
+            0,
+            0
+          ],
+          "archive_score": Infinity
+        }
+      ]
+    },
+    "archive_f": {},
+    "stagnation_generations": 2,
+    "schema_version": 1,
+    "saved_at": "2026-04-16 20:59:29",
+    "cheap_gate_on": false,
+    "stage0_sandbox_gate_enabled": false,
+    "stage0_sandbox_gate_hard_block_hf": false
+  },
+  "device_str": "cuda:0",
+  "operator_whitelist": [],
+  "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_builder_weight_search_cvrp100/20260416-182905",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "posthoc_no_gate",
+  "proxy_record": null,
+  "baseline_epoch_objectives": null,
+  "baseline_early_valid": null,
+  "early_eval_steps": 0
+}

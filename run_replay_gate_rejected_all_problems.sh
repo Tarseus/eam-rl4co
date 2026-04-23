@@ -8,8 +8,8 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 
 GPU1="${GPU1:-1}"
 GPU2="${GPU2:-2}"
-GPU3="${GPU3:-3}"
-GPU4="${GPU4:-4}"
+GPU3="${GPU3:-4}"
+GPU4="${GPU4:-5}"
 
 PAIR_REASONS="${PAIR_REASONS:-cheap_gate_failed,stage0_sandbox_failed,pref_semantic_failed,co_gate_failed}"
 MIN_PER_GENERATION="${MIN_PER_GENERATION:-2}"
