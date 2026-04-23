@@ -16,7 +16,7 @@ nohup python -u run.py \
   ~callbacks.learning_rate_monitor \
   ~callbacks.rich_progress_bar \
   callbacks.model_checkpoint.dirpath=/data1/gushengda/eam-rl4co/logs/train/runs/mgl-jssp-sll_15x15_20260422-153318/checkpoints \
-  callbacks.model_checkpoint.filename='epoch_{epoch:03d}' \
+  "callbacks.model_checkpoint.filename='epoch_{epoch:03d}'" \
   callbacks.model_checkpoint.auto_insert_metric_name=False \
   callbacks.model_checkpoint.save_top_k=1 \
   callbacks.model_checkpoint.save_last=True \
