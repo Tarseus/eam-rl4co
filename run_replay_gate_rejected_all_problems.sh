@@ -8,12 +8,12 @@ PYTHON_BIN="${PYTHON_BIN:-python}"
 
 GPU1="${GPU1:-1}"
 GPU2="${GPU2:-2}"
-GPU3="${GPU3:-4}"
-GPU4="${GPU4:-5}"
+GPU3="${GPU3:-3}"
+GPU4="${GPU4:-4}"
 
 PAIR_REASONS="${PAIR_REASONS:-cheap_gate_failed,pref_semantic_failed,co_gate_failed}"
 MIN_PER_GENERATION="${MIN_PER_GENERATION:-2}"
-PURE_NO_GATE="${PURE_NO_GATE:-0}"
+PURE_NO_GATE="${PURE_NO_GATE:-1}"
 DRY_RUN="${DRY_RUN:-0}"
 
 # Symbolic sampling budget. Sampling happens first, then each run is split into 2 shards.
@@ -64,7 +64,7 @@ Defaults:
   WEIGHT_SAMPLE_SIZE=10
   SAMPLE_SEED=1234
   SAMPLE_ALL=0
-  PURE_NO_GATE=0
+  PURE_NO_GATE=1
   DRY_RUN=0
 
 Notes:
