@@ -16850,3 +16850,29 @@ full_key: model
 [2026-04-23 10:43:57,351][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-23 10:44:21,955][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
 [2026-04-23 10:47:06,653][rl4co.models.rl.common.base][INFO] - Generating training dataset for next epoch...
+[2026-04-23 12:08:21,173][rl4co.utils.utils][INFO] - Enforcing tags! <cfg.extras.enforce_tags=True>
+[2026-04-23 12:08:21,185][rl4co.utils.utils][INFO] - Printing config tree with Rich! <cfg.extras.print_config=True>
+[2026-04-23 12:08:21,242][rl4co.tasks.train][INFO] - Instantiating environment <rl4co.envs.JSSPEnv>
+[2026-04-23 12:08:25,536][rl4co.tasks.train][INFO] - Instantiating model <rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel>
+[2026-04-23 12:08:25,797][rl4co.models.zoo.mgl_jssp.model][WARNING] - Ignoring unused MGLJSSPModel kwargs: ['generate_default_data']
+[2026-04-23 12:08:25,847][rl4co.tasks.train][INFO] - Instantiating callbacks...
+[2026-04-23 12:08:25,847][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2026-04-23 12:08:25,850][rl4co.utils.instantiators][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2026-04-23 12:08:25,851][rl4co.utils.instantiators][INFO] - Instantiating callback <rl4co.utils.callbacks.speed_monitor.SpeedMonitor>
+[2026-04-23 12:08:25,852][rl4co.tasks.train][INFO] - Instantiating loggers...
+[2026-04-23 12:08:25,852][rl4co.utils.instantiators][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2026-04-23 12:08:25,853][rl4co.tasks.train][INFO] - Instantiating trainer...
+[2026-04-23 12:08:25,856][rl4co.utils.trainer][WARNING] - gradient_clip_val is set to None. This may lead to unstable training.
+[2026-04-23 12:08:25,863][rl4co.tasks.train][INFO] - Logging hyperparameters!
+[2026-04-23 12:08:25,864][rl4co.tasks.train][INFO] - Starting training!
+[2026-04-23 12:08:38,703][rl4co.models.zoo.mgl_jssp.model][INFO] - Filtered train split by allowed_shapes: 30000 -> 5000 instances
+[2026-04-23 12:08:38,853][rl4co.models.zoo.mgl_jssp.model][INFO] - Filtered val split by allowed_shapes: 600 -> 100 instances
+[2026-04-23 12:08:38,858][rl4co.models.zoo.mgl_jssp.model][INFO] - JSSP train split loaded 5000 instances with shapes: 15x15=5000
+[2026-04-23 12:08:38,858][rl4co.models.zoo.mgl_jssp.model][INFO] - JSSP val split loaded 100 instances with shapes: 15x15=100
+[2026-04-23 12:08:38,862][rl4co.models.zoo.mgl_jssp.model][INFO] - === JSSP Shape Bucket Stats ===
+[2026-04-23 12:08:38,862][rl4co.models.zoo.mgl_jssp.model][INFO] -   Shape 15x15: 5000 instances, 5000 batches
+[2026-04-23 12:08:38,862][rl4co.models.zoo.mgl_jssp.model][INFO] -   TOTAL: 5000 instances, 5000 batches
+[2026-04-23 12:08:38,862][rl4co.models.zoo.mgl_jssp.model][INFO] - ===============================
+[2026-04-23 14:22:30,736][rl4co.utils.utils][INFO] - Output dir: /data1/gushengda/eam-rl4co/logs/train/runs/mgl-jssp-sll_15x15_20260422-153318
+[2026-04-23 14:22:30,736][rl4co.utils.utils][INFO] - Closing loggers...
+[2026-04-23 14:22:31,550][rl4co.utils.utils][INFO] - Metric name is None! Skipping metric value retrieval...
