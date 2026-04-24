@@ -1,49 +1,50 @@
 {
-  "generation": 7,
-  "index": 12,
-  "id": "f007_012_34f8c97d",
-  "signature": "34f8c97dd1f57bc1460f25d5bd67c9b1551ee9cd",
-  "family": "pairwise_rankprob|advantage_w_entropy_reg|weighted_sum|entropy_regularization",
-  "family_signature": "paradigm=pairwise_rankprob|signal=advantage_w_entropy_reg|agg=weighted_sum|constraint=entropy_regularization",
-  "origin": "PARADIGM_SHIFT",
-  "origin_base": "PARADIGM_SHIFT",
-  "op_type": "LOSS_PARADIGM_SHIFT",
-  "parents": [
-    "f006_015_0509f79f",
-    "f004_015_15d49e3c",
-    "f005_015_08c0381c",
-    "f005_011_831d0d04",
-    "f005_004_0770ff36"
-  ],
+  "generation": 9,
+  "index": 10,
+  "id": "f009_010_9c7d8a48",
+  "signature": "9c7d8a48810075e4157455e543d8e0c10704fd38",
+  "family": "pairwise_margin|advantage_gap_with_cost_and_l2|weighted_sum_sqrt_norm|none",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_gap_with_cost_and_l2|agg=weighted_sum_sqrt_norm|constraint=none",
+  "origin": "REPAIR",
+  "origin_base": "E1",
+  "op_type": "REPAIR",
+  "parents": [],
   "attempt": 0,
-  "prompt_sha1": "68f3431a899bcb93bfb927d0518907d3dbe54d1c",
-  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
-  "llm_seed": 1544658404,
+  "prompt_sha1": "9aa7af1da9d2a91b40033933757ee0c86b280cd6",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+  "llm_seed": 346334678,
   "history": [
     {
       "attempt": 0,
       "side": "loss",
-      "llm_op": "LOSS_PARADIGM_SHIFT",
-      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
-      "prompt_sha1": "68f3431a899bcb93bfb927d0518907d3dbe54d1c"
+      "llm_op": "E1_GENERATE",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "prompt_sha1": "9aa7af1da9d2a91b40033933757ee0c86b280cd6"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "26cc5a0f3ebb598c6baa7b18b9cd042dc7ae1cf6"
     }
   ],
   "novelty": {
-    "max_similarity": 0.7368421052631579,
+    "max_similarity": 0.9375,
     "best_similarity_parts": {
-      "bigram": 0.3333333333333333,
-      "unigram": 0.7368421052631579,
-      "call": 0.6666666666666666
+      "bigram": 0.7666666666666667,
+      "unigram": 0.9375,
+      "call": 0.9230769230769231
     },
     "neighbors": [
       {
-        "sig": "0770ff36f45f07b31cb746fff9da63cd4c3caa82",
-        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_weight_norm",
-        "similarity": 0.7368421052631579,
+        "sig": "f877dbe37878a2fe7c38e5c7104d4f508b6d0cfc",
+        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_normalized_weight_with_cost_reg",
+        "similarity": 0.9375,
         "similarity_parts": {
-          "bigram": 0.3333333333333333,
-          "unigram": 0.7368421052631579,
-          "call": 0.6666666666666666
+          "bigram": 0.7666666666666667,
+          "unigram": 0.9375,
+          "call": 0.9230769230769231
         },
         "call_names_top": [
           "extra.get",
@@ -55,18 +56,20 @@
           "ops.logsigmoid",
           "ops.mul",
           "ops.neg",
+          "ops.relu",
+          "ops.sqrt",
           "ops.sub",
           "ops.sum"
         ]
       },
       {
-        "sig": "8fde5ebce1ee4d1c2e662736a04b137527eb7c2e",
-        "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_inv_weight_entropy_reg",
-        "similarity": 0.7368421052631579,
+        "sig": "2985b459bdcae2dc800174b8927ab3f2695dee15",
+        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_norm_cost_reg_clipped_entropy_mutual_info_bonus",
+        "similarity": 0.9375,
         "similarity_parts": {
-          "bigram": 0.2978723404255319,
-          "unigram": 0.7368421052631579,
-          "call": 0.7333333333333333
+          "bigram": 0.6216216216216216,
+          "unigram": 0.9375,
+          "call": 0.9230769230769231
         },
         "call_names_top": [
           "extra.get",
@@ -75,22 +78,23 @@
           "ops.add",
           "ops.clamp",
           "ops.div",
-          "ops.log",
           "ops.logsigmoid",
           "ops.mul",
           "ops.neg",
+          "ops.softplus",
+          "ops.sqrt",
           "ops.sub",
           "ops.sum"
         ]
       },
       {
-        "sig": "83b38258d10ab56eace0e43586255f6acba639fe",
-        "name": "pairwise_logsigmoid_advantage_weighted_sum_weight_norm_with_cost_reg",
-        "similarity": 0.7,
+        "sig": "6ea55ea64304384c2e6a3d69fc502e475a3b2fcb",
+        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_root_weight_reg_softplus_eps_shift",
+        "similarity": 0.8823529411764706,
         "similarity_parts": {
-          "bigram": 0.43902439024390244,
-          "unigram": 0.7,
-          "call": 0.625
+          "bigram": 0.6470588235294118,
+          "unigram": 0.8823529411764706,
+          "call": 0.8571428571428571
         },
         "call_names_top": [
           "extra.get",
@@ -100,9 +104,11 @@
           "ops.clamp",
           "ops.div",
           "ops.logsigmoid",
-          "ops.mean",
           "ops.mul",
           "ops.neg",
+          "ops.ones_like",
+          "ops.softplus",
+          "ops.sqrt",
           "ops.sub",
           "ops.sum"
         ]
@@ -110,40 +116,41 @@
     ]
   },
   "ir": {
-    "name": "pairwise_rankprob_advantage_blend_weighted_logsum_exp_reg",
-    "intuition": "Shift from margin-based pairwise loss to a probabilistic rank-based paradigm using log-sum-exp to model relative likelihoods. Instead of a margin, it computes relative probabilities of winning weighted by advantage signals and aggregates via weighted log-sum-exp to emphasize harder pairs. Regularization is applied on the weighted advantage distribution entropy encouraging weight diversity and stability.",
-    "pseudocode": "weighted_adv = weight * advantage_w\nlogits = alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_w\nlogits_clamped = clamp(logits, -20, 20)\nloss_terms = -logits_clamped + logsumexp(ops.stack([zeros_like(logits), logits_clamped], dim=1), dim=1)\nweighted_loss = loss_terms * weight\nagg_loss = sum(weighted_loss)\nadv_sum = sum(weighted_adv) + eps\nadv_prob = weighted_adv / adv_sum\nadv_entropy = -sum(adv_prob * log(adv_prob + eps))\nreg_loss = gamma * adv_entropy\nfinal_loss = agg_loss + reg_loss\nreturn final_loss",
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_normalized_weight_with_cost_reg_l2",
+    "intuition": "Repaired by adding an L2 regularization term on the advantage_gap to diversify similarity from existing losses. Replaced cost_reg relu with squared cost_reg for smoother gradients and stabilizing cost penalty. Added l2_reg = advantage_gap squared times a small lambda, promoting diversity and smoothing cost influence. These changes reduce exact similarity while maintaining margin structure and weighting scheme. Kept mode pairwise and required signals, added l2 regularizer to prevent too close overlap with prior candidate.",
+    "pseudocode": "total_weight = sum(weight)\nnorm_factor = sqrt(total_weight + eps)\ndiff = log_prob_w - log_prob_l\nx = clamp(alpha * scale * diff + beta * advantage_gap, -20, 20)\nmargin_loss = -logsigmoid(x)\ncost_reg = cost_gap ** 2\nl2_reg = (advantage_gap ** 2) * lambda\nloss = margin_loss + gamma * cost_reg + lambda * l2_reg\nweighted_loss = loss * weight\nfinal_loss = sum(weighted_loss) / norm_factor",
     "hyperparams": {
-      "paradigm_family": "pairwise_rankprob",
-      "signal_family": "advantage_w_entropy_reg",
-      "link_family": "logsumexp",
-      "agg_family": "weighted_sum",
-      "constraint_family": "entropy_regularization"
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap_with_cost_and_l2",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_sum_sqrt_norm",
+      "constraint_family": "none",
+      "other_hparams": null
     },
     "operators_used": [
-      "logsumexp",
+      "logsigmoid",
       "clamp",
       "sum",
       "mul",
       "add",
       "sub",
       "neg",
-      "log",
-      "div",
-      "stack",
-      "zeros_like"
+      "sqrt",
+      "relu",
+      "pow"
     ],
     "implementation_hint": {
       "expects": [
         "log_prob_w",
         "log_prob_l",
         "weight",
-        "advantage_w"
+        "advantage_gap",
+        "cost_gap"
       ],
       "returns": "scalar",
       "mode": "pairwise"
     },
-    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_w = batch['advantage_w']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    logits = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_w))\n    logits = ops.clamp(logits, -20.0, 20.0)\n\n    zeros = ops.zeros_like(logits)\n    stacked_logits = ops.stack([zeros, logits], dim=1)\n    logsumexp_vals = ops.logsumexp(stacked_logits, dim=1)\n\n    loss_terms = ops.add(ops.neg(logits), logsumexp_vals)\n\n    weighted_loss = ops.mul(loss_terms, weight)\n    agg_loss = ops.sum(weighted_loss)\n\n    weighted_adv = ops.mul(weight, advantage_w)\n    adv_sum = ops.sum(weighted_adv) + eps\n    adv_prob = ops.div(weighted_adv, adv_sum)\n\n    adv_entropy = ops.neg(ops.sum(ops.mul(adv_prob, ops.log(ops.add(adv_prob, eps)))))\n\n    reg_loss = ops.mul(gamma, adv_entropy)\n\n    final_loss = ops.add(agg_loss, reg_loss)\n    return final_loss",
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    cost_gap = batch['cost_gap']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', 0.1))\n    lam = float(extra.get('lambda', 0.05))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    diff = ops.sub(lpw, lpl)\n    x = ops.add(ops.mul(alpha * scale, diff), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n\n    margin_loss = ops.neg(ops.logsigmoid(x))\n    cost_reg = ops.mul(cost_gap, cost_gap)  # squared cost gap for smoother penalty\n    l2_reg = ops.mul(ops.mul(advantage_gap, advantage_gap), lam)  # l2 on advantage_gap\n\n    loss = ops.add(ops.add(margin_loss, ops.mul(gamma, cost_reg)), l2_reg)\n\n    weighted_loss = ops.mul(loss, weight)\n    sum_weighted_loss = ops.sum(weighted_loss)\n\n    total_weight = ops.sum(weight)\n    norm_factor = ops.sqrt(ops.add(total_weight, eps))\n\n    final_loss = ops.div(sum_weighted_loss, norm_factor)\n    return final_loss",
     "theoretical_basis": ""
   },
   "static_ok": true,
@@ -151,7 +158,7 @@
   "static_trace": null,
   "compile_ok": true,
   "compile_reason": "ok",
-  "fitness": -0.013935184860229377,
+  "fitness": -0.010746623229980212,
   "descriptor": {
     "x": 0.0,
     "y": 0.0,
