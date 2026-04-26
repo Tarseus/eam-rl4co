@@ -16,6 +16,8 @@ OUTPUT_CSV="${OUTPUT_CSV:-${REPO_ROOT}/downloads/tsp_cvrp_ffsp_checkpoint_test_r
 NUM_INSTANCES="${NUM_INSTANCES:-}"
 TEST_BATCH_SIZE="${TEST_BATCH_SIZE:-}"
 LIMIT="${LIMIT:-}"
+FFSP_AUG_FACTOR="${FFSP_AUG_FACTOR:-128}"
+RESUME="${RESUME:-1}"
 
 EXTRA_ARGS=("$@")
 
@@ -27,6 +29,8 @@ echo "[routing-eval] manifest=${MANIFEST_PATH}"
 echo "[routing-eval] output_csv=${OUTPUT_CSV}"
 echo "[routing-eval] problems=${PROBLEMS}"
 echo "[routing-eval] methods=${METHODS}"
+echo "[routing-eval] ffsp_aug_factor=${FFSP_AUG_FACTOR}"
+echo "[routing-eval] resume=${RESUME}"
 echo "[routing-eval] This wrapper targets tsp/cvrp/ffsp checkpoints from downloads/manifest.json."
 echo "[routing-eval] Problem/method coverage from current manifest:"
 echo "  - tsp50: bopo, sll, weighting"
@@ -36,7 +40,7 @@ echo "  - cvrp100: po, bopo, sll, loss_only, weighting"
 echo "  - ffsp50: rl, po, bopo"
 echo "  - ffsp100: po, bopo"
 echo "[routing-eval] The Python evaluator will skip any entry that already has test/max_aug_reward."
-echo "[routing-eval] FFSP note: current downloaded MatNet checkpoints use num_augment=0, so the CSV may record test/max_aug_reward as empty with an explanatory note."
+echo "[routing-eval] FFSP note: max_aug_reward is computed by repeated RandomOneHot inference passes (default x${FFSP_AUG_FACTOR}, override with FFSP_AUG_FACTOR=...)."
 
 CMD=(
   "${PYTHON_BIN}"
@@ -47,8 +51,12 @@ CMD=(
   "--methods" "${METHODS}"
   "--device" "${DEVICE}"
   "--precision" "${PRECISION}"
-  "--resume"
+  "--ffsp-aug-factor" "${FFSP_AUG_FACTOR}"
 )
+
+if [[ "${RESUME}" == "1" ]]; then
+  CMD+=("--resume")
+fi
 
 if [[ -n "${NUM_INSTANCES}" ]]; then
   CMD+=("--num-instances" "${NUM_INSTANCES}")

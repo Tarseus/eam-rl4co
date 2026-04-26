@@ -19,6 +19,7 @@ DEFAULT_MANIFEST = REPO_ROOT / "downloads" / "manifest.json"
 DEFAULT_OUTPUT = REPO_ROOT / "downloads" / "tsp_cvrp_ffsp_checkpoint_test_results.csv"
 ROUTING_PREFIXES = ("tsp", "cvrp")
 SUPPORTED_PREFIXES = ("cvrp", "ffsp", "tsp")
+DEFAULT_FFSP_AUG_FACTOR = 128
 
 CURVE_ALIAS_MAP: dict[str, tuple[str, ...]] = {
     "po": ("{problem}_po.csv", "{problem}_base.csv"),
@@ -236,6 +237,17 @@ def parse_device_spec(device: str) -> tuple[str, int | list[int]]:
     raise ValueError(f"Unsupported device spec: {device}")
 
 
+def to_torch_device(device: str) -> str:
+    normalized = str(device).strip().lower()
+    if normalized == "cpu":
+        return "cpu"
+    if normalized == "cuda":
+        return "cuda:0"
+    if normalized.startswith("cuda:"):
+        return normalized
+    raise ValueError(f"Unsupported device spec: {device}")
+
+
 def checkpoint_hparams(ckpt_path: Path) -> dict[str, Any]:
     import torch
 
@@ -243,6 +255,23 @@ def checkpoint_hparams(ckpt_path: Path) -> dict[str, Any]:
     hyper_parameters = dict(payload.get("hyper_parameters", {}) or {})
     hyper_parameters["_checkpoint_payload"] = payload
     return hyper_parameters
+
+
+def _patch_legacy_policy_object(policy: Any) -> Any:
+    if policy is None:
+        return None
+
+    policy_cls_name = policy.__class__.__name__
+    policy_cls_module = policy.__class__.__module__
+
+    if (
+        policy_cls_name == "PO4COPsTSPPolicy"
+        and policy_cls_module.endswith("po4cops_tsp_policy")
+        and not hasattr(policy, "start_node")
+    ):
+        policy.start_node = "pomo"
+
+    return policy
 
 
 def build_routing_env(
@@ -330,6 +359,7 @@ def build_model(
     env_name, size = parse_problem_key(entry.problem_key)
     raw_hparams = checkpoint_hparams(entry.checkpoint_path)
     payload = raw_hparams.pop("_checkpoint_payload")
+    raw_hparams["policy"] = _patch_legacy_policy_object(raw_hparams.get("policy"))
 
     if env_name in ROUTING_PREFIXES:
         env, resolved_test_file = build_routing_env(
@@ -357,6 +387,91 @@ def build_model(
     raise ValueError(f"Unsupported environment: {env_name}")
 
 
+def run_ffsp_augmented_evaluation(
+    *,
+    model: Any,
+    hparams: dict[str, Any],
+    device: str,
+    ffsp_aug_factor: int,
+) -> dict[str, Any]:
+    import torch
+
+    from rl4co.utils.ops import unbatchify
+
+    if ffsp_aug_factor < 1:
+        raise ValueError(f"ffsp_aug_factor must be >= 1, got {ffsp_aug_factor}")
+
+    torch_device = torch.device(to_torch_device(device))
+    model = model.to(torch_device)
+    model.eval()
+    model.setup(stage="test")
+
+    reward_sum = 0.0
+    reward_count = 0
+    max_reward_sum = 0.0
+    max_aug_reward_sum = 0.0
+    instance_count = 0
+
+    with torch.no_grad():
+        dataloader = model.test_dataloader()
+        for batch in dataloader:
+            batch = batch.to(torch_device)
+            td = model.env.reset(batch)
+            n_start = model.num_starts
+            if n_start is None or n_start <= 0:
+                n_start = model.env.get_num_starts(td)
+
+            best_aug_reward = None
+            base_max_reward = None
+
+            for aug_idx in range(ffsp_aug_factor):
+                out = model.policy(
+                    td.clone(),
+                    model.env,
+                    phase="test",
+                    num_starts=n_start,
+                    return_actions=False,
+                )
+                reward_flat = out["reward"]
+                reward_ms = unbatchify(reward_flat, (0, n_start))
+                max_reward = reward_ms.max(dim=-1).values
+
+                if aug_idx == 0:
+                    reward_sum += float(reward_flat.sum().item())
+                    reward_count += int(reward_flat.numel())
+                    base_max_reward = max_reward
+                    best_aug_reward = max_reward
+                else:
+                    best_aug_reward = torch.maximum(best_aug_reward, max_reward)
+
+            assert base_max_reward is not None
+            assert best_aug_reward is not None
+            max_reward_sum += float(base_max_reward.sum().item())
+            max_aug_reward_sum += float(best_aug_reward.sum().item())
+            instance_count += int(base_max_reward.numel())
+
+    supports_max_aug_reward = ffsp_aug_factor > 1
+    return {
+        "seed": int(hparams.get("seed", 1234)),
+        "num_starts": int(hparams.get("num_starts") or 0),
+        "num_augment": int(ffsp_aug_factor),
+        "supports_max_aug_reward": supports_max_aug_reward,
+        "max_aug_reward_note": (
+            f"FFSP max_aug_reward computed via {ffsp_aug_factor} repeated RandomOneHot inference passes."
+            if supports_max_aug_reward
+            else "FFSP evaluated with a single RandomOneHot inference pass."
+        ),
+        "test_data_size": int(model.data_cfg["test_data_size"]),
+        "test_batch_size": int(model.test_batch_size),
+        "resolved_test_file": None,
+        "test_reward": (reward_sum / reward_count) if reward_count > 0 else None,
+        "test_max_reward": (max_reward_sum / instance_count) if instance_count > 0 else None,
+        "test_max_aug_reward": (
+            (max_aug_reward_sum / instance_count) if supports_max_aug_reward and instance_count > 0 else None
+        ),
+    }
+
+
 def run_single_evaluation(
     *,
     entry: DownloadEntry,
@@ -365,6 +480,7 @@ def run_single_evaluation(
     precision: str,
     num_instances: int | None,
     test_batch_size: int | None,
+    ffsp_aug_factor: int,
 ) -> dict[str, Any]:
     import lightning as L
     from rl4co.utils.trainer import RL4COTrainer
@@ -394,35 +510,36 @@ def run_single_evaluation(
     )
 
     started_at = time.time()
-    trainer.test(model=model, verbose=False)
-    elapsed = time.time() - started_at
-
-    callback_metrics = dict(trainer.callback_metrics)
-    num_augment = int(getattr(model, "num_augment", hparams.get("num_augment") or 0) or 0)
-    supports_max_aug_reward = num_augment > 1
-    max_aug_reward_note = ""
-    if not supports_max_aug_reward:
-        if env_name == "ffsp":
-            max_aug_reward_note = (
-                "FFSP checkpoints currently use MatNet with num_augment=0, "
-                "so test/max_aug_reward is not emitted by the current model path."
-            )
-        else:
+    if env_name == "ffsp":
+        result = run_ffsp_augmented_evaluation(
+            model=model,
+            hparams=hparams,
+            device=device,
+            ffsp_aug_factor=ffsp_aug_factor,
+        )
+    else:
+        trainer.test(model=model, verbose=False)
+        callback_metrics = dict(trainer.callback_metrics)
+        num_augment = int(getattr(model, "num_augment", hparams.get("num_augment") or 0) or 0)
+        supports_max_aug_reward = num_augment > 1
+        max_aug_reward_note = ""
+        if not supports_max_aug_reward:
             max_aug_reward_note = "Checkpoint num_augment<=1, so no augmentation metric is emitted."
-    result = {
-        "seed": seed_value,
-        "num_starts": int(hparams.get("num_starts") or 0),
-        "num_augment": num_augment,
-        "supports_max_aug_reward": supports_max_aug_reward,
-        "max_aug_reward_note": max_aug_reward_note,
-        "test_data_size": int(model.data_cfg["test_data_size"]),
-        "test_batch_size": int(model.test_batch_size),
-        "resolved_test_file": resolved_test_file,
-        "test_reward": _tensor_to_float(callback_metrics.get("test/reward")),
-        "test_max_reward": _tensor_to_float(callback_metrics.get("test/max_reward")),
-        "test_max_aug_reward": _tensor_to_float(callback_metrics.get("test/max_aug_reward")),
-        "elapsed_sec": round(elapsed, 3),
-    }
+        result = {
+            "seed": seed_value,
+            "num_starts": int(hparams.get("num_starts") or 0),
+            "num_augment": num_augment,
+            "supports_max_aug_reward": supports_max_aug_reward,
+            "max_aug_reward_note": max_aug_reward_note,
+            "test_data_size": int(model.data_cfg["test_data_size"]),
+            "test_batch_size": int(model.test_batch_size),
+            "resolved_test_file": resolved_test_file,
+            "test_reward": _tensor_to_float(callback_metrics.get("test/reward")),
+            "test_max_reward": _tensor_to_float(callback_metrics.get("test/max_reward")),
+            "test_max_aug_reward": _tensor_to_float(callback_metrics.get("test/max_aug_reward")),
+        }
+    elapsed = time.time() - started_at
+    result["elapsed_sec"] = round(elapsed, 3)
     return result
 
 
@@ -510,6 +627,12 @@ def parse_args() -> argparse.Namespace:
         help="Override test batch size used by the LightningModule dataloader.",
     )
     parser.add_argument(
+        "--ffsp-aug-factor",
+        type=int,
+        default=DEFAULT_FFSP_AUG_FACTOR,
+        help="Number of repeated RandomOneHot inference passes used to compute FFSP test/max_aug_reward.",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Evaluate even if existing metrics already contain test/max_aug_reward.",
@@ -595,6 +718,7 @@ def main() -> int:
                 precision=args.precision,
                 num_instances=args.num_instances,
                 test_batch_size=args.test_batch_size,
+                ffsp_aug_factor=args.ffsp_aug_factor,
             )
             supports_max_aug_reward = bool(
                 result.get("supports_max_aug_reward", result.get("test_max_aug_reward") is not None)
