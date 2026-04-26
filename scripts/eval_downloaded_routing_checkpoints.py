@@ -393,13 +393,16 @@ def run_ffsp_augmented_evaluation(
     hparams: dict[str, Any],
     device: str,
     ffsp_aug_factor: int,
+    ffsp_aug_batch_size: int,
 ) -> dict[str, Any]:
     import torch
 
-    from rl4co.utils.ops import unbatchify
+    from rl4co.utils.ops import batchify, unbatchify
 
     if ffsp_aug_factor < 1:
         raise ValueError(f"ffsp_aug_factor must be >= 1, got {ffsp_aug_factor}")
+    if ffsp_aug_batch_size < 1:
+        raise ValueError(f"ffsp_aug_batch_size must be >= 1, got {ffsp_aug_batch_size}")
 
     torch_device = torch.device(to_torch_device(device))
     model = model.to(torch_device)
@@ -423,10 +426,13 @@ def run_ffsp_augmented_evaluation(
 
             best_aug_reward = None
             base_max_reward = None
+            remaining = int(ffsp_aug_factor)
 
-            for aug_idx in range(ffsp_aug_factor):
+            while remaining > 0:
+                aug_chunk = min(int(ffsp_aug_batch_size), remaining)
+                td_aug = batchify(td.clone(), aug_chunk)
                 out = model.policy(
-                    td.clone(),
+                    td_aug,
                     model.env,
                     phase="test",
                     num_starts=n_start,
@@ -434,15 +440,18 @@ def run_ffsp_augmented_evaluation(
                 )
                 reward_flat = out["reward"]
                 reward_ms = unbatchify(reward_flat, (0, n_start))
-                max_reward = reward_ms.max(dim=-1).values
+                reward_aug = unbatchify(reward_ms, aug_chunk)
+                max_reward_aug = reward_aug.max(dim=-1).values
 
-                if aug_idx == 0:
-                    reward_sum += float(reward_flat.sum().item())
-                    reward_count += int(reward_flat.numel())
-                    base_max_reward = max_reward
-                    best_aug_reward = max_reward
+                if base_max_reward is None:
+                    reward_sum += float(reward_aug[:, 0, :].sum().item())
+                    reward_count += int(reward_aug[:, 0, :].numel())
+                    base_max_reward = max_reward_aug[:, 0]
+                    best_aug_reward = max_reward_aug.max(dim=1).values
                 else:
-                    best_aug_reward = torch.maximum(best_aug_reward, max_reward)
+                    best_aug_reward = torch.maximum(best_aug_reward, max_reward_aug.max(dim=1).values)
+
+                remaining -= aug_chunk
 
             assert base_max_reward is not None
             assert best_aug_reward is not None
@@ -457,7 +466,8 @@ def run_ffsp_augmented_evaluation(
         "num_augment": int(ffsp_aug_factor),
         "supports_max_aug_reward": supports_max_aug_reward,
         "max_aug_reward_note": (
-            f"FFSP max_aug_reward computed via {ffsp_aug_factor} repeated RandomOneHot inference passes."
+            f"FFSP max_aug_reward computed via {ffsp_aug_factor} RandomOneHot inference passes "
+            f"batched in chunks of {ffsp_aug_batch_size}."
             if supports_max_aug_reward
             else "FFSP evaluated with a single RandomOneHot inference pass."
         ),
@@ -481,6 +491,7 @@ def run_single_evaluation(
     num_instances: int | None,
     test_batch_size: int | None,
     ffsp_aug_factor: int,
+    ffsp_aug_batch_size: int,
 ) -> dict[str, Any]:
     import lightning as L
     from rl4co.utils.trainer import RL4COTrainer
@@ -516,6 +527,7 @@ def run_single_evaluation(
             hparams=hparams,
             device=device,
             ffsp_aug_factor=ffsp_aug_factor,
+            ffsp_aug_batch_size=ffsp_aug_batch_size,
         )
     else:
         trainer.test(model=model, verbose=False)
@@ -633,6 +645,12 @@ def parse_args() -> argparse.Namespace:
         help="Number of repeated RandomOneHot inference passes used to compute FFSP test/max_aug_reward.",
     )
     parser.add_argument(
+        "--ffsp-aug-batch-size",
+        type=int,
+        default=DEFAULT_FFSP_AUG_FACTOR,
+        help="How many FFSP augmentation passes to batch together in one forward call.",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="Evaluate even if existing metrics already contain test/max_aug_reward.",
@@ -719,6 +737,7 @@ def main() -> int:
                 num_instances=args.num_instances,
                 test_batch_size=args.test_batch_size,
                 ffsp_aug_factor=args.ffsp_aug_factor,
+                ffsp_aug_batch_size=args.ffsp_aug_batch_size,
             )
             supports_max_aug_reward = bool(
                 result.get("supports_max_aug_reward", result.get("test_max_aug_reward") is not None)

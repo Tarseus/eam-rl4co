@@ -17,6 +17,7 @@ NUM_INSTANCES="${NUM_INSTANCES:-}"
 TEST_BATCH_SIZE="${TEST_BATCH_SIZE:-}"
 LIMIT="${LIMIT:-}"
 FFSP_AUG_FACTOR="${FFSP_AUG_FACTOR:-128}"
+FFSP_AUG_BATCH_SIZE="${FFSP_AUG_BATCH_SIZE:-128}"
 RESUME="${RESUME:-1}"
 
 EXTRA_ARGS=("$@")
@@ -30,6 +31,7 @@ echo "[routing-eval] output_csv=${OUTPUT_CSV}"
 echo "[routing-eval] problems=${PROBLEMS}"
 echo "[routing-eval] methods=${METHODS}"
 echo "[routing-eval] ffsp_aug_factor=${FFSP_AUG_FACTOR}"
+echo "[routing-eval] ffsp_aug_batch_size=${FFSP_AUG_BATCH_SIZE}"
 echo "[routing-eval] resume=${RESUME}"
 echo "[routing-eval] This wrapper targets tsp/cvrp/ffsp checkpoints from downloads/manifest.json."
 echo "[routing-eval] Problem/method coverage from current manifest:"
@@ -52,6 +54,7 @@ CMD=(
   "--device" "${DEVICE}"
   "--precision" "${PRECISION}"
   "--ffsp-aug-factor" "${FFSP_AUG_FACTOR}"
+  "--ffsp-aug-batch-size" "${FFSP_AUG_BATCH_SIZE}"
 )
 
 if [[ "${RESUME}" == "1" ]]; then
