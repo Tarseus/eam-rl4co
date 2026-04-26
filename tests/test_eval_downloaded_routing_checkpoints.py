@@ -5,11 +5,14 @@ import json
 import sys
 from pathlib import Path
 
+import torch
+
 repo_root = Path(__file__).resolve().parents[1]
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
 from scripts import eval_downloaded_routing_checkpoints as mod
+from rl4co.models.zoo.pomo.po4cops_tsp_policy import PO4COPsTSPPolicy
 
 
 def _write_csv(path: Path, rows: list[dict[str, object]]) -> None:
@@ -70,6 +73,17 @@ def test_rewrite_repo_data_path_maps_cvrp_artifacts_to_local_vrp_data(tmp_path: 
 
 def test_parse_problem_key_supports_ffsp() -> None:
     assert mod.parse_problem_key("ffsp100") == ("ffsp", 100)
+
+
+def test_patch_legacy_po4cops_tsp_policy_restores_missing_start_node() -> None:
+    policy = PO4COPsTSPPolicy()
+    del policy.start_node
+    assert not hasattr(policy, "start_node")
+
+    patched = mod._patch_legacy_policy_object(policy)
+
+    assert patched is policy
+    assert patched.start_node == "pomo"
 
 
 def test_main_skips_existing_max_aug_and_evaluates_missing_entry(
