@@ -20,6 +20,7 @@ QSOPT_HDR_URL="${QSOPT_HDR_URL:-http://www.math.uwaterloo.ca/~bico/qsopt/downloa
 ORTOOLS_VERSION="${ORTOOLS_VERSION:-9.12.4544}"
 JOB_SHOP_LIB_VERSION="${JOB_SHOP_LIB_VERSION:-1.7.0}"
 PYVRP_SPEC="${PYVRP_SPEC:-pyvrp>=0.9,<1.0}"
+NUMPY_SPEC="${NUMPY_SPEC:-numpy==1.26.4}"
 PYTHON_BIN="${PYTHON_BIN:-}"
 
 log() {
@@ -114,11 +115,15 @@ ensure_build_tools() {
 }
 
 install_python_packages() {
+  if [[ "${CLEAN_SOLVER_SITE:-1}" == "1" ]]; then
+    rm -rf "${SOLVER_SITE}"
+  fi
   mkdir -p "${SOLVER_SITE}"
   log "Installing Python solver packages into ${SOLVER_SITE}"
   "${PYTHON_BIN}" -m pip install \
     --upgrade \
     --target "${SOLVER_SITE}" \
+    "${NUMPY_SPEC}" \
     "ortools==${ORTOOLS_VERSION}" \
     "job-shop-lib==${JOB_SHOP_LIB_VERSION}" \
     "${PYVRP_SPEC}"
