@@ -4,6 +4,7 @@ import argparse
 import csv
 import json
 import math
+import os
 import re
 import subprocess
 import sys
@@ -15,6 +16,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SOLVER_SITE = REPO_ROOT / ".solver_site"
 if SOLVER_SITE.is_dir():
     sys.path.insert(0, str(SOLVER_SITE))
+
+# Avoid pandas pulling binary extensions from the host environment that may be
+# compiled against an incompatible NumPy ABI.
+os.environ.setdefault("PANDAS_NO_IMPORT_NUMEXPR", "1")
+os.environ.setdefault("PANDAS_NO_IMPORT_BOTTLENECK", "1")
+sys.modules.setdefault("numexpr", None)
+sys.modules.setdefault("bottleneck", None)
 
 import numpy as np
 
@@ -543,6 +551,21 @@ def main() -> int:
                         rows.append(run_tsp_concorde(args.seed, args.tsp_size, output_dir))
                 except FileNotFoundError:
                     continue
+                except subprocess.CalledProcessError as exc:
+                    notes = (exc.stdout or "").strip()
+                    if exc.stderr:
+                        notes = f"{notes} | stderr={exc.stderr.strip()}".strip(" |")
+                    rows.append(
+                        ResultRow(
+                            problem="tsp",
+                            solver=solver,
+                            status=f"error_{exc.returncode}",
+                            objective=None,
+                            elapsed_s=0.0,
+                            instance=f"random_{args.tsp_size}",
+                            notes=notes[:500],
+                        )
+                    )
         if "cvrp" in args.problems:
             rows.append(run_cvrp_pyvrp(args.seed + 1, args.cvrp_size, args.time_limit_sec))
         if "ffsp" in args.problems:
@@ -561,7 +584,9 @@ def main() -> int:
         print(f"[classical_solver_smoke] ERROR: {exc}", file=sys.stderr)
         return 1
 
-    if "tsp" in args.problems and not any(row.problem == "tsp" for row in rows):
+    if "tsp" in args.problems and not any(
+        row.problem == "tsp" and row.status == "ok" for row in rows
+    ):
         print(
             "[classical_solver_smoke] ERROR: no TSP solver available. Install LKH-3 or Concorde first.",
             file=sys.stderr,
