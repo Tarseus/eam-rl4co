@@ -419,20 +419,20 @@ def run_ffsp_augmented_evaluation(
         dataloader = model.test_dataloader()
         for batch in dataloader:
             batch = batch.to(torch_device)
-            td = model.env.reset(batch)
-            n_start = model.num_starts
-            if n_start is None or n_start <= 0:
-                n_start = model.env.get_num_starts(td)
-
             best_aug_reward = None
-            base_max_reward = None
+            max_reward_aug_chunks: list[torch.Tensor] = []
+            reward_aug_chunks: list[torch.Tensor] = []
             remaining = int(ffsp_aug_factor)
 
             while remaining > 0:
                 aug_chunk = min(int(ffsp_aug_batch_size), remaining)
-                td_aug = batchify(td.clone(), aug_chunk)
+                batch_aug = batchify(batch, aug_chunk)
+                td_aug = model.env.reset(batch_aug)
+                n_start = model.num_starts
+                if n_start is None or n_start <= 0:
+                    n_start = model.env.get_num_starts(td_aug)
                 out = model.policy(
-                    td_aug,
+                    td_aug.clone(),
                     model.env,
                     phase="test",
                     num_starts=n_start,
@@ -442,19 +442,20 @@ def run_ffsp_augmented_evaluation(
                 reward_ms = unbatchify(reward_flat, (0, n_start))
                 reward_aug = unbatchify(reward_ms, aug_chunk)
                 max_reward_aug = reward_aug.max(dim=-1).values
-
-                if base_max_reward is None:
-                    reward_sum += float(reward_aug[:, 0, :].sum().item())
-                    reward_count += int(reward_aug[:, 0, :].numel())
-                    base_max_reward = max_reward_aug[:, 0]
-                    best_aug_reward = max_reward_aug.max(dim=1).values
-                else:
-                    best_aug_reward = torch.maximum(best_aug_reward, max_reward_aug.max(dim=1).values)
+                reward_aug_chunks.append(reward_aug)
+                max_reward_aug_chunks.append(max_reward_aug)
+                chunk_best = max_reward_aug.max(dim=1).values
+                best_aug_reward = chunk_best if best_aug_reward is None else torch.maximum(best_aug_reward, chunk_best)
 
                 remaining -= aug_chunk
 
-            assert base_max_reward is not None
             assert best_aug_reward is not None
+            reward_all = torch.cat(reward_aug_chunks, dim=1)
+            max_reward_all = torch.cat(max_reward_aug_chunks, dim=1)
+            base_max_reward = max_reward_all[:, 0]
+            assert best_aug_reward is not None
+            reward_sum += float(reward_all[:, 0, :].sum().item())
+            reward_count += int(reward_all[:, 0, :].numel())
             max_reward_sum += float(base_max_reward.sum().item())
             max_aug_reward_sum += float(best_aug_reward.sum().item())
             instance_count += int(base_max_reward.numel())
