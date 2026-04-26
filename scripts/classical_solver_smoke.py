@@ -203,13 +203,21 @@ def run_tsp_concorde(seed: int, size: int, output_dir: Path) -> ResultRow:
         cwd=work_dir,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
     elapsed = time.perf_counter() - t0
     objective = None
     match = re.search(r"Optimal Solution:\s*([0-9]+(?:\.[0-9]+)?)", completed.stdout)
     if match:
         objective = float(match.group(1))
+
+    if completed.returncode != 0 and objective is None:
+        raise subprocess.CalledProcessError(
+            completed.returncode,
+            completed.args,
+            output=completed.stdout,
+            stderr=completed.stderr,
+        )
 
     return ResultRow(
         problem="tsp",
@@ -218,7 +226,10 @@ def run_tsp_concorde(seed: int, size: int, output_dir: Path) -> ResultRow:
         objective=objective,
         elapsed_s=elapsed,
         instance=f"random_{size}",
-        notes=completed.stdout.strip().splitlines()[-1] if completed.stdout.strip() else "",
+        notes=(
+            f"returncode={completed.returncode}; "
+            + (completed.stdout.strip().splitlines()[-1] if completed.stdout.strip() else "")
+        ),
     )
 
 
