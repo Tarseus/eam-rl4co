@@ -137,6 +137,21 @@ new_block = """install(
 )
 """
 
+old_config_install_block = """install(
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/chuffed-config.cmake"
+  FILES "${CMAKE_CURRENT_BINARY_DIR}/chuffed-config-version.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/chuffed
+)
+"""
+
+new_config_install_block = """install(
+  FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/chuffed-config.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/chuffed-config-version.cmake"
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/chuffed
+)
+"""
+
 if old_block in text:
     text = text.replace(old_block, new_block, 1)
 elif new_block in text:
@@ -144,6 +159,16 @@ elif new_block in text:
 else:
     raise SystemExit(
         "Could not find the expected Chuffed install block to patch. "
+        "Please inspect CMakeLists.txt layout."
+    )
+
+if old_config_install_block in text:
+    text = text.replace(old_config_install_block, new_config_install_block, 1)
+elif new_config_install_block in text:
+    pass
+else:
+    raise SystemExit(
+        "Could not find the expected Chuffed config install block to patch. "
         "Please inspect CMakeLists.txt layout."
     )
 
