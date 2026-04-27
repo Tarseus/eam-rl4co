@@ -1,0 +1,59 @@
+# @package _global_
+
+defaults:
+  - override /model: matnet.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  - override /logger: csv.yaml
+  - override /env: ffsp.yaml
+
+env:
+  generator_params:
+    num_stage: 3
+    num_machine: 4
+    num_job: 100
+    flatten_stages: false
+
+trainer:
+  max_epochs: 200
+  # FFSP100 + MatNet is more stable in full precision; this also matches the
+  # most recent full PO run kept in local logs.
+  precision: 32-true
+  gradient_clip_val: null
+  log_every_n_steps: 10
+
+seed: 12345678
+
+model:
+  _target_: rl4co.models.MatNet
+  loss_type: po_loss
+  # Keep FFSP100 aligned with the most recent stable full PO run.
+  po_impl: exponential
+  alpha: 1.0
+  num_starts: 24
+  batch_size: 32
+  train_data_size: 1_000
+  val_data_size: 1_000
+  test_data_size: 1_000
+  optimizer_kwargs:
+    lr: 1e-4
+    weight_decay: 1e-6
+  lr_scheduler: "MultiStepLR"
+  lr_scheduler_kwargs:
+    milestones: [101, 151]
+    gamma: 0.1
+  metrics:
+    train: ["loss", "reward", "max_reward", "po_loss", "po_pref_rate"]
+    val: ["reward", "max_reward"]
+    test: ${model.metrics.val}
+    log_on_step: false
+  policy_params:
+    embed_dim: 256
+    num_encoder_layers: 3
+    num_heads: 16
+    normalization: instance
+    use_graph_context: false
+    feedforward_hidden: 512
+    train_decode_type: sampling
+    val_decode_type: greedy
+    test_decode_type: greedy

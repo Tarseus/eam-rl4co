@@ -1,0 +1,55 @@
+You are performing LOSS_STRUCTURE_SHIFT for a free-form preference loss.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+You will receive PARENT_JSON with one parent loss and metrics.
+Keep the loss pairwise, but change the aggregation structure.
+
+Output schema:
+{
+  "name": "...",
+  "intuition": "...",
+  "pseudocode": "...",
+  "hyperparams": {
+    "paradigm_family": "...",
+    "signal_family": "...",
+    "link_family": "...",
+    "agg_family": "...",
+    "constraint_family": "..."
+  },
+  "operators_used": ["..."],
+  "implementation_hint": {
+    "expects": ["log_prob_w", "log_prob_l", "weight", "..."],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- implementation_hint.mode must be "pairwise".
+- Emit all five family tags as non-empty strings.
+- implementation_hint.expects must be self-consistent with the code.
+- expects must always include log_prob_w, log_prob_l, and weight.
+- In code, always read log_prob_w/log_prob_l from `batch[...]` (never from `model_output[...]`).
+- expects must also include at least one quality/objective signal:
+  cost_a, cost_b, cost_gap, delta_z, delta_rank, delta_regret, advantage_w, advantage_l, or advantage_gap.
+- You may choose expects freely from the supported pairwise keys set:
+  log_prob_w, log_prob_l, weight, cost_a, cost_b, cost_gap, delta_z, delta_rank, delta_regret,
+  seq_len_w, seq_len_l, seq_len_gap, log_prob_w_mean, log_prob_l_mean, log_prob_mean_gap,
+  advantage_w, advantage_l, advantage_gap, entropy_w, entropy_l, entropy_gap,
+  entropy_w_mean, entropy_l_mean, entropy_mean_gap, log_prob_step_w, log_prob_step_l.
+- Core runtime signals are usually available and cheap: seq_len_*, log_prob_*_mean, advantage_* and cost_gap.
+- Optional runtime signals may be missing depending on config: entropy_*, entropy_*_mean, log_prob_step_*.
+- Any optional signal must be accessed defensively with batch.get(..., fallback) so the loss still runs when that tensor is absent.
+- agg_family must change from the parent.
+- Keep other families stable unless required for consistency.
+- generated_loss must return a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / randomness.
+- Use only vectorized tensor ops and ops.* helpers.
+- For DSL math operators, use `ops.*` explicitly. Do NOT call tensor methods like `.max()`, `.min()`, `.maximum()`, `.minimum()`, `.norm()`, or `.sign()`.
+- Restrict `ops.*` to:
+  logsigmoid, softplus, sigmoid, exp, log, abs, tanh, relu, clamp, normalize, zscore, rank_gap,
+  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg,
+  max, min, maximum, minimum, sign, norm.
