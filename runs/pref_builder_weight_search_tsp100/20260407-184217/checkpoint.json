@@ -1,0 +1,212 @@
+{
+  "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml",
+  "seed": 1234,
+  "next_generation": 10,
+  "preset": "simple",
+  "search_mode": "builder_only",
+  "alternating_schedule": {
+    "enabled": false,
+    "start_phase": "loss",
+    "loss_generations": 0,
+    "builder_generations": 0,
+    "final_loss_generations": 0,
+    "rounds": 0
+  },
+  "metric_mode": "minimize",
+  "improve_eps": 0.0,
+  "improve_eps_calibration": null,
+  "eval_stages": {
+    "stage0_gate": true,
+    "stage1_proxy": false,
+    "stage2_micro_unroll": false,
+    "stage3_high_fidelity": true
+  },
+  "best_so_far": {
+    "score": -0.02145215148925761,
+    "builder_id": "g_ref",
+    "loss_id": "fseed_000_1ec7ffff",
+    "stage_final": "transfer_seed_baseline",
+    "generation": -1,
+    "phase": "builder"
+  },
+  "best_builder_cost": null,
+  "builder_cost_archive": {},
+  "best_score": -0.02145215148925761,
+  "best_pair_ids": {
+    "builder_id": "g_ref",
+    "loss_id": "fseed_000_1ec7ffff"
+  },
+  "best_stage_final": "transfer_seed_baseline",
+  "best_gen": -1,
+  "best_phase": "builder",
+  "best_pair_score_history": [],
+  "best_pair_score_history_summary": {
+    "count": 0,
+    "scores": []
+  },
+  "pair_score_history_map": {},
+  "rng_state_b64": "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",
+  "seen_g": [],
+  "seen_f": [
+    "1ec7ffff930eff92240165fbba9aed597adcc770"
+  ],
+  "resident_pop_g": [],
+  "resident_pop_f": [
+    {
+      "generation": -1,
+      "index": 0,
+      "id": "fseed_000_1ec7ffff",
+      "signature": "1ec7ffff930eff92240165fbba9aed597adcc770",
+      "family": "pairwise_margin|cost_gap|mean|scale_invariance",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=mean|constraint=scale_invariance",
+      "origin": "TRANSFER_SEED",
+      "origin_base": "f004_009_8bc47121",
+      "op_type": "TRANSFER_SEED",
+      "parents": [
+        "f004_009_8bc47121"
+      ],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [
+        {
+          "op": "TRANSFER_SEED",
+          "source_loss_path": "/data1/gushengda/eam-rl4co/artifacts/loss_archive/tsp100_best_current/best_loss.json",
+          "source_pool": "artifact",
+          "source_id": "f004_009_8bc47121"
+        }
+      ],
+      "novelty": null,
+      "ir": {
+        "name": "loss_logsigmoid_004_cost_shifted_sum_normalized_repaired",
+        "intuition": "Removed the additive offset term that violated affine invariance and replaced it with a purely multiplicative interaction between log_prob difference and normalized cost gap. This ensures the loss respects scale and shift invariance by depending only on the relative difference (lpw - lpl) scaled by a normalized cost gap factor rather than subtracting a fixed offset proportional to the cost gap. Clamping is preserved for numerical stability.",
+        "pseudocode": "gap = cost_b - cost_a\nnorm_gap = gap / (1 + abs(gap))\nmargin = (lpw - lpl) * (1 - beta * norm_gap)\nx = alpha * scale * margin\nlosses = -logsigmoid(clamp(x, -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = sum(weighted_losses) / (sum(weight) + eps)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "scale_invariance"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "sum",
+          "add",
+          "sub",
+          "abs",
+          "div"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('beta', 0.05))\n    gap = cost_b - cost_a\n    norm_gap = gap / (1.0 + ops.abs(gap))\n    margin = (lpw - lpl) * (1.0 - beta * norm_gap)\n    x = alpha * scale * margin\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    loss = ops.sum(weighted_losses) / norm_factor\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "transfer_seed",
+      "static_trace": {},
+      "compile_ok": true,
+      "compile_reason": "transfer_seed",
+      "fitness": -0.02145215148925761,
+      "descriptor": null,
+      "source_loss_path": "/data1/gushengda/eam-rl4co/artifacts/loss_archive/tsp100_best_current/best_loss.json",
+      "source_loss_id": "f004_009_8bc47121",
+      "source_fitness": -0.02145215148925761
+    }
+  ],
+  "elites_g": [],
+  "elites_f": [
+    {
+      "generation": -1,
+      "index": 0,
+      "id": "fseed_000_1ec7ffff",
+      "signature": "1ec7ffff930eff92240165fbba9aed597adcc770",
+      "family": "pairwise_margin|cost_gap|mean|scale_invariance",
+      "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=mean|constraint=scale_invariance",
+      "origin": "TRANSFER_SEED",
+      "origin_base": "f004_009_8bc47121",
+      "op_type": "TRANSFER_SEED",
+      "parents": [
+        "f004_009_8bc47121"
+      ],
+      "attempt": 0,
+      "prompt_sha1": null,
+      "prompt_path": null,
+      "llm_seed": null,
+      "history": [
+        {
+          "op": "TRANSFER_SEED",
+          "source_loss_path": "/data1/gushengda/eam-rl4co/artifacts/loss_archive/tsp100_best_current/best_loss.json",
+          "source_pool": "artifact",
+          "source_id": "f004_009_8bc47121"
+        }
+      ],
+      "novelty": null,
+      "ir": {
+        "name": "loss_logsigmoid_004_cost_shifted_sum_normalized_repaired",
+        "intuition": "Removed the additive offset term that violated affine invariance and replaced it with a purely multiplicative interaction between log_prob difference and normalized cost gap. This ensures the loss respects scale and shift invariance by depending only on the relative difference (lpw - lpl) scaled by a normalized cost gap factor rather than subtracting a fixed offset proportional to the cost gap. Clamping is preserved for numerical stability.",
+        "pseudocode": "gap = cost_b - cost_a\nnorm_gap = gap / (1 + abs(gap))\nmargin = (lpw - lpl) * (1 - beta * norm_gap)\nx = alpha * scale * margin\nlosses = -logsigmoid(clamp(x, -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = sum(weighted_losses) / (sum(weight) + eps)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "scale_invariance"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "sum",
+          "add",
+          "sub",
+          "abs",
+          "div"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('beta', 0.05))\n    gap = cost_b - cost_a\n    norm_gap = gap / (1.0 + ops.abs(gap))\n    margin = (lpw - lpl) * (1.0 - beta * norm_gap)\n    x = alpha * scale * margin\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    loss = ops.sum(weighted_losses) / norm_factor\n    return loss",
+        "theoretical_basis": ""
+      },
+      "static_ok": true,
+      "static_reason": "transfer_seed",
+      "static_trace": {},
+      "compile_ok": true,
+      "compile_reason": "transfer_seed",
+      "fitness": -0.02145215148925761,
+      "descriptor": null,
+      "source_loss_path": "/data1/gushengda/eam-rl4co/artifacts/loss_archive/tsp100_best_current/best_loss.json",
+      "source_loss_id": "f004_009_8bc47121",
+      "source_fitness": -0.02145215148925761
+    }
+  ],
+  "diverse_elites_g": [],
+  "diverse_elites_f": [],
+  "hof_g": [],
+  "hof_f": [],
+  "archive_g": {},
+  "archive_f": {},
+  "stagnation_generations": 10,
+  "schema_version": 1,
+  "saved_at": "2026-04-07 18:42:18"
+}

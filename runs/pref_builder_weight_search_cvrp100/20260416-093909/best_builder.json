@@ -1,0 +1,54 @@
+{
+  "id": "g000_000_b482947b",
+  "ir": {
+    "name": "builder_all_pairs_gap_linear_004",
+    "intuition": "By slightly increasing the clamp bounds and adjusting the weight scaling to emphasize moderate gap values, the preference builder can better differentiate pairs without overly amplifying extreme gaps. Tuning the clamp bounds and scaling factors improves sensitivity to meaningful gaps while maintaining stability.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_linear",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_linear"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    raw = gap.clamp_min(0.0)\n    clamp_lo = 0.3\n    clamp_hi = 5.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+  },
+  "stage": "high_fidelity",
+  "score": 0.024189412593841553,
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "best_pair_generation": 0,
+  "best_pair_phase": "builder",
+  "score_history": [
+    {
+      "generation": 0,
+      "pair_index": 11,
+      "phase": "builder",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": 0.024189412593841553,
+      "eval_budget_signature": "f79d752b6c1aa3b8",
+      "reference_score": 0.02999323606491089
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      0.024189412593841553
+    ],
+    "best": 0.024189412593841553,
+    "worst": 0.024189412593841553,
+    "mean": 0.024189412593841553,
+    "latest": 0.024189412593841553
+  }
+}

@@ -1,0 +1,109 @@
+{
+  "generation": 1,
+  "pair_index": 22,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f001_004_7041ffd6",
+    "ir": {
+      "name": "loss_logsigmoid_weighted_logmeanexp_margin_smooth_clamped",
+      "intuition": "This loss combines a smooth margin using sigmoid-scaled advantage_gap and tanh-scaled delta_rank to keep preference semantics while incorporating gradient signals from these signals. The main margin-adjusted log-likelihood difference is clamped to [-20,20] to ensure numerical stability with logsigmoid. The loss aggregates via a numerically stable weighted log-mean-exp formulation. This replaces unstable or missing pseudocode with a fully specified stable, differentiable, and weighted pairwise loss. Clamping avoids overflow, and weighted log-mean-exp aggregation prevents numerical issues in batch reductions without detaching or complex gating.",
+      "pseudocode": "adv_scaled = sigmoid(advantage_gap) * margin_adv\nrank_scaled = tanh(delta_rank) * margin_rank\nmargin = adv_scaled + rank_scaled\nx = alpha * scale * (log_prob_w - log_prob_l) - margin\nx = clamp(x, -20, 20)\nweighted_exp = weight * exp(x - max_x)\nlogsumexp = log(sum(weighted_exp) + 1e-8) + max_x\nweighted_x = sum(weight * x)\nloss = -weighted_x + logsumexp\nreturn loss / (sum(weight) + 1e-8)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_delta_rank",
+        "link_family": "logsigmoid_smooth_margin",
+        "agg_family": "weighted_logmeanexp",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "sigmoid",
+        "tanh",
+        "logsigmoid",
+        "clamp",
+        "exp",
+        "log",
+        "sum",
+        "sub",
+        "mul",
+        "add"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2))\n    margin_adv = float(extra.get('hyperparams', {}).get('margin_adv', 0.05))\n    margin_rank = float(extra.get('hyperparams', {}).get('margin_rank', 0.02))\n\n    adv_scaled = ops.sigmoid(advantage_gap) * margin_adv\n    rank_scaled = ops.tanh(delta_rank) * margin_rank\n    margin = ops.add(adv_scaled, rank_scaled)\n\n    x = ops.sub(ops.mul(alpha * scale, ops.sub(lpw, lpl)), margin)\n    x = ops.clamp(x, -20, 20)\n\n    if weight is None:\n        weight = ops.ones_like(x)\n\n    max_x = x.max()\n    weighted_exp = ops.mul(weight, ops.exp(ops.sub(x, max_x)))\n    logsumexp = ops.add(ops.log(ops.sum(weighted_exp) + 1e-8), max_x)\n    weighted_x = ops.sum(ops.mul(weight, x))\n\n    loss = ops.div(ops.sub(logsumexp, weighted_x), ops.sum(weight) + 1e-8)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -1,0 +1,167 @@
+{
+  "generation": 9,
+  "index": 9,
+  "id": "f009_009_c4197e86",
+  "signature": "c4197e86f7b573b6730f96a3ecddd1bc7275ce3e",
+  "family": "pairwise_margin|advantage_gap|weighted_sum_normalized|symmetric_smooth_normalization",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=weighted_sum_normalized|constraint=symmetric_smooth_normalization",
+  "origin": "REPAIR",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "REPAIR",
+  "parents": [
+    "f008_014_222de4c5"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "f595d0f2af657b154e61f637bfcb288e8402edd5",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+  "llm_seed": 1930861114,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "prompt_sha1": "f595d0f2af657b154e61f637bfcb288e8402edd5"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "01d11260cbcc22eba9746de6f3130f0d99416908"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8461538461538461,
+    "best_similarity_parts": {
+      "bigram": 0.35714285714285715,
+      "unigram": 0.75,
+      "call": 0.8461538461538461
+    },
+    "neighbors": [
+      {
+        "sig": "222de4c53d70e5e60793ac3e2eb1c7832b13581a",
+        "name": "advantage_weighted_logsigmoid_diff_scaled_norm_clip_v3",
+        "similarity": 0.8461538461538461,
+        "similarity_parts": {
+          "bigram": 0.35714285714285715,
+          "unigram": 0.75,
+          "call": 0.8461538461538461
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.maximum",
+          "ops.mul",
+          "ops.neg",
+          "ops.norm",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "1d1d8ceab742f021e1b6cd2577db39153c78fd0c",
+        "name": "weighted_advantage_margin_logsigmoid_scaled_sum_loss",
+        "similarity": 0.7857142857142857,
+        "similarity_parts": {
+          "bigram": 0.1388888888888889,
+          "unigram": 0.7058823529411765,
+          "call": 0.7857142857142857
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.maximum",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.norm",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "0ba0d0e5d9f1befe403072b1fddeff214129d60d",
+        "name": "advantage_gap_logsigmoid_weighted_norm_scaled_sum",
+        "similarity": 0.7857142857142857,
+        "similarity_parts": {
+          "bigram": 0.0,
+          "unigram": 0.631578947368421,
+          "call": 0.7857142857142857
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.maximum",
+          "ops.mul",
+          "ops.neg",
+          "ops.norm",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "advantage_weighted_logsigmoid_pairwise_norm_relgap_v2",
+    "intuition": "To improve novelty and reduce similarity to existing candidates, replaced absolute norm scaling with normalization by advantage_gap norm plus epsilon, then used a relative margin computed as (log_prob_w - log_prob_l) divided by norm, without clipping difference but instead softly normalized difference via tanh scaling with a learned scale parameter. This preserves symmetry and numeric stability while introducing non-linear smoothing to reduce sharp clipping artifacts and shift from exact clipped differences. This should ensure stable gradients and maintain pairwise symmetric margin loss behavior while distinguishing the method from purely clipped losses.",
+    "pseudocode": "epsilon=1e-6\nnorm_adv = max(norm(advantage_gap), epsilon)\ndiff = (log_prob_w - log_prob_l) / norm_adv\nscaled_diff = scale * tanh(diff)\nloss = -logsigmoid(scaled_diff)\nweighted_loss = loss * weight\nreturn sum(weighted_loss) / max(sum(weight), epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "symmetric_smooth_normalization"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "tanh",
+      "norm",
+      "mul",
+      "div",
+      "sub",
+      "sum",
+      "maximum",
+      "neg"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    epsilon = 1e-6\n    norm_adv = ops.norm(advantage_gap)\n    norm_value = ops.maximum(norm_adv, epsilon)\n    diff = ops.div(ops.sub(lpw, lpl), norm_value)\n    smooth_diff = ops.tanh(diff)\n    scaled_diff = ops.mul(scale, smooth_diff)\n    loss = ops.neg(ops.logsigmoid(scaled_diff))\n    weighted_loss = ops.mul(loss, weight)\n    loss_sum = ops.sum(weighted_loss)\n    total_weight = ops.sum(weight)\n    return ops.div(loss_sum, ops.maximum(total_weight, epsilon))",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.04249973297118714,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

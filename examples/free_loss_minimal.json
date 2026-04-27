@@ -1,0 +1,15 @@
+{
+  "name": "pairwise_logsigmoid",
+  "intuition": "Pairwise BT loss using log-likelihood differences.",
+  "pseudocode": "loss = -mean(logsigmoid(alpha * (log_prob_w - log_prob_l)))",
+  "hyperparams": {
+    "alpha": 1.0
+  },
+  "operators_used": ["logsigmoid"],
+  "implementation_hint": {
+    "expects": ["cost_a", "cost_b", "log_prob_w", "log_prob_l", "weight"],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    alpha = extra.get(\\\"alpha\\\", 1.0)\\n    logit_diff = alpha * (batch[\\\"log_prob_w\\\"] - batch[\\\"log_prob_l\\\"])\\n    loss = -extra[\\\"ops\\\"].logsigmoid(logit_diff)\\n    weight = batch.get(\\\"weight\\\")\\n    if weight is not None:\\n        loss = loss * weight\\n    return loss.mean()\\n"
+}

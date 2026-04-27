@@ -1,0 +1,41 @@
+You are performing BUILDER_STRUCTURE_SHIFT for a preference builder.
+
+Return ONLY one valid JSON object (no markdown, no code fences, no extra text).
+
+You will receive PARENT_JSON with one parent builder and metrics.
+Keep the pairwise representation contract intact while rewriting the signal organization for weighting search.
+
+Output schema:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "hyperparams": {
+    "geometry_family": "...",
+    "cap_family": "...",
+    "weight_family": "...",
+    "constraint_family": "..."
+  },
+  "operators_used": ["..."],
+  "implementation_hint": {
+    "expects": ["objective", "log_prob"],
+    "returns": "PrefBatch",
+    "mode": "pairwise"
+  },
+  "code": "def generated_builder(feature_cache, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- implementation_hint.mode must be "pairwise".
+- generated_builder must return a pairwise PrefBatch.
+- Emit all four family tags as non-empty strings.
+- If BUILDER_SEARCH_SPACE_CONSTRAINTS indicates reweight_only:
+  - preserve geometry_family, cap_family, weight_family, and constraint_family;
+  - rewrite normalization, clipping, rescaling, or other signal-organization structure instead of changing pair topology.
+  - if normalization mode is `none`, do not divide weights by per-instance sums or means.
+  - good structure changes include changing transform order, replacing hard bands with smooth windows, switching between additive vs multiplicative blending, or moving where clamp/safeguards act.
+- Otherwise cap_family must change from the parent.
+- Keep other families as stable as reasonably possible unless needed for correctness.
+- No imports, no filesystem/network, no randomness.
+- Use vectorized tensor ops only; no Python loops/comprehensions over pair tensors.
+- Good changes include topk caps, per-anchor budgets, percentile caps, or per-instance budget allocation.

@@ -1,0 +1,108 @@
+{
+  "generation": 9,
+  "pair_index": 44,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f009_013_dd2e6558",
+    "ir": {
+      "name": "pairwise_softplus_advantage_gap_weighted_sum_norm_sqrt_weight_cost_reg_exp",
+      "intuition": "To ensure novelty distinct from the rejected candidate, I replaced logsigmoid margin loss with softplus to smooth the margin loss differently. I incorporated an exponential decay regularization on the cost_gap to softly penalize large costs with a differentiable function, thus improving training stability and signal diversity. The weighting and normalization by sqrt total weight is preserved for scale invariance. The clamping range is adjusted slightly to [-15, 15] to still stabilize inputs but reduce similarity with the prior clamp bounds. This design maintains pairwise margin structure and leverages advantage_gap as before but changes loss shape, regularization form and numeric clamps for novelty while ensuring valid gates.",
+      "pseudocode": "total_weight = sum(weight)\nnorm_factor = sqrt(total_weight + eps)\ndiff = log_prob_w - log_prob_l\nx = clamp(alpha * scale * diff + beta * advantage_gap, -15, 15)\nmargin_loss = softplus(-x)\ncost_reg = exp(-cost_gap)\nloss = margin_loss + gamma * cost_reg\nweighted_loss = loss * weight\nfinal_loss = sum(weighted_loss) / norm_factor",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_with_cost",
+        "link_family": "softplus",
+        "agg_family": "weighted_sum_sqrt_norm",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "softplus",
+        "clamp",
+        "sum",
+        "mul",
+        "add",
+        "sub",
+        "sqrt",
+        "exp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    cost_gap = batch['cost_gap']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', 0.1))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    diff = ops.sub(lpw, lpl)\n    x = ops.add(ops.mul(alpha * scale, diff), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -15.0, 15.0)\n\n    margin_loss = ops.softplus(ops.neg(x))\n    cost_reg = ops.exp(ops.neg(cost_gap))\n    loss = ops.add(margin_loss, ops.mul(gamma, cost_reg))\n\n    weighted_loss = ops.mul(loss, weight)\n    sum_weighted_loss = ops.sum(weighted_loss)\n\n    total_weight = ops.sum(weight)\n    norm_factor = ops.sqrt(ops.add(total_weight, eps))\n\n    final_loss = ops.div(sum_weighted_loss, norm_factor)\n    return final_loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

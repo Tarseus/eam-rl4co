@@ -1,0 +1,107 @@
+{
+  "generation": 2,
+  "pair_index": 24,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_001_b6517213",
+    "ir": {
+      "name": "loss_logsigmoid_004_cost_scaled_mean_v3_repaired_v2",
+      "intuition": "Maintained small positive bias in margin to improve stability and gradient direction, reduced scale factor constant further from 0.05 to 0.03 to mitigate affine invariance violation by scaling down the magnitude of the gap penalty relative to margin. Margin standard deviation normalization retained to adaptively scale margin. This change reduces sensitivity to scale transformations, preventing failure in co_gate due to affine invariance violation. Clamping at [-20,20] preserved to avoid numerical issues.",
+      "pseudocode": "gap = cost_b - cost_a\nmargin = lpw - lpl + 0.05  # small positive margin bias\nmargin_var = mean((margin - mean(margin))^2)\nmargin_std = sqrt(margin_var + 1e-8)\nscale_factor = 0.03 / margin_std  # reduced further from 0.05\nx = alpha * scale * margin - scale_factor * gap\nx = clamp(x, -20, 20)\nlosses = -logsigmoid(x)\nweighted_losses = losses * weight\nloss = weighted_losses.mean()",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap_scaled_adaptive",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "div",
+        "mean",
+        "sqrt",
+        "sub",
+        "add"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    margin_bias = 0.05  # keep small positive bias to stabilize gradient direction\n    margin = (lpw - lpl) + margin_bias\n    gap = cost_b - cost_a\n    mean_margin = ops.mean(margin)\n    margin_var = ops.mean(ops.mul(margin - mean_margin, margin - mean_margin))\n    margin_std = (margin_var + eps).sqrt()\n    scale_factor = 0.03 / margin_std  # further reduced from 0.05 to reduce affine invariance violation\n    x = alpha * scale * margin - scale_factor * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    loss = weighted_losses.mean()\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

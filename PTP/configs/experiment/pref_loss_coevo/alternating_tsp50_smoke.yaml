@@ -1,0 +1,102 @@
+preset: simple
+search_mode: alternating
+seed: 1234
+output_root: runs/pref_loss_alternating_tsp50_smoke
+
+backend: rl4co
+env_name: tsp
+problem: tsp
+
+metric_mode: minimize
+improve_eps: 0.0
+improve_eps_calibration:
+  enabled: false
+
+seed_with_po4cops_default: true
+llm_init_only: false
+
+cheap_gate_on: true
+high_fidelity_on: true
+stage0_sandbox_gate_enabled: false
+joint_gate_repair_enabled: false
+
+devices: ["cpu"]
+mp:
+  enabled: false
+  processes: 1
+  start_method: spawn
+
+eval_stages:
+  stage0_gate: true
+  stage1_proxy: false
+  stage2_micro_unroll: false
+  stage3_high_fidelity: true
+
+stage3_multifidelity:
+  enabled: false
+
+generations: 1
+pop_g: 4
+pop_f: 4
+elite_g: 2
+elite_f: 2
+pairing_budget_per_gen: 4
+
+budgets:
+  generations: 1
+  pairing_budget_per_gen: 4
+  high_fidelity_top_m: 4
+  hf_epochs: 0
+
+alternating_schedule:
+  start_phase: loss
+  loss_generations: 1
+  pair_generations: 0
+  final_loss_generations: 0
+  rounds: 1
+
+f1_steps: 10
+hf_epochs: 0
+hf_instances_per_epoch: 0
+train_problem_size: 50
+valid_problem_sizes: [50]
+train_batch_size: 4
+num_validation_episodes: 8
+validation_batch_size: 8
+pomo_size: 16
+loss_observables: [seq_len, log_prob_mean, advantage, entropy, log_prob_step]
+ref_policy_source: none
+scratch_init_seed: 1234
+policy_name: pomo
+policy_kwargs:
+  po4cops_compat: true
+
+baseline:
+  mini_eval_paths:
+    10: runs/pref_loss_alternating_tsp50_smoke_assets/baseline_minitrain_tsp50_K10_smoke.json
+    default: runs/pref_loss_alternating_tsp50_smoke_assets/baseline_minitrain_tsp50_K10_smoke.json
+  checkpoints:
+    - baseline/tsp50_epoch_50.ckpt
+    - baseline/tsp50_epoch_100.ckpt
+  include_scratch: true
+  multiseed_compare_enabled: false
+
+generator_params:
+  offline_train_path: offline_data/tsp50_train.pt
+  offline_val_paths:
+    "50": offline_data/tsp50_val.pt
+
+builder_pair_budget:
+  per_instance: 512
+  total: 512
+
+population:
+  n_candidates_loss: 4
+  n_candidates_builder: 4
+  keep_top_k: 2
+
+builder_llm:
+  enabled: false
+
+loss_llm:
+  enabled: false

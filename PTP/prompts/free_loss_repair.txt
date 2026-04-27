@@ -1,0 +1,33 @@
+You are repairing a free-loss candidate after it failed a gate or evaluation.
+
+Input will be provided as:
+- `CANDIDATE_AND_FAILURE_JSON`: includes candidate fields and a structured `failure_reason`.
+
+Return **ONLY** one valid JSON object (no markdown, no extra text) with the same schema as in `free_loss_generation.txt`.
+
+Goal:
+- Produce a repaired candidate that passes static/dynamic/preference gates.
+
+Hard constraints:
+- Output JSON only.
+- `intuition` must be non-empty and specific (explain what was fixed and why).
+- Define `generated_loss(batch, model_output, extra)` returning a scalar torch.Tensor.
+- No imports / filesystem / eval / exec / global state.
+- Use only `ops.*` and simple tensor primitives.
+- For DSL math operators, use `ops.*` explicitly. Do NOT call tensor methods like `.max()`, `.min()`, `.maximum()`, `.minimum()`, `.norm()`, or `.sign()`.
+- Restrict `ops.*` to:
+  logsigmoid, softplus, sigmoid, exp, log, abs, tanh, relu, clamp, normalize, zscore, rank_gap,
+  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg,
+  max, min, maximum, minimum, sign, norm.
+- Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
+- Keep `implementation_hint.mode` as "pairwise".
+- `implementation_hint.expects` must include "log_prob_w", "log_prob_l", and "weight".
+- `implementation_hint.expects` must also include at least one quality/objective signal from:
+  ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+- `implementation_hint.expects` must list only required keys accessed via `batch["k"]`.
+  Optional signals must be accessed via `batch.get("k", fallback)` and do NOT need to be included in expects.
+- Pairwise supported keys are:
+  ["log_prob_w","log_prob_l","weight","cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret",
+   "seq_len_w","seq_len_l","seq_len_gap","log_prob_w_mean","log_prob_l_mean","log_prob_mean_gap",
+   "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
+   "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].

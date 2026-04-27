@@ -1,0 +1,110 @@
+{
+  "generation": 8,
+  "pair_index": 21,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_013_447f3479",
+    "ir": {
+      "name": "pairwise_bayesian_preference_loss_with_delta_regret",
+      "intuition": "Shift the paradigm from pairwise margin or rank-probability to a Bayesian modeling approach that views preferences as posterior likelihoods. This loss models the probability that the winning sequence is preferred given log probabilities and delta_regret signals using a logistic sigmoid link. Instead of simply margin-based comparison, it incorporates delta_regret as an uncertainty-aware adjustment signal, and aggregates losses via a weighted geometric mean (log-sum aggregation normalized by total weight), encouraging balance over pairs. This constrains the loss with a normalization on delta_regret, promoting stable regret-aware learning.",
+      "pseudocode": "lp_diff = log_prob_w - log_prob_l\nadjusted_score = alpha * scale * lp_diff + beta * delta_regret\nprobs = sigmoid(adjusted_score)\nlog_probs = log(probs + eps)\nweighted_log_probs = weight * log_probs\nsum_weight = sum(weight) + eps\nloss = -sum(weighted_log_probs) / sum_weight\nregret_norm = normalize(delta_regret)\nregret_reg = gamma * mean(abs(regret_norm))\nfinal_loss = loss + regret_reg\nreturn final_loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_bayesian",
+        "signal_family": "delta_regret_weighted",
+        "link_family": "sigmoid_log_prob",
+        "agg_family": "weighted_geo_mean_norm",
+        "constraint_family": "delta_regret_abs_norm_reg"
+      },
+      "operators_used": [
+        "sigmoid",
+        "log",
+        "mul",
+        "sub",
+        "add",
+        "neg",
+        "sum",
+        "mean",
+        "abs",
+        "normalize",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_regret = batch['delta_regret']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.5))\n    eps = 1e-12\n\n    lp_diff = ops.sub(lpw, lpl)\n    adjusted_score = ops.add(ops.mul(alpha * scale, lp_diff), ops.mul(beta, delta_regret))\n\n    probs = ops.sigmoid(adjusted_score)\n    log_probs = ops.log(ops.add(probs, eps))\n\n    weighted_log_probs = ops.mul(weight, log_probs)\n    sum_weight = ops.sum(weight)\n    loss = ops.neg(ops.div(ops.sum(weighted_log_probs), ops.add(sum_weight, eps)))\n\n    delta_regret_norm = ops.normalize(delta_regret)\n    regret_reg = ops.mul(gamma, ops.mean(ops.abs(delta_regret_norm)))\n\n    final_loss = ops.add(loss, regret_reg)\n    return final_loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

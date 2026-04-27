@@ -1,0 +1,170 @@
+{
+  "generation": 9,
+  "index": 10,
+  "id": "f009_010_9c7d8a48",
+  "signature": "9c7d8a48810075e4157455e543d8e0c10704fd38",
+  "family": "pairwise_margin|advantage_gap_with_cost_and_l2|weighted_sum_sqrt_norm|none",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_gap_with_cost_and_l2|agg=weighted_sum_sqrt_norm|constraint=none",
+  "origin": "REPAIR",
+  "origin_base": "E1",
+  "op_type": "REPAIR",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": "9aa7af1da9d2a91b40033933757ee0c86b280cd6",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+  "llm_seed": 346334678,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "E1_GENERATE",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+      "prompt_sha1": "9aa7af1da9d2a91b40033933757ee0c86b280cd6"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "26cc5a0f3ebb598c6baa7b18b9cd042dc7ae1cf6"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.9375,
+    "best_similarity_parts": {
+      "bigram": 0.7666666666666667,
+      "unigram": 0.9375,
+      "call": 0.9230769230769231
+    },
+    "neighbors": [
+      {
+        "sig": "f877dbe37878a2fe7c38e5c7104d4f508b6d0cfc",
+        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_normalized_weight_with_cost_reg",
+        "similarity": 0.9375,
+        "similarity_parts": {
+          "bigram": 0.7666666666666667,
+          "unigram": 0.9375,
+          "call": 0.9230769230769231
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.relu",
+          "ops.sqrt",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "2985b459bdcae2dc800174b8927ab3f2695dee15",
+        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_norm_cost_reg_clipped_entropy_mutual_info_bonus",
+        "similarity": 0.9375,
+        "similarity_parts": {
+          "bigram": 0.6216216216216216,
+          "unigram": 0.9375,
+          "call": 0.9230769230769231
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.softplus",
+          "ops.sqrt",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "6ea55ea64304384c2e6a3d69fc502e475a3b2fcb",
+        "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_root_weight_reg_softplus_eps_shift",
+        "similarity": 0.8823529411764706,
+        "similarity_parts": {
+          "bigram": 0.6470588235294118,
+          "unigram": 0.8823529411764706,
+          "call": 0.8571428571428571
+        },
+        "call_names_top": [
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.softplus",
+          "ops.sqrt",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_normalized_weight_with_cost_reg_l2",
+    "intuition": "Repaired by adding an L2 regularization term on the advantage_gap to diversify similarity from existing losses. Replaced cost_reg relu with squared cost_reg for smoother gradients and stabilizing cost penalty. Added l2_reg = advantage_gap squared times a small lambda, promoting diversity and smoothing cost influence. These changes reduce exact similarity while maintaining margin structure and weighting scheme. Kept mode pairwise and required signals, added l2 regularizer to prevent too close overlap with prior candidate.",
+    "pseudocode": "total_weight = sum(weight)\nnorm_factor = sqrt(total_weight + eps)\ndiff = log_prob_w - log_prob_l\nx = clamp(alpha * scale * diff + beta * advantage_gap, -20, 20)\nmargin_loss = -logsigmoid(x)\ncost_reg = cost_gap ** 2\nl2_reg = (advantage_gap ** 2) * lambda\nloss = margin_loss + gamma * cost_reg + lambda * l2_reg\nweighted_loss = loss * weight\nfinal_loss = sum(weighted_loss) / norm_factor",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap_with_cost_and_l2",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_sum_sqrt_norm",
+      "constraint_family": "none",
+      "other_hparams": null
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "sum",
+      "mul",
+      "add",
+      "sub",
+      "neg",
+      "sqrt",
+      "relu",
+      "pow"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap",
+        "cost_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    cost_gap = batch['cost_gap']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', 0.1))\n    lam = float(extra.get('lambda', 0.05))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    diff = ops.sub(lpw, lpl)\n    x = ops.add(ops.mul(alpha * scale, diff), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n\n    margin_loss = ops.neg(ops.logsigmoid(x))\n    cost_reg = ops.mul(cost_gap, cost_gap)  # squared cost gap for smoother penalty\n    l2_reg = ops.mul(ops.mul(advantage_gap, advantage_gap), lam)  # l2 on advantage_gap\n\n    loss = ops.add(ops.add(margin_loss, ops.mul(gamma, cost_reg)), l2_reg)\n\n    weighted_loss = ops.mul(loss, weight)\n    sum_weighted_loss = ops.sum(weighted_loss)\n\n    total_weight = ops.sum(weight)\n    norm_factor = ops.sqrt(ops.add(total_weight, eps))\n\n    final_loss = ops.div(sum_weighted_loss, norm_factor)\n    return final_loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.010746623229980212,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

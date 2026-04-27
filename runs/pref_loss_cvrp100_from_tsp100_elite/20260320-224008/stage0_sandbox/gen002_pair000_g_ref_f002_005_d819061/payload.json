@@ -1,0 +1,107 @@
+{
+  "generation": 2,
+  "pair_index": 0,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f002_005_d8190612",
+    "ir": {
+      "name": "pairwise_margin_weighted_mean_delta_z_scaled_bias_expanded_no_cost_gap_v1",
+      "intuition": "The original candidate failed due to missing 'cost_gap' key, which is required in the loss but not always available, causing gate failure. To fix this, I removed dependency on 'cost_gap' and replaced the nonlinear_cost_gap interaction with a constant factor 1.0. This eliminates the missing key while preserving the interaction pattern via scaling with delta_z. The rest of the computation is unchanged, keeping alpha, beta, gamma, bias and temp parameters for expressive nonlinear weighted margin. This ensures the loss passes gates by not requiring 'cost_gap' while maintaining the original margin-based structure and needed signals for dynamic weighting. This repair specifically targets the missing key failure without sacrificing required expect signals or the nonlinear penalty logic.",
+      "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_z_mean = mean(abs(delta_z)) + 1e-8\nalpha = extra.get('alpha', 1.0)\nbias_base = extra.get('bias', 0.5)\ngamma = extra.get('gamma', 2.0)\nscale_coef = extra.get('scale_coef', 1.2)\ninteraction_coef = extra.get('interaction_coef', 0.13)\ntemp = extra.get('temp', 0.9)\nclipped_abs_delta_z_mean = clip(abs_delta_z_mean, 1e-5, 10.0)\nbeta = 0.05 * clipped_abs_delta_z_mean\ninteraction = delta_z * scale_coef  # replaced nonlinear cost_gap by 1.0\nexp_penalty = exp(interaction * interaction * 0.3) - 1.0\nweighted_margin = alpha * margin - beta * delta_z + interaction_coef * interaction\ndynamic_bias = gamma * bias_base * exp_penalty\nbiased_margin = weighted_margin + dynamic_bias\nx = clamp(biased_margin * temp, -20.0, 20.0)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = mean(weighted_loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "delta_z_interaction_exp_penalty_scaled_temp",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "weighted_margin_with_dynamic_exp_penalty_bias_and_temp_no_cost_gap"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "add",
+        "sub",
+        "neg",
+        "mean",
+        "abs",
+        "exp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_z"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_z = batch['delta_z']\n\n    alpha = float(extra.get('alpha', 1.0))\n    bias_base = float(extra.get('bias', 0.5))\n    gamma = float(extra.get('gamma', 2.0))\n    interaction_coef = float(extra.get('interaction_coef', 0.13))\n    scale_coef = float(extra.get('scale_coef', 1.2))\n    temp = float(extra.get('temp', 0.9))\n\n    abs_delta_z_mean = ops.mean(ops.abs(delta_z)) + 1e-8\n    clipped_abs_delta_z_mean = ops.clamp(abs_delta_z_mean, 1e-5, 10.0)\n    beta = 0.05 * clipped_abs_delta_z_mean\n\n    interaction = ops.mul(delta_z, scale_coef)  # replaced nonlinear_cost_gap with 1.0\n    exp_penalty = ops.sub(ops.exp(ops.mul(interaction, interaction) * 0.3), 1.0)\n\n    margin = ops.sub(lpw, lpl)\n    weighted_margin = ops.add(ops.sub(ops.mul(alpha, margin), ops.mul(beta, delta_z)), ops.mul(interaction_coef, interaction))\n    dynamic_bias = ops.mul(ops.mul(gamma, bias_base), exp_penalty)\n    biased_margin = ops.add(weighted_margin, dynamic_bias)\n\n    x = ops.clamp(ops.mul(biased_margin, temp), -20.0, 20.0)\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    loss = ops.mean(weighted_loss)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

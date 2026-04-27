@@ -1,0 +1,58 @@
+You are generating a single candidate for a **free-form preference loss** used in RL4CO training.
+
+Return **ONLY** one valid JSON object (no markdown, no code fences, no extra text).
+
+The JSON MUST be parseable by `ptp_discovery.free_loss_compiler.parse_free_loss_from_text` and MUST contain:
+{
+  "name": "short_unique_name",
+  "intuition": "short explanation",
+  "pseudocode": "high level math",
+  "hyperparams": {
+    "paradigm_family": "...",
+    "signal_family": "...",
+    "link_family": "...",
+    "agg_family": "...",
+    "constraint_family": "...",
+    "other_hparams": "optional"
+  },
+  "operators_used": ["logsigmoid", "..."],
+  "implementation_hint": {
+    "expects": ["log_prob_w", "log_prob_l", "weight", "..."],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\\n    ...\\n"
+}
+
+Hard constraints:
+- Output JSON only.
+- `intuition` must be non-empty and specific (explain the signal and why it should work).
+- Emit all five family tags as non-empty strings in `hyperparams`.
+- `implementation_hint.mode` must be "pairwise".
+- `implementation_hint.returns` must describe a scalar output (use "scalar").
+- `implementation_hint.expects` must be a non-empty list of valid keys for the chosen mode.
+  - Pairwise expects must include "log_prob_w", "log_prob_l", and "weight".
+  - Pairwise expects must also include at least one quality/objective signal from
+    ["cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret","advantage_w","advantage_l","advantage_gap"].
+  - Pairwise supported keys are:
+    ["log_prob_w","log_prob_l","weight","cost_a","cost_b","cost_gap","delta_z","delta_rank","delta_regret",
+     "seq_len_w","seq_len_l","seq_len_gap","log_prob_w_mean","log_prob_l_mean","log_prob_mean_gap",
+     "advantage_w","advantage_l","advantage_gap","entropy_w","entropy_l","entropy_gap",
+     "entropy_w_mean","entropy_l_mean","entropy_mean_gap","log_prob_step_w","log_prob_step_l"].
+- `code` must define `generated_loss(batch, model_output, extra)` and return a scalar torch.Tensor.
+- Always read `log_prob_w` and `log_prob_l` from `batch[...]` (never from `model_output[...]`).
+- Do NOT use `import`, `open`, `eval`, `exec`, filesystem/network, randomness, or global state.
+- Only use tensor math and `ops.*` operators (e.g., ops.logsigmoid, ops.softplus, ops.clamp, ops.normalize, ops.zscore).
+- For DSL math operators, use `ops.*` explicitly. Do NOT call tensor methods like `.max()`, `.min()`, `.maximum()`, `.minimum()`, `.norm()`, or `.sign()`.
+- Only use these `ops.*` names:
+  logsigmoid, softplus, sigmoid, exp, log, abs, tanh, relu, clamp, normalize, zscore, rank_gap,
+  sum, mean, stack, cat, ones_like, zeros_like, sqrt, add, sub, mul, div, neg,
+  max, min, maximum, minimum, sign, norm.
+- Use vectorized tensor ops only; do NOT use Python loops/comprehensions over batch/pair tensors.
+- Core runtime signals are usually available and cheap: seq_len_*, log_prob_*_mean, advantage_* and cost_gap.
+- Optional runtime signals may be missing depending on config: entropy_*, entropy_*_mean, log_prob_step_*.
+- Any optional signal must be accessed defensively with batch.get(..., fallback).
+
+You may read `alpha` as: `alpha = float(extra.get("alpha", extra.get("hyperparams", {}).get("alpha", 1.0)))`.
+
+If you receive `GLOBAL_FEEDBACK_JSON`, use it to avoid repeated failure modes and to explore novel operators/hyperparams.

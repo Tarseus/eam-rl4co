@@ -1,0 +1,129 @@
+{
+  "generation": 3,
+  "index": 13,
+  "id": "g003_013_924385e0",
+  "signature": "924385e020298d62b2665bd08dd215b79cd239e7",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|weight=margin_regret_blend|constraint=clamp_eps_guard",
+  "origin": "CONSTRAINT_INJECT",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "BUILDER_CONSTRAINT_INJECT",
+  "parents": [
+    "g002_007_32caab7b"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "13c73921856b9fdd9fe88c2a68a9c6903ee6ede8",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+  "llm_seed": 1559807596,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_constraint_inject.txt",
+      "prompt_sha1": "13c73921856b9fdd9fe88c2a68a9c6903ee6ede8"
+    }
+  ],
+  "ir": {
+    "name": "all_pairs_gap_linear_margin_regret_clamped_reweight_v2",
+    "intuition": "Preserve margin_regret_blend weighting but add explicit clamping and denominator epsilon guards to stabilize weights without tie-zone suppression.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob",
+        "instance_obj_mad",
+        "instance_log_prob_std",
+        "instance_regret_mean"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "margin_regret_blend",
+      "constraint_family": "clamp_eps_guard"
+    },
+    "operators_used": [
+      "all_pairs",
+      "sub",
+      "abs",
+      "clamp",
+      "mul",
+      "div",
+      "nan_to_num",
+      "ge"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_mad = feature_cache['instance_obj_mad'].clamp_min(eps)\n    gap_scaled = gap / instance_obj_mad[b_idx]\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    instance_log_prob_std = feature_cache['instance_log_prob_std'].clamp_min(eps)\n    margin_norm = margin_abs / instance_log_prob_std[b_idx]\n    instance_regret_mean = feature_cache['instance_regret_mean'].clamp_min(eps)\n    regret_scale = instance_regret_mean[b_idx]\n    raw_weight = gap_scaled * margin_norm * regret_scale\n    clamp_lo = float(extra.get('clamp_lo', 0.2))\n    clamp_hi = float(extra.get('clamp_hi', 2.5))\n    weight_clamped = raw_weight.clamp(min=clamp_lo, max=clamp_hi)\n    weight_clean = weight_clamped.nan_to_num(nan=clamp_lo, posinf=clamp_hi, neginf=clamp_lo)\n    # Additional clamp to handle any extreme values post nan_to_num\n    weight_final = weight_clean.clamp(min=clamp_lo, max=clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight_final, meta={\n        'builder': 'all_pairs',\n        'geometry_family': 'dense_all_pairs',\n        'cap_family': 'uncapped_full',\n        'weight_family': 'margin_regret_blend',\n        'constraint_family': 'clamp_eps_guard'\n    })"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": true,
+      "cv_threshold": 0.1,
+      "pass_rate_threshold": 0.75,
+      "eligible_instances": 8,
+      "observed_cv_values": [
+        0.6394279117141086,
+        0.6394279117141086,
+        0.6394279117141086,
+        0.6394279510336478,
+        0.6394279117141086,
+        0.6394279117141086,
+        0.6394279117141086,
+        0.6394279510336478
+      ]
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  },
+  "builder_perf": -0.04693133087158241,
+  "builder_cost": 960.0,
+  "builder_feasible": true,
+  "builder_threshold": -0.04693133087158241,
+  "builder_best_perf": -0.04693133087158241,
+  "selection_sort_key": [
+    0.0,
+    960.0,
+    -0.04693133087158241
+  ]
+}

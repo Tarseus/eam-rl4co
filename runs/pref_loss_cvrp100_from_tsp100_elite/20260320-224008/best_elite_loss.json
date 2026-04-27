@@ -1,0 +1,183 @@
+{
+  "generation": 3,
+  "index": 8,
+  "id": "f003_008_07ae6c82",
+  "signature": "07ae6c8261a985de97461359f49fc92d68e0bc9a",
+  "family": "pairwise_margin|delta_rank|sum|adaptive_scaled_bias_dynamic_v4",
+  "family_signature": "paradigm=pairwise_margin|signal=delta_rank|agg=sum|constraint=adaptive_scaled_bias_dynamic_v4",
+  "origin": "REPAIR",
+  "origin_base": "M2",
+  "op_type": "REPAIR",
+  "parents": [
+    "f002_000_c897b994"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "04a762117bd72e7f5d2afcc8a7c7c78812b30ac2",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+  "llm_seed": 513749189,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "M2",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_m2.txt",
+      "prompt_sha1": "04a762117bd72e7f5d2afcc8a7c7c78812b30ac2"
+    },
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+      "prompt_sha1": "c1067e26645fcc5c63a01176dadad55548581188"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.8571428571428571,
+    "best_similarity_parts": {
+      "bigram": 0.4716981132075472,
+      "unigram": 0.84,
+      "call": 0.8571428571428571
+    },
+    "neighbors": [
+      {
+        "sig": "4b92025c4da1014dc8b8e46041ba6b3ae987da7b",
+        "name": "pairwise_margin_adaptive_scaled_bias_v4",
+        "similarity": 0.8571428571428571,
+        "similarity_parts": {
+          "bigram": 0.4716981132075472,
+          "unigram": 0.84,
+          "call": 0.8571428571428571
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.pow",
+          "ops.sign",
+          "ops.sqrt"
+        ]
+      },
+      {
+        "sig": "dda5ad8598f054f5428e9f22fc44e70079839eda",
+        "name": "pairwise_margin_adaptive_scaled_bias_v3",
+        "similarity": 0.85,
+        "similarity_parts": {
+          "bigram": 0.47058823529411764,
+          "unigram": 0.8,
+          "call": 0.85
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.pow",
+          "ops.sqrt",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "c897b994ed7be39a52134dc6571f3841f4ad754f",
+        "name": "pairwise_margin_adaptive_scaled_bias_v5_repaired",
+        "similarity": 0.84,
+        "similarity_parts": {
+          "bigram": 0.5344827586206896,
+          "unigram": 0.84,
+          "call": 0.8181818181818182
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.exp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.pow",
+          "ops.sign"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_margin_adaptive_scaled_bias_v8_distinct",
+    "intuition": "To fix the novelty failure due to high similarity with prior candidates, I redesigned the beta adaptive scaling to depend on the coefficient of variation (std/mean) of delta_rank instead of variance alone, adding unique nonlinearity with a sigmoid transform. I replaced the exponential bias scaling with a smooth softplus transformation and switched the margin scaling sigmoid steepness and center to different values for a unique margin shaping. These changes preserve the adaptive behavior but create structurally distinct computations, maintaining the original goals of adaptability and robustness while ensuring distinctness from prior versions.",
+    "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + 1e-6\ndelta_rank_mean = mean(delta_rank)\ndelta_rank_std = sqrt(mean((delta_rank - delta_rank_mean)**2)) + 1e-6\ncv = delta_rank_std / abs_delta_rank_mean\nbeta = 0.15 * sigmoid(-15 * (cv - 0.2))\nbias_dynamic = bias * softplus(0.5 * delta_rank) / (abs_delta_rank_mean + 0.2)\nscaled_bias = tanh(gamma * bias_dynamic)\nmargin_scale_raw = delta_rank_std / (abs_delta_rank_mean + 0.1)\nmargin_scale = 1.3 * sigmoid(12 * (margin_scale_raw - 0.15))\nscaled_margin = margin * margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -14, 14)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "delta_rank",
+      "link_family": "logsigmoid",
+      "agg_family": "sum",
+      "constraint_family": "adaptive_scaled_bias_dynamic_v4"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "mul",
+      "add",
+      "sub",
+      "neg",
+      "sum",
+      "abs",
+      "mean",
+      "div",
+      "pow",
+      "sqrt",
+      "tanh",
+      "sigmoid",
+      "softplus"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 2.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + 1e-6\n    delta_rank_mean = ops.mean(delta_rank)\n    delta_rank_var = ops.mean(ops.pow(ops.sub(delta_rank, delta_rank_mean), 2)) + 1e-6\n    delta_rank_std = ops.sqrt(delta_rank_var)\n\n    cv = ops.div(delta_rank_std, abs_delta_rank_mean)\n    beta = ops.mul(0.15, ops.sigmoid(ops.neg(ops.mul(15.0, ops.sub(cv, 0.2)))))\n\n    sp_arg = ops.mul(0.5, delta_rank)\n    bias_dynamic = ops.div(ops.mul(bias, ops.softplus(sp_arg)), ops.add(abs_delta_rank_mean, 0.2))\n    scaled_bias = ops.tanh(ops.mul(gamma, bias_dynamic))\n\n    margin = ops.sub(lpw, lpl)\n    margin_scale_raw = ops.div(delta_rank_std, ops.add(abs_delta_rank_mean, 0.1))\n    margin_scale = ops.mul(1.3, ops.sigmoid(ops.mul(12.0, ops.sub(margin_scale_raw, 0.15))))\n    scaled_margin = ops.mul(margin, margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n\n    x = ops.clamp(biased_margin, -14.0, 14.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n\n    loss = ops.sum(weighted_loss)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.0375637359619132,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

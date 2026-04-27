@@ -1,0 +1,161 @@
+seed: 1234
+scratch_init_seed: 1234
+output_root: runs/pref_loss_coevo_strong
+
+# Populations and generations
+generations: 10
+pop_g: 16
+pop_f: 16
+elite_g: 6
+elite_f: 6
+pairing_budget_per_gen: 128
+
+# Evaluation toggles
+cheap_gate_on: true
+high_fidelity_on: true
+
+# Devices and multiprocessing
+devices: ["cuda"]
+mp:
+  enabled: false
+  processes: 1
+  start_method: spawn
+
+# Safe operator whitelist (optional). Empty means allow full default ops table.
+operator_whitelist: []
+
+# External baseline for HF comparisons + warm-start.
+# - `checkpoint_epoch` must match the epoch index used in `metrics_csv`.
+# - During HF evaluation, we start comparisons at epoch=(checkpoint_epoch+1) for `hf_epochs` epochs.
+baseline:
+  metrics_csv: baseline/metrics.csv
+  checkpoint: baseline/epoch_409.ckpt
+  checkpoint_epoch: 409
+  val_column: val/reward
+
+# Cheap proxy (multi-fidelity) settings
+proxy_device: cuda
+proxy_problem_size: 20
+proxy_batch_size: 64
+proxy_batches: 2
+proxy_weights:
+  effective_grad_ratio: 1.0
+  ess_ratio: 0.1
+proxy_joint_min_pass_rate: 0.8
+proxy_joint_swap_tolerance: 0.001
+proxy_joint_grad_eps: 1.0e-8
+proxy_joint_min_effective_grad_ratio: 0.1
+
+# High-fidelity selection: only train+validate top-m pairs by proxy score
+high_fidelity_top_m: 16
+
+# Pairing policy: coverage + bandit acquisition
+coverage_top_e_elites: 4
+coverage_anneal_generations: 50
+coverage_k_elite_start: 1
+coverage_k_elite_end: 2
+coverage_k_hof_start: 1
+coverage_k_hof_end: 1
+coverage_k_random_start: 1
+coverage_k_random_end: 0
+
+bandit_prior_mu: 1.0
+bandit_c_start: 1.0
+bandit_c_end: 0.3
+
+# Anti-collapse: Hall-of-Fame + anchors + forced cross-play
+hof_size_g: 64
+hof_size_f: 64
+crossplay_k_hof_start: 1
+crossplay_k_hof_end: 2
+anchor_enabled: true
+anchor_proxy_max_score: 10.0
+anchor_ref_builder_path: null
+anchor_ref_loss_path: null
+
+# MAP-Elites diversity archive
+archive_bins: 8
+archive_per_cell: 2
+diverse_elites_from_archive_max: 64
+descriptor_pair_count_cap: 16636
+descriptor_loss_scale: 5.0
+
+# Low-variance evaluation: CRN + fixed single-seed recheck for best/boundary
+recheck_enabled: true
+recheck_num_seeds: 1
+recheck_seed_offset: 10007
+recheck_elite_margin: 1
+recheck_max_pairs: 16
+
+# Builder gates (cheap)
+builder_min_pairs: 1
+builder_min_coverage: 1.0
+builder_max_pairs_per_instance: 4096
+builder_weight_nonneg: true
+builder_semantic_tolerance: 0.0
+builder_semantic_min_pass_rate: 1.0
+
+# Optional preference semantic gate (expensive); usually disabled in Route B
+pref_semantic_gate_enabled: false
+pref_semantic_trials: 6
+pref_semantic_batch_size: 128
+pref_semantic_min_pass_rate: 0.8
+pref_semantic_swap_tolerance: 0.001
+pref_semantic_gap_min_ratio: 0.9
+
+# -----------------------------
+# High-fidelity training config
+# -----------------------------
+# These HF hyperparameters match `train_po.sh` (experiment=routing/pomo-po4cops-tsp100-po):
+# - TSP100, batch_size=64, num_starts=100, alpha=0.05
+# - train_data_size=100000, val_data_size=10000
+# - Adam(lr=3e-4, weight_decay=1e-6)
+backend: rl4co
+env_name: tsp
+generator_params:
+  num_loc: 100
+policy_name: pomo
+policy_kwargs:
+  po4cops_compat: true
+  embed_dim: 128
+  num_encoder_layers: 6
+  decoder_layer_num: 1
+  qkv_dim: 16
+  num_heads: 8
+  feedforward_hidden: 512
+  tanh_clipping: 50
+  eval_type: argmax
+  val_decode_type: greedy
+  test_decode_type: greedy
+rollout_strategy: auto
+objective_sign: neg_reward
+
+# HF budget in epochs (continuing from baseline checkpoint).
+hf_epochs: 20
+hf_instances_per_epoch: 100000
+train_problem_size: 100
+valid_problem_sizes: [100]
+train_batch_size: 64
+# NOTE: set to null to align the number of rollouts to the current problem size.
+# This keeps HF at 100 for TSP100, while making proxy (problem_size=20) use 20 rollouts
+# to avoid exploding pair counts (all_pairs has ~K*(K-1)/2 pairs per instance).
+pomo_size: null
+learning_rate: 0.0003
+weight_decay: 0.000001
+alpha: 0.05
+device: cuda
+num_validation_episodes: 10000
+validation_batch_size: 64
+generalization_penalty_weight: 1.0
+size_aggregation: cvar
+size_cvar_alpha: 0.2
+
+# Baseline comparison weights (lower objective is better).
+# Keep the window penalty off to avoid double-counting when doing strict epoch-by-epoch checks.
+baseline_epoch_violation_weight: 1.0
+baseline_epoch_tail_frac: 0.9
+baseline_epoch_window_k: 10
+baseline_epoch_window_violation_weight: 0.0
+
+# Optional persistence hooks for caches (default: in-memory only).
+cache_persist_dir: null

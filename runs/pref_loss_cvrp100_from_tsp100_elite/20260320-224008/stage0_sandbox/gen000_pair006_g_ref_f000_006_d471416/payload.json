@@ -1,0 +1,107 @@
+{
+  "generation": 0,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_006_d4714162",
+    "ir": {
+      "name": "combined_stable_loss",
+      "intuition": "The combined loss integrates the robustness of the clipping and normalization strategies from parent 0 with the nuanced weighting schemes of parent 4, focusing on stability, scale-invariance, and emphasis on important pairs. We select the clipping range from parent 0 to control extreme margins, and adopt the weighted mean and bias adjustment from parent 4 to better handle pair importance and diversity. By merging these techniques, the new loss aims to improve gradient stability, fairness across pairs, and maintain outlier resistance, leveraging the strengths of both parent schemes.",
+      "pseudocode": "margin = ops.sub(batch['log_prob_w'], batch['log_prob_l'])\nabs_delta_rank_mean = ops.mean(ops.abs(batch['delta_rank'])) + 1e-6\nbeta = 0.05 * abs_delta_rank_mean\nalpha = float(extra.get('alpha', 1.0))\n gamma = float(extra.get('gamma', 1.5))\n bias = float(extra.get('bias', 0.5))\n\n# Use parent 0's clipping range\nx = ops.clamp(ops.add(ops.mul(alpha, margin), ops.mul(gamma, bias)), -10.0, 10.0)\n\n# Incorporate parent 4's weighted mean with bias\nweighted_margin = ops.sub(ops.mul(alpha, margin), ops.mul(beta, batch['delta_rank']))\nbiased_margin = ops.add(weighted_margin, bias)\nclipped_x = ops.clamp(biased_margin, -10.0, 10.0)\n\nloss_per_pair = ops.neg(ops.logsigmoid(clipped_x))\nweight = batch.get('weight', ops.ones_like(clipped_x))\nweighted_loss = ops.mul(loss_per_pair, weight)\n# Use normalization from parent 4\nloss = ops.div(ops.sum(weighted_loss), ops.sum(weight))",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "delta_rank",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "clipping_with_bias_normalization"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mul",
+        "add",
+        "sub",
+        "neg",
+        "sum",
+        "div",
+        "abs"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    margin = ops.sub(batch['log_prob_w'], batch['log_prob_l'])\n    abs_delta_rank_mean = ops.mean(ops.abs(batch['delta_rank'])) + 1e-6\n    beta = 0.05 * abs_delta_rank_mean\n    alpha = float(extra.get('alpha', 1.0))\n    gamma = float(extra.get('gamma', 1.5))\n    bias = float(extra.get('bias', 0.5))\n\n    # Parent 0 clipping range\n    x = ops.clamp(ops.add(ops.mul(alpha, margin), ops.mul(gamma, bias)), -10.0, 10.0)\n\n    # Parent 4 weighted mean with bias\n    weighted_margin = ops.sub(ops.mul(alpha, margin), ops.mul(beta, batch['delta_rank']))\n    biased_margin = ops.add(weighted_margin, bias)\n    clipped_x = ops.clamp(biased_margin, -10.0, 10.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(clipped_x))\n    weight = batch.get('weight', ops.ones_like(clipped_x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    loss = ops.div(ops.sum(weighted_loss), ops.sum(weight))\n\n    return loss",
+      "theoretical_basis": "Combines the stabilization of explicit margin clipping with the emphasis on pair importance via weighted mean. The bias parameter ensures meaningful margin adjustment, and normalization maintains scale-invariance. This hybrid approach improves gradient stability, fairness among pairs, and robustness against outliers."
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

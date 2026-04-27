@@ -1,0 +1,94 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "g000_000_59b6b66b",
+  "signature": "59b6b66b019494116e89cf7aba334d5537277ff6",
+  "family_signature": "geometry=dense_all_pairs|cap=uncapped_full|constraint=fixed_pair_reweight_only",
+  "origin": "SEED",
+  "origin_base": null,
+  "op_type": "SEED",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": null,
+  "prompt_path": null,
+  "llm_seed": null,
+  "history": [],
+  "ir": {
+    "name": "builder_all_pairs_uniform_none_000",
+    "intuition": "rule_based:all_pairs:reweight:uniform_none",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "fixed_pair_reweight_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "uniform_none"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'uniform_none'})\n"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": Infinity,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  },
+  "builder_perf": 0.038945913314819336,
+  "builder_cost": 316800.0,
+  "builder_feasible": true,
+  "builder_threshold": 0.038945913314819336,
+  "builder_best_perf": 0.038945913314819336,
+  "selection_sort_key": [
+    0.0,
+    316800.0,
+    0.038945913314819336
+  ]
+}

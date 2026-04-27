@@ -1,0 +1,72 @@
+{
+  "builder_id": "g009_002_20ede0a4",
+  "cost": 960.0,
+  "perf": -0.15719568729400635,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": -0.15719568729400635,
+  "best_perf_anchor": -0.15719568729400635,
+  "threshold": -0.15719568729400635,
+  "generation": 9,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g009_002_20ede0a4",
+    "f_id": "fseed_000_3c3e0ea7",
+    "score": -0.15719568729400635,
+    "final_score": -0.15719568729400635,
+    "stage": "high_fidelity",
+    "stage_final": "high_fidelity",
+    "phase": "builder",
+    "generation": 9,
+    "pair_reason": "ok_stage3_offline_minitrain",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "builder_all_pairs_gap_square_000_x_g004_006_g004_001",
+      "intuition": "rule_based:all_pairs:reweight:gap_square",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_square",
+        "constraint_family": "fixed_pair_reweight_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "gap_square"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    raw = gap.clamp_min(0.0).pow(2)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 1,
+  "ir": {
+    "name": "builder_all_pairs_gap_square_000_x_g004_006_g004_001",
+    "intuition": "rule_based:all_pairs:reweight:gap_square",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_square",
+      "constraint_family": "fixed_pair_reweight_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_square"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n    counts = torch.bincount(b_idx.to(dtype=torch.int64), minlength=int(objective.shape[0])).to(dtype=objective.dtype)\n    raw = gap.clamp_min(0.0).pow(2)\n    denom = torch.zeros(int(objective.shape[0]), dtype=objective.dtype, device=objective.device)\n    denom.index_add_(0, b_idx, raw)\n    norm = denom[b_idx].clamp_min(1e-6)\n    weight = raw / norm\n    weight = weight * counts[b_idx].clamp_min(1.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_square'})\n"
+  }
+}

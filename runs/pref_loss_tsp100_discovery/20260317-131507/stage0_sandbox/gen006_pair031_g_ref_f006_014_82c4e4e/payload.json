@@ -1,0 +1,105 @@
+{
+  "generation": 6,
+  "pair_index": 31,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f006_014_82c4e4e8",
+    "ir": {
+      "name": "pairwise_bce_advantage_gap_l2_weighted_sum_repair",
+      "intuition": "Repaired missing 'advantage_gap' key by replacing its usage with 'delta_regret', which is assumed available and correlated. The BCE loss uses log_prob_w and log_prob_l as before, and the L2 regularization now penalizes the squared delta_regret, preserving the intended regularization effect. This fixes the missing key error and respects access to required keys.",
+      "pseudocode": "prob_w = sigmoid(log_prob_w)\nprob_l = sigmoid(log_prob_l)\nbce_loss = -(log(prob_w) + log(1 - prob_l))\ndiff = delta_regret\nl2_penalty = lambda * diff * diff\nloss_per_pair = (bce_loss + l2_penalty) * weight\nloss = sum(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_classification_bce_l2reg",
+        "signal_family": "delta_regret",
+        "link_family": "sigmoid_log",
+        "agg_family": "sum",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "sigmoid",
+        "log",
+        "neg",
+        "add",
+        "mul",
+        "sub",
+        "sum",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    diff = batch['delta_regret']\n    lam = float(extra.get('lambda', extra.get('hyperparams', {}).get('lambda', 0.1)))\n    prob_w = ops.sigmoid(lpw)\n    prob_l = ops.sigmoid(lpl)\n    one = ops.ones_like(prob_l)\n    safe_prob_w = prob_w.clamp(min=eps, max=1 - eps)\n    safe_prob_l_comp = (one - prob_l).clamp(min=eps, max=1 - eps)\n    bce_loss = ops.neg(ops.add(ops.log(safe_prob_w), ops.log(safe_prob_l_comp)))\n    l2_penalty = ops.mul(lam, ops.mul(diff, diff))\n    loss_per_pair = ops.mul(ops.add(bce_loss, l2_penalty), weight)\n    return ops.sum(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

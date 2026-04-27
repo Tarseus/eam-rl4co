@@ -1,0 +1,72 @@
+{
+  "builder_id": "g000_012_0fb2f631",
+  "cost": 960.0,
+  "perf": -0.012870350265502761,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": -0.012870350265502761,
+  "best_perf_anchor": -0.012870350265502761,
+  "threshold": -0.012870350265502761,
+  "generation": 0,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g000_012_0fb2f631",
+    "f_id": "fseed_000_1ec7ffff",
+    "score": -0.012870350265502761,
+    "final_score": -0.012870350265502761,
+    "stage": "high_fidelity",
+    "stage_final": "high_fidelity",
+    "phase": "builder",
+    "generation": 0,
+    "pair_reason": "ok_stage3_offline_minitrain",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "builder_all_pairs_gap_bandpass_010",
+      "intuition": "rule_based:all_pairs:reweight:gap_bandpass emphasizes pairs with intermediate objective gaps, filtering out both very small and very large gaps to focus learning on moderately difficult pairs",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_bandpass",
+        "constraint_family": "clamp_only"
+      },
+      "operators_used": [
+        "all_pairs",
+        "gap_bandpass"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    # bandpass parameters, configurable via extra\n    low_threshold = float(extra.get('low_threshold', 0.1))\n    high_threshold = float(extra.get('high_threshold', 1.0))\n    gap_clamped = gap.clamp_min(0.0)\n    # Compute bandpass weight: zero outside [low_threshold, high_threshold], peak at midpoint\n    mid = (low_threshold + high_threshold) / 2.0\n    band = (gap_clamped - low_threshold) * (high_threshold - gap_clamped)\n    band = band.clamp(min=0.0)  # zero if gap outside band\n    # Normalize by max possible band value to keep scale roughly consistent\n    max_band = ((mid - low_threshold) * (high_threshold - mid)) + eps\n    raw = band / max_band\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 1,
+  "ir": {
+    "name": "builder_all_pairs_gap_bandpass_010",
+    "intuition": "rule_based:all_pairs:reweight:gap_bandpass emphasizes pairs with intermediate objective gaps, filtering out both very small and very large gaps to focus learning on moderately difficult pairs",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_bandpass",
+      "constraint_family": "clamp_only"
+    },
+    "operators_used": [
+      "all_pairs",
+      "gap_bandpass"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    pair_count = int(b_idx.numel())\n    if pair_count <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})\n    eps = 1e-6\n    # bandpass parameters, configurable via extra\n    low_threshold = float(extra.get('low_threshold', 0.1))\n    high_threshold = float(extra.get('high_threshold', 1.0))\n    gap_clamped = gap.clamp_min(0.0)\n    # Compute bandpass weight: zero outside [low_threshold, high_threshold], peak at midpoint\n    mid = (low_threshold + high_threshold) / 2.0\n    band = (gap_clamped - low_threshold) * (high_threshold - gap_clamped)\n    band = band.clamp(min=0.0)  # zero if gap outside band\n    # Normalize by max possible band value to keep scale roughly consistent\n    max_band = ((mid - low_threshold) * (high_threshold - mid)) + eps\n    raw = band / max_band\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(clamp_lo, clamp_hi)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_bandpass'})"
+  }
+}

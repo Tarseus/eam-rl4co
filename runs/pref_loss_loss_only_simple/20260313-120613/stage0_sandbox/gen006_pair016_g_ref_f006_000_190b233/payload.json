@@ -1,0 +1,104 @@
+{
+  "generation": 6,
+  "pair_index": 16,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f006_000_190b2333",
+    "ir": {
+      "name": "loss_ranking_correlation_advantage_weighted_logistic",
+      "intuition": "Instead of using a margin-based pairwise loss, this loss focuses on maximizing the ranking correlation between preference advantages and the predicted log-probability differences. It models the probability that the sign of the log-prob difference aligns with the sign of the advantage using a logistic approach, weighted by example importance. This paradigm shift from margin-based loss to ranking correlation provides a distinct training signal emphasizing global ranking consistency rather than fixed margin constraints.",
+      "pseudocode": "adv_sign = (advantage_gap >= 0).to_float() * 2 - 1\nx = (log_prob_w - log_prob_l) * adv_sign\nloss_per_pair = -logsigmoid(x) * weight\nloss = ops.sum(loss_per_pair) / (ops.sum(weight) + epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_ranking_correlation",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid_signed_alignment",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "sum",
+        "mul",
+        "div",
+        "sub",
+        "add",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    advantage_gap = batch['advantage_gap']\n    weight = batch.get('weight', lpw.new_ones(lpw.shape))\n\n    # Replace ops.sign with a stable sign approximation\n    adv_sign = ops.mul(ops.sub(ops.mul(ops.sigmoid(advantage_gap * 1e3), 2), 1), 1)  # approx sign via sigmoid\n\n    x = ops.mul(ops.sub(lpw, lpl), adv_sign)\n    loss = ops.mul(-ops.logsigmoid(x), weight)\n    return ops.div(ops.sum(loss), ops.sum(weight) + eps)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

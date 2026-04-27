@@ -1,0 +1,75 @@
+# @package _global_
+# BOPO TSP100 stability-first setting.
+# We keep the larger BOPO candidate pool but use the older routing scale that
+# learned reliably in this codebase instead of the paper-ish alpha/lr regime.
+
+defaults:
+  - override /model: pomo.yaml
+  - override /env: tsp.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  - override /logger: csv.yaml
+
+# Hydra output directory with meaningful name
+hydra:
+  run:
+    dir: ${paths.log_dir}/${mode}/runs/pomo-bopo-tsp100_${now:%Y%m%d-%H%M%S}
+
+env:
+  generator_params:
+    num_loc: 100
+
+model:
+  loss_type: bopo_loss
+  alpha: 0.05
+  # BOPO-specific parameters
+  bopo_pair_mode: anchor_best
+  bopo_select_strategy: paper
+  bopo_select_k: 16
+  bopo_select_quantile: 0.5
+  num_starts: 256
+  batch_size: 48
+  train_data_size: 100000
+  val_data_size: 10000
+  test_data_size: 10000
+  optimizer: Adam
+  optimizer_kwargs:
+    lr: 3e-4
+    weight_decay: 1e-6
+  lr_scheduler: MultiStepLR
+  lr_scheduler_kwargs:
+    milestones: [3001]
+    gamma: 0.2
+  policy_kwargs:
+    po4cops_compat: true
+    # `same` matches the official BOPO TSP script, but it is unstable with this
+    # RL4CO/PO4COPs decoder. Use POMO-style starts to keep the candidate pool
+    # diverse and restore stable learning.
+    start_node: pomo
+    embed_dim: 128
+    num_encoder_layers: 6
+    decoder_layer_num: 1
+    qkv_dim: 16
+    num_heads: 8
+    feedforward_hidden: 512
+    tanh_clipping: 50
+    eval_type: hybrid
+    val_decode_type: greedy
+    test_decode_type: greedy
+  metrics:
+    train: ["loss", "reward", "max_reward", "bopo_loss", "bopo_pair_count"]
+    val: ["reward", "max_reward"]
+    test: ${model.metrics.val}
+
+trainer:
+  max_epochs: 2100
+  accelerator: gpu
+  devices: [0]
+  strategy: auto
+  precision: 32-true
+  gradient_clip_val: null
+  accumulate_grad_batches: 1
+  enable_progress_bar: false
+  log_every_n_steps: 50
+
+seed: 1234

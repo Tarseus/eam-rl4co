@@ -1,0 +1,257 @@
+# Double-EoH co-evolution (two-population) with aligned LLM EoH operators.
+#
+# Notes:
+# - `builder_llm` and `loss_llm` can be enabled independently.
+# - Setting both enabled=false guarantees no LLM calls (falls back to rule-based/seed pool).
+# - Prompts default to PTP/prompts/*.txt; override via `llm_prompts` or per-side `*.prompts`.
+
+seed: 1234
+scratch_init_seed: 1234
+output_root: runs/pref_loss_coevo_double_eoh
+
+# Populations and generations
+generations: 10
+pop_g: 16
+pop_f: 16
+elite_g: 6
+elite_f: 6
+pairing_budget_per_gen: 128
+
+# LLM (two-sided)
+builder_llm:
+  enabled: true
+  offline_mode: false
+  parent_p: 5
+  # Always keep some slots for stable rule-based seeds to avoid collapse.
+  seed_reserve: 2
+  # Per-generation counts (E1/E2/M1/M2). E1 chooses crossover when parents exist, otherwise generate.
+  init_num_E1: 6
+  init_num_E2: 4
+  init_num_M1: 4
+  init_num_M2: 4
+  num_E1: 8
+  num_E2: 8
+  num_M1: 8
+  num_M2: 8
+  repair:
+    enabled: true
+    max_attempts: 1
+    simplify_first: true
+
+loss_llm:
+  enabled: true
+  offline_mode: false
+  parent_p: 5
+  # Always keep some slots for stable rule-based seeds to avoid collapse.
+  seed_reserve: 2
+  init_num_E1: 6
+  init_num_E2: 4
+  init_num_M1: 4
+  init_num_M2: 4
+  num_E1: 8
+  num_E2: 8
+  num_M1: 8
+  num_M2: 8
+  repair:
+    enabled: true
+    max_attempts: 1
+    simplify_first: true
+
+# Optional prompt overrides (paths are relative to repo root)
+llm_prompts:
+  builder_generation: PTP/prompts/pref_builder_generation.txt
+  builder_crossover: PTP/prompts/pref_builder_crossover.txt
+  builder_mutation: PTP/prompts/pref_builder_mutation.txt
+  builder_e2: PTP/prompts/pref_builder_e2.txt
+  builder_m2: PTP/prompts/pref_builder_m2.txt
+  builder_m3: PTP/prompts/pref_builder_m3.txt
+  builder_repair: PTP/prompts/pref_builder_repair.txt
+
+  loss_generation: PTP/prompts/free_loss_generation.txt
+  loss_crossover: PTP/prompts/free_loss_crossover.txt
+  loss_mutation: PTP/prompts/free_loss_mutation.txt
+  loss_e2: PTP/prompts/free_loss_e2.txt
+  loss_m2: PTP/prompts/free_loss_m2.txt
+  loss_m3: PTP/prompts/free_loss_m3.txt
+  loss_repair: PTP/prompts/free_loss_repair.txt
+
+# Evaluation toggles
+cheap_gate_on: true
+high_fidelity_on: true
+
+# Devices and multiprocessing
+devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
+mp:
+  enabled: true
+  processes: 4
+  start_method: spawn
+
+# Safe operator whitelist (optional). Empty means allow full default ops table.
+operator_whitelist: []
+
+# External baseline for HF comparisons + warm-start.
+baseline:
+  metrics_csv: baseline/metrics.csv
+  checkpoint: baseline/epoch_409.ckpt
+  checkpoint_epoch: 409
+  # When using `scratch_hf_epochs + warmstart_hf_epochs`, build a fair baseline by concatenating:
+  #   scratch slice   = [scratch_start_epoch, scratch_start_epoch + scratch_hf_epochs)
+  #   warm-start slice= [checkpoint_epoch + 1, checkpoint_epoch + 1 + warmstart_hf_epochs)
+  scratch_start_epoch: 0
+  val_column: val/max_reward
+
+# Cheap proxy (multi-fidelity) settings
+proxy_device: cuda:4
+proxy_problem_size: 100
+proxy_batch_size: 64
+proxy_batches: 50
+proxy_weights:
+  effective_grad_ratio: 1.0
+  ess_ratio: 0.1
+
+# Optional Stage B: offline micro-unroll (no new rollouts).
+# Runs a few gradient steps on cached log_prob tensors to get a stronger ranking signal
+# than pure proxy_score, at much lower cost than full HF training.
+micro_unroll_enabled: true
+micro_unroll_top_k: 64
+micro_unroll_steps: 100
+micro_unroll_lr: 0.05
+micro_unroll_weight_decay: 0.0
+# Safety valves for micro-unroll stalls (per (g,f) task).
+micro_unroll_timeout_s: 600
+# Cap the number of preference pairs used per rollout batch during micro-unroll.
+micro_unroll_max_pairs: 50000
+micro_unroll_reuse_pref_batch_when_safe: true
+
+proxy_joint_min_pass_rate: 0.8
+proxy_joint_swap_tolerance: 0.001
+proxy_joint_swap_check_mode: synthetic  # data | synthetic | none
+proxy_joint_swap_test_margin: 1.0
+proxy_joint_grad_eps: 1.0e-8
+proxy_joint_min_effective_grad_ratio: 0.1
+
+# High-fidelity selection: only train+validate top-m pairs by proxy score
+high_fidelity_top_m: 8
+
+# Pairing policy: coverage + bandit acquisition
+coverage_top_e_elites: 4
+coverage_anneal_generations: 50
+coverage_k_elite_start: 1
+coverage_k_elite_end: 2
+coverage_k_hof_start: 1
+coverage_k_hof_end: 1
+coverage_k_random_start: 1
+coverage_k_random_end: 0
+
+bandit_prior_mu: 1.0
+bandit_c_start: 1.0
+bandit_c_end: 0.3
+
+# Anti-collapse: Hall-of-Fame + anchors + forced cross-play
+hof_size_g: 64
+hof_size_f: 64
+crossplay_k_hof_start: 1
+crossplay_k_hof_end: 2
+anchor_enabled: true
+anchor_proxy_max_score: 10.0
+anchor_ref_builder_path: null
+anchor_ref_loss_path: null
+
+# MAP-Elites diversity archive
+archive_bins: 8
+archive_per_cell: 2
+diverse_elites_from_archive_max: 64
+descriptor_pair_count_cap: 16636
+descriptor_loss_scale: 5.0
+
+# Low-variance evaluation: CRN + fixed single-seed recheck for best/boundary
+recheck_enabled: true
+recheck_num_seeds: 1
+recheck_seed_offset: 10007
+recheck_elite_margin: 1
+recheck_max_pairs: 16
+
+# Builder gates (cheap)
+builder_min_pairs: 1
+builder_min_coverage: 1.0
+builder_max_pairs_per_instance: 8192
+builder_weight_nonneg: true
+builder_semantic_tolerance: 0.0
+builder_semantic_min_pass_rate: 1.0
+
+# Optional preference semantic gate (expensive)
+pref_semantic_gate_enabled: false
+pref_semantic_trials: 6
+pref_semantic_batch_size: 128
+pref_semantic_min_pass_rate: 0.8
+pref_semantic_swap_tolerance: 0.001
+pref_semantic_gap_min_ratio: 0.9
+# Keep cheap-stage PrefBatch cache enabled for speed; cache is pruned to scheduled pairs
+# and dropped before micro-unroll to avoid cross-generation VRAM accumulation.
+pref_cache_enabled: true
+drop_pref_cache_before_micro_unroll: true
+# Optional hard cleanup at generation boundary (more stable VRAM, slight recompute risk next gen).
+drop_pref_cache_after_generation: true
+# Auto-flush when monitored device VRAM exceeds threshold.
+# Useful when using a dedicated proxy/cache GPU (set proxy_device to that GPU).
+pref_cache_auto_flush_enabled: true
+pref_cache_auto_flush_reserved_gb: 20.0
+pref_cache_auto_flush_device: cuda:4
+pref_cache_auto_flush_drop_rollout: false
+cuda_empty_cache_on_pref_prune: true
+
+# -----------------------------
+# High-fidelity training config
+# -----------------------------
+backend: rl4co
+env_name: tsp
+generator_params:
+  num_loc: 100
+policy_name: pomo
+policy_kwargs:
+  po4cops_compat: true
+  embed_dim: 128
+  num_encoder_layers: 6
+  decoder_layer_num: 1
+  qkv_dim: 16
+  num_heads: 8
+  feedforward_hidden: 512
+  tanh_clipping: 50
+  eval_type: argmax
+  val_decode_type: greedy
+  test_decode_type: greedy
+rollout_strategy: auto
+objective_sign: neg_reward
+
+hf_epochs: 10
+hf_instances_per_epoch: 100000
+
+# Candidate evaluation init split (total epochs = scratch + warmstart).
+# Aligns with `configs/experiment/free_loss_discovery/rl4co.yaml`.
+scratch_hf_epochs: 5
+warmstart_hf_epochs: 5
+baseline_epoch_compare_offset: 0
+
+# Early-eval horizon for warm-start early stopping (steps derived from epochs/instances).
+early_eval_epochs: 2
+early_eval_instances_per_epoch: 10000
+train_problem_size: 100
+valid_problem_sizes: [100]
+train_batch_size: 64
+pomo_size: null
+learning_rate: 0.0003
+weight_decay: 0.000001
+alpha: 0.05
+device: cuda
+num_validation_episodes: 10000
+validation_batch_size: 64
+generalization_penalty_weight: 1.0
+size_aggregation: cvar
+size_cvar_alpha: 0.2
+
+baseline_epoch_violation_weight: 1.0
+baseline_epoch_tail_frac: 0.9
+baseline_epoch_window_k: 10
+baseline_epoch_window_violation_weight: 0.0
+
+cache_persist_dir: null

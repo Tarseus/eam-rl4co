@@ -1,0 +1,131 @@
+{
+  "generation": 1,
+  "pair_index": 11,
+  "g_entry": {
+    "id": "g001_003_4f77cbd3",
+    "ir": {
+      "name": "builder_all_pairs_margin_rank_blend_tiezone_smooth_002",
+      "intuition": "Smooth tie-zone suppression with soft sigmoid gating and multiplicative margin_abs blending to refine margin_rank_blend weights.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob",
+          "obj_z",
+          "rank",
+          "regret",
+          "instance_obj_mean",
+          "instance_obj_std",
+          "instance_obj_median",
+          "instance_obj_mad",
+          "instance_obj_min",
+          "instance_obj_max",
+          "instance_obj_range",
+          "instance_log_prob_mean",
+          "instance_log_prob_std",
+          "instance_log_prob_range",
+          "instance_regret_mean",
+          "instance_regret_std",
+          "instance_regret_max"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "margin_rank_blend",
+        "constraint_family": "tiezone_suppression"
+      },
+      "operators_used": [
+        "all_pairs",
+        "margin_rank_blend",
+        "sigmoid",
+        "mul",
+        "clamp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend', 'constraint_family': 'tiezone_suppression'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_mad = feature_cache['instance_obj_mad']\n    instance_log_prob_std = feature_cache['instance_log_prob_std']\n    gap_scaled = gap / instance_obj_mad[b_idx].clamp_min(eps)\n\n    rank = feature_cache['rank']\n    beta_rank = float(extra.get('beta_rank', 4.0))\n    gamma = float(extra.get('gamma', 0.5))\n\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    margin_abs_scaled = margin_abs / instance_log_prob_std[b_idx].clamp_min(eps)\n\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    raw = torch.sigmoid(beta_rank * rank_span)\n\n    # Smooth tie-zone suppression with sigmoid centered at tie_zone_width\n    tie_zone_width = float(extra.get('tie_zone_width', 0.1))\n    tie_zone_steepness = float(extra.get('tie_zone_steepness', 50.0))\n    tie_zone_gate = torch.sigmoid(tie_zone_steepness * (gap_scaled - tie_zone_width))\n\n    # Combine components multiplicatively\n    weight_raw = raw * tie_zone_gate * margin_abs_scaled.pow(gamma).clamp_min(0.0)\n\n    clamp_lo = 0.25\n    clamp_hi = 4.0\n    weight = weight_raw.clamp(clamp_lo, clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'margin_rank_blend', 'constraint_family': 'tiezone_suppression'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v5",
+      "intuition": "Fixed insensitivity to objective perturbation by introducing a more direct and responsive scaling of the pairwise log probability difference using an exponential margin based on the sign-sensitive mean advantage_gap. Instead of using abs(mean_adv), this version uses mean_adv directly with clamp to [-1,1] to preserve directionality, making the margin sensitive to whether the advantage is positive or negative. This preserves the nonlinear adaptive margin but improves sensitivity to gradient changes by ensuring margin can both scale up and down (including shrink below 1), which makes the loss react more distinctly to objective perturbations.",
+      "pseudocode": "epsilon=1e-6\nmean_adv = mean(advantage_gap)\nmargin = exp(clamp(mean_adv, -1, 1))\nnorm = max(mean(norm(advantage_gap)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "exp",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    mean_adv = ops.mean(advantage_gap)\n    clamped_mean_adv = ops.clamp(mean_adv, -1.0, 1.0)\n    margin = ops.exp(clamped_mean_adv)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

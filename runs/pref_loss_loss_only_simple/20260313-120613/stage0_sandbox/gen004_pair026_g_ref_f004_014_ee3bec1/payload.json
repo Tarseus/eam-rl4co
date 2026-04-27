@@ -1,0 +1,102 @@
+{
+  "generation": 4,
+  "pair_index": 26,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f004_014_ee3bec1e",
+    "ir": {
+      "name": "loss_logsigmoid_005_cost_gap_normalized_scale_clipped",
+      "intuition": "Introduce explicit normalization of weights, apply scale invariance through normalization of score differences, and clip the final score to a fixed range to stabilize training and enforce consistent magnitude, improving robustness and novelty.",
+      "pseudocode": "weight_sum = sum(weight) + epsilon\nnorm_weight = weight / weight_sum\nscaled_prob_diff = scale * (log_prob_w - log_prob_l)\ncost_weight = sigmoid(cost_gap_coef * cost_gap)\nscore = scaled_prob_diff * cost_weight\nclamped_score = clamp(score, -10, 10)\nloss_per_pair = -norm_weight * logsigmoid(clamped_score)\nloss = sum(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid_sigmoid_scaled",
+        "agg_family": "weighted_normalized_sum",
+        "constraint_family": "normalization_scale_clipping"
+      },
+      "operators_used": [
+        "sum",
+        "sigmoid",
+        "logsigmoid",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    cost_gap_coef = float(extra.get('hyperparams', {}).get('cost_gap_coef', 0.2))\n    eps = 1e-8\n\n    weight_sum = ops.sum(weight) + eps\n    norm_weight = weight / weight_sum\n\n    scaled_prob_diff = scale * (lpw - lpl)\n    cost_weight = ops.sigmoid(cost_gap_coef * cost_gap)\n    score = scaled_prob_diff * cost_weight\n\n    score = ops.clamp(score, -10.0, 10.0)\n\n    loss_per_pair = -norm_weight * ops.logsigmoid(score)\n    loss = ops.sum(loss_per_pair)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

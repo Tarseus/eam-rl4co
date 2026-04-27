@@ -1,0 +1,75 @@
+{
+  "generation": -1,
+  "index": 0,
+  "id": "fseed_000_9cfa032c",
+  "signature": "9cfa032c77b5d15356f006a33f64d9cafa826d14",
+  "family": "pairwise_margin|advantage_gap|weighted_mean|normalization_exponential_margin",
+  "family_signature": "paradigm=pairwise_margin|signal=advantage_gap|agg=weighted_mean|constraint=normalization_exponential_margin",
+  "origin": "TRANSFER_SEED",
+  "origin_base": "f008_013_9cfa032c",
+  "op_type": "TRANSFER_SEED",
+  "parents": [
+    "f008_013_9cfa032c"
+  ],
+  "attempt": 0,
+  "prompt_sha1": null,
+  "prompt_path": null,
+  "llm_seed": null,
+  "history": [
+    {
+      "op": "TRANSFER_SEED",
+      "source_loss_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260403-142801/best_loss.json",
+      "source_pool": "artifact",
+      "source_id": "f008_013_9cfa032c"
+    }
+  ],
+  "novelty": null,
+  "ir": {
+    "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+    "intuition": "Replaced the linear scaling of (log_prob_w - log_prob_l) by normalizing advantage_gap with an exponential margin term to reduce similarity to prior losses. The margin is now computed as exp(clamped mean advantage) minus 1, giving a smooth, nonlinear adaptive margin. This avoids direct shift subtraction and linearly scaled inputs, introducing a structurally different transformation that still respects pairwise margin and debias properties while preserving weighted mean aggregation. This structural shift improves novelty and numeric stability.",
+    "pseudocode": "epsilon=1e-6\nmean_adv = mean(advantage_gap)\nmargin = exp(clamp(abs(mean_adv), 0, 1)) - 1\nnorm = max(mean(norm(advantage_gap)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_mean",
+      "constraint_family": "normalization_exponential_margin"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "norm",
+      "mean",
+      "maximum",
+      "neg",
+      "mul",
+      "sub",
+      "div",
+      "abs",
+      "exp",
+      "sum"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "transfer_seed",
+  "static_trace": {},
+  "compile_ok": true,
+  "compile_reason": "transfer_seed",
+  "fitness": -0.16549987792969745,
+  "descriptor": null,
+  "source_loss_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260403-142801/best_loss.json",
+  "source_loss_id": "f008_013_9cfa032c",
+  "source_fitness": -0.1929994583129826
+}

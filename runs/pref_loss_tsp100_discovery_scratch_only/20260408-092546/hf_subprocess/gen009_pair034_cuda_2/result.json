@@ -1,0 +1,653 @@
+{
+  "generation": 9,
+  "pair_index": 34,
+  "g_id": "g_ref",
+  "f_id": "f009_011_3fb16d06",
+  "g_ir": {
+    "name": "ref_all_pairs_builder",
+    "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "ref_all_pairs"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+  },
+  "f_ir": {
+    "name": "stable_smoothpairwise_softplus_margin_loss_v2",
+    "intuition": "To reduce similarity with existing losses, I changed the aggregation from logsumexp normalization to a mean of weighted losses, ensuring stable bounded outputs by keeping the tanh nonlinearity. I replaced the logsumexp-based aggregation with a weighted mean, which is simpler and less similar to prior art. I kept the asymmetric smooth margin using softplus differences clamped to [-10,10] to maintain numerical stability and bounded gradients. This avoids overflow and stabilizes training. The loss remains bounded, uses advantage_gap for signal, and respects the pairwise mode and required keys.",
+    "pseudocode": "diff = log_prob_w - log_prob_l\nmargin_diff = clamp(softplus(diff) - softplus(-diff), min=-10, max=10)\nmargin = alpha * margin_diff - beta * advantage_gap\nlosses = -tanh(margin)\nweighted_losses = weight * losses\nloss = sum(weighted_losses) / sum(weight)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_rank_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "tanh",
+      "agg_family": "weighted_mean",
+      "constraint_family": "bounded_loss",
+      "other_hparams": "softplus_signed_margin_clamped"
+    },
+    "operators_used": [
+      "sub",
+      "softplus",
+      "clamp",
+      "mul",
+      "neg",
+      "tanh",
+      "sum",
+      "div",
+      "ones_like"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv = batch['advantage_gap']\n    weight = batch.get('weight', ops.ones_like(adv))\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 0.5)))\n\n    diff = ops.sub(lpw, lpl)\n    margin_diff_raw = ops.sub(ops.softplus(diff), ops.softplus(ops.neg(diff)))\n    margin_diff = ops.clamp(margin_diff_raw, -10.0, 10.0)\n\n    margin = ops.sub(ops.mul(alpha, margin_diff), ops.mul(beta, adv))\n    losses = ops.neg(ops.tanh(margin))\n\n    weighted_losses = ops.mul(losses, weight)\n    sum_weighted_losses = ops.sum(weighted_losses)\n    sum_weight = ops.sum(weight)\n\n    loss = ops.div(sum_weighted_losses, sum_weight)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:2",
+  "device_str": "cuda:2",
+  "device_physical_str": "cuda:2",
+  "device_logical_str": "cuda:0",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "2a986e397fd6c3df",
+  "score": -0.030704656982421863,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 0.875,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": null,
+  "descriptor": null,
+  "hf_cuda_diagnostics": "hf_subprocess/gen009_pair034_cuda_2/cuda_diagnostics.jsonl",
+  "proxy_score": 0.125,
+  "joint_gate_repaired": false,
+  "joint_gate_repair_attempts": 0,
+  "f_id_before_repair": null,
+  "f_id_after_repair": null,
+  "joint_gate_repair_reports": [],
+  "builder_gate_repaired": false,
+  "builder_gate_repair_attempts": 0,
+  "g_id_before_repair": null,
+  "g_id_after_repair": null,
+  "builder_gate_repair_reports": [],
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "sandbox_gate": {
+    "ok": true,
+    "generation": 9,
+    "pair_index": 34,
+    "failure_kind": null,
+    "reason": "ok",
+    "checks": [
+      {
+        "variant": "visible",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      },
+      {
+        "variant": "hidden",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": false,
+        "joint_failure_kind": "joint_preference_violation"
+      }
+    ],
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen009_pair034_g_ref_f009_011_3fb16d0/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen009_pair034_g_ref_f009_011_3fb16d0/result.json"
+  },
+  "sandbox_gate_ok": true,
+  "sandbox_gate_reason": "ok",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": {
+    "failed_gate": null,
+    "failure_kind": null,
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 0.875,
+      "loss": -0.9147053956985474,
+      "loss_swap": -0.8518726229667664,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": -0.9147053956985474
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [],
+    "variant": "visible"
+  },
+  "co_enabled": true,
+  "co_ok": true,
+  "co_reason": "ok",
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_ok": true,
+  "co_invariance_ok": true,
+  "co_sensitivity_visible_ok": true,
+  "co_sensitivity_visible_reason": "ok",
+  "co_sensitivity_visible_abs_delta": 0.3307737112045288,
+  "co_sensitivity_visible_rel_delta": 0.45107602221297405,
+  "co_sensitivity_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_objective_perturbation",
+    "observed": {
+      "abs_delta": 0.3307737112045288,
+      "rel_delta": 0.45107602221297405,
+      "grad_ratio": 0.7929848255935257
+    },
+    "threshold": {
+      "min_abs_delta": 0.001,
+      "min_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": ">=",
+      "rel_delta": ">=",
+      "grad_ratio": "informational"
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "loss_small": -0.20126277208328247,
+        "loss_large": -0.5320364832878113,
+        "log_prob_w": -0.7127647399902344,
+        "log_prob_l": -3.0064005851745605
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_sensitivity_hidden_ok": null,
+  "co_sensitivity_hidden_reason": null,
+  "co_sensitivity_hidden_abs_delta": null,
+  "co_sensitivity_hidden_rel_delta": null,
+  "co_sensitivity_hidden_trace": null,
+  "co_invariance_visible_ok": true,
+  "co_invariance_visible_reason": "ok",
+  "co_invariance_visible_abs_delta": 0.0,
+  "co_invariance_visible_rel_delta": 0.0,
+  "co_invariance_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_affine_transform",
+    "observed": {
+      "abs_delta": 0.0,
+      "rel_delta": 0.0
+    },
+    "threshold": {
+      "max_abs_delta": 0.001,
+      "max_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": "<=",
+      "rel_delta": "<="
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "a": 7.0,
+        "b": 3.0,
+        "loss_raw": -0.10087861865758896,
+        "loss_affine": -0.10087861865758896,
+        "log_prob_w": -1.5614955425262451,
+        "log_prob_l": -2.4571709632873535
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_invariance_hidden_ok": null,
+  "co_invariance_hidden_reason": null,
+  "co_invariance_hidden_abs_delta": null,
+  "co_invariance_hidden_rel_delta": null,
+  "co_invariance_hidden_trace": null,
+  "hf_log_file": "gen009_pair034_cuda_2_g_ref_f009_011_3fb16d06.log",
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "fitness": {
+    "per_init": {
+      "scratch": {
+        "obj_cand_by_size": {
+          "100": 7.867542193603516
+        },
+        "obj_base_by_size": {
+          "100": 7.899497789001465
+        },
+        "obj_cand": 7.867542193603516,
+        "obj_base": 7.899497789001465,
+        "delta": -0.031955595397949565,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": null,
+        "error": null,
+        "error_traceback": null,
+        "preflight_rollout_smoke_test": {
+          "ok": true,
+          "phase": "train",
+          "device": "cuda:0",
+          "precision": "32-true",
+          "batch_size": 1,
+          "num_rollouts": 2,
+          "init_checkpoint_path": null,
+          "rollout_strategy": "policy_multistart",
+          "reward": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "isfinite": true,
+            "min": -58.23326873779297,
+            "max": -57.92230987548828
+          },
+          "log_likelihood": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "isfinite": true,
+            "min": -115.02429962158203,
+            "max": -113.69400787353516
+          },
+          "rollout_debug_events": []
+        },
+        "rollout_debug_events": []
+      },
+      "ckpt_135": {
+        "obj_cand_by_size": {
+          "100": 7.873298628234863
+        },
+        "obj_base_by_size": {
+          "100": 7.9027523468017575
+        },
+        "obj_cand": 7.873298628234863,
+        "obj_base": 7.9027523468017575,
+        "delta": -0.02945371856689416,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+        "error": null,
+        "error_traceback": null,
+        "preflight_rollout_smoke_test": {
+          "ok": true,
+          "phase": "train",
+          "device": "cuda:0",
+          "precision": "32-true",
+          "batch_size": 1,
+          "num_rollouts": 2,
+          "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+          "rollout_strategy": "policy_multistart",
+          "reward": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "isfinite": true,
+            "min": -15.767354965209961,
+            "max": -11.223669052124023
+          },
+          "log_likelihood": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "isfinite": true,
+            "min": -53.04107666015625,
+            "max": -44.00743103027344
+          },
+          "rollout_debug_events": []
+        },
+        "rollout_debug_events": []
+      }
+    },
+    "per_scenario": {
+      "tsp100": {
+        "scenario_name": "tsp100",
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 10,
+          "hf_instances_per_epoch": 100000
+        },
+        "K": 200,
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 7.867542193603516
+            },
+            "obj_base_by_size": {
+              "100": 7.899497789001465
+            },
+            "obj_cand": 7.867542193603516,
+            "obj_base": 7.899497789001465,
+            "delta": -0.031955595397949565,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": null,
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -58.23326873779297,
+                "max": -57.92230987548828
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -115.02429962158203,
+                "max": -113.69400787353516
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          },
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 7.873298628234863
+            },
+            "obj_base_by_size": {
+              "100": 7.9027523468017575
+            },
+            "obj_cand": 7.873298628234863,
+            "obj_base": 7.9027523468017575,
+            "delta": -0.02945371856689416,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -15.767354965209961,
+                "max": -11.223669052124023
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -53.04107666015625,
+                "max": -44.00743103027344
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "delta_mean": -0.030704656982421863,
+        "delta_worst": -0.02945371856689416
+      }
+    },
+    "scenario_names": [
+      "tsp100"
+    ],
+    "delta_mean": -0.030704656982421863,
+    "delta_worst": -0.02945371856689416,
+    "all_scenarios_negative": true,
+    "nonnegative_scenario_count": 0,
+    "worst_scenario_delta": -0.030704656982421863,
+    "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+    "baseline_mini_eval_paths": {
+      "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
+    },
+    "baseline_multiseed_cache_path": null,
+    "baseline_multiseed_cache_paths": {
+      "tsp100": null
+    },
+    "baseline_compare_mode": "mini_eval",
+    "baseline_compare_modes": {
+      "tsp100": "mini_eval"
+    },
+    "eval_signature": {
+      "protocol": "stage3_online_minitrain_v1",
+      "baseline_eval_impl_version": 2,
+      "baseline_eval_mode": "ref_free_loss",
+      "scenario_name": "tsp100",
+      "env_name": "tsp",
+      "policy_name": "pomo",
+      "policy_kwargs": {
+        "po4cops_compat": true,
+        "embed_dim": 128,
+        "num_encoder_layers": 6,
+        "decoder_layer_num": 1,
+        "qkv_dim": 16,
+        "num_heads": 8,
+        "feedforward_hidden": 512,
+        "tanh_clipping": 50,
+        "eval_type": "argmax",
+        "val_decode_type": "greedy",
+        "test_decode_type": "greedy"
+      },
+      "env_kwargs": {},
+      "rollout_strategy": "auto",
+      "objective_sign": "neg_reward",
+      "alpha": 0.05,
+      "po_impl": "bt",
+      "K": 200,
+      "train_problem_size": 100,
+      "valid_problem_sizes": [
+        100
+      ],
+      "train_batch_size": 64,
+      "num_validation_episodes": 10000,
+      "validation_batch_size": 64,
+      "pomo_size": null,
+      "learning_rate": 0.0003,
+      "weight_decay": 1e-06,
+      "size_aggregation": "mean",
+      "size_cvar_alpha": 0.2,
+      "scratch_init_seed": 1234,
+      "data": {
+        "mode": "online",
+        "generator_params": {
+          "num_loc": 100
+        }
+      },
+      "include_scratch": true,
+      "checkpoints": [
+        {
+          "name": "ckpt_135",
+          "path": "baseline/tsp100_epoch_135.ckpt",
+          "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+        }
+      ],
+      "budget_mode": "epochs",
+      "hf_epochs": 10,
+      "hf_instances_per_epoch": 100000
+    },
+    "any_error": false,
+    "runtime_error_count": 0,
+    "runtime_error_inits": []
+  },
+  "better_than_baseline_mean": true,
+  "better_than_baseline_strict": true,
+  "better_than_baseline_all_scenarios": true,
+  "stage3_all_scenarios_negative": true,
+  "stage3_nonnegative_scenario_count": 0,
+  "stage3_worst_scenario_delta": -0.030704656982421863,
+  "stage3_any_error": false,
+  "stage3_runtime_error_count": 0,
+  "stage3_runtime_error_inits": [],
+  "elapsed_s": 10584.2923412323
+}

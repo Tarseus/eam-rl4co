@@ -1,0 +1,167 @@
+{
+  "generation": 9,
+  "index": 9,
+  "id": "f009_009_11a243e4",
+  "signature": "11a243e430dd9f21f8b425eab26475271ff4ef06",
+  "family": "pairwise_margin|delta_rank|normalized_weighted_sum|clipping_with_explicit_normalization",
+  "family_signature": "paradigm=pairwise_margin|signal=delta_rank|agg=normalized_weighted_sum|constraint=clipping_with_explicit_normalization",
+  "origin": "CONSTRAINT_INJECT",
+  "origin_base": "CONSTRAINT_INJECT",
+  "op_type": "LOSS_CONSTRAINT_INJECT",
+  "parents": [
+    "f008_008_6405791f"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "e37fa170a523e90a27501ea6ba4378e9516d175a",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+  "llm_seed": 1930861114,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_CONSTRAINT_INJECT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+      "prompt_sha1": "e37fa170a523e90a27501ea6ba4378e9516d175a"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.9473684210526315,
+    "best_similarity_parts": {
+      "bigram": 0.7,
+      "unigram": 0.9473684210526315,
+      "call": 0.9333333333333333
+    },
+    "neighbors": [
+      {
+        "sig": "6405791fca53bebd4bed7c3c6d18699034d01aaf",
+        "name": "pairwise_margin_bias_shift_scaled",
+        "similarity": 0.9473684210526315,
+        "similarity_parts": {
+          "bigram": 0.7,
+          "unigram": 0.9473684210526315,
+          "call": 0.9333333333333333
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.clamp",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sub",
+          "ops.sum"
+        ]
+      },
+      {
+        "sig": "7ce475778e334a733d5cf654548d5e83e993131d",
+        "name": "pairwise_rank_weighted_advantage_loss_scale_invariant_normalized_sum",
+        "similarity": 0.875,
+        "similarity_parts": {
+          "bigram": 0.34146341463414637,
+          "unigram": 0.8,
+          "call": 0.875
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.logsigmoid",
+          "ops.mean",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sub",
+          "ops.sum",
+          "ops.tanh"
+        ]
+      },
+      {
+        "sig": "43d22f8a505a142fd9ff4e6e9e36ab5ddc8772e5",
+        "name": "pairwise_rank_weighted_advantage_loss_symmetry_normalized_sum_to_one",
+        "similarity": 0.875,
+        "similarity_parts": {
+          "bigram": 0.21951219512195122,
+          "unigram": 0.8,
+          "call": 0.875
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "ops.abs",
+          "ops.add",
+          "ops.clamp",
+          "ops.div",
+          "ops.exp",
+          "ops.logsigmoid",
+          "ops.mul",
+          "ops.neg",
+          "ops.ones_like",
+          "ops.sub",
+          "ops.sum"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "pairwise_margin_with_bias_and_clip_normalized",
+    "intuition": "To enhance stability and prevent outlier margin values from dominating, this loss applies explicit clipping to the biased margin and normalizes the weighted loss sum to 1, ensuring scale-invariance and controlled dynamic range while preserving pairwise weighted margin with bias.",
+    "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + 1e-6\ngamma = extra.get('gamma', 1.5)\nbeta = 0.05 * abs_delta_rank_mean\nweighted_margin = alpha * margin - beta * delta_rank\nbiased_margin = weighted_margin + gamma * bias\nx = clamp(biased_margin, -10, 10)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nnorm = sum(weighted_loss) + epsilon\nloss = sum(weighted_loss) / norm",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "delta_rank",
+      "link_family": "logsigmoid",
+      "agg_family": "normalized_weighted_sum",
+      "constraint_family": "clipping_with_explicit_normalization"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "mul",
+      "add",
+      "sub",
+      "neg",
+      "sum",
+      "abs",
+      "mean",
+      "div"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 1.5))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + 1e-6\n    beta = 0.05 * abs_delta_rank_mean\n\n    margin = ops.sub(lpw, lpl)\n    weighted_margin = ops.sub(ops.mul(alpha, margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, ops.mul(gamma, bias))\n    x = ops.clamp(biased_margin, -10.0, 10.0)\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    norm = ops.sum(weighted_loss) + eps\n    loss = ops.div(ops.sum(weighted_loss), norm)\n    return loss",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": -0.013208696746825677,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

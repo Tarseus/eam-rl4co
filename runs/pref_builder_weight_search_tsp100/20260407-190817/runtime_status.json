@@ -1,0 +1,55 @@
+{
+  "role": "pref_loss_coevo_main",
+  "status": "finished",
+  "pid": 175164,
+  "ppid": 175158,
+  "host": "ubuntu",
+  "argv": [
+    "PTP/ptp_discovery/run_pref_loss_coevo.py",
+    "--config",
+    "PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml"
+  ],
+  "cwd": "/data1/gushengda/eam-rl4co",
+  "created_at": "2026-04-07 19:08:17",
+  "created_at_epoch_s": 1775560097.3213954,
+  "heartbeat_count": 11,
+  "started_at": "2026-04-07 19:08:17",
+  "started_at_epoch_s": 1775560097.3214123,
+  "last_heartbeat_at": "2026-04-07 19:08:18",
+  "last_heartbeat_epoch_s": 1775560098.17543,
+  "extra": {
+    "config_path": "/data1/gushengda/eam-rl4co/PTP/configs/experiment/pref_loss_coevo/tsp100_builder_weight_search_from_archive.yaml",
+    "resume_dir": null,
+    "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_builder_weight_search_tsp100/20260407-190817",
+    "search_mode": "builder_only",
+    "preset": "simple",
+    "generations": 10,
+    "seed": 1234,
+    "devices": [
+      "cuda:0",
+      "cuda:1",
+      "cuda:2",
+      "cuda:3"
+    ],
+    "mp_enabled": true,
+    "mp_processes": 4,
+    "hf_scheduler_mode": "subprocess"
+  },
+  "progress": {
+    "stage": "generation_loop",
+    "next_generation": 10,
+    "generation": 9,
+    "phase": "builder"
+  },
+  "reason": "completed",
+  "exit_code": 0,
+  "ended_at": "2026-04-07 19:08:18",
+  "ended_at_epoch_s": 1775560098.1886582,
+  "result": {
+    "last_generation": 9,
+    "next_generation": 10,
+    "best_score": -0.02145215148925761,
+    "best_builder_id": "g_ref",
+    "best_loss_id": "fseed_000_1ec7ffff"
+  }
+}
