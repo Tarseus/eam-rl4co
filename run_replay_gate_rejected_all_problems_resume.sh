@@ -148,7 +148,25 @@ expected_selected_count() {
   fi
 
   local json_out
-  json_out="$("${cmd[@]}")"
+  if ! json_out="$("${cmd[@]}" 2>&1)"; then
+    if [[ "${json_out}" == *"No matching gate-rejected pairs found."* ]]; then
+      printf '0\n'
+      return 0
+    fi
+    printf '%s\n' "${json_out}" >&2
+    return 1
+  fi
+
+  if [[ "${json_out}" == *"No matching gate-rejected pairs found."* ]]; then
+    printf '0\n'
+    return 0
+  fi
+
+  if [[ -z "${json_out}" ]]; then
+    printf '0\n'
+    return 0
+  fi
+
   "${PYTHON_BIN}" -c 'import json, sys; print(json.loads(sys.stdin.read())["selected_count"])' <<<"${json_out}"
 }
 
@@ -262,6 +280,10 @@ run_four_shards_resume() {
   for shard in 0 1 2 3; do
     local expected_count
     expected_count="$(expected_selected_count "${run_dir}" "${sample_size}" "${shard}")"
+    if [[ "${expected_count}" == "0" ]]; then
+      echo "[${label_prefix}_s${shard}] skip empty selection"
+      continue
+    fi
 
     local report_path
     report_path="$(report_path_for_shard "${output_prefix}" "${shard}")"
