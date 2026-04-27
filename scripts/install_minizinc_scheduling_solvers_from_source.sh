@@ -1,0 +1,226 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TOOLS_DIR="${ROOT_DIR}/tools"
+SRC_DIR="${SRC_DIR:-${TOOLS_DIR}/src}"
+BUILD_ROOT="${BUILD_ROOT:-${TOOLS_DIR}/build}"
+
+MINIZINC_SOURCE_ARCHIVE_PATH="${MINIZINC_SOURCE_ARCHIVE_PATH:-${SRC_DIR}/libminizinc-src.tar.gz}"
+CHUFFED_SOURCE_ARCHIVE_PATH="${CHUFFED_SOURCE_ARCHIVE_PATH:-${SRC_DIR}/chuffed-src.tar.gz}"
+
+MINIZINC_INSTALL_DIR="${MINIZINC_INSTALL_DIR:-${TOOLS_DIR}/minizinc_source_install}"
+CHUFFED_INSTALL_DIR="${CHUFFED_INSTALL_DIR:-${TOOLS_DIR}/chuffed_source_install}"
+MINIZINC_LINK_DIR="${MINIZINC_LINK_DIR:-${TOOLS_DIR}/minizinc}"
+MINIZINC_ENV_FILE="${MINIZINC_ENV_FILE:-${TOOLS_DIR}/minizinc_env.sh}"
+
+SCIP_INSTALL_METHOD="${SCIP_INSTALL_METHOD:-conda}"
+SCIP_CONDA_CHANNEL="${SCIP_CONDA_CHANNEL:-conda-forge}"
+SCIP_CONDA_PACKAGE="${SCIP_CONDA_PACKAGE:-scip}"
+SCIP_PREFIX_PATH="${SCIP_PREFIX_PATH:-${CONDA_PREFIX:-}}"
+REQUIRE_SCIP_IN_MINIZINC="${REQUIRE_SCIP_IN_MINIZINC:-0}"
+
+BUILD_PARALLEL="${BUILD_PARALLEL:-}"
+
+log() {
+  printf '[install_minizinc_scheduling_solvers_from_source] %s\n' "$*"
+}
+
+warn() {
+  printf '[install_minizinc_scheduling_solvers_from_source] WARNING: %s\n' "$*" >&2
+}
+
+fail() {
+  printf '[install_minizinc_scheduling_solvers_from_source] ERROR: %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  local cmd="$1"
+  command -v "${cmd}" >/dev/null 2>&1 || fail "Required command not found: ${cmd}"
+}
+
+choose_parallelism() {
+  if [[ -n "${BUILD_PARALLEL}" ]]; then
+    return
+  fi
+
+  if command -v nproc >/dev/null 2>&1; then
+    BUILD_PARALLEL="$(nproc)"
+    return
+  fi
+
+  BUILD_PARALLEL="4"
+}
+
+extract_archive_root() {
+  local archive_path="$1"
+  local dest_dir="$2"
+
+  [[ -f "${archive_path}" ]] || fail "Archive not found: ${archive_path}"
+  rm -rf "${dest_dir}"
+  mkdir -p "${dest_dir}"
+  tar xf "${archive_path}" -C "${dest_dir}"
+
+  local entries=()
+  mapfile -t entries < <(find "${dest_dir}" -mindepth 1 -maxdepth 1 | sort)
+  if [[ "${#entries[@]}" -eq 1 && -d "${entries[0]}" ]]; then
+    printf '%s\n' "${entries[0]}"
+    return
+  fi
+
+  printf '%s\n' "${dest_dir}"
+}
+
+install_scip_with_conda() {
+  if [[ "${SCIP_INSTALL_METHOD}" == "skip" ]]; then
+    log "Skipping SCIP install because SCIP_INSTALL_METHOD=skip"
+    return
+  fi
+
+  require_command conda
+  [[ -n "${CONDA_PREFIX:-}" ]] || fail \
+"SCIP_INSTALL_METHOD=conda expects an activated conda environment.
+Activate the target env first, or set SCIP_INSTALL_METHOD=skip."
+
+  log "Installing SCIP into the active conda environment at ${CONDA_PREFIX}"
+  conda install -y -c "${SCIP_CONDA_CHANNEL}" "${SCIP_CONDA_PACKAGE}"
+
+  if command -v scip >/dev/null 2>&1; then
+    log "SCIP executable detected at $(command -v scip)"
+  else
+    warn "SCIP executable was not found on PATH after conda install."
+  fi
+
+  if [[ -z "${SCIP_PREFIX_PATH}" ]]; then
+    SCIP_PREFIX_PATH="${CONDA_PREFIX}"
+  fi
+}
+
+build_chuffed() {
+  local src_root
+  src_root="$(extract_archive_root "${CHUFFED_SOURCE_ARCHIVE_PATH}" "${BUILD_ROOT}/src/chuffed")"
+  local build_dir="${BUILD_ROOT}/chuffed-build"
+
+  log "Building Chuffed from source at ${src_root}"
+  cmake -S "${src_root}" -B "${build_dir}" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="${CHUFFED_INSTALL_DIR}"
+  cmake --build "${build_dir}" --parallel "${BUILD_PARALLEL}"
+  cmake --build "${build_dir}" --target install
+}
+
+build_minizinc() {
+  local src_root
+  src_root="$(extract_archive_root "${MINIZINC_SOURCE_ARCHIVE_PATH}" "${BUILD_ROOT}/src/libminizinc")"
+  local build_dir="${BUILD_ROOT}/libminizinc-build"
+  local cmake_args=(
+    -S "${src_root}"
+    -B "${build_dir}"
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_INSTALL_PREFIX="${MINIZINC_INSTALL_DIR}"
+  )
+
+  if [[ -n "${SCIP_PREFIX_PATH}" ]]; then
+    cmake_args+=("-DCMAKE_PREFIX_PATH=${SCIP_PREFIX_PATH}")
+  fi
+
+  log "Building MiniZinc from source at ${src_root}"
+  cmake "${cmake_args[@]}"
+  cmake --build "${build_dir}" --parallel "${BUILD_PARALLEL}"
+  cmake --build "${build_dir}" --target install
+}
+
+write_chuffed_solver_config() {
+  local solver_dir="${MINIZINC_INSTALL_DIR}/share/minizinc/solvers"
+  mkdir -p "${solver_dir}"
+
+  cat > "${solver_dir}/chuffed.msc" <<EOF
+{
+  "id": "org.chuffed.chuffed",
+  "name": "Chuffed",
+  "description": "Chuffed FlatZinc executable",
+  "version": "source-build",
+  "mznlib": "${CHUFFED_INSTALL_DIR}/share/chuffed/mznlib",
+  "executable": "${CHUFFED_INSTALL_DIR}/bin/fzn-chuffed",
+  "tags": ["cp", "lcg", "int"],
+  "stdFlags": ["-a", "-f", "-n", "-p", "-r", "-s", "-t", "-v"],
+  "supportsMzn": false,
+  "supportsFzn": true,
+  "needsSolns2Out": true,
+  "needsMznExecutable": false,
+  "needsStdlibDir": false,
+  "isGUIApplication": false
+}
+EOF
+}
+
+write_env_file() {
+  local scip_bin_export=""
+  local scip_lib_export=""
+  if [[ -n "${SCIP_PREFIX_PATH}" ]]; then
+    scip_bin_export="${SCIP_PREFIX_PATH}/bin:"
+    scip_lib_export=":${SCIP_PREFIX_PATH}/lib"
+  fi
+
+  cat > "${MINIZINC_ENV_FILE}" <<EOF
+export PATH="${MINIZINC_INSTALL_DIR}/bin:${CHUFFED_INSTALL_DIR}/bin:${scip_bin_export}\${PATH}"
+export LD_LIBRARY_PATH="${MINIZINC_INSTALL_DIR}/lib:${CHUFFED_INSTALL_DIR}/lib${scip_lib_export}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export MZN_SOLVER_PATH="${MINIZINC_INSTALL_DIR}/share/minizinc/solvers\${MZN_SOLVER_PATH:+:\${MZN_SOLVER_PATH}}"
+EOF
+  chmod +x "${MINIZINC_ENV_FILE}" || true
+  ln -sfn "${MINIZINC_INSTALL_DIR}" "${MINIZINC_LINK_DIR}"
+  log "Wrote MiniZinc environment helper to ${MINIZINC_ENV_FILE}"
+}
+
+verify_setup() {
+  # shellcheck disable=SC1090
+  source "${MINIZINC_ENV_FILE}"
+
+  command -v minizinc >/dev/null 2>&1 || fail "MiniZinc executable not found after source install."
+  log "MiniZinc version:"
+  minizinc --version
+
+  local solvers_output
+  solvers_output="$(minizinc --solvers || true)"
+  printf '%s\n' "${solvers_output}"
+
+  if ! printf '%s' "${solvers_output}" | grep -qi "chuffed"; then
+    fail "MiniZinc did not expose a Chuffed backend after source install."
+  fi
+
+  if printf '%s' "${solvers_output}" | grep -qi "scip"; then
+    log "MiniZinc can see a SCIP backend."
+    return
+  fi
+
+  if [[ "${REQUIRE_SCIP_IN_MINIZINC}" == "1" ]]; then
+    fail "MiniZinc cannot see SCIP yet. Check SCIP_PREFIX_PATH and rebuild MiniZinc."
+  fi
+
+  warn "MiniZinc does not currently list SCIP."
+  warn "If you need SCIP through MiniZinc, install SCIP first and rebuild with SCIP_PREFIX_PATH set."
+}
+
+main() {
+  require_command tar
+  require_command cmake
+  require_command c++
+  choose_parallelism
+  mkdir -p "${SRC_DIR}" "${BUILD_ROOT}" "${TOOLS_DIR}"
+
+  log "Expecting uploaded source archives at:"
+  log "  MINIZINC_SOURCE_ARCHIVE_PATH=${MINIZINC_SOURCE_ARCHIVE_PATH}"
+  log "  CHUFFED_SOURCE_ARCHIVE_PATH=${CHUFFED_SOURCE_ARCHIVE_PATH}"
+
+  install_scip_with_conda
+  build_chuffed
+  build_minizinc
+  write_chuffed_solver_config
+  write_env_file
+  verify_setup
+  log "Done."
+}
+
+main "$@"
