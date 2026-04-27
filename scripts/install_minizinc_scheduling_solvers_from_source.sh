@@ -54,6 +54,41 @@ choose_parallelism() {
   BUILD_PARALLEL="4"
 }
 
+configure_cmake_project() {
+  local src_root="$1"
+  local build_dir="$2"
+  shift 2
+
+  mkdir -p "${build_dir}"
+  (
+    cd "${build_dir}"
+    cmake "${src_root}" "$@"
+  )
+}
+
+build_cmake_project() {
+  local build_dir="$1"
+
+  if cmake --build "${build_dir}" --parallel "${BUILD_PARALLEL}"; then
+    return
+  fi
+
+  cmake --build "${build_dir}" -- -j"${BUILD_PARALLEL}"
+}
+
+install_cmake_project() {
+  local build_dir="$1"
+
+  if cmake --build "${build_dir}" --target install; then
+    return
+  fi
+
+  (
+    cd "${build_dir}"
+    make install
+  )
+}
+
 extract_archive_root() {
   local archive_path="$1"
   local dest_dir="$2"
@@ -104,11 +139,11 @@ build_chuffed() {
   local build_dir="${BUILD_ROOT}/chuffed-build"
 
   log "Building Chuffed from source at ${src_root}"
-  cmake -S "${src_root}" -B "${build_dir}" \
+  configure_cmake_project "${src_root}" "${build_dir}" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="${CHUFFED_INSTALL_DIR}"
-  cmake --build "${build_dir}" --parallel "${BUILD_PARALLEL}"
-  cmake --build "${build_dir}" --target install
+  build_cmake_project "${build_dir}"
+  install_cmake_project "${build_dir}"
 }
 
 build_minizinc() {
@@ -116,8 +151,6 @@ build_minizinc() {
   src_root="$(extract_archive_root "${MINIZINC_SOURCE_ARCHIVE_PATH}" "${BUILD_ROOT}/src/libminizinc")"
   local build_dir="${BUILD_ROOT}/libminizinc-build"
   local cmake_args=(
-    -S "${src_root}"
-    -B "${build_dir}"
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX="${MINIZINC_INSTALL_DIR}"
   )
@@ -127,9 +160,9 @@ build_minizinc() {
   fi
 
   log "Building MiniZinc from source at ${src_root}"
-  cmake "${cmake_args[@]}"
-  cmake --build "${build_dir}" --parallel "${BUILD_PARALLEL}"
-  cmake --build "${build_dir}" --target install
+  configure_cmake_project "${src_root}" "${build_dir}" "${cmake_args[@]}"
+  build_cmake_project "${build_dir}"
+  install_cmake_project "${build_dir}"
 }
 
 write_chuffed_solver_config() {
