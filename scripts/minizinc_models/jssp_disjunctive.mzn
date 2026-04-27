@@ -5,7 +5,7 @@ int: num_machines;
 int: num_ops;
 
 set of int: JOBS = 1..num_jobs;
-set of int: MACHINES = 1..num_machines;
+set of int: MACHINES = 0..num_machines - 1;
 set of int: OPS = 1..num_ops;
 
 array[JOBS, OPS] of MACHINES: machine_of;
