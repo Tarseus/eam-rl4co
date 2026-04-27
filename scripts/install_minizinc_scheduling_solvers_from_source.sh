@@ -245,7 +245,7 @@ write_chuffed_solver_config() {
   "name": "Chuffed",
   "description": "Chuffed FlatZinc executable",
   "version": "source-build",
-  "mznlib": "${CHUFFED_INSTALL_DIR}/share/chuffed/mznlib",
+  "mznlib": "${CHUFFED_INSTALL_DIR}/share/minizinc/chuffed",
   "executable": "${CHUFFED_INSTALL_DIR}/bin/fzn-chuffed",
   "tags": ["cp", "lcg", "int"],
   "stdFlags": ["-a", "-f", "-n", "-p", "-r", "-s", "-t", "-v"],
@@ -260,16 +260,16 @@ EOF
 }
 
 write_env_file() {
-  local scip_bin_export=""
-  local scip_lib_export=""
+  local path_prefix="${MINIZINC_INSTALL_DIR}/bin:${CHUFFED_INSTALL_DIR}/bin"
+  local ld_library_prefix="${MINIZINC_INSTALL_DIR}/lib:${CHUFFED_INSTALL_DIR}/lib"
   if [[ -n "${SCIP_PREFIX_PATH}" ]]; then
-    scip_bin_export="${SCIP_PREFIX_PATH}/bin:"
-    scip_lib_export=":${SCIP_PREFIX_PATH}/lib"
+    path_prefix="${path_prefix}:${SCIP_PREFIX_PATH}/bin"
+    ld_library_prefix="${SCIP_PREFIX_PATH}/lib:${ld_library_prefix}"
   fi
 
   cat > "${MINIZINC_ENV_FILE}" <<EOF
-export PATH="${MINIZINC_INSTALL_DIR}/bin:${CHUFFED_INSTALL_DIR}/bin:${scip_bin_export}\${PATH}"
-export LD_LIBRARY_PATH="${MINIZINC_INSTALL_DIR}/lib:${CHUFFED_INSTALL_DIR}/lib${scip_lib_export}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export PATH="${path_prefix}:\${PATH}"
+export LD_LIBRARY_PATH="${ld_library_prefix}\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
 export MZN_SOLVER_PATH="${MINIZINC_INSTALL_DIR}/share/minizinc/solvers\${MZN_SOLVER_PATH:+:\${MZN_SOLVER_PATH}}"
 EOF
   chmod +x "${MINIZINC_ENV_FILE}" || true
