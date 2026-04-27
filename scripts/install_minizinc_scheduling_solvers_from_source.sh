@@ -108,6 +108,51 @@ extract_archive_root() {
   printf '%s\n' "${dest_dir}"
 }
 
+patch_chuffed_cmakelists_for_legacy_cmake() {
+  local src_root="$1"
+  local cmakelists_path="${src_root}/CMakeLists.txt"
+
+  [[ -f "${cmakelists_path}" ]] || fail "Chuffed CMakeLists.txt not found at ${cmakelists_path}"
+
+  python - "${cmakelists_path}" <<'PY'
+import pathlib
+import re
+import sys
+
+path = pathlib.Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+original = text
+
+if "include(GNUInstallDirs)" not in text:
+    text = re.sub(
+        r"(project\s*\([^\n]*\)\s*\n)",
+        r"\1include(GNUInstallDirs)\n",
+        text,
+        count=1,
+    )
+
+pattern = re.compile(
+    r"(install\s*\(\s*TARGETS\s+chuffed\b.*?\n)(\s*LIBRARY\s+DESTINATION\s+[^\n]+\n)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+def add_archive_destination(match: re.Match[str]) -> str:
+    head = match.group(1)
+    library_line = match.group(2)
+    if "ARCHIVE DESTINATION" in head or "ARCHIVE DESTINATION" in library_line:
+        return match.group(0)
+    indent_match = re.search(r"^(\s*)LIBRARY\s+DESTINATION", library_line, re.MULTILINE)
+    indent = indent_match.group(1) if indent_match else "  "
+    archive_line = f"{indent}ARCHIVE DESTINATION ${{CMAKE_INSTALL_LIBDIR}}\n"
+    return head + archive_line + library_line
+
+text = pattern.sub(add_archive_destination, text, count=1)
+
+if text != original:
+    path.write_text(text, encoding="utf-8")
+PY
+}
+
 install_scip_with_conda() {
   if [[ "${SCIP_INSTALL_METHOD}" == "skip" ]]; then
     log "Skipping SCIP install because SCIP_INSTALL_METHOD=skip"
@@ -138,6 +183,7 @@ build_chuffed() {
   src_root="$(extract_archive_root "${CHUFFED_SOURCE_ARCHIVE_PATH}" "${BUILD_ROOT}/src/chuffed")"
   local build_dir="${BUILD_ROOT}/chuffed-build"
 
+  patch_chuffed_cmakelists_for_legacy_cmake "${src_root}"
   log "Building Chuffed from source at ${src_root}"
   configure_cmake_project "${src_root}" "${build_dir}" \
     -DCMAKE_BUILD_TYPE=Release \
