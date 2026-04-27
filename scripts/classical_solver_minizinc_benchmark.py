@@ -438,6 +438,8 @@ def _run_minizinc_instance(
         notes_parts.append(f"returncode={return_code}")
     if stderr_text.strip():
         notes_parts.append(stderr_text.strip().replace("\n", " ")[:240])
+    elif stdout_text.strip() and status not in {"optimal", "feasible"}:
+        notes_parts.append(stdout_text.strip().replace("\n", " ")[:240])
     elif last_output.strip() and status in {"optimal", "feasible"}:
         notes_parts.append(last_output.strip()[:120])
 
