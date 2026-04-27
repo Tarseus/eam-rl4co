@@ -116,37 +116,36 @@ patch_chuffed_cmakelists_for_legacy_cmake() {
 
   python - "${cmakelists_path}" <<'PY'
 import pathlib
-import re
 import sys
 
 path = pathlib.Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
 original = text
 
-if "include(GNUInstallDirs)" not in text:
-    text = re.sub(
-        r"(project\s*\([^\n]*\)\s*\n)",
-        r"\1include(GNUInstallDirs)\n",
-        text,
-        count=1,
-    )
-
-pattern = re.compile(
-    r"(install\s*\(\s*TARGETS\s+chuffed\b.*?\n)(\s*LIBRARY\s+DESTINATION\s+[^\n]+\n)",
-    re.IGNORECASE | re.DOTALL,
+old_block = """install(
+  TARGETS chuffed chuffed_fzn
+  EXPORT chuffed-targets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 )
+"""
 
-def add_archive_destination(match: re.Match[str]) -> str:
-    head = match.group(1)
-    library_line = match.group(2)
-    if "ARCHIVE DESTINATION" in head or "ARCHIVE DESTINATION" in library_line:
-        return match.group(0)
-    indent_match = re.search(r"^(\s*)LIBRARY\s+DESTINATION", library_line, re.MULTILINE)
-    indent = indent_match.group(1) if indent_match else "  "
-    archive_line = f"{indent}ARCHIVE DESTINATION ${{CMAKE_INSTALL_LIBDIR}}\n"
-    return head + archive_line + library_line
+new_block = """install(
+  TARGETS chuffed chuffed_fzn
+  EXPORT chuffed-targets
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
+"""
 
-text = pattern.sub(add_archive_destination, text, count=1)
+if old_block in text:
+    text = text.replace(old_block, new_block, 1)
+elif new_block in text:
+    pass
+else:
+    raise SystemExit(
+        "Could not find the expected Chuffed install block to patch. "
+        "Please inspect CMakeLists.txt layout."
+    )
 
 if text != original:
     path.write_text(text, encoding="utf-8")
