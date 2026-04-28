@@ -1,10 +1,9 @@
 {
   "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_cvrp100_from_tsp100_elite/20260320-224008",
   "device": "cuda:0",
-  "pure_no_gate": false,
+  "pure_no_gate": true,
   "pair_reasons": [
     "cheap_gate_failed",
-    "stage0_sandbox_failed",
     "pref_semantic_failed",
     "co_gate_failed"
   ],
@@ -58,15 +57,65 @@
       "pair_index": 9,
       "g_id": "g_ref",
       "f_id": "f000_010_d390db32",
-      "g_ir": {},
-      "f_ir": {},
+      "g_ir": {
+        "name": "ref_all_pairs_builder",
+        "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "uniform_none",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "ref_all_pairs"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+      },
+      "f_ir": {
+        "name": "loss_logsigmoid_000_cost",
+        "intuition": "rule_based: pairwise logsigmoid loss",
+        "pseudocode": "loss = -logsigmoid(clamp(alpha*scale*(lpw-lpl), -20, 20))",
+        "hyperparams": {
+          "scale": 1.2092403880211096,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "cost_a",
+            "cost_b",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.2092403880211096))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      },
       "device": "cuda:0",
       "device_str": "cuda:0",
       "device_physical_str": "cuda:0",
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "2a986e397fd6c3df",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -81,13 +130,173 @@
       "g_id_before_repair": null,
       "g_id_after_repair": null,
       "builder_gate_repair_reports": [],
+      "g_compile_ok": true,
+      "g_compile_reason": "ok",
+      "f_static_ok": true,
+      "f_static_reason": "",
+      "f_compile_ok": true,
+      "f_compile_reason": "ok",
+      "sandbox_gate": null,
+      "sandbox_gate_ok": null,
+      "sandbox_gate_reason": null,
+      "builder_gate_ok": true,
+      "builder_gate_reason": "ok",
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 4096,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": false,
+          "cv_threshold": 0.0,
+          "pass_rate_threshold": 1.0,
+          "eligible_instances": 8,
+          "observed_cv_values": []
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "joint_gate_ok": true,
+      "joint_gate_reason": "ok",
+      "joint_gate_trace": {
+        "failed_gate": null,
+        "failure_kind": null,
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 0.6363387703895569,
+          "loss_swap": 0.7549083828926086,
+          "swap_ok": true,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 0.6363387703895569
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [],
+        "variant": "visible"
+      },
+      "co_enabled": true,
+      "co_ok": false,
+      "co_reason": "affine_invariance_violation",
+      "co_failed_gate": "AffineInvariance",
+      "co_failure_kind": "affine_invariance_violation",
+      "co_sensitivity_ok": true,
+      "co_invariance_ok": false,
+      "co_sensitivity_visible_ok": true,
+      "co_sensitivity_visible_reason": "ok",
+      "co_sensitivity_visible_abs_delta": 0.11108183860778809,
+      "co_sensitivity_visible_rel_delta": 0.04674588028420904,
+      "co_sensitivity_visible_trace": {
+        "failed_gate": null,
+        "metric_name": "delta_loss_under_objective_perturbation",
+        "observed": {
+          "abs_delta": 0.11108183860778809,
+          "rel_delta": 0.04674588028420904,
+          "grad_ratio": 1.0530569068222193
+        },
+        "threshold": {
+          "min_abs_delta": 0.001,
+          "min_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": ">=",
+          "rel_delta": ">=",
+          "grad_ratio": "informational"
+        },
+        "where_failed": null,
+        "counterexamples": [
+          {
+            "loss_small": 1.1326048374176025,
+            "loss_large": 1.2436866760253906,
+            "log_prob_w": -8.551840782165527,
+            "log_prob_l": -7.889096736907959
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_sensitivity_hidden_ok": null,
+      "co_sensitivity_hidden_reason": null,
+      "co_sensitivity_hidden_abs_delta": null,
+      "co_sensitivity_hidden_rel_delta": null,
+      "co_sensitivity_hidden_trace": null,
+      "co_invariance_visible_ok": false,
+      "co_invariance_visible_reason": "affine_invariance_violation",
+      "co_invariance_visible_abs_delta": 0.17008638381958008,
+      "co_invariance_visible_rel_delta": 0.07009717983723247,
+      "co_invariance_visible_trace": {
+        "failed_gate": "AffineInvariance",
+        "metric_name": "delta_loss_under_affine_transform",
+        "observed": {
+          "abs_delta": 0.17008638381958008,
+          "rel_delta": 0.07009717983723247
+        },
+        "threshold": {
+          "max_abs_delta": 0.001,
+          "max_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": "<=",
+          "rel_delta": "<="
+        },
+        "where_failed": "abs_delta_and_rel_delta",
+        "counterexamples": [
+          {
+            "a": 7.0,
+            "b": 3.0,
+            "loss_raw": 1.1281752586364746,
+            "loss_affine": 1.2982616424560547,
+            "log_prob_w": -9.489828109741211,
+            "log_prob_l": -7.316644191741943,
+            "cost_a_raw": 0.5495672225952148,
+            "cost_a_affine": 6.846970558166504,
+            "cost_b_raw": 1.4867396354675293,
+            "cost_b_affine": 13.407176971435547
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_invariance_hidden_ok": null,
+      "co_invariance_hidden_reason": null,
+      "co_invariance_hidden_abs_delta": null,
+      "co_invariance_hidden_rel_delta": null,
+      "co_invariance_hidden_trace": null,
+      "hf_log_file": "gen-01_pair009_cuda_0_g_ref_f000_010_d390db32.log",
       "pair_ok": false,
-      "pair_reason": "g_compile_failed",
-      "g_compile_ok": false,
-      "g_compile_reason": "PreferenceBuilderIR.code is empty.",
-      "elapsed_s": 0.00014138221740722656,
+      "pair_reason": "stage3_fatal",
+      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/cvrp100_epoch_100.ckpt'",
+      "elapsed_s": 0.0774843692779541,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.5135900974273682,
+      "worker_elapsed_s": 1.6551616191864014,
       "worker_log": "replay_gate_rejected_logs/001_-01_009_g_ref_f000_010_d390db32.log"
     },
     {
@@ -95,15 +304,74 @@
       "pair_index": 5,
       "g_id": "g_ref",
       "f_id": "f002_006_915a8595",
-      "g_ir": {},
-      "f_ir": {},
+      "g_ir": {
+        "name": "ref_all_pairs_builder",
+        "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "uniform_none",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "ref_all_pairs"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+      },
+      "f_ir": {
+        "name": "pairwise_margin_clipped_normalized_bias_loss_v2",
+        "intuition": "Modified the bias normalization to use a dynamic scaling factor based on the standard deviation of delta_rank instead of a fixed scalar, improving adaptability to varying distributions. Introduced a learnable parameter alpha with a safe default, reduced the bias clipping range to [-0.5,0.5] to avoid overly biased shifts, and applied a smooth tanh-based soft clipping on the margin instead of hard clamps to retain gradient flow and ensure stability. These changes increase novelty by altering the bias normalization scaling and margin clipping method, while maintaining the pairwise margin structure and vectorization.",
+        "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_std = sqrt(mean((delta_rank - mean(delta_rank))**2) + epsilon)\nnormalized_bias_scale = abs_delta_rank_std\nnormalized_bias = bias / normalized_bias_scale\nclipped_bias = clamp(normalized_bias, -0.5, 0.5)\nalpha = 0.8\nbeta = 0.1 * abs_delta_rank_std\nweighted_margin = alpha * margin - beta * delta_rank\nsoft_clipped_margin = 10 * tanh(weighted_margin / 10)\nbiased_margin = soft_clipped_margin + clipped_bias\nx = clamp(biased_margin, -20, 20)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "delta_rank",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "soft_clipping_with_dynamic_bias_normalization"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "add",
+          "sub",
+          "neg",
+          "sum",
+          "abs",
+          "mean",
+          "div",
+          "pow",
+          "sqrt",
+          "tanh"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "delta_rank"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 0.8)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n\n    delta_rank_mean = ops.mean(delta_rank)\n    delta_rank_var = ops.mean(ops.pow(ops.sub(delta_rank, delta_rank_mean), 2)) + 1e-6\n    abs_delta_rank_std = ops.sqrt(delta_rank_var)\n\n    normalized_bias_scale = abs_delta_rank_std\n    normalized_bias = bias / (normalized_bias_scale + 1e-6)\n    clipped_bias = ops.clamp(normalized_bias, -0.5, 0.5)\n\n    beta = 0.1 * abs_delta_rank_std\n\n    margin = ops.sub(lpw, lpl)\n    weighted_margin = ops.sub(ops.mul(alpha, margin), ops.mul(beta, delta_rank))\n\n    # soft clipping with tanh scaled by 10\n    scaled = ops.div(weighted_margin, 10.0)\n    soft_clipped_margin = ops.mul(10.0, ops.tanh(scaled))\n\n    biased_margin = ops.add(soft_clipped_margin, clipped_bias)\n    x = ops.clamp(biased_margin, -20.0, 20.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    loss = ops.sum(weighted_loss)\n    return loss",
+        "theoretical_basis": ""
+      },
       "device": "cuda:0",
       "device_str": "cuda:0",
       "device_physical_str": "cuda:0",
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "2a986e397fd6c3df",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -118,13 +386,185 @@
       "g_id_before_repair": null,
       "g_id_after_repair": null,
       "builder_gate_repair_reports": [],
+      "g_compile_ok": true,
+      "g_compile_reason": "ok",
+      "f_static_ok": true,
+      "f_static_reason": "",
+      "f_compile_ok": true,
+      "f_compile_reason": "ok",
+      "sandbox_gate": null,
+      "sandbox_gate_ok": null,
+      "sandbox_gate_reason": null,
+      "builder_gate_ok": true,
+      "builder_gate_reason": "ok",
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 4096,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": false,
+          "cv_threshold": 0.0,
+          "pass_rate_threshold": 1.0,
+          "eligible_instances": 8,
+          "observed_cv_values": []
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "joint_gate_ok": false,
+      "joint_gate_reason": "forward_error: pow",
+      "joint_gate_trace": {
+        "failed_gate": "JointPreference",
+        "failure_kind": "forward_error",
+        "message": "pow",
+        "exception_type": "AttributeError",
+        "traceback": "Traceback (most recent call last):\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 366, in __getattr__\n    return self._table[name]\n           ~~~~~~~~~~~^^^^^^\nKeyError: 'pow'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_gates.py\", line 507, in run_joint_preference_gates\n    loss = compiled.loss_fn(batch=batch, model_output={}, extra={\"alpha\": 1.0})\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 457, in loss_fn\n    return fn(batch, merged_model_output, merged_extra)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<string>\", line 11, in generated_loss\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 368, in __getattr__\n    raise AttributeError(name) from exc\nAttributeError: pow\n",
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "batch_keys_full": [
+          "cost_a",
+          "cost_b",
+          "cost_gap",
+          "delta_rank",
+          "delta_regret",
+          "delta_z",
+          "log_prob_l",
+          "log_prob_w",
+          "weight"
+        ],
+        "batch_keys_filtered": [
+          "delta_rank",
+          "log_prob_l",
+          "log_prob_w",
+          "weight"
+        ],
+        "batch_schema": {
+          "delta_rank": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": 0.06666666269302368,
+            "max": 1.0,
+            "mean": 0.37777775526046753
+          },
+          "log_prob_l": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": -1.5,
+            "max": -0.10000000149011612,
+            "mean": -1.0333333015441895
+          },
+          "log_prob_w": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": -1.399999976158142,
+            "max": -0.0,
+            "mean": -0.46666666865348816
+          },
+          "weight": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": 1.0,
+            "max": 1.0,
+            "mean": 1.0
+          }
+        },
+        "gate_thresholds": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "grad_eps": 1e-08,
+          "min_effective_grad_ratio": 0.1,
+          "swap_check_mode": "data",
+          "swap_test_margin": 1.0
+        },
+        "variant": "visible"
+      },
+      "co_enabled": true,
+      "co_ok": false,
+      "co_reason": "error: pow",
+      "co_failed_gate": "ObjectiveSensitivity",
+      "co_failure_kind": "error",
+      "co_sensitivity_ok": false,
+      "co_invariance_ok": false,
+      "co_sensitivity_visible_ok": false,
+      "co_sensitivity_visible_reason": "error: pow",
+      "co_sensitivity_visible_abs_delta": null,
+      "co_sensitivity_visible_rel_delta": null,
+      "co_sensitivity_visible_trace": {
+        "failed_gate": "ObjectiveSensitivity",
+        "failure_kind": "error",
+        "message": "pow"
+      },
+      "co_sensitivity_hidden_ok": null,
+      "co_sensitivity_hidden_reason": null,
+      "co_sensitivity_hidden_abs_delta": null,
+      "co_sensitivity_hidden_rel_delta": null,
+      "co_sensitivity_hidden_trace": null,
+      "co_invariance_visible_ok": false,
+      "co_invariance_visible_reason": "error: pow",
+      "co_invariance_visible_abs_delta": null,
+      "co_invariance_visible_rel_delta": null,
+      "co_invariance_visible_trace": {
+        "failed_gate": "AffineInvariance",
+        "failure_kind": "error",
+        "message": "pow"
+      },
+      "co_invariance_hidden_ok": null,
+      "co_invariance_hidden_reason": null,
+      "co_invariance_hidden_abs_delta": null,
+      "co_invariance_hidden_rel_delta": null,
+      "co_invariance_hidden_trace": null,
+      "hf_log_file": "gen002_pair005_cuda_0_g_ref_f002_006_915a8595.log",
       "pair_ok": false,
-      "pair_reason": "g_compile_failed",
-      "g_compile_ok": false,
-      "g_compile_reason": "PreferenceBuilderIR.code is empty.",
-      "elapsed_s": 0.00016927719116210938,
+      "pair_reason": "stage3_fatal",
+      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/cvrp100_epoch_100.ckpt'",
+      "elapsed_s": 0.037836551666259766,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.6878762245178223,
+      "worker_elapsed_s": 1.6727604866027832,
       "worker_log": "replay_gate_rejected_logs/002_002_005_g_ref_f002_006_915a8595.log"
     },
     {
@@ -132,15 +572,76 @@
       "pair_index": 6,
       "g_id": "g_ref",
       "f_id": "f003_002_94352739",
-      "g_ir": {},
-      "f_ir": {},
+      "g_ir": {
+        "name": "ref_all_pairs_builder",
+        "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "uniform_none",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "ref_all_pairs"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+      },
+      "f_ir": {
+        "name": "pairwise_margin_adaptive_scaled_bias_v8_exponential_margin",
+        "intuition": "To reduce similarity with prior versions, I replaced the sigmoid-based margin scaling with a smooth exponential softplus-like transformation, improving differentiability and margin responsiveness. I introduced a learned decay rate for beta controlling exponential decay on delta_rank variance, increasing adaptability to rank variance patterns. Additionally, I adjusted bias scaling to use a shifted and scaled sigmoid function for more nuanced bias modulation. These nonlinear changes keep vectorized ops intact and rely on delta_rank for adaptive scaling, yielding a novel adaptive margin loss that preserves robustness and flexibility.",
+        "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + 1e-6\ndelta_rank_mean = mean(delta_rank)\ndelta_rank_var = mean((delta_rank - delta_rank_mean)**2) + 1e-6\nlearned_decay = 3.0\nbeta = 0.15 * exp(-learned_decay * delta_rank_var)\nbias_norm = sigmoid(5.0 * (delta_rank / (abs_delta_rank_mean + 0.2))) - 0.5\nscaled_bias = bias * bias_norm\nsoftplus_margin_scale = log(1 + exp(8.0 * (sqrt(delta_rank_var) / (abs_delta_rank_mean + 1e-6) - 0.3))) / 1.7\nscaled_margin = margin * softplus_margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -15, 15)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = weight * loss_per_pair\nloss = sum(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "delta_rank",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "adaptive_scaled_bias_exponential_v1"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "add",
+          "sub",
+          "neg",
+          "sum",
+          "abs",
+          "mean",
+          "div",
+          "pow",
+          "sqrt",
+          "sigmoid",
+          "log",
+          "exp"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "delta_rank"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    learned_decay = float(extra.get('learned_decay', 3.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + 1e-6\n    delta_rank_mean = ops.mean(delta_rank)\n    delta_rank_var = ops.mean(ops.pow(ops.sub(delta_rank, delta_rank_mean), 2)) + 1e-6\n\n    beta = ops.mul(0.15, ops.exp(ops.neg(ops.mul(learned_decay, delta_rank_var))))\n\n    bias_norm = ops.sub(\n        ops.sigmoid(ops.mul(5.0, ops.div(delta_rank, ops.add(abs_delta_rank_mean, 0.2)))),\n        0.5\n    )\n    scaled_bias = ops.mul(bias, bias_norm)\n\n    softplus_input = ops.mul(8.0, ops.sub(ops.div(ops.sqrt(delta_rank_var), ops.add(abs_delta_rank_mean, 1e-6)), 0.3))\n    softplus_margin_scale = ops.div(ops.log(ops.add(ops.exp(softplus_input), ops.ones_like(softplus_input))), 1.7)\n\n    margin = ops.sub(lpw, lpl)\n    scaled_margin = ops.mul(margin, softplus_margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n    x = ops.clamp(biased_margin, -15.0, 15.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    loss = ops.sum(weighted_loss)\n    return loss",
+        "theoretical_basis": ""
+      },
       "device": "cuda:0",
       "device_str": "cuda:0",
       "device_physical_str": "cuda:0",
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "2a986e397fd6c3df",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -155,13 +656,185 @@
       "g_id_before_repair": null,
       "g_id_after_repair": null,
       "builder_gate_repair_reports": [],
+      "g_compile_ok": true,
+      "g_compile_reason": "ok",
+      "f_static_ok": true,
+      "f_static_reason": "",
+      "f_compile_ok": true,
+      "f_compile_reason": "ok",
+      "sandbox_gate": null,
+      "sandbox_gate_ok": null,
+      "sandbox_gate_reason": null,
+      "builder_gate_ok": true,
+      "builder_gate_reason": "ok",
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 4096,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": false,
+          "cv_threshold": 0.0,
+          "pass_rate_threshold": 1.0,
+          "eligible_instances": 8,
+          "observed_cv_values": []
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "joint_gate_ok": false,
+      "joint_gate_reason": "forward_error: pow",
+      "joint_gate_trace": {
+        "failed_gate": "JointPreference",
+        "failure_kind": "forward_error",
+        "message": "pow",
+        "exception_type": "AttributeError",
+        "traceback": "Traceback (most recent call last):\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 366, in __getattr__\n    return self._table[name]\n           ~~~~~~~~~~~^^^^^^\nKeyError: 'pow'\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_gates.py\", line 507, in run_joint_preference_gates\n    loss = compiled.loss_fn(batch=batch, model_output={}, extra={\"alpha\": 1.0})\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 457, in loss_fn\n    return fn(batch, merged_model_output, merged_extra)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<string>\", line 13, in generated_loss\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 368, in __getattr__\n    raise AttributeError(name) from exc\nAttributeError: pow\n",
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_rank"
+        ],
+        "batch_keys_full": [
+          "cost_a",
+          "cost_b",
+          "cost_gap",
+          "delta_rank",
+          "delta_regret",
+          "delta_z",
+          "log_prob_l",
+          "log_prob_w",
+          "weight"
+        ],
+        "batch_keys_filtered": [
+          "delta_rank",
+          "log_prob_l",
+          "log_prob_w",
+          "weight"
+        ],
+        "batch_schema": {
+          "delta_rank": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": 0.06666666269302368,
+            "max": 1.0,
+            "mean": 0.37777775526046753
+          },
+          "log_prob_l": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": -1.5,
+            "max": -0.10000000149011612,
+            "mean": -1.0333333015441895
+          },
+          "log_prob_w": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": -1.399999976158142,
+            "max": -0.0,
+            "mean": -0.46666666865348816
+          },
+          "weight": {
+            "shape": [
+              960
+            ],
+            "dtype": "torch.float32",
+            "device": "cpu",
+            "isfinite": true,
+            "min": 1.0,
+            "max": 1.0,
+            "mean": 1.0
+          }
+        },
+        "gate_thresholds": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "grad_eps": 1e-08,
+          "min_effective_grad_ratio": 0.1,
+          "swap_check_mode": "data",
+          "swap_test_margin": 1.0
+        },
+        "variant": "visible"
+      },
+      "co_enabled": true,
+      "co_ok": false,
+      "co_reason": "error: pow",
+      "co_failed_gate": "ObjectiveSensitivity",
+      "co_failure_kind": "error",
+      "co_sensitivity_ok": false,
+      "co_invariance_ok": false,
+      "co_sensitivity_visible_ok": false,
+      "co_sensitivity_visible_reason": "error: pow",
+      "co_sensitivity_visible_abs_delta": null,
+      "co_sensitivity_visible_rel_delta": null,
+      "co_sensitivity_visible_trace": {
+        "failed_gate": "ObjectiveSensitivity",
+        "failure_kind": "error",
+        "message": "pow"
+      },
+      "co_sensitivity_hidden_ok": null,
+      "co_sensitivity_hidden_reason": null,
+      "co_sensitivity_hidden_abs_delta": null,
+      "co_sensitivity_hidden_rel_delta": null,
+      "co_sensitivity_hidden_trace": null,
+      "co_invariance_visible_ok": false,
+      "co_invariance_visible_reason": "error: pow",
+      "co_invariance_visible_abs_delta": null,
+      "co_invariance_visible_rel_delta": null,
+      "co_invariance_visible_trace": {
+        "failed_gate": "AffineInvariance",
+        "failure_kind": "error",
+        "message": "pow"
+      },
+      "co_invariance_hidden_ok": null,
+      "co_invariance_hidden_reason": null,
+      "co_invariance_hidden_abs_delta": null,
+      "co_invariance_hidden_rel_delta": null,
+      "co_invariance_hidden_trace": null,
+      "hf_log_file": "gen003_pair006_cuda_0_g_ref_f003_002_94352739.log",
       "pair_ok": false,
-      "pair_reason": "g_compile_failed",
-      "g_compile_ok": false,
-      "g_compile_reason": "PreferenceBuilderIR.code is empty.",
-      "elapsed_s": 0.0001709461212158203,
+      "pair_reason": "stage3_fatal",
+      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/cvrp100_epoch_100.ckpt'",
+      "elapsed_s": 0.03612399101257324,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.7430493831634521,
+      "worker_elapsed_s": 1.7557997703552246,
       "worker_log": "replay_gate_rejected_logs/003_003_006_g_ref_f003_002_94352739.log"
     },
     {
@@ -169,15 +842,66 @@
       "pair_index": 21,
       "g_id": "g_ref",
       "f_id": "f003_006_3614028d",
-      "g_ir": {},
-      "f_ir": {},
+      "g_ir": {
+        "name": "ref_all_pairs_builder",
+        "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "uniform_none",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "ref_all_pairs"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+      },
+      "f_ir": {
+        "name": "loss_logsigmoid_pairwise_hyperparam_tuned_002",
+        "intuition": "To stabilize the loss and improve interpretability, I explicitly clamp the scaled margin within [-20, 20] to prevent extreme numerical values in logsigmoid, which can cause instability. I ensure weight defaults to ones_like if missing to avoid multiplication errors. The scale hyperparameter is configurable via extra and clamping ensures the input remains in a numerically stable range to avoid saturation or underflow in logsigmoid. This preserves the pairwise margin structure while ensuring numerical stability and consistent handling of weights and hyperparameters.",
+        "pseudocode": "margin = log_prob_w - log_prob_l\nx = clamp(alpha * scale * margin, -20, 20)\nloss = sum(-logsigmoid(x) * weight)",
+        "hyperparams": {
+          "scale": 2.0,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "delta_z",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "sum"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "delta_z",
+            "weight"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n\n    margin = ops.sub(lpw, lpl)\n    x = ops.clamp(ops.mul(ops.mul(alpha, scale), margin), -20.0, 20.0)\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n    return ops.sum(weighted_loss)",
+        "theoretical_basis": ""
+      },
       "device": "cuda:0",
       "device_str": "cuda:0",
       "device_physical_str": "cuda:0",
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "2a986e397fd6c3df",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -192,13 +916,171 @@
       "g_id_before_repair": null,
       "g_id_after_repair": null,
       "builder_gate_repair_reports": [],
+      "g_compile_ok": true,
+      "g_compile_reason": "ok",
+      "f_static_ok": true,
+      "f_static_reason": "",
+      "f_compile_ok": true,
+      "f_compile_reason": "ok",
+      "sandbox_gate": null,
+      "sandbox_gate_ok": null,
+      "sandbox_gate_reason": null,
+      "builder_gate_ok": true,
+      "builder_gate_reason": "ok",
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 4096,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": false,
+          "cv_threshold": 0.0,
+          "pass_rate_threshold": 1.0,
+          "eligible_instances": 8,
+          "observed_cv_values": []
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "joint_gate_ok": true,
+      "joint_gate_reason": "ok",
+      "joint_gate_trace": {
+        "failed_gate": null,
+        "failure_kind": null,
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 311.32220458984375,
+          "loss_swap": 1399.3221435546875,
+          "swap_ok": true,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 311.32220458984375
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [],
+        "variant": "visible"
+      },
+      "co_enabled": true,
+      "co_ok": false,
+      "co_reason": "insensitive_to_objective",
+      "co_failed_gate": "ObjectiveSensitivity",
+      "co_failure_kind": "insensitive_to_objective",
+      "co_sensitivity_ok": false,
+      "co_invariance_ok": true,
+      "co_sensitivity_visible_ok": false,
+      "co_sensitivity_visible_reason": "insensitive_to_objective",
+      "co_sensitivity_visible_abs_delta": 0.0,
+      "co_sensitivity_visible_rel_delta": 0.0,
+      "co_sensitivity_visible_trace": {
+        "failed_gate": "ObjectiveSensitivity",
+        "metric_name": "delta_loss_under_objective_perturbation",
+        "observed": {
+          "abs_delta": 0.0,
+          "rel_delta": 0.0,
+          "grad_ratio": 0.9999999903788971
+        },
+        "threshold": {
+          "min_abs_delta": 0.001,
+          "min_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": ">=",
+          "rel_delta": ">=",
+          "grad_ratio": "informational"
+        },
+        "where_failed": "abs_delta_and_rel_delta",
+        "counterexamples": [
+          {
+            "loss_small": 115.04637145996094,
+            "loss_large": 115.04637145996094,
+            "log_prob_w": -4.923008918762207,
+            "log_prob_l": -4.89693021774292,
+            "delta_z_small": 0.09483930468559265,
+            "delta_z_large": 4.741965293884277
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_sensitivity_hidden_ok": null,
+      "co_sensitivity_hidden_reason": null,
+      "co_sensitivity_hidden_abs_delta": null,
+      "co_sensitivity_hidden_rel_delta": null,
+      "co_sensitivity_hidden_trace": null,
+      "co_invariance_visible_ok": true,
+      "co_invariance_visible_reason": "ok",
+      "co_invariance_visible_abs_delta": 0.0,
+      "co_invariance_visible_rel_delta": 0.0,
+      "co_invariance_visible_trace": {
+        "failed_gate": null,
+        "metric_name": "delta_loss_under_affine_transform",
+        "observed": {
+          "abs_delta": 0.0,
+          "rel_delta": 0.0
+        },
+        "threshold": {
+          "max_abs_delta": 0.001,
+          "max_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": "<=",
+          "rel_delta": "<="
+        },
+        "where_failed": null,
+        "counterexamples": [
+          {
+            "a": 7.0,
+            "b": 3.0,
+            "loss_raw": 124.48251342773438,
+            "loss_affine": 124.48251342773438,
+            "log_prob_w": -5.397623062133789,
+            "log_prob_l": -2.798184394836426
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_invariance_hidden_ok": null,
+      "co_invariance_hidden_reason": null,
+      "co_invariance_hidden_abs_delta": null,
+      "co_invariance_hidden_rel_delta": null,
+      "co_invariance_hidden_trace": null,
+      "hf_log_file": "gen003_pair021_cuda_0_g_ref_f003_006_3614028d.log",
       "pair_ok": false,
-      "pair_reason": "g_compile_failed",
-      "g_compile_ok": false,
-      "g_compile_reason": "PreferenceBuilderIR.code is empty.",
-      "elapsed_s": 0.00016546249389648438,
+      "pair_reason": "stage3_fatal",
+      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/cvrp100_epoch_100.ckpt'",
+      "elapsed_s": 0.07958340644836426,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.6181423664093018,
+      "worker_elapsed_s": 1.7254295349121094,
       "worker_log": "replay_gate_rejected_logs/004_003_021_g_ref_f003_006_3614028d.log"
     }
   ],

@@ -1,7 +1,7 @@
 {
   "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_loss_tsp100_discovery/20260317-131507",
   "device": "cuda:0",
-  "pure_no_gate": false,
+  "pure_no_gate": true,
   "pair_reasons": [
     "cheap_gate_failed",
     "pref_semantic_failed",
@@ -126,8 +126,8 @@
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
-      "score": Infinity,
+      "eval_budget_signature": "2a986e397fd6c3df",
+      "score": -0.012343407440185139,
       "proxy_metrics": null,
       "seed_signature": null,
       "descriptor": null,
@@ -225,15 +225,15 @@
       "co_invariance_ok": false,
       "co_sensitivity_visible_ok": true,
       "co_sensitivity_visible_reason": "ok",
-      "co_sensitivity_visible_abs_delta": 0.08514881134033203,
-      "co_sensitivity_visible_rel_delta": 0.04165062133061338,
+      "co_sensitivity_visible_abs_delta": 0.09201443195343018,
+      "co_sensitivity_visible_rel_delta": 0.031409530307940546,
       "co_sensitivity_visible_trace": {
         "failed_gate": null,
         "metric_name": "delta_loss_under_objective_perturbation",
         "observed": {
-          "abs_delta": 0.08514881134033203,
-          "rel_delta": 0.04165062133061338,
-          "grad_ratio": 1.047918922326262
+          "abs_delta": 0.09201443195343018,
+          "rel_delta": 0.031409530307940546,
+          "grad_ratio": 1.0416305564256154
         },
         "threshold": {
           "min_abs_delta": 0.001,
@@ -247,10 +247,10 @@
         "where_failed": null,
         "counterexamples": [
           {
-            "loss_small": 0.979604959487915,
-            "loss_large": 1.064753770828247,
-            "log_prob_w": -5.676297187805176,
-            "log_prob_l": -4.761965274810791
+            "loss_small": 1.4187461137771606,
+            "loss_large": 1.5107605457305908,
+            "log_prob_w": -3.0516786575317383,
+            "log_prob_l": -5.0561652183532715
           }
         ],
         "variant": "visible"
@@ -262,14 +262,14 @@
       "co_sensitivity_hidden_trace": null,
       "co_invariance_visible_ok": false,
       "co_invariance_visible_reason": "affine_invariance_violation",
-      "co_invariance_visible_abs_delta": 0.17280364036560059,
-      "co_invariance_visible_rel_delta": 0.05487420832485693,
+      "co_invariance_visible_abs_delta": 0.132088303565979,
+      "co_invariance_visible_rel_delta": 0.04026447059658034,
       "co_invariance_visible_trace": {
         "failed_gate": "AffineInvariance",
         "metric_name": "delta_loss_under_affine_transform",
         "observed": {
-          "abs_delta": 0.17280364036560059,
-          "rel_delta": 0.05487420832485693
+          "abs_delta": 0.132088303565979,
+          "rel_delta": 0.04026447059658034
         },
         "threshold": {
           "max_abs_delta": 0.001,
@@ -284,14 +284,14 @@
           {
             "a": 7.0,
             "b": 3.0,
-            "loss_raw": 1.4881415367126465,
-            "loss_affine": 1.660945177078247,
-            "log_prob_w": -2.4818265438079834,
-            "log_prob_l": -4.6389241218566895,
-            "cost_a_raw": 0.26156872510910034,
-            "cost_a_affine": 4.830981254577637,
-            "cost_b_raw": 0.6730920672416687,
-            "cost_b_affine": 7.711644649505615
+            "loss_raw": 1.5742145776748657,
+            "loss_affine": 1.7063028812408447,
+            "log_prob_w": -9.758543014526367,
+            "log_prob_l": -7.577911376953125,
+            "cost_a_raw": 0.03225874900817871,
+            "cost_a_affine": 3.225811243057251,
+            "cost_b_raw": 0.2384912371635437,
+            "cost_b_affine": 4.669438362121582
           }
         ],
         "variant": "visible"
@@ -302,12 +302,396 @@
       "co_invariance_hidden_rel_delta": null,
       "co_invariance_hidden_trace": null,
       "hf_log_file": "gen001_pair003_cuda_0_g_ref_f000_001_4b362843.log",
-      "pair_ok": false,
-      "pair_reason": "stage3_fatal",
-      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp20_K32.json'",
-      "elapsed_s": 0.04218101501464844,
+      "pair_ok": true,
+      "pair_reason": "ok_stage3_offline_minitrain",
+      "fitness": {
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 7.914035123443604
+            },
+            "obj_base_by_size": {
+              "100": 7.93729935836792
+            },
+            "obj_cand": 7.914035123443604,
+            "obj_base": 7.93729935836792,
+            "delta": -0.02326423492431573,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": null,
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -58.23326873779297,
+                "max": -57.92230987548828
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -115.02429962158203,
+                "max": -113.69400787353516
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          },
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 7.796143533325195
+            },
+            "obj_base_by_size": {
+              "100": 7.79756611328125
+            },
+            "obj_cand": 7.796143533325195,
+            "obj_base": 7.79756611328125,
+            "delta": -0.0014225799560545482,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -15.767354965209961,
+                "max": -11.223669052124023
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -53.04107666015625,
+                "max": -44.00743103027344
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "per_scenario": {
+          "tsp100": {
+            "scenario_name": "tsp100",
+            "problem": "tsp",
+            "env_name": "tsp",
+            "train_problem_size": 100,
+            "valid_problem_sizes": [
+              100
+            ],
+            "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+            "baseline_multiseed_cache_path": null,
+            "baseline_compare_mode": "mini_eval",
+            "eval_signature": {
+              "protocol": "stage3_online_minitrain_v1",
+              "baseline_eval_impl_version": 2,
+              "baseline_eval_mode": "ref_free_loss",
+              "scenario_name": "tsp100",
+              "env_name": "tsp",
+              "policy_name": "pomo",
+              "policy_kwargs": {
+                "po4cops_compat": true,
+                "embed_dim": 128,
+                "num_encoder_layers": 6,
+                "decoder_layer_num": 1,
+                "qkv_dim": 16,
+                "num_heads": 8,
+                "feedforward_hidden": 512,
+                "tanh_clipping": 50,
+                "eval_type": "argmax",
+                "val_decode_type": "greedy",
+                "test_decode_type": "greedy"
+              },
+              "env_kwargs": {},
+              "rollout_strategy": "auto",
+              "objective_sign": "neg_reward",
+              "alpha": 0.05,
+              "po_impl": "bt",
+              "K": 200,
+              "train_problem_size": 100,
+              "valid_problem_sizes": [
+                100
+              ],
+              "train_batch_size": 64,
+              "num_validation_episodes": 10000,
+              "validation_batch_size": 64,
+              "pomo_size": null,
+              "learning_rate": 0.0003,
+              "weight_decay": 1e-06,
+              "size_aggregation": "mean",
+              "size_cvar_alpha": 0.2,
+              "scratch_init_seed": 1234,
+              "data": {
+                "mode": "online",
+                "generator_params": {
+                  "num_loc": 100
+                }
+              },
+              "include_scratch": true,
+              "checkpoints": [
+                {
+                  "name": "ckpt_135",
+                  "path": "baseline/tsp100_epoch_135.ckpt",
+                  "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+                }
+              ],
+              "budget_mode": "epochs",
+              "hf_epochs": 10,
+              "hf_instances_per_epoch": 100000
+            },
+            "K": 200,
+            "per_init": {
+              "scratch": {
+                "obj_cand_by_size": {
+                  "100": 7.914035123443604
+                },
+                "obj_base_by_size": {
+                  "100": 7.93729935836792
+                },
+                "obj_cand": 7.914035123443604,
+                "obj_base": 7.93729935836792,
+                "delta": -0.02326423492431573,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": null,
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": null,
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -58.23326873779297,
+                    "max": -57.92230987548828
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -115.02429962158203,
+                    "max": -113.69400787353516
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              },
+              "ckpt_135": {
+                "obj_cand_by_size": {
+                  "100": 7.796143533325195
+                },
+                "obj_base_by_size": {
+                  "100": 7.79756611328125
+                },
+                "obj_cand": 7.796143533325195,
+                "obj_base": 7.79756611328125,
+                "delta": -0.0014225799560545482,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -15.767354965209961,
+                    "max": -11.223669052124023
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -53.04107666015625,
+                    "max": -44.00743103027344
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              }
+            },
+            "delta_mean": -0.012343407440185139,
+            "delta_worst": -0.0014225799560545482
+          }
+        },
+        "scenario_names": [
+          "tsp100"
+        ],
+        "delta_mean": -0.012343407440185139,
+        "delta_worst": -0.0014225799560545482,
+        "all_scenarios_negative": true,
+        "nonnegative_scenario_count": 0,
+        "worst_scenario_delta": -0.012343407440185139,
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+        "baseline_mini_eval_paths": {
+          "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
+        },
+        "baseline_multiseed_cache_path": null,
+        "baseline_multiseed_cache_paths": {
+          "tsp100": null
+        },
+        "baseline_compare_mode": "mini_eval",
+        "baseline_compare_modes": {
+          "tsp100": "mini_eval"
+        },
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 10,
+          "hf_instances_per_epoch": 100000
+        },
+        "any_error": false,
+        "runtime_error_count": 0,
+        "runtime_error_inits": []
+      },
+      "better_than_baseline_mean": true,
+      "better_than_baseline_strict": true,
+      "better_than_baseline_all_scenarios": true,
+      "stage3_all_scenarios_negative": true,
+      "stage3_nonnegative_scenario_count": 0,
+      "stage3_worst_scenario_delta": -0.012343407440185139,
+      "stage3_any_error": false,
+      "stage3_runtime_error_count": 0,
+      "stage3_runtime_error_inits": [],
+      "elapsed_s": 5419.006288051605,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.6951889991760254,
+      "worker_elapsed_s": 5421.460585832596,
       "worker_log": "replay_gate_rejected_logs/001_001_003_g_ref_f000_001_4b362843.log"
     },
     {
@@ -375,8 +759,8 @@
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
-      "score": Infinity,
+      "eval_budget_signature": "2a986e397fd6c3df",
+      "score": -0.00012012710571296381,
       "proxy_metrics": null,
       "seed_signature": null,
       "descriptor": null,
@@ -474,15 +858,15 @@
       "co_invariance_ok": false,
       "co_sensitivity_visible_ok": true,
       "co_sensitivity_visible_reason": "ok",
-      "co_sensitivity_visible_abs_delta": 0.11345934867858887,
-      "co_sensitivity_visible_rel_delta": 0.03864724452113712,
+      "co_sensitivity_visible_abs_delta": 0.09095311164855957,
+      "co_sensitivity_visible_rel_delta": 0.035521781481334225,
       "co_sensitivity_visible_trace": {
         "failed_gate": null,
         "metric_name": "delta_loss_under_objective_perturbation",
         "observed": {
-          "abs_delta": 0.11345934867858887,
-          "rel_delta": 0.03864724452113712,
-          "grad_ratio": 1.0393463765755182
+          "abs_delta": 0.09095311164855957,
+          "rel_delta": 0.035521781481334225,
+          "grad_ratio": 1.0393783336751856
         },
         "threshold": {
           "min_abs_delta": 0.001,
@@ -496,10 +880,10 @@
         "where_failed": null,
         "counterexamples": [
           {
-            "loss_small": 1.4111543893814087,
-            "loss_large": 1.5246137380599976,
-            "log_prob_w": -3.7765254974365234,
-            "log_prob_l": -3.076505184173584
+            "loss_small": 1.2347676753997803,
+            "loss_large": 1.3257207870483398,
+            "log_prob_w": -1.30812668800354,
+            "log_prob_l": -3.4031786918640137
           }
         ],
         "variant": "visible"
@@ -511,14 +895,14 @@
       "co_sensitivity_hidden_trace": null,
       "co_invariance_visible_ok": false,
       "co_invariance_visible_reason": "affine_invariance_violation",
-      "co_invariance_visible_abs_delta": 0.14957678318023682,
-      "co_invariance_visible_rel_delta": 0.04953557230330713,
+      "co_invariance_visible_abs_delta": 0.1894397735595703,
+      "co_invariance_visible_rel_delta": 0.06924641596583729,
       "co_invariance_visible_trace": {
         "failed_gate": "AffineInvariance",
         "metric_name": "delta_loss_under_affine_transform",
         "observed": {
-          "abs_delta": 0.14957678318023682,
-          "rel_delta": 0.04953557230330713
+          "abs_delta": 0.1894397735595703,
+          "rel_delta": 0.06924641596583729
         },
         "threshold": {
           "max_abs_delta": 0.001,
@@ -533,14 +917,14 @@
           {
             "a": 7.0,
             "b": 3.0,
-            "loss_raw": 1.4350031614303589,
-            "loss_affine": 1.5845799446105957,
-            "log_prob_w": -0.10075092315673828,
-            "log_prob_l": -2.2734932899475098,
-            "cost_a_raw": 0.7247647047042847,
-            "cost_a_affine": 8.073352813720703,
-            "cost_b_raw": 0.87433922290802,
-            "cost_b_affine": 9.12037467956543
+            "loss_raw": 1.2731471061706543,
+            "loss_affine": 1.4625868797302246,
+            "log_prob_w": -0.15982723236083984,
+            "log_prob_l": -2.1965723037719727,
+            "cost_a_raw": 0.9366580247879028,
+            "cost_a_affine": 9.55660629272461,
+            "cost_b_raw": 1.1423320770263672,
+            "cost_b_affine": 10.99632453918457
           }
         ],
         "variant": "visible"
@@ -551,12 +935,396 @@
       "co_invariance_hidden_rel_delta": null,
       "co_invariance_hidden_trace": null,
       "hf_log_file": "gen003_pair021_cuda_0_g_ref_f003_007_e4cd5f0f.log",
-      "pair_ok": false,
-      "pair_reason": "stage3_fatal",
-      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp20_K32.json'",
-      "elapsed_s": 0.09694099426269531,
+      "pair_ok": true,
+      "pair_reason": "ok_stage3_offline_minitrain",
+      "fitness": {
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 7.937002700805664
+            },
+            "obj_base_by_size": {
+              "100": 7.93729935836792
+            },
+            "obj_cand": 7.937002700805664,
+            "obj_base": 7.93729935836792,
+            "delta": -0.00029665756225583095,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": null,
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -58.23326873779297,
+                "max": -57.92230987548828
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -115.02429962158203,
+                "max": -113.69400787353516
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          },
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 7.79762251663208
+            },
+            "obj_base_by_size": {
+              "100": 7.79756611328125
+            },
+            "obj_cand": 7.79762251663208,
+            "obj_base": 7.79756611328125,
+            "delta": 5.640335082990333e-05,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -15.767354965209961,
+                "max": -11.223669052124023
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -53.04107666015625,
+                "max": -44.00743103027344
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "per_scenario": {
+          "tsp100": {
+            "scenario_name": "tsp100",
+            "problem": "tsp",
+            "env_name": "tsp",
+            "train_problem_size": 100,
+            "valid_problem_sizes": [
+              100
+            ],
+            "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+            "baseline_multiseed_cache_path": null,
+            "baseline_compare_mode": "mini_eval",
+            "eval_signature": {
+              "protocol": "stage3_online_minitrain_v1",
+              "baseline_eval_impl_version": 2,
+              "baseline_eval_mode": "ref_free_loss",
+              "scenario_name": "tsp100",
+              "env_name": "tsp",
+              "policy_name": "pomo",
+              "policy_kwargs": {
+                "po4cops_compat": true,
+                "embed_dim": 128,
+                "num_encoder_layers": 6,
+                "decoder_layer_num": 1,
+                "qkv_dim": 16,
+                "num_heads": 8,
+                "feedforward_hidden": 512,
+                "tanh_clipping": 50,
+                "eval_type": "argmax",
+                "val_decode_type": "greedy",
+                "test_decode_type": "greedy"
+              },
+              "env_kwargs": {},
+              "rollout_strategy": "auto",
+              "objective_sign": "neg_reward",
+              "alpha": 0.05,
+              "po_impl": "bt",
+              "K": 200,
+              "train_problem_size": 100,
+              "valid_problem_sizes": [
+                100
+              ],
+              "train_batch_size": 64,
+              "num_validation_episodes": 10000,
+              "validation_batch_size": 64,
+              "pomo_size": null,
+              "learning_rate": 0.0003,
+              "weight_decay": 1e-06,
+              "size_aggregation": "mean",
+              "size_cvar_alpha": 0.2,
+              "scratch_init_seed": 1234,
+              "data": {
+                "mode": "online",
+                "generator_params": {
+                  "num_loc": 100
+                }
+              },
+              "include_scratch": true,
+              "checkpoints": [
+                {
+                  "name": "ckpt_135",
+                  "path": "baseline/tsp100_epoch_135.ckpt",
+                  "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+                }
+              ],
+              "budget_mode": "epochs",
+              "hf_epochs": 10,
+              "hf_instances_per_epoch": 100000
+            },
+            "K": 200,
+            "per_init": {
+              "scratch": {
+                "obj_cand_by_size": {
+                  "100": 7.937002700805664
+                },
+                "obj_base_by_size": {
+                  "100": 7.93729935836792
+                },
+                "obj_cand": 7.937002700805664,
+                "obj_base": 7.93729935836792,
+                "delta": -0.00029665756225583095,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": null,
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": null,
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -58.23326873779297,
+                    "max": -57.92230987548828
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -115.02429962158203,
+                    "max": -113.69400787353516
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              },
+              "ckpt_135": {
+                "obj_cand_by_size": {
+                  "100": 7.79762251663208
+                },
+                "obj_base_by_size": {
+                  "100": 7.79756611328125
+                },
+                "obj_cand": 7.79762251663208,
+                "obj_base": 7.79756611328125,
+                "delta": 5.640335082990333e-05,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -15.767354965209961,
+                    "max": -11.223669052124023
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -53.04107666015625,
+                    "max": -44.00743103027344
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              }
+            },
+            "delta_mean": -0.00012012710571296381,
+            "delta_worst": 5.640335082990333e-05
+          }
+        },
+        "scenario_names": [
+          "tsp100"
+        ],
+        "delta_mean": -0.00012012710571296381,
+        "delta_worst": 5.640335082990333e-05,
+        "all_scenarios_negative": true,
+        "nonnegative_scenario_count": 0,
+        "worst_scenario_delta": -0.00012012710571296381,
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+        "baseline_mini_eval_paths": {
+          "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
+        },
+        "baseline_multiseed_cache_path": null,
+        "baseline_multiseed_cache_paths": {
+          "tsp100": null
+        },
+        "baseline_compare_mode": "mini_eval",
+        "baseline_compare_modes": {
+          "tsp100": "mini_eval"
+        },
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 10,
+          "hf_instances_per_epoch": 100000
+        },
+        "any_error": false,
+        "runtime_error_count": 0,
+        "runtime_error_inits": []
+      },
+      "better_than_baseline_mean": true,
+      "better_than_baseline_strict": false,
+      "better_than_baseline_all_scenarios": true,
+      "stage3_all_scenarios_negative": true,
+      "stage3_nonnegative_scenario_count": 0,
+      "stage3_worst_scenario_delta": -0.00012012710571296381,
+      "stage3_any_error": false,
+      "stage3_runtime_error_count": 0,
+      "stage3_runtime_error_inits": [],
+      "elapsed_s": 5249.629595279694,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.9612045288085938,
+      "worker_elapsed_s": 5252.101760387421,
       "worker_log": "replay_gate_rejected_logs/002_003_021_g_ref_f003_007_e4cd5f0f.log"
     },
     {
@@ -624,7 +1392,7 @@
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "2a986e397fd6c3df",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -725,15 +1493,15 @@
       "co_invariance_ok": true,
       "co_sensitivity_visible_ok": true,
       "co_sensitivity_visible_reason": "ok",
-      "co_sensitivity_visible_abs_delta": 3.7605655193328857,
-      "co_sensitivity_visible_rel_delta": 0.7468010517837199,
+      "co_sensitivity_visible_abs_delta": 5.697334289550781,
+      "co_sensitivity_visible_rel_delta": 0.8476269066358533,
       "co_sensitivity_visible_trace": {
         "failed_gate": null,
         "metric_name": "delta_loss_under_objective_perturbation",
         "observed": {
-          "abs_delta": 3.7605655193328857,
-          "rel_delta": 0.7468010517837199,
-          "grad_ratio": 4.365240614691844
+          "abs_delta": 5.697334289550781,
+          "rel_delta": 0.8476269066358533,
+          "grad_ratio": 6.738441971838959
         },
         "threshold": {
           "min_abs_delta": 0.001,
@@ -747,12 +1515,12 @@
         "where_failed": null,
         "counterexamples": [
           {
-            "loss_small": 0.637499988079071,
-            "loss_large": 4.398065567016602,
-            "log_prob_w": -6.231388568878174,
-            "log_prob_l": -3.7388834953308105,
-            "delta_regret_small": 0.023630285635590553,
-            "delta_regret_large": 1.1815142631530762
+            "loss_small": 0.5120887160301208,
+            "loss_large": 6.209423065185547,
+            "log_prob_w": -6.900973796844482,
+            "log_prob_l": -7.040177345275879,
+            "delta_regret_small": 0.05320274829864502,
+            "delta_regret_large": 2.660137414932251
           }
         ],
         "variant": "visible"
@@ -786,10 +1554,10 @@
           {
             "a": 7.0,
             "b": 3.0,
-            "loss_raw": 1.616065263748169,
-            "loss_affine": 1.616065263748169,
-            "log_prob_w": -6.569106101989746,
-            "log_prob_l": -4.265498638153076
+            "loss_raw": 1.62419593334198,
+            "loss_affine": 1.62419593334198,
+            "log_prob_w": -1.5376731157302856,
+            "log_prob_l": -1.3524150848388672
           }
         ],
         "variant": "visible"
@@ -801,11 +1569,421 @@
       "co_invariance_hidden_trace": null,
       "hf_log_file": "gen005_pair003_cuda_0_g_ref_f005_013_cd0c343b.log",
       "pair_ok": false,
-      "pair_reason": "stage3_fatal",
-      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp20_K32.json'",
-      "elapsed_s": 0.05165219306945801,
+      "pair_reason": "stage3_early_pruned",
+      "stage3_early_prune": {
+        "scenario_name": "tsp100",
+        "init_ratios": {
+          "scratch": 4.767108950363261,
+          "ckpt_135": 1.2169261159209372
+        },
+        "triggered_inits": {
+          "scratch": 4.767108950363261
+        },
+        "mean_ratio": 2.992017533142099,
+        "max_init_ratio_to_baseline": 2.0,
+        "max_mean_ratio_to_baseline": null
+      },
+      "fitness": {
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 37.83797081298828
+            },
+            "obj_base_by_size": {
+              "100": 7.93729935836792
+            },
+            "obj_cand": 37.83797081298828,
+            "obj_base": 7.93729935836792,
+            "delta": 29.900671454620362,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": null,
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -58.23326873779297,
+                "max": -57.92230987548828
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -115.02429962158203,
+                "max": -113.69400787353516
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          },
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 9.48906184387207
+            },
+            "obj_base_by_size": {
+              "100": 7.79756611328125
+            },
+            "obj_cand": 9.48906184387207,
+            "obj_base": 7.79756611328125,
+            "delta": 1.6914957305908205,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -15.767354965209961,
+                "max": -11.223669052124023
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -53.04107666015625,
+                "max": -44.00743103027344
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "per_scenario": {
+          "tsp100": {
+            "scenario_name": "tsp100",
+            "problem": "tsp",
+            "env_name": "tsp",
+            "train_problem_size": 100,
+            "valid_problem_sizes": [
+              100
+            ],
+            "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+            "baseline_multiseed_cache_path": null,
+            "baseline_compare_mode": "mini_eval",
+            "eval_signature": {
+              "protocol": "stage3_online_minitrain_v1",
+              "baseline_eval_impl_version": 2,
+              "baseline_eval_mode": "ref_free_loss",
+              "scenario_name": "tsp100",
+              "env_name": "tsp",
+              "policy_name": "pomo",
+              "policy_kwargs": {
+                "po4cops_compat": true,
+                "embed_dim": 128,
+                "num_encoder_layers": 6,
+                "decoder_layer_num": 1,
+                "qkv_dim": 16,
+                "num_heads": 8,
+                "feedforward_hidden": 512,
+                "tanh_clipping": 50,
+                "eval_type": "argmax",
+                "val_decode_type": "greedy",
+                "test_decode_type": "greedy"
+              },
+              "env_kwargs": {},
+              "rollout_strategy": "auto",
+              "objective_sign": "neg_reward",
+              "alpha": 0.05,
+              "po_impl": "bt",
+              "K": 200,
+              "train_problem_size": 100,
+              "valid_problem_sizes": [
+                100
+              ],
+              "train_batch_size": 64,
+              "num_validation_episodes": 10000,
+              "validation_batch_size": 64,
+              "pomo_size": null,
+              "learning_rate": 0.0003,
+              "weight_decay": 1e-06,
+              "size_aggregation": "mean",
+              "size_cvar_alpha": 0.2,
+              "scratch_init_seed": 1234,
+              "data": {
+                "mode": "online",
+                "generator_params": {
+                  "num_loc": 100
+                }
+              },
+              "include_scratch": true,
+              "checkpoints": [
+                {
+                  "name": "ckpt_135",
+                  "path": "baseline/tsp100_epoch_135.ckpt",
+                  "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+                }
+              ],
+              "budget_mode": "epochs",
+              "hf_epochs": 10,
+              "hf_instances_per_epoch": 100000
+            },
+            "K": 200,
+            "per_init": {
+              "scratch": {
+                "obj_cand_by_size": {
+                  "100": 37.83797081298828
+                },
+                "obj_base_by_size": {
+                  "100": 7.93729935836792
+                },
+                "obj_cand": 37.83797081298828,
+                "obj_base": 7.93729935836792,
+                "delta": 29.900671454620362,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": null,
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": null,
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -58.23326873779297,
+                    "max": -57.92230987548828
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -115.02429962158203,
+                    "max": -113.69400787353516
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              },
+              "ckpt_135": {
+                "obj_cand_by_size": {
+                  "100": 9.48906184387207
+                },
+                "obj_base_by_size": {
+                  "100": 7.79756611328125
+                },
+                "obj_cand": 9.48906184387207,
+                "obj_base": 7.79756611328125,
+                "delta": 1.6914957305908205,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -15.767354965209961,
+                    "max": -11.223669052124023
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -53.04107666015625,
+                    "max": -44.00743103027344
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              }
+            },
+            "delta_mean": 15.79608359260559,
+            "delta_worst": 29.900671454620362
+          }
+        },
+        "scenario_names": [
+          "tsp100"
+        ],
+        "delta_mean": 15.79608359260559,
+        "delta_worst": 29.900671454620362,
+        "all_scenarios_negative": false,
+        "nonnegative_scenario_count": 1,
+        "worst_scenario_delta": 15.79608359260559,
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+        "baseline_mini_eval_paths": {
+          "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
+        },
+        "baseline_multiseed_cache_path": null,
+        "baseline_multiseed_cache_paths": {
+          "tsp100": null
+        },
+        "baseline_compare_mode": "mini_eval",
+        "baseline_compare_modes": {
+          "tsp100": "mini_eval"
+        },
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 10,
+          "hf_instances_per_epoch": 100000
+        },
+        "any_error": true,
+        "runtime_error_count": 0,
+        "runtime_error_inits": [],
+        "early_prune": {
+          "scenario_name": "tsp100",
+          "init_ratios": {
+            "scratch": 4.767108950363261,
+            "ckpt_135": 1.2169261159209372
+          },
+          "triggered_inits": {
+            "scratch": 4.767108950363261
+          },
+          "mean_ratio": 2.992017533142099,
+          "max_init_ratio_to_baseline": 2.0,
+          "max_mean_ratio_to_baseline": null
+        }
+      },
+      "better_than_baseline_mean": false,
+      "better_than_baseline_strict": false,
+      "better_than_baseline_all_scenarios": false,
+      "stage3_all_scenarios_negative": false,
+      "stage3_nonnegative_scenario_count": 1,
+      "stage3_worst_scenario_delta": 15.79608359260559,
+      "stage3_any_error": true,
+      "stage3_runtime_error_count": 0,
+      "stage3_runtime_error_inits": [],
+      "elapsed_s": 5283.235242128372,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.843196153640747,
+      "worker_elapsed_s": 5285.74308514595,
       "worker_log": "replay_gate_rejected_logs/003_005_003_g_ref_f005_013_cd0c343b.log"
     },
     {
@@ -872,8 +2050,8 @@
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
-      "score": Infinity,
+      "eval_budget_signature": "2a986e397fd6c3df",
+      "score": -0.0025838230133055085,
       "proxy_metrics": null,
       "seed_signature": null,
       "descriptor": null,
@@ -971,15 +2149,15 @@
       "co_invariance_ok": false,
       "co_sensitivity_visible_ok": true,
       "co_sensitivity_visible_reason": "ok",
-      "co_sensitivity_visible_abs_delta": 0.10255253314971924,
-      "co_sensitivity_visible_rel_delta": 0.028674845248306022,
+      "co_sensitivity_visible_abs_delta": 0.10762763023376465,
+      "co_sensitivity_visible_rel_delta": 0.03150230567822111,
       "co_sensitivity_visible_trace": {
         "failed_gate": null,
         "metric_name": "delta_loss_under_objective_perturbation",
         "observed": {
-          "abs_delta": 0.10255253314971924,
-          "rel_delta": 0.028674845248306022,
-          "grad_ratio": 1.035186620286908
+          "abs_delta": 0.10762763023376465,
+          "rel_delta": 0.03150230567822111,
+          "grad_ratio": 1.0374258925908975
         },
         "threshold": {
           "min_abs_delta": 0.001,
@@ -993,10 +2171,10 @@
         "where_failed": null,
         "counterexamples": [
           {
-            "loss_small": 1.7369204759597778,
-            "loss_large": 1.839473009109497,
-            "log_prob_w": -4.572571277618408,
-            "log_prob_l": -2.1891446113586426
+            "loss_small": 1.6544362306594849,
+            "loss_large": 1.7620638608932495,
+            "log_prob_w": -5.439393997192383,
+            "log_prob_l": -4.1795454025268555
           }
         ],
         "variant": "visible"
@@ -1008,14 +2186,14 @@
       "co_sensitivity_hidden_trace": null,
       "co_invariance_visible_ok": false,
       "co_invariance_visible_reason": "affine_invariance_violation",
-      "co_invariance_visible_abs_delta": 0.16775083541870117,
-      "co_invariance_visible_rel_delta": 0.04769137438445349,
+      "co_invariance_visible_abs_delta": 0.13880765438079834,
+      "co_invariance_visible_rel_delta": 0.048874980104190245,
       "co_invariance_visible_trace": {
         "failed_gate": "AffineInvariance",
         "metric_name": "delta_loss_under_affine_transform",
         "observed": {
-          "abs_delta": 0.16775083541870117,
-          "rel_delta": 0.04769137438445349
+          "abs_delta": 0.13880765438079834,
+          "rel_delta": 0.048874980104190245
         },
         "threshold": {
           "max_abs_delta": 0.001,
@@ -1030,14 +2208,14 @@
           {
             "a": 7.0,
             "b": 3.0,
-            "loss_raw": 1.6748371124267578,
-            "loss_affine": 1.842587947845459,
-            "log_prob_w": -0.4113779067993164,
-            "log_prob_l": -3.2800650596618652,
-            "cost_a_raw": 0.4205344319343567,
-            "cost_a_affine": 5.9437408447265625,
-            "cost_b_raw": 0.7724098563194275,
-            "cost_b_affine": 8.406868934631348
+            "loss_raw": 1.3506239652633667,
+            "loss_affine": 1.489431619644165,
+            "log_prob_w": -2.304859161376953,
+            "log_prob_l": -4.14100456237793,
+            "cost_a_raw": 0.09927165508270264,
+            "cost_a_affine": 3.694901466369629,
+            "cost_b_raw": 0.18600386381149292,
+            "cost_b_affine": 4.302026748657227
           }
         ],
         "variant": "visible"
@@ -1048,12 +2226,396 @@
       "co_invariance_hidden_rel_delta": null,
       "co_invariance_hidden_trace": null,
       "hf_log_file": "gen007_pair036_cuda_0_g_ref_f002_001_b6517213.log",
-      "pair_ok": false,
-      "pair_reason": "stage3_fatal",
-      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp20_K32.json'",
-      "elapsed_s": 0.06780409812927246,
+      "pair_ok": true,
+      "pair_reason": "ok_stage3_offline_minitrain",
+      "fitness": {
+        "per_init": {
+          "scratch": {
+            "obj_cand_by_size": {
+              "100": 7.934782852172852
+            },
+            "obj_base_by_size": {
+              "100": 7.93729935836792
+            },
+            "obj_cand": 7.934782852172852,
+            "obj_base": 7.93729935836792,
+            "delta": -0.0025165061950680467,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": null,
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": null,
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -58.23326873779297,
+                "max": -57.92230987548828
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -115.02429962158203,
+                "max": -113.69400787353516
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          },
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 7.794914973449707
+            },
+            "obj_base_by_size": {
+              "100": 7.79756611328125
+            },
+            "obj_cand": 7.794914973449707,
+            "obj_base": 7.79756611328125,
+            "delta": -0.00265113983154297,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -15.767354965209961,
+                "max": -11.223669052124023
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "isfinite": true,
+                "min": -53.04107666015625,
+                "max": -44.00743103027344
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "per_scenario": {
+          "tsp100": {
+            "scenario_name": "tsp100",
+            "problem": "tsp",
+            "env_name": "tsp",
+            "train_problem_size": 100,
+            "valid_problem_sizes": [
+              100
+            ],
+            "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+            "baseline_multiseed_cache_path": null,
+            "baseline_compare_mode": "mini_eval",
+            "eval_signature": {
+              "protocol": "stage3_online_minitrain_v1",
+              "baseline_eval_impl_version": 2,
+              "baseline_eval_mode": "ref_free_loss",
+              "scenario_name": "tsp100",
+              "env_name": "tsp",
+              "policy_name": "pomo",
+              "policy_kwargs": {
+                "po4cops_compat": true,
+                "embed_dim": 128,
+                "num_encoder_layers": 6,
+                "decoder_layer_num": 1,
+                "qkv_dim": 16,
+                "num_heads": 8,
+                "feedforward_hidden": 512,
+                "tanh_clipping": 50,
+                "eval_type": "argmax",
+                "val_decode_type": "greedy",
+                "test_decode_type": "greedy"
+              },
+              "env_kwargs": {},
+              "rollout_strategy": "auto",
+              "objective_sign": "neg_reward",
+              "alpha": 0.05,
+              "po_impl": "bt",
+              "K": 200,
+              "train_problem_size": 100,
+              "valid_problem_sizes": [
+                100
+              ],
+              "train_batch_size": 64,
+              "num_validation_episodes": 10000,
+              "validation_batch_size": 64,
+              "pomo_size": null,
+              "learning_rate": 0.0003,
+              "weight_decay": 1e-06,
+              "size_aggregation": "mean",
+              "size_cvar_alpha": 0.2,
+              "scratch_init_seed": 1234,
+              "data": {
+                "mode": "online",
+                "generator_params": {
+                  "num_loc": 100
+                }
+              },
+              "include_scratch": true,
+              "checkpoints": [
+                {
+                  "name": "ckpt_135",
+                  "path": "baseline/tsp100_epoch_135.ckpt",
+                  "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+                }
+              ],
+              "budget_mode": "epochs",
+              "hf_epochs": 10,
+              "hf_instances_per_epoch": 100000
+            },
+            "K": 200,
+            "per_init": {
+              "scratch": {
+                "obj_cand_by_size": {
+                  "100": 7.934782852172852
+                },
+                "obj_base_by_size": {
+                  "100": 7.93729935836792
+                },
+                "obj_cand": 7.934782852172852,
+                "obj_base": 7.93729935836792,
+                "delta": -0.0025165061950680467,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": null,
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": null,
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -58.23326873779297,
+                    "max": -57.92230987548828
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -115.02429962158203,
+                    "max": -113.69400787353516
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              },
+              "ckpt_135": {
+                "obj_cand_by_size": {
+                  "100": 7.794914973449707
+                },
+                "obj_base_by_size": {
+                  "100": 7.79756611328125
+                },
+                "obj_cand": 7.794914973449707,
+                "obj_base": 7.79756611328125,
+                "delta": -0.00265113983154297,
+                "baseline_source": "mini_eval",
+                "baseline_seed": null,
+                "init_checkpoint": "baseline/tsp100_epoch_135.ckpt",
+                "error": null,
+                "error_traceback": null,
+                "preflight_rollout_smoke_test": {
+                  "ok": true,
+                  "phase": "train",
+                  "device": "cuda:0",
+                  "precision": "32-true",
+                  "batch_size": 1,
+                  "num_rollouts": 2,
+                  "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+                  "rollout_strategy": "policy_multistart",
+                  "reward": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -15.767354965209961,
+                    "max": -11.223669052124023
+                  },
+                  "log_likelihood": {
+                    "type": "tensor",
+                    "shape": [
+                      1,
+                      2
+                    ],
+                    "dtype": "torch.float32",
+                    "device": "cuda:0",
+                    "numel": 2,
+                    "isfinite": true,
+                    "min": -53.04107666015625,
+                    "max": -44.00743103027344
+                  },
+                  "rollout_debug_events": []
+                },
+                "rollout_debug_events": []
+              }
+            },
+            "delta_mean": -0.0025838230133055085,
+            "delta_worst": -0.0025165061950680467
+          }
+        },
+        "scenario_names": [
+          "tsp100"
+        ],
+        "delta_mean": -0.0025838230133055085,
+        "delta_worst": -0.0025165061950680467,
+        "all_scenarios_negative": true,
+        "nonnegative_scenario_count": 0,
+        "worst_scenario_delta": -0.0025838230133055085,
+        "baseline_mini_eval_path": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json",
+        "baseline_mini_eval_paths": {
+          "tsp100": "baseline/mini_eval/baseline_minitrain_tsp100_epoch10_inst100000.json"
+        },
+        "baseline_multiseed_cache_path": null,
+        "baseline_multiseed_cache_paths": {
+          "tsp100": null
+        },
+        "baseline_compare_mode": "mini_eval",
+        "baseline_compare_modes": {
+          "tsp100": "mini_eval"
+        },
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": true,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 10,
+          "hf_instances_per_epoch": 100000
+        },
+        "any_error": false,
+        "runtime_error_count": 0,
+        "runtime_error_inits": []
+      },
+      "better_than_baseline_mean": true,
+      "better_than_baseline_strict": true,
+      "better_than_baseline_all_scenarios": true,
+      "stage3_all_scenarios_negative": true,
+      "stage3_nonnegative_scenario_count": 0,
+      "stage3_worst_scenario_delta": -0.0025838230133055085,
+      "stage3_any_error": false,
+      "stage3_runtime_error_count": 0,
+      "stage3_runtime_error_inits": [],
+      "elapsed_s": 5324.828523397446,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.8033690452575684,
+      "worker_elapsed_s": 5327.223801136017,
       "worker_log": "replay_gate_rejected_logs/004_007_036_g_ref_f002_001_b6517213.log"
     },
     {
@@ -1061,247 +2623,12 @@
       "pair_index": 38,
       "g_id": "g_ref",
       "f_id": "f002_001_b6517213",
-      "g_ir": {
-        "name": "ref_all_pairs_builder",
-        "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
-        "implementation_hint": {
-          "expects": [
-            "objective",
-            "log_prob"
-          ],
-          "returns": "PrefBatch",
-          "mode": "pairwise"
-        },
-        "hyperparams": {
-          "geometry_family": "dense_all_pairs",
-          "cap_family": "uncapped_full",
-          "weight_family": "uniform_none",
-          "constraint_family": "none"
-        },
-        "operators_used": [
-          "ref_all_pairs"
-        ],
-        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
-      },
-      "f_ir": {
-        "name": "loss_logsigmoid_003_cost_shifted_mean",
-        "intuition": "Pairwise logsigmoid loss with cost gap signal, using weighted mean aggregation for stability and compatibility instead of median.",
-        "pseudocode": "losses = -logsigmoid(clamp(alpha * scale * (lpw - lpl) - 0.1 * (cost_b - cost_a), -20, 20))\nweighted_losses = losses * weight\nloss = weighted_losses.mean()",
-        "hyperparams": {
-          "paradigm_family": "pairwise_margin",
-          "signal_family": "cost_gap",
-          "link_family": "logsigmoid",
-          "agg_family": "mean",
-          "constraint_family": "clamp_stabilized"
-        },
-        "operators_used": [
-          "logsigmoid",
-          "clamp",
-          "mul",
-          "mean"
-        ],
-        "implementation_hint": {
-          "expects": [
-            "log_prob_w",
-            "log_prob_l",
-            "weight",
-            "cost_a",
-            "cost_b"
-          ],
-          "returns": "scalar",
-          "mode": "pairwise"
-        },
-        "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    gap = cost_b - cost_a\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    loss = weighted_losses.mean()\n    return loss",
-        "theoretical_basis": ""
-      },
-      "device": "cuda:0",
-      "device_str": "cuda:0",
-      "device_physical_str": "cuda:0",
-      "device_logical_str": "cuda:0",
-      "cheap_gate_on": false,
-      "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
-      "score": Infinity,
-      "proxy_metrics": null,
-      "seed_signature": null,
-      "descriptor": null,
-      "joint_gate_repaired": false,
-      "joint_gate_repair_attempts": 0,
-      "f_id_before_repair": null,
-      "f_id_after_repair": null,
-      "joint_gate_repair_reports": [],
-      "builder_gate_repaired": false,
-      "builder_gate_repair_attempts": 0,
-      "g_id_before_repair": null,
-      "g_id_after_repair": null,
-      "builder_gate_repair_reports": [],
-      "g_compile_ok": true,
-      "g_compile_reason": "ok",
-      "f_static_ok": true,
-      "f_static_reason": "",
-      "f_compile_ok": true,
-      "f_compile_reason": "ok",
-      "sandbox_gate": null,
-      "sandbox_gate_ok": null,
-      "sandbox_gate_reason": null,
-      "builder_gate_ok": true,
-      "builder_gate_reason": "ok",
-      "builder_gate_trace": {
-        "failed_gate": null,
-        "checks": [
-          {
-            "metric_name": "pair_count",
-            "observed_value": 960,
-            "threshold": 1,
-            "direction": ">="
-          },
-          {
-            "metric_name": "coverage",
-            "observed_value": 1.0,
-            "threshold": 0.0,
-            "direction": ">="
-          },
-          {
-            "metric_name": "max_pairs_per_instance",
-            "observed_value": 120,
-            "threshold": 4096,
-            "direction": "<="
-          },
-          {
-            "metric_name": "semantic_pass_rate",
-            "observed_value": 1.0,
-            "threshold": 1.0,
-            "direction": ">="
-          }
-        ],
-        "instance_weight_cv_gate": {
-          "enabled": false,
-          "cv_threshold": 0.0,
-          "pass_rate_threshold": 1.0,
-          "eligible_instances": 8,
-          "observed_cv_values": []
-        },
-        "builder_pref_cache_hit": false,
-        "memory_metric_available": false,
-        "memory_device": "cpu"
-      },
-      "joint_gate_ok": true,
-      "joint_gate_reason": "ok",
-      "joint_gate_trace": {
-        "failed_gate": null,
-        "failure_kind": null,
-        "observed": {
-          "grad_w_pass_rate": 1.0,
-          "grad_l_pass_rate": 1.0,
-          "effective_grad_ratio": 1.0,
-          "loss": 0.47336772084236145,
-          "loss_swap": 1.0115199089050293,
-          "swap_ok": true,
-          "swap_check_mode": "data",
-          "swap_ref_loss": 0.47336772084236145
-        },
-        "threshold": {
-          "min_pass_rate": 0.8,
-          "swap_tolerance": 0.001,
-          "swap_test_margin": 1.0,
-          "min_effective_grad_ratio": 0.1,
-          "grad_eps": 1e-08
-        },
-        "where_failed": [],
-        "variant": "visible"
-      },
-      "co_enabled": true,
-      "co_ok": false,
-      "co_reason": "affine_invariance_violation",
-      "co_failed_gate": "AffineInvariance",
-      "co_failure_kind": "affine_invariance_violation",
-      "co_sensitivity_ok": true,
-      "co_invariance_ok": false,
-      "co_sensitivity_visible_ok": true,
-      "co_sensitivity_visible_reason": "ok",
-      "co_sensitivity_visible_abs_delta": 0.09791100025177002,
-      "co_sensitivity_visible_rel_delta": 0.02931485772673145,
-      "co_sensitivity_visible_trace": {
-        "failed_gate": null,
-        "metric_name": "delta_loss_under_objective_perturbation",
-        "observed": {
-          "abs_delta": 0.09791100025177002,
-          "rel_delta": 0.02931485772673145,
-          "grad_ratio": 1.0379124612687558
-        },
-        "threshold": {
-          "min_abs_delta": 0.001,
-          "min_rel_delta": 0.01
-        },
-        "direction": {
-          "abs_delta": ">=",
-          "rel_delta": ">=",
-          "grad_ratio": "informational"
-        },
-        "where_failed": null,
-        "counterexamples": [
-          {
-            "loss_small": 1.6210339069366455,
-            "loss_large": 1.7189449071884155,
-            "log_prob_w": -1.233973503112793,
-            "log_prob_l": -1.032055377960205
-          }
-        ],
-        "variant": "visible"
-      },
-      "co_sensitivity_hidden_ok": null,
-      "co_sensitivity_hidden_reason": null,
-      "co_sensitivity_hidden_abs_delta": null,
-      "co_sensitivity_hidden_rel_delta": null,
-      "co_sensitivity_hidden_trace": null,
-      "co_invariance_visible_ok": false,
-      "co_invariance_visible_reason": "affine_invariance_violation",
-      "co_invariance_visible_abs_delta": 0.1694324016571045,
-      "co_invariance_visible_rel_delta": 0.043997314288597586,
-      "co_invariance_visible_trace": {
-        "failed_gate": "AffineInvariance",
-        "metric_name": "delta_loss_under_affine_transform",
-        "observed": {
-          "abs_delta": 0.1694324016571045,
-          "rel_delta": 0.043997314288597586
-        },
-        "threshold": {
-          "max_abs_delta": 0.001,
-          "max_rel_delta": 0.01
-        },
-        "direction": {
-          "abs_delta": "<=",
-          "rel_delta": "<="
-        },
-        "where_failed": "abs_delta_and_rel_delta",
-        "counterexamples": [
-          {
-            "a": 7.0,
-            "b": 3.0,
-            "loss_raw": 1.8407695293426514,
-            "loss_affine": 2.010201930999756,
-            "log_prob_w": -1.8435192108154297,
-            "log_prob_l": -0.3291196823120117,
-            "cost_a_raw": 0.10885089635848999,
-            "cost_a_affine": 3.761956214904785,
-            "cost_b_raw": 0.9657013416290283,
-            "cost_b_affine": 9.759909629821777
-          }
-        ],
-        "variant": "visible"
-      },
-      "co_invariance_hidden_ok": null,
-      "co_invariance_hidden_reason": null,
-      "co_invariance_hidden_abs_delta": null,
-      "co_invariance_hidden_rel_delta": null,
-      "co_invariance_hidden_trace": null,
-      "hf_log_file": "gen009_pair038_cuda_0_g_ref_f002_001_b6517213.log",
       "pair_ok": false,
-      "pair_reason": "stage3_fatal",
-      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_tsp20_K32.json'",
-      "elapsed_s": 0.08707976341247559,
-      "worker_returncode": 0,
-      "worker_elapsed_s": 1.737856388092041,
+      "pair_reason": "worker_no_output",
+      "score": Infinity,
+      "error": "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch_geometric/llm/utils/backend_utils.py:26: DeprecationWarning: `torch_geometric.distributed` has been deprecated since 2.7.0 and will no longer be maintained. For distributed training, refer to our tutorials on distributed training at https://pytorch-geometric.readthedocs.io/en/latest/tutorial/distributed.html or cuGraph examples at https://github.com/rapidsai/cugraph-gnn/tree/main/python/cugraph-pyg/cugraph_pyg/examples\n  from torch_geometric.distributed import (",
+      "worker_returncode": -9,
+      "worker_elapsed_s": 3481.9416263103485,
       "worker_log": "replay_gate_rejected_logs/005_009_038_g_ref_f002_001_b6517213.log"
     }
   ],
@@ -1309,6 +2636,6 @@
     "selected": 5,
     "hf_ok": 0,
     "non_hf_or_failed": 5,
-    "best_score": Infinity
+    "best_score": -0.012343407440185139
   }
 }
