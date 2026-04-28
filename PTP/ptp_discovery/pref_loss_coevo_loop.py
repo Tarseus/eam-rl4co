@@ -5229,6 +5229,36 @@ def _resolve_final_score(
     return "none", None
 
 
+def _merge_stage_label_for_hf_result(
+    prior_rec: Mapping[str, Any] | None,
+    hf_rec: Mapping[str, Any],
+) -> str:
+    pair_reason = str(hf_rec.get("pair_reason", "")).strip().lower()
+    if isinstance(hf_rec.get("fitness"), dict):
+        return "high_fidelity"
+    if pair_reason in {
+        "ok_stage3_offline_minitrain",
+        "stage3_early_pruned",
+        "stage3_runtime_error",
+        "stage3_fatal",
+        "high_fidelity_failed",
+        "child_exception",
+        "child_timeout",
+        "child_exit_no_result",
+    }:
+        return "high_fidelity"
+    if pair_reason in {
+        "stage0_sandbox_failed",
+        "cheap_gate_failed",
+        "pref_semantic_failed",
+        "co_gate_failed",
+        "g_compile_failed",
+        "f_compile_failed",
+    }:
+        return str((prior_rec or {}).get("stage") or "gate")
+    return str((prior_rec or {}).get("stage") or "gate")
+
+
 def _annotate_stage_fields(
     rec: Mapping[str, Any],
     *,
@@ -14662,10 +14692,11 @@ def run_pref_loss_coevo(
                 gid = str(hf_rec.get("g_id"))
                 fid = str(hf_rec.get("f_id"))
                 cache_key = (gid, fid, str(eval_sig))
-                merged = dict(pair_records_map.get((gid, fid), {}))
+                prior_rec = dict(pair_records_map.get((gid, fid), {}))
+                merged = dict(prior_rec)
                 merged.update(dict(hf_rec))
                 merged["eval_budget_signature"] = str(eval_sig)
-                merged["stage"] = "high_fidelity"
+                merged["stage"] = _merge_stage_label_for_hf_result(prior_rec, hf_rec)
                 merged["phase"] = pair_phase_by_pair.get((gid, fid), merged.get("phase", "coevo"))
                 if isinstance(merged.get("fitness"), dict):
                     merged["fitness"]["cheap_only"] = False
@@ -14953,10 +14984,11 @@ def run_pref_loss_coevo(
                             gid = str(hf_rec.get("g_id"))
                             fid = str(hf_rec.get("f_id"))
                             cache_key = (gid, fid, str(eval_sig_round))
-                            merged = dict(pair_records_map.get((gid, fid), {}))
+                            prior_rec = dict(pair_records_map.get((gid, fid), {}))
+                            merged = dict(prior_rec)
                             merged.update(dict(hf_rec))
                             merged["eval_budget_signature"] = str(eval_sig_round)
-                            merged["stage"] = "high_fidelity"
+                            merged["stage"] = _merge_stage_label_for_hf_result(prior_rec, hf_rec)
                             merged["hf_round_name"] = str(round_name)
                             merged["hf_fidelity_key"] = str(fidelity_key)
                             merged["phase"] = pair_phase_by_pair.get((gid, fid), merged.get("phase", "coevo"))
