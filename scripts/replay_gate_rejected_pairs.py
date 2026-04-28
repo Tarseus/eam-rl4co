@@ -57,6 +57,18 @@ def _pair_key(rec: Mapping[str, Any]) -> Tuple[Any, ...]:
     )
 
 
+PRIMARY_PAIR_REASONS = {
+    "cheap_gate_failed",
+    "pref_semantic_failed",
+    "co_gate_failed",
+}
+
+FALLBACK_PAIR_REASONS = {
+    "stage0_sandbox_failed",
+    "stage3_early_pruned",
+}
+
+
 def _dedupe_keep_last(records: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
     out: Dict[Tuple[Any, ...], Dict[str, Any]] = {}
     for rec in records:
@@ -179,7 +191,20 @@ def _select_candidates(
 
     rows = list(_iter_jsonl(gate_path))
     wanted = {str(v).strip() for v in pair_reasons if str(v).strip()}
-    rows = [rec for rec in rows if str(rec.get("pair_reason") or "") in wanted]
+
+    def _filter_by_reasons(reason_set: set[str]) -> List[Dict[str, Any]]:
+        return [rec for rec in rows if str(rec.get("pair_reason") or "") in reason_set]
+
+    selected = _filter_by_reasons(wanted)
+    if not selected:
+        fallback_rows = _filter_by_reasons(FALLBACK_PAIR_REASONS)
+        failed_rows = [rec for rec in rows if not bool(rec.get("pair_ok", True))]
+        failed_reasons = {str(rec.get("pair_reason") or "") for rec in failed_rows}
+        only_fallback_failures = bool(failed_rows) and failed_reasons.issubset(FALLBACK_PAIR_REASONS)
+        if only_fallback_failures:
+            selected = fallback_rows
+
+    rows = selected
 
     if generation is not None:
         token = str(generation).strip().lower()
@@ -510,7 +535,12 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--run-dir", default=None, type=str, help="Run directory containing checkpoint.json and gate_reports.jsonl")
     p.add_argument("--device", default="cuda:0", type=str, help="Replay device, e.g. cuda:0")
-    p.add_argument("--pair-reasons", default="cheap_gate_failed", type=str, help="CSV of pair_reason values to replay")
+    p.add_argument(
+        "--pair-reasons",
+        default="cheap_gate_failed,pref_semantic_failed,co_gate_failed",
+        type=str,
+        help="CSV of primary pair_reason values to replay; fallback gate-only reasons are used automatically when applicable",
+    )
     p.add_argument("--generation", default=None, type=str, help='Optional generation filter, integer or "latest"')
     p.add_argument("--max-pairs", default=None, type=int, help="Optional cap on number of pairs to replay")
     p.add_argument("--sample-size", default=None, type=int, help="Randomly sample this many pairs before replay")
