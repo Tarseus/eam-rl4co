@@ -4,6 +4,7 @@ import argparse
 import json
 import math
 import os
+import re
 import textwrap
 from collections import defaultdict
 from pathlib import Path
@@ -18,6 +19,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as pe
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +36,45 @@ BUILDER_RUNS = {
 SELECTED_TASKS = ("TSP100",)
 SEARCH_TRAJECTORY_MAX_GENERATION = 9
 SEARCH_TRAJECTORY_ELITE_FRACTION = 0.25
+SEARCH_TRAJECTORY_FORMULA_LABELS = {
+    (
+        "L",
+        1,
+    ): "$\\ell_f^{(i)}=-\\log\\sigma\\!\\left(z_1^{(i)}\\right)$\n"
+    "$z_1^{(i)}=\\operatorname{clip}_{[-10,10]}\\!\\left(\\alpha s\\,\\Delta p^{(i)}-\\operatorname{clip}_{[-2,2]}\\!(0.015\\,\\Delta o^{(i)})\\right)$",
+    (
+        "L",
+        2,
+    ): "$\\ell_f^{(i)}=-\\log\\sigma\\!\\left(z_2^{(i)}\\right)$\n"
+    "$z_2^{(i)}=\\operatorname{clip}_{[-20,20]}\\!\\left(\\alpha s(\\Delta p^{(i)}+0.05)-\\dfrac{0.03}{\\sigma(\\Delta p)+\\varepsilon}\\,\\Delta o^{(i)}\\right)$",
+    (
+        "L",
+        4,
+    ): "$\\ell_f^{(i)}=-\\log\\sigma\\!\\left(z_4^{(i)}\\right)$\n"
+    "$z_4^{(i)}=\\operatorname{clip}_{[-20,20]}\\!\\left(\\alpha s\\,\\Delta p^{(i)}\\!\\left(1-\\beta\\dfrac{\\Delta o^{(i)}}{1+|\\Delta o^{(i)}|}\\right)\\right)$",
+    (
+        "W",
+        1,
+    ): "$w_g^{(i)}=\\operatorname{clip}_{[0.1,3.0]}\\!\\left(\\dfrac{\\Delta o^{(i)}}{\\operatorname{MAD}(\\Delta o)}\\cdot\\dfrac{|\\Delta p^{(i)}|}{\\sigma(\\Delta p)}\\cdot r(x)\\right)$",
+    (
+        "W",
+        2,
+    ): "$w_g^{(i)}=\\operatorname{clip}_{[0.1,3.0]}\\!\\left(\\dfrac{\\Delta o^{(i)}}{\\operatorname{MAD}(\\Delta o)}\\cdot\\dfrac{|\\Delta p^{(i)}|}{\\sigma(\\Delta p)}\\cdot r(x)\\right)$\n"
+    "$w_g^{(i)}=0\\ \\mathrm{if}\\ \\dfrac{|\\Delta p^{(i)}|}{\\sigma(\\Delta p)}<\\tau$",
+    (
+        "W",
+        4,
+    ): "$w_g^{(i)}=\\operatorname{clip}_{[0.2,2.5]}\\!\\left(\\dfrac{\\Delta o^{(i)}}{\\operatorname{MAD}(\\Delta o)}\\cdot\\dfrac{|\\Delta p^{(i)}|}{\\sigma(\\Delta p)}\\cdot r(x)\\right)$",
+}
+SEARCH_TRAJECTORY_ANNOTATIONS = {
+    ("L", 1): {"offset": (0, 106), "color": "#4c78a8"},
+    ("L", 2): {"offset": (0, -54), "color": "#4c78a8", "pad": 0.95},
+    ("L", 4): {"offset": (0, 60), "color": "#4c78a8", "pad": 0.95},
+    ("W", 1): {"offset": (0, 68), "color": "#d65f5f"},
+    ("W", 2): {"offset": (0, -118), "color": "#d65f5f"},
+    ("W", 4): {"offset": (0, -86), "color": "#d65f5f"},
+}
+_REPLAY_SHARD_RE = re.compile(r"^(?P<prefix>.+)_shard(?P<shard>\d+)_(?P<ts>\d{8}-\d{6})\.json$")
 
 
 def _iter_jsonl(path: Path) -> Iterable[Dict[str, Any]]:
@@ -462,6 +503,107 @@ def _weighting_best_so_far_series(run_dir: Path) -> Dict[str, Any]:
     return _pair_history_best_series(run_dir, meta_lookup)
 
 
+def _latest_replay_shard_paths(prefix: str) -> List[Path]:
+    root = REPO_ROOT / "runs/replay_gate_rejected_reports"
+    grouped: Dict[str, List[Path]] = defaultdict(list)
+    for path in root.glob(f"{prefix}_shard*.json"):
+        match = _REPLAY_SHARD_RE.match(path.name)
+        if match is None or match.group("prefix") != prefix:
+            continue
+        grouped[match.group("ts")].append(path)
+    if not grouped:
+        return []
+    latest_ts = max(grouped)
+
+    def _shard_key(path: Path) -> Tuple[int, str]:
+        match = _REPLAY_SHARD_RE.match(path.name)
+        shard = int(match.group("shard")) if match is not None else 10**9
+        return shard, path.name
+
+    return sorted(grouped[latest_ts], key=_shard_key)
+
+
+def _replay_best_so_far_series(paths: Sequence[Path]) -> Dict[str, Any]:
+    entries: List[Dict[str, Any]] = []
+    for path in paths:
+        payload = _load_json(path)
+        results = payload.get("results")
+        if not isinstance(results, list):
+            continue
+        for row in results:
+            if not isinstance(row, Mapping):
+                continue
+            gen = row.get("generation")
+            score = _maybe_float(row.get("score"))
+            if not isinstance(gen, int) or gen < 0 or score is None:
+                continue
+            entries.append(
+                {
+                    "generation": int(gen),
+                    "score": float(score),
+                }
+            )
+
+    if not entries:
+        return {"generations": [], "best_so_far": [], "best_records": []}
+
+    by_gen: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+    for rec in entries:
+        by_gen[int(rec["generation"])].append(rec)
+
+    generations = sorted(by_gen)
+    best_so_far: List[float] = []
+    best_records: List[Dict[str, Any]] = []
+    current_best = None
+    for gen in generations:
+        rec = min(by_gen[gen], key=lambda r: float(r["score"]))
+        score = float(rec["score"])
+        if current_best is None or score < current_best:
+            current_best = score
+        best_so_far.append(float(current_best))
+        best_records.append({"generation": gen, "score": score})
+
+    return {"generations": generations, "best_so_far": best_so_far, "best_records": best_records}
+
+
+def _trajectory_gain_map(series: Mapping[str, Any], phase: str) -> Dict[int, float]:
+    gens = [int(g) for g in series.get("generations", []) if isinstance(g, int)]
+    best_so_far = [float(v) for v in series.get("best_so_far", []) if _is_finite(v)]
+    gains: Dict[int, float] = {}
+    if not gens or not best_so_far:
+        return gains
+    if phase == "loss":
+        raw = [-v for v in best_so_far]
+        running = 0.0
+        for idx, (gen, value) in enumerate(zip(gens, raw)):
+            if idx == 0:
+                running = 0.0
+            elif idx <= 2:
+                running = float(value)
+            else:
+                running = max(float(running), float(value))
+            gains[int(gen)] = float(running)
+        return gains
+    if phase == "weight":
+        start = -float(best_so_far[0])
+        loss_end_gain = 0.0
+        # Weight gains are anchored to the final gain of the loss phase by the caller.
+        raise ValueError("weight phase requires explicit loss_end_gain")
+    raise ValueError(f"Unknown phase: {phase}")
+
+
+def _weight_trajectory_gain_map(series: Mapping[str, Any], loss_end_gain: float) -> Dict[int, float]:
+    gens = [int(g) for g in series.get("generations", []) if isinstance(g, int)]
+    best_so_far = [float(v) for v in series.get("best_so_far", []) if _is_finite(v)]
+    gains: Dict[int, float] = {}
+    if not gens or not best_so_far:
+        return gains
+    start = -float(best_so_far[0])
+    for gen, value in zip(gens, best_so_far):
+        gains[int(gen)] = float(loss_end_gain + (-float(value) - start))
+    return gains
+
+
 def _improvement_points(
     series: Mapping[str, Any],
     baseline_score: float,
@@ -574,15 +716,14 @@ def _load_diagnostic_points(run_dir: Path) -> List[Dict[str, float | str]]:
     return points
 
 
-def _plot_search_trajectory(outdir: Path) -> Path:
-    fig, ax_gain = plt.subplots(figsize=(10.6, 5.8))
+def _plot_search_trajectory(outdir: Path, *, output_name: str = "01_search_trajectory.png", overlay_no_gate: bool = False) -> Path:
+    fig, ax_gain = plt.subplots(figsize=(11.4, 7.6))
     title = "TSP100"
     loss_run_dir = LOSS_RUNS[title]
     weight_run_dir = BUILDER_RUNS[title]
 
     loss_series = _loss_best_so_far_series(loss_run_dir)
     weight_series = _weighting_best_so_far_series(weight_run_dir)
-
     loss_gens = [g for g in loss_series["generations"] if g <= SEARCH_TRAJECTORY_MAX_GENERATION]
     weight_gens = [g for g in weight_series["generations"] if g <= SEARCH_TRAJECTORY_MAX_GENERATION]
 
@@ -590,7 +731,11 @@ def _plot_search_trajectory(outdir: Path) -> Path:
     display_weight_gens = list(dict.fromkeys(weight_gens[:6] + weight_gens[-1:]))
 
     if display_loss_gens and display_weight_gens:
-        loss_best_lookup = dict(zip(loss_series["generations"], loss_series["best_so_far"]))
+        loss_gen_best_lookup = {
+            int(rec["generation"]): float(rec["score"])
+            for rec in loss_series["best_records"]
+            if rec.get("generation") is not None and _is_finite(rec.get("score"))
+        }
         weight_best_lookup = dict(zip(weight_series["generations"], weight_series["best_so_far"]))
         loss_x = list(range(min(6, len(display_loss_gens))))
         if len(display_loss_gens) > 6:
@@ -601,21 +746,97 @@ def _plot_search_trajectory(outdir: Path) -> Path:
             weight_x.append(weight_x[-1] + 2)
         x_positions = loss_x + weight_x
 
-        loss_y = [-float(loss_best_lookup[g]) for g in display_loss_gens]
-        if loss_y:
-            loss_y[0] = 0.0
+        loss_raw_y = [-float(loss_gen_best_lookup[g]) for g in display_loss_gens]
+        loss_y = []
+        running_loss_gain = 0.0
+        for idx, y in enumerate(loss_raw_y):
+            if idx == 0:
+                loss_y.append(0.0)
+                continue
+            if idx <= 2:
+                running_loss_gain = float(y)
+            else:
+                running_loss_gain = max(float(running_loss_gain), float(y))
+            loss_y.append(float(running_loss_gain))
         loss_end_gain = float(loss_y[-1]) if loss_y else 0.0
         weight_start_gain = -float(weight_best_lookup[display_weight_gens[0]])
         weight_y = [loss_end_gain + (-float(weight_best_lookup[g]) - weight_start_gain) for g in display_weight_gens]
         y_values = loss_y + weight_y
 
-        ax_gain.plot(x_positions, y_values, color="#111111", lw=2.5, marker="o", ms=4.5)
-        ax_gain.fill_between(loss_x, loss_y, color="#111111", alpha=0.08)
-        ax_gain.fill_between(weight_x, weight_y, color="#111111", alpha=0.08)
+        phase_boundary_x = (loss_x[-1] + 0.5) if loss_x and weight_x else 0.0
+        x_left = -1.18
+        x_right = weight_x[-1] + 0.8
 
-        ax_gain.set_title("TSP100 loss then weighting")
-        ax_gain.set_ylabel("score gain")
-        ax_gain.grid(True, alpha=0.3)
+        ax_gain.axvspan(x_left, phase_boundary_x, color="#dbe8f6", alpha=0.95, zorder=0)
+        ax_gain.axvspan(phase_boundary_x, x_right, color="#fae7d3", alpha=0.95, zorder=0)
+        ax_gain.fill_between(loss_x, loss_y, color="#111111", alpha=0.06, zorder=1)
+        ax_gain.fill_between(weight_x, weight_y, color="#111111", alpha=0.06, zorder=1)
+        ax_gain.plot(x_positions, y_values, color="#111111", lw=2.6, marker="o", ms=5.2, zorder=4)
+
+        if overlay_no_gate:
+            replay_loss_paths = _latest_replay_shard_paths("tsp_loss")
+            replay_weight_paths = _latest_replay_shard_paths("tsp_weight")
+            replay_loss_series = _replay_best_so_far_series(replay_loss_paths)
+            replay_weight_series = _replay_best_so_far_series(replay_weight_paths)
+
+            replay_loss_gains = _trajectory_gain_map(replay_loss_series, "loss")
+            replay_loss_x_map = dict(zip(display_loss_gens, loss_x))
+            replay_loss_pts = [
+                (replay_loss_x_map[g], replay_loss_gains[g])
+                for g in display_loss_gens
+                if g in replay_loss_gains
+            ]
+
+            replay_loss_end_gain = 0.0
+            replay_loss_gens = replay_loss_series.get("generations") or []
+            if replay_loss_gens:
+                last_loss_gen = int(replay_loss_gens[-1])
+                replay_loss_end_gain = float(replay_loss_gains.get(last_loss_gen, 0.0))
+
+            replay_weight_gains = _weight_trajectory_gain_map(replay_weight_series, loss_end_gain=replay_loss_end_gain)
+            replay_weight_x_map = dict(zip(display_weight_gens, weight_x))
+            replay_weight_pts = [
+                (replay_weight_x_map[g], replay_weight_gains[g])
+                for g in display_weight_gens
+                if g in replay_weight_gains
+            ]
+
+            replay_pts = replay_loss_pts + replay_weight_pts
+            if replay_pts:
+                rx, ry = zip(*replay_pts)
+                ax_gain.plot(
+                    rx,
+                    ry,
+                    color="#c43d3d",
+                    lw=2.2,
+                    ls="--",
+                    marker="o",
+                    ms=4.6,
+                    alpha=0.9,
+                    zorder=3,
+                    label="No-gate replay",
+                )
+                ax_gain.legend(frameon=False, loc="lower right", fontsize=8.5)
+
+        phase_colors = {"L": "#4c78a8", "W": "#d65f5f"}
+        key_points = {
+            ("L", 1): (loss_x[1], loss_y[1]),
+            ("L", 2): (loss_x[2], loss_y[2]),
+            ("L", 4): (loss_x[4], loss_y[4]),
+            ("W", 1): (weight_x[1], weight_y[1]),
+            ("W", 2): (weight_x[2], weight_y[2]),
+            ("W", 4): (weight_x[4], weight_y[4]),
+        }
+        for (phase, _), (x, y) in key_points.items():
+            color = phase_colors[phase]
+            edge = "#dce7f4" if phase == "L" else "#ffd2cd"
+            ax_gain.scatter([x], [y], s=430, color=color, alpha=0.10, zorder=5, linewidths=0)
+            ax_gain.scatter([x], [y], s=260, color=color, alpha=0.18, zorder=6, linewidths=0)
+            ax_gain.scatter([x], [y], s=145, color=color, edgecolors=edge, linewidths=1.3, zorder=7)
+
+        ax_gain.set_ylabel("score gain", fontsize=14)
+        ax_gain.grid(True, alpha=0.45, color="#b0b0b0", linewidth=1.0)
+        ax_gain.set_axisbelow(True)
         ax_gain.axhline(0.0, color="#888888", lw=1.0, ls=":")
 
         xtick_positions = list(loss_x[:6])
@@ -637,75 +858,121 @@ def _plot_search_trajectory(outdir: Path) -> Path:
         ax_gain.set_xticks(xtick_positions)
         ax_gain.set_xticklabels(xtick_labels, fontsize=7.4)
         ax_gain.tick_params(axis="x", pad=10)
-        phase_boundary_x = (loss_x[-1] + 0.5) if loss_x and weight_x else 0.0
-        ax_gain.axvline(phase_boundary_x, color="#bdbdbd", lw=1.0, ls="--")
-        ax_gain.text(
-            phase_boundary_x + 0.25,
-            0.96,
-            "weighting",
-            transform=ax_gain.get_xaxis_transform(),
-            ha="left",
-            va="top",
-            fontsize=8.0,
-            color="#666666",
-        )
-
         all_values = loss_y + weight_y
         y_min = min(all_values)
         y_max = max(all_values)
-        y_pad = max(0.001, (y_max - y_min) * 0.12)
-        ax_gain.set_ylim(bottom=max(-0.001, y_min - y_pad))
-        ax_gain.set_xlim(-0.4, weight_x[-1] + 0.8)
+        y_pad = max(0.0018, (y_max - y_min) * 0.19)
+        y_top = y_max + y_pad
+        ax_gain.set_xlim(x_left, x_right)
+        ax_gain.set_ylim(bottom=max(-0.001, y_min - y_pad * 0.35), top=y_top)
 
-        loss_formulas = _improvement_formulas(loss_series, "L", display_loss_gens, loss_x)
-        weight_formulas = _improvement_formulas(weight_series, "W", display_weight_gens, weight_x)
-        for item in loss_formulas:
-            ax_gain.text(
-                item["x"],
-                -0.28,
-                item["text"],
-                transform=ax_gain.get_xaxis_transform(),
-                ha="center",
-                va="top",
-                fontsize=6.1,
-                clip_on=False,
-                bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "#cfcfcf", "alpha": 0.97},
-            )
-        for idx, item in enumerate(weight_formulas):
-            y_pos = -0.40 if idx % 2 == 0 else -0.49
-            ax_gain.text(
-                item["x"],
-                y_pos,
-                item["text"],
-                transform=ax_gain.get_xaxis_transform(),
-                ha="center",
-                va="top",
-                fontsize=6.1,
-                clip_on=False,
-                bbox={"boxstyle": "round,pad=0.16", "fc": "white", "ec": "#cfcfcf", "alpha": 0.97},
-            )
+        ax_gain.axvline(phase_boundary_x, color="#8f8f8f", lw=1.6, ls="--", zorder=2)
         ax_gain.text(
-            0.02,
-            0.92,
-            f"L6-L8 omitted; W6-W8 omitted. loss baseline = g0; weighting anchored at loss endpoint ({loss_end_gain:.6f}).  "
-            "Formula labels show Δ = previous best - new best.",
-            transform=ax_gain.transAxes,
-            fontsize=8.0,
+            (loss_x[0] + loss_x[-1]) / 2,
+            y_top + y_pad * 0.11,
+            "Stage 1: Loss Search",
+            ha="center",
+            va="bottom",
+            fontsize=17,
+            color="#222222",
+            clip_on=False,
+        )
+        ax_gain.text(
+            (weight_x[0] + weight_x[-1]) / 2,
+            y_top + y_pad * 0.11,
+            "Stage 2: Weighting Search",
+            ha="center",
+            va="bottom",
+            fontsize=17,
+            color="#222222",
+            clip_on=False,
+        )
+        ax_gain.text(
+            phase_boundary_x - 0.02,
+            y_min + y_pad * 0.12,
+            "Transition: Introduce Weighting",
+            rotation=90,
+            ha="right",
+            va="bottom",
+            fontsize=12,
+            color="#222222",
+            bbox=dict(boxstyle="round,pad=0.16", fc="white", ec="#d0d0d0", alpha=0.88),
+            zorder=8,
+        )
+
+        corner_note = (
+            "$\\Delta p^{(i)} = p_w^{(i)} - p_l^{(i)}$\n"
+            "$\\Delta o^{(i)} = o_l^{(i)} - o_w^{(i)}$\n"
+            "$r(x)$: instance regret mean"
+        )
+        ax_gain.text(
+            x_left + 0.88,
+            y_top - y_pad * 0.11,
+            corner_note,
             ha="left",
             va="top",
-            bbox={"boxstyle": "round,pad=0.22", "fc": "white", "ec": "#dddddd", "alpha": 0.95},
+            fontsize=8.0,
+            color="#1f1f1f",
+            bbox=dict(boxstyle="round,pad=0.45", fc="white", ec="#c9c9c9", alpha=0.96),
+            zorder=8,
         )
+
+        bbox_base = dict(fc="white", lw=1.2, alpha=0.97)
+        arrow_base = dict(
+            arrowstyle="simple",
+            mutation_scale=28,
+            linewidth=1.1,
+            shrinkA=8,
+            shrinkB=8,
+            alpha=0.88,
+        )
+        for key, (x, y) in key_points.items():
+            formula = SEARCH_TRAJECTORY_FORMULA_LABELS[key]
+            ann_spec = SEARCH_TRAJECTORY_ANNOTATIONS[key]
+            ann = ax_gain.annotate(
+                formula,
+                xy=(x, y),
+                xytext=ann_spec["offset"],
+                textcoords="offset points",
+                ha="center",
+                va="center",
+                fontsize=7.8,
+                color="#222222",
+                bbox={**bbox_base, "boxstyle": f"round,pad={ann_spec.get('pad', 0.45)}", "ec": ann_spec["color"]},
+                arrowprops={
+                    **arrow_base,
+                    "fc": ann_spec["color"],
+                    "ec": ann_spec["color"],
+                    "connectionstyle": "arc3,rad=0.0",
+                },
+                linespacing=1.25,
+                multialignment="center",
+                zorder=9,
+                annotation_clip=False,
+            )
+            patch = ann.get_bbox_patch()
+            if patch is not None:
+                patch.set_path_effects(
+                    [pe.withSimplePatchShadow(offset=(2, -2), shadow_rgbFace=(0, 0, 0), alpha=0.18), pe.Normal()]
+                )
+
     else:
-        ax_gain.set_title(title)
         ax_gain.text(0.5, 0.5, "no data", ha="center", va="center")
 
-    fig.suptitle("Search trajectory", y=1.03, fontsize=14, fontweight="bold")
-    fig.tight_layout(rect=(0, 0.18, 1, 0.98))
-    path = outdir / "01_search_trajectory.png"
+    fig.tight_layout(rect=(0, 0.05, 1, 0.93))
+    path = outdir / output_name
     fig.savefig(path, dpi=220, bbox_inches="tight")
     fig.savefig(path.with_suffix(".svg"), bbox_inches="tight")
     plt.close(fig)
     return path
+
+
+def _plot_search_trajectory_nogate(outdir: Path) -> Path:
+    return _plot_search_trajectory(
+        outdir,
+        output_name="01_search_trajectory_nogate.png",
+        overlay_no_gate=True,
+    )
 
 
 def _plot_funnel(outdir: Path) -> Path:
@@ -834,6 +1101,7 @@ def main() -> int:
     manifest: Dict[str, Any] = {"output_dir": str(outdir), "figures": []}
     for maker in (
         _plot_search_trajectory,
+        _plot_search_trajectory_nogate,
         _plot_funnel,
         _plot_stagewise_bars,
         _plot_diagnostic,
