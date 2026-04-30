@@ -1,10 +1,9 @@
 {
   "run_dir": "/data1/gushengda/eam-rl4co/runs/pref_builder_weight_search_cvrp100/20260416-182905",
   "device": "cuda:0",
-  "pure_no_gate": false,
+  "pure_no_gate": true,
   "pair_reasons": [
     "cheap_gate_failed",
-    "stage0_sandbox_failed",
     "pref_semantic_failed",
     "co_gate_failed"
   ],
@@ -40,15 +39,79 @@
       "pair_index": 3,
       "g_id": "g000_001_5b2f5325",
       "f_id": "fseed_000_3c3e0ea7",
-      "g_ir": {},
-      "f_ir": {},
+      "g_ir": {
+        "name": "builder_all_pairs_gap_softmax_002",
+        "intuition": "Compute nonnegative gap weights via softmax-like exponentiation on clamped positive gaps without imports, preserving all pairs topology and using pure vectorized tensor ops.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_softmax",
+          "constraint_family": "clamp_only"
+        },
+        "operators_used": [
+          "all_pairs",
+          "exp",
+          "clamp",
+          "sub",
+          "nonzero"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    gap = gap.clamp(min=0.0)\n    tau = float(extra.get('weight_tau', 1.0))\n    weight_unclamped = (gap * tau).exp()\n    weight = weight_unclamped.clamp(min=0.01, max=4.0)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_softmax'})"
+      },
+      "f_ir": {
+        "name": "pairwise_margin_adaptive_scaled_bias_v8_distinct_fixed_safe",
+        "intuition": "Fixed runtime by clamping inputs to stable ranges and ensuring all required keys are safely accessed, preserving adaptive scaled bias with delta_rank signal.",
+        "pseudocode": "margin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + eps\ndelta_rank_mean = mean(delta_rank)\ndelta_rank_var = mean((delta_rank - delta_rank_mean)^2) + eps\ndelta_rank_std = sqrt(delta_rank_var)\ncv = delta_rank_std / abs_delta_rank_mean\nbeta = 0.15 * sigmoid(-15 * (cv - 0.2))\nbias_dynamic = bias * softplus(0.5 * delta_rank) / (abs_delta_rank_mean + 0.2)\nscaled_bias = tanh(gamma * bias_dynamic)\nmargin_scale_raw = delta_rank_std / (abs_delta_rank_mean + 0.1)\nmargin_scale = 1.3 * sigmoid(12 * (margin_scale_raw - 0.15))\nscaled_margin = margin * margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -14, 14)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "delta_rank",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "adaptive_scaled_bias_dynamic_v4"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "add",
+          "sub",
+          "neg",
+          "sum",
+          "abs",
+          "mean",
+          "div",
+          "sqrt",
+          "tanh",
+          "sigmoid",
+          "softplus"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "delta_rank"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 2.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + eps\n    delta_rank_mean = ops.mean(delta_rank)\n    diff = ops.sub(delta_rank, delta_rank_mean)\n    delta_rank_var = ops.mean(ops.mul(diff, diff)) + eps\n    delta_rank_std = ops.sqrt(delta_rank_var)\n\n    cv = ops.div(delta_rank_std, abs_delta_rank_mean)\n    beta = ops.mul(0.15, ops.sigmoid(ops.neg(ops.mul(15.0, ops.sub(cv, 0.2)))))\n\n    sp_arg = ops.mul(0.5, delta_rank)\n    bias_dynamic = ops.div(ops.mul(bias, ops.softplus(sp_arg)), ops.add(abs_delta_rank_mean, 0.2))\n    scaled_bias = ops.tanh(ops.mul(gamma, bias_dynamic))\n\n    margin = ops.sub(lpw, lpl)\n    margin_scale_raw = ops.div(delta_rank_std, ops.add(abs_delta_rank_mean, 0.1))\n    margin_scale = ops.mul(1.3, ops.sigmoid(ops.mul(12.0, ops.sub(margin_scale_raw, 0.15))))\n    scaled_margin = ops.mul(margin, margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n\n    x = ops.clamp(biased_margin, -14.0, 14.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n\n    loss = ops.sum(weighted_loss)\n    return loss",
+        "theoretical_basis": ""
+      },
       "device": "cuda:0",
       "device_str": "cuda:0",
       "device_physical_str": "cuda:0",
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "f79d752b6c1aa3b8",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -63,13 +126,180 @@
       "g_id_before_repair": null,
       "g_id_after_repair": null,
       "builder_gate_repair_reports": [],
+      "g_compile_ok": true,
+      "g_compile_reason": "ok",
+      "f_static_ok": true,
+      "f_static_reason": "",
+      "f_compile_ok": true,
+      "f_compile_reason": "ok",
+      "sandbox_gate": null,
+      "sandbox_gate_ok": null,
+      "sandbox_gate_reason": null,
+      "builder_gate_ok": true,
+      "builder_gate_reason": "ok",
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": true,
+          "cv_threshold": 0.1,
+          "pass_rate_threshold": 0.75,
+          "eligible_instances": 8,
+          "observed_cv_values": [
+            0.1103938085310823,
+            0.110393800769626,
+            0.110393800769626,
+            0.1103938085310823,
+            0.1103938085310823,
+            0.110393800769626,
+            0.110393800769626,
+            0.1103938085310823
+          ]
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "joint_gate_ok": true,
+      "joint_gate_reason": "ok",
+      "joint_gate_trace": {
+        "failed_gate": null,
+        "failure_kind": null,
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 715.761474609375,
+          "loss_swap": 2621.45458984375,
+          "swap_ok": true,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 715.761474609375
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [],
+        "variant": "visible"
+      },
+      "co_enabled": true,
+      "co_ok": true,
+      "co_reason": "ok",
+      "co_failed_gate": null,
+      "co_failure_kind": null,
+      "co_sensitivity_ok": true,
+      "co_invariance_ok": true,
+      "co_sensitivity_visible_ok": true,
+      "co_sensitivity_visible_reason": "ok",
+      "co_sensitivity_visible_abs_delta": 19.862396240234375,
+      "co_sensitivity_visible_rel_delta": 0.17106508847745602,
+      "co_sensitivity_visible_trace": {
+        "failed_gate": null,
+        "metric_name": "delta_loss_under_objective_perturbation",
+        "observed": {
+          "abs_delta": 19.862396240234375,
+          "rel_delta": 0.17106508847745602,
+          "grad_ratio": 1.3160033763137513
+        },
+        "threshold": {
+          "min_abs_delta": 0.001,
+          "min_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": ">=",
+          "rel_delta": ">=",
+          "grad_ratio": "informational"
+        },
+        "where_failed": null,
+        "counterexamples": [
+          {
+            "loss_small": 48.12388610839844,
+            "loss_large": 67.98628234863281,
+            "log_prob_w": -4.122981071472168,
+            "log_prob_l": -6.070918083190918,
+            "delta_rank_small": 0.10000000149011612,
+            "delta_rank_large": 5.0
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_sensitivity_hidden_ok": null,
+      "co_sensitivity_hidden_reason": null,
+      "co_sensitivity_hidden_abs_delta": null,
+      "co_sensitivity_hidden_rel_delta": null,
+      "co_sensitivity_hidden_trace": null,
+      "co_invariance_visible_ok": true,
+      "co_invariance_visible_reason": "ok",
+      "co_invariance_visible_abs_delta": 0.0,
+      "co_invariance_visible_rel_delta": 0.0,
+      "co_invariance_visible_trace": {
+        "failed_gate": null,
+        "metric_name": "delta_loss_under_affine_transform",
+        "observed": {
+          "abs_delta": 0.0,
+          "rel_delta": 0.0
+        },
+        "threshold": {
+          "max_abs_delta": 0.001,
+          "max_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": "<=",
+          "rel_delta": "<="
+        },
+        "where_failed": null,
+        "counterexamples": [
+          {
+            "a": 7.0,
+            "b": 3.0,
+            "loss_raw": 48.6286735534668,
+            "loss_affine": 48.6286735534668,
+            "log_prob_w": -6.4684858322143555,
+            "log_prob_l": -3.658890724182129
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_invariance_hidden_ok": null,
+      "co_invariance_hidden_reason": null,
+      "co_invariance_hidden_abs_delta": null,
+      "co_invariance_hidden_rel_delta": null,
+      "co_invariance_hidden_trace": null,
+      "hf_log_file": "gen-01_pair003_cuda_0_g000_001_5b2f5325_fseed_000_3c3e0ea7.log",
       "pair_ok": false,
-      "pair_reason": "g_compile_failed",
-      "g_compile_ok": false,
-      "g_compile_reason": "PreferenceBuilderIR.code is empty.",
-      "elapsed_s": 0.0001418590545654297,
+      "pair_reason": "stage3_fatal",
+      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_cvrp100_K32.json'",
+      "elapsed_s": 0.11976885795593262,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.7034063339233398,
+      "worker_elapsed_s": 1.7236394882202148,
       "worker_log": "replay_gate_rejected_logs/001_-01_003_g000_001_5b2f5325_fseed_000_3c3e0ea7.log"
     },
     {
@@ -77,15 +307,78 @@
       "pair_index": 1,
       "g_id": "g000_009_dbb2065f",
       "f_id": "fseed_000_3c3e0ea7",
-      "g_ir": {},
-      "f_ir": {},
+      "g_ir": {
+        "name": "builder_all_pairs_gap_linear_tiezone_clamp_001",
+        "intuition": "Preserves gap_linear weighting with explicit tie-zone slope filtering and clamping to stabilize pair weights without normalization.",
+        "implementation_hint": {
+          "expects": [
+            "objective",
+            "log_prob"
+          ],
+          "returns": "PrefBatch",
+          "mode": "pairwise"
+        },
+        "hyperparams": {
+          "geometry_family": "dense_all_pairs",
+          "cap_family": "uncapped_full",
+          "weight_family": "gap_linear",
+          "constraint_family": "tiezone_clamp"
+        },
+        "operators_used": [
+          "all_pairs",
+          "gap_linear",
+          "clamp",
+          "tiezone_filter"
+        ],
+        "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    raw_weight = gap.clamp_min(0.0)\n\n    # Tie-zone filtering: suppress weights for very small gaps (<= tiezone_eps)\n    tiezone_eps = float(extra.get('tiezone_eps', 0.1))\n    tiezone_slope = float(extra.get('tiezone_slope', 10.0))\n    tiezone_mask = raw_weight > tiezone_eps\n    # Smooth ramp: linear from 0 at tiezone_eps to 1 at tiezone_eps + 1/slope\n    ramp_width = 1.0 / tiezone_slope\n    ramp_start = tiezone_eps\n    ramp_end = tiezone_eps + ramp_width\n    ramp_mask = (raw_weight > ramp_start) & (raw_weight < ramp_end)\n    ramp_vals = (raw_weight - ramp_start) * tiezone_slope\n    scaled_weight = torch.where(tiezone_mask, torch.where(ramp_mask, ramp_vals, torch.ones_like(raw_weight)), torch.zeros_like(raw_weight)) * raw_weight\n\n    # Clamp weights to prevent extreme values\n    clamp_lo = float(extra.get('clamp_lo', 0.25))\n    clamp_hi = float(extra.get('clamp_hi', 4.0))\n    weight = scaled_weight.clamp(clamp_lo, clamp_hi)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs', 'weight_family': 'gap_linear'})"
+      },
+      "f_ir": {
+        "name": "pairwise_margin_adaptive_scaled_bias_v8_distinct_fixed_repaired",
+        "intuition": "Fixed runtime by adding small eps clamps before sqrt and division to ensure numerical stability; preserved adaptive scaled bias with delta_rank signal and pairwise logsigmoid loss.",
+        "pseudocode": "eps=1e-6\nmargin = log_prob_w - log_prob_l\nabs_delta_rank_mean = mean(abs(delta_rank)) + eps\ndelta_rank_mean = mean(delta_rank)\ndelta_rank_var = mean((delta_rank - delta_rank_mean)^2) + eps\ndelta_rank_std = sqrt(delta_rank_var)\ncv = delta_rank_std / abs_delta_rank_mean\nbeta = 0.15 * sigmoid(-15 * (cv - 0.2))\nbias_dynamic = bias * softplus(0.5 * delta_rank) / (abs_delta_rank_mean + 0.2)\nscaled_bias = tanh(gamma * bias_dynamic)\nmargin_scale_raw = delta_rank_std / (abs_delta_rank_mean + 0.1)\nmargin_scale = 1.3 * sigmoid(12 * (margin_scale_raw - 0.15))\nscaled_margin = margin * margin_scale\nweighted_margin = alpha * scaled_margin - beta * delta_rank\nbiased_margin = weighted_margin + scaled_bias\nx = clamp(biased_margin, -14, 14)\nloss_per_pair = -logsigmoid(x)\nweighted_loss = loss_per_pair * weight\nloss = sum(weighted_loss)\nreturn loss",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "delta_rank",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "adaptive_scaled_bias_dynamic_v4"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "mul",
+          "add",
+          "sub",
+          "neg",
+          "sum",
+          "abs",
+          "mean",
+          "div",
+          "sqrt",
+          "tanh",
+          "sigmoid",
+          "softplus"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "delta_rank"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    bias = float(extra.get('bias', extra.get('hyperparams', {}).get('bias', 0.5)))\n    gamma = float(extra.get('gamma', 2.0))\n\n    abs_delta_rank_mean = ops.mean(ops.abs(delta_rank)) + eps\n    delta_rank_mean = ops.mean(delta_rank)\n    diff = ops.sub(delta_rank, delta_rank_mean)\n    delta_rank_var = ops.mean(ops.mul(diff, diff)) + eps\n    delta_rank_std = ops.sqrt(delta_rank_var.clamp(min=eps))\n\n    cv = ops.div(delta_rank_std, abs_delta_rank_mean + eps)\n    beta = ops.mul(0.15, ops.sigmoid(ops.neg(ops.mul(15.0, ops.sub(cv, 0.2)))))\n\n    sp_arg = ops.mul(0.5, delta_rank)\n    bias_dynamic = ops.div(ops.mul(bias, ops.softplus(sp_arg)), ops.add(abs_delta_rank_mean, 0.2))\n    scaled_bias = ops.tanh(ops.mul(gamma, bias_dynamic))\n\n    margin = ops.sub(lpw, lpl)\n    margin_scale_raw = ops.div(delta_rank_std, ops.add(abs_delta_rank_mean, 0.1).clamp(min=eps))\n    margin_scale = ops.mul(1.3, ops.sigmoid(ops.mul(12.0, ops.sub(margin_scale_raw, 0.15))))\n    scaled_margin = ops.mul(margin, margin_scale)\n\n    weighted_margin = ops.sub(ops.mul(alpha, scaled_margin), ops.mul(beta, delta_rank))\n    biased_margin = ops.add(weighted_margin, scaled_bias)\n\n    x = ops.clamp(biased_margin, -14.0, 14.0)\n\n    loss_per_pair = ops.neg(ops.logsigmoid(x))\n    weighted_loss = ops.mul(loss_per_pair, weight)\n\n    loss = ops.sum(weighted_loss)\n    return loss",
+        "theoretical_basis": ""
+      },
       "device": "cuda:0",
       "device_str": "cuda:0",
       "device_physical_str": "cuda:0",
       "device_logical_str": "cuda:0",
       "cheap_gate_on": false,
       "high_fidelity_on": true,
-      "eval_budget_signature": "posthoc_no_gate",
+      "eval_budget_signature": "f79d752b6c1aa3b8",
       "score": Infinity,
       "proxy_metrics": null,
       "seed_signature": null,
@@ -100,13 +393,180 @@
       "g_id_before_repair": null,
       "g_id_after_repair": null,
       "builder_gate_repair_reports": [],
+      "g_compile_ok": true,
+      "g_compile_reason": "ok",
+      "f_static_ok": true,
+      "f_static_reason": "",
+      "f_compile_ok": true,
+      "f_compile_reason": "ok",
+      "sandbox_gate": null,
+      "sandbox_gate_ok": null,
+      "sandbox_gate_reason": null,
+      "builder_gate_ok": true,
+      "builder_gate_reason": "ok",
+      "builder_gate_trace": {
+        "failed_gate": null,
+        "checks": [
+          {
+            "metric_name": "pair_count",
+            "observed_value": 960,
+            "threshold": 1,
+            "direction": ">="
+          },
+          {
+            "metric_name": "coverage",
+            "observed_value": 1.0,
+            "threshold": 0.0,
+            "direction": ">="
+          },
+          {
+            "metric_name": "max_pairs_per_instance",
+            "observed_value": 120,
+            "threshold": 8192,
+            "direction": "<="
+          },
+          {
+            "metric_name": "semantic_pass_rate",
+            "observed_value": 1.0,
+            "threshold": 1.0,
+            "direction": ">="
+          }
+        ],
+        "instance_weight_cv_gate": {
+          "enabled": true,
+          "cv_threshold": 0.1,
+          "pass_rate_threshold": 0.75,
+          "eligible_instances": 8,
+          "observed_cv_values": [
+            0.3317405519799223,
+            0.3317405519799223,
+            0.3317405519799223,
+            0.3317405519799223,
+            0.3317405519799223,
+            0.3317405519799223,
+            0.3317405519799223,
+            0.3317405519799223
+          ]
+        },
+        "builder_pref_cache_hit": false,
+        "memory_metric_available": false,
+        "memory_device": "cpu"
+      },
+      "joint_gate_ok": true,
+      "joint_gate_reason": "ok",
+      "joint_gate_trace": {
+        "failed_gate": null,
+        "failure_kind": null,
+        "observed": {
+          "grad_w_pass_rate": 1.0,
+          "grad_l_pass_rate": 1.0,
+          "effective_grad_ratio": 1.0,
+          "loss": 559.1884765625,
+          "loss_swap": 2384.3017578125,
+          "swap_ok": true,
+          "swap_check_mode": "data",
+          "swap_ref_loss": 559.1884765625
+        },
+        "threshold": {
+          "min_pass_rate": 0.8,
+          "swap_tolerance": 0.001,
+          "swap_test_margin": 1.0,
+          "min_effective_grad_ratio": 0.1,
+          "grad_eps": 1e-08
+        },
+        "where_failed": [],
+        "variant": "visible"
+      },
+      "co_enabled": true,
+      "co_ok": true,
+      "co_reason": "ok",
+      "co_failed_gate": null,
+      "co_failure_kind": null,
+      "co_sensitivity_ok": true,
+      "co_invariance_ok": true,
+      "co_sensitivity_visible_ok": true,
+      "co_sensitivity_visible_reason": "ok",
+      "co_sensitivity_visible_abs_delta": 20.97341537475586,
+      "co_sensitivity_visible_rel_delta": 0.1816356199943336,
+      "co_sensitivity_visible_trace": {
+        "failed_gate": null,
+        "metric_name": "delta_loss_under_objective_perturbation",
+        "observed": {
+          "abs_delta": 20.97341537475586,
+          "rel_delta": 0.1816356199943336,
+          "grad_ratio": 1.3747662694797556
+        },
+        "threshold": {
+          "min_abs_delta": 0.001,
+          "min_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": ">=",
+          "rel_delta": ">=",
+          "grad_ratio": "informational"
+        },
+        "where_failed": null,
+        "counterexamples": [
+          {
+            "loss_small": 47.2481575012207,
+            "loss_large": 68.22157287597656,
+            "log_prob_w": -4.437796115875244,
+            "log_prob_l": -6.505539417266846,
+            "delta_rank_small": 0.10000000149011612,
+            "delta_rank_large": 5.0
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_sensitivity_hidden_ok": null,
+      "co_sensitivity_hidden_reason": null,
+      "co_sensitivity_hidden_abs_delta": null,
+      "co_sensitivity_hidden_rel_delta": null,
+      "co_sensitivity_hidden_trace": null,
+      "co_invariance_visible_ok": true,
+      "co_invariance_visible_reason": "ok",
+      "co_invariance_visible_abs_delta": 0.0,
+      "co_invariance_visible_rel_delta": 0.0,
+      "co_invariance_visible_trace": {
+        "failed_gate": null,
+        "metric_name": "delta_loss_under_affine_transform",
+        "observed": {
+          "abs_delta": 0.0,
+          "rel_delta": 0.0
+        },
+        "threshold": {
+          "max_abs_delta": 0.001,
+          "max_rel_delta": 0.01
+        },
+        "direction": {
+          "abs_delta": "<=",
+          "rel_delta": "<="
+        },
+        "where_failed": null,
+        "counterexamples": [
+          {
+            "a": 7.0,
+            "b": 3.0,
+            "loss_raw": 54.74542236328125,
+            "loss_affine": 54.74542236328125,
+            "log_prob_w": -6.200316429138184,
+            "log_prob_l": -5.115286827087402
+          }
+        ],
+        "variant": "visible"
+      },
+      "co_invariance_hidden_ok": null,
+      "co_invariance_hidden_reason": null,
+      "co_invariance_hidden_abs_delta": null,
+      "co_invariance_hidden_rel_delta": null,
+      "co_invariance_hidden_trace": null,
+      "hf_log_file": "gen001_pair001_cuda_0_g000_009_dbb2065f_fseed_000_3c3e0ea7.log",
       "pair_ok": false,
-      "pair_reason": "g_compile_failed",
-      "g_compile_ok": false,
-      "g_compile_reason": "PreferenceBuilderIR.code is empty.",
-      "elapsed_s": 0.00010752677917480469,
+      "pair_reason": "stage3_fatal",
+      "fatal_error": "[Errno 2] No such file or directory: '/data1/gushengda/eam-rl4co/baseline/mini_eval/baseline_minitrain_cvrp100_K32.json'",
+      "elapsed_s": 0.14088034629821777,
       "worker_returncode": 0,
-      "worker_elapsed_s": 1.5087294578552246,
+      "worker_elapsed_s": 1.8859851360321045,
       "worker_log": "replay_gate_rejected_logs/002_001_001_g000_009_dbb2065f_fseed_000_3c3e0ea7.log"
     }
   ],
