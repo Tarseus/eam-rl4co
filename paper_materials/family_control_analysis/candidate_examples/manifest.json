@@ -1,0 +1,92 @@
+[
+  {
+    "group": "accepted_family_aware",
+    "problem": "TSP100",
+    "method": "Family-aware",
+    "candidate_id": "f004_009_8bc47121",
+    "name": "loss_logsigmoid_004_cost_shifted_median_normalized",
+    "relative_dir": "candidate_examples/accepted_family_aware/TSP100_Family_aware__f004_009_8bc47121__loss_logsigmoid_004_cost_shifted_median_normalized",
+    "why_collected": "Family-aware TSP best: bounded normalized cost-gap modulation."
+  },
+  {
+    "group": "family_disabled_best",
+    "problem": "TSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_012_34f8c97d",
+    "name": "pairwise_rankprob_advantage_blend_weighted_logsum_exp_reg",
+    "relative_dir": "candidate_examples/family_disabled_best/TSP100_Family_disabled__f007_012_34f8c97d__pairwise_rankprob_advantage_blend_weighted_logsum_exp_reg",
+    "why_collected": "Family-disabled TSP best: rank-prob/advantage entropy regularized formula, weaker than family-aware best."
+  },
+  {
+    "group": "accepted_family_aware",
+    "problem": "FFSP100",
+    "method": "Family-aware",
+    "candidate_id": "f008_013_9cfa032c",
+    "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+    "relative_dir": "candidate_examples/accepted_family_aware/FFSP100_Family_aware__f008_013_9cfa032c__weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+    "why_collected": "Family-aware FFSP best: simple advantage-scale calibrated logsigmoid."
+  },
+  {
+    "group": "family_disabled_best",
+    "problem": "FFSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f004_006_b9dc8aa5",
+    "name": "loss_pairwise_margin_sigmoid_weighted_advantage_sum",
+    "relative_dir": "candidate_examples/family_disabled_best/FFSP100_Family_disabled__f004_006_b9dc8aa5__loss_pairwise_margin_sigmoid_weighted_advantage_sum",
+    "why_collected": "Family-disabled FFSP best: advantage-weighted sigmoid/sum formula that never beats the baseline."
+  },
+  {
+    "group": "late_family_disabled_drift",
+    "problem": "TSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_000_1fc29ac9",
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_exp_norm_entropy_reg_delta_rank",
+    "relative_dir": "candidate_examples/late_family_disabled_drift/TSP100_Family_disabled__f007_000_1fc29ac9__pairwise_logsigmoid_advantage_gap_weighted_avg_exp_norm_entropy_reg_delta_rank",
+    "why_collected": "Late no-family drift example selected for motif `extra_regularizer`."
+  },
+  {
+    "group": "late_family_disabled_drift",
+    "problem": "TSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_001_7b75011d",
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_sqrt_norm_entropy_reg_delta_rank_poly",
+    "relative_dir": "candidate_examples/late_family_disabled_drift/TSP100_Family_disabled__f007_001_7b75011d__pairwise_logsigmoid_advantage_gap_weighted_avg_sqrt_norm_entropy_reg_delta_rank_poly",
+    "why_collected": "Late no-family drift example selected for motif `extra_regularizer`."
+  },
+  {
+    "group": "late_family_disabled_drift",
+    "problem": "TSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_002_78cff418",
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_softplus_norm_entropy_reg_delta_rank_norm_poly",
+    "relative_dir": "candidate_examples/late_family_disabled_drift/TSP100_Family_disabled__f007_002_78cff418__pairwise_logsigmoid_advantage_gap_weighted_softplus_norm_entropy_reg_delta_rank_norm_poly",
+    "why_collected": "Late no-family drift example selected for motif `extra_regularizer`."
+  },
+  {
+    "group": "late_family_disabled_drift",
+    "problem": "FFSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_000_efc6c4d7",
+    "name": "loss_margin_rank_blend_sum_abs_advantage",
+    "relative_dir": "candidate_examples/late_family_disabled_drift/FFSP100_Family_disabled__f007_000_efc6c4d7__loss_margin_rank_blend_sum_abs_advantage",
+    "why_collected": "Late no-family drift example selected for motif `advantage_blend_tanh_relu`."
+  },
+  {
+    "group": "late_family_disabled_drift",
+    "problem": "FFSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_001_b3585a58",
+    "name": "loss_margin_rank_blend_tanh_max_advantage_logsumexp",
+    "relative_dir": "candidate_examples/late_family_disabled_drift/FFSP100_Family_disabled__f007_001_b3585a58__loss_margin_rank_blend_tanh_max_advantage_logsumexp",
+    "why_collected": "Late no-family drift example selected for motif `advantage_blend_tanh_relu`."
+  },
+  {
+    "group": "late_family_disabled_drift",
+    "problem": "FFSP100",
+    "method": "Family-disabled",
+    "candidate_id": "f007_002_03e05fbc",
+    "name": "loss_margin_rank_blend_tanh_weighted_advantage_gap_norm",
+    "relative_dir": "candidate_examples/late_family_disabled_drift/FFSP100_Family_disabled__f007_002_03e05fbc__loss_margin_rank_blend_tanh_weighted_advantage_gap_norm",
+    "why_collected": "Late no-family drift example selected for motif `advantage_blend_tanh_relu`."
+  }
+]

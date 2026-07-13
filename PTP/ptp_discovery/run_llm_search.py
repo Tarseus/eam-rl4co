@@ -52,8 +52,16 @@ def _load_env() -> None:
 
 def _make_openai_client() -> OpenAI:
     api_key = os.environ["OPENAI_API_KEY"]
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    base_url = _normalize_openai_base_url(os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
     return OpenAI(api_key=api_key, base_url=base_url)
+
+
+def _normalize_openai_base_url(raw_base_url: str) -> str:
+    base_url = str(raw_base_url or "").strip().rstrip("/")
+    suffix = "/chat/completions"
+    if base_url.endswith(suffix):
+        base_url = base_url[: -len(suffix)].rstrip("/")
+    return base_url or str(raw_base_url)
 
 
 def _read_prompt(path: str) -> str:

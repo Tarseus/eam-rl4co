@@ -1,0 +1,144 @@
+{
+  "generation": 0,
+  "index": 0,
+  "id": "f000_000_32ed43cf",
+  "signature": "32ed43cf0d818073ff415b6643fa99c9d552697c",
+  "family": "pairwise_margin_rank_blend|advantage_gap|mean|relu_weighted",
+  "family_signature": "paradigm=pairwise_margin_rank_blend|signal=advantage_gap|agg=mean|constraint=relu_weighted",
+  "origin": "PARADIGM_SHIFT",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "LOSS_PARADIGM_SHIFT",
+  "parents": [
+    "bootstrap_f_000",
+    "bootstrap_f_001",
+    "bootstrap_f_002",
+    "bootstrap_f_003",
+    "bootstrap_f_004"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "a82bc39c93f15248a0f4a029892294984f250292",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+  "llm_seed": 197419547,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "loss",
+      "llm_op": "LOSS_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+      "prompt_sha1": "a82bc39c93f15248a0f4a029892294984f250292"
+    }
+  ],
+  "novelty": {
+    "max_similarity": 0.35,
+    "best_similarity_parts": {
+      "bigram": 0.09375,
+      "unigram": 0.35,
+      "call": 0.2857142857142857
+    },
+    "neighbors": [
+      {
+        "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+        "name": "loss_logsigmoid_001",
+        "similarity": 0.35,
+        "similarity_parts": {
+          "bigram": 0.09375,
+          "unigram": 0.35,
+          "call": 0.2857142857142857
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.clamp",
+          "ops.logsigmoid"
+        ]
+      },
+      {
+        "sig": "3ac1b42c74c6bb4235664b4e65c4a01a4b00efb9",
+        "name": "loss_logsigmoid_002",
+        "similarity": 0.35,
+        "similarity_parts": {
+          "bigram": 0.09375,
+          "unigram": 0.35,
+          "call": 0.2857142857142857
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.clamp",
+          "ops.logsigmoid"
+        ]
+      },
+      {
+        "sig": "291dca7dc56880920ccaa3874dbcef9493dbf2d9",
+        "name": "loss_logsigmoid_003",
+        "similarity": 0.35,
+        "similarity_parts": {
+          "bigram": 0.09375,
+          "unigram": 0.35,
+          "call": 0.2857142857142857
+        },
+        "call_names_top": [
+          "batch.get",
+          "extra.get",
+          "float",
+          "get",
+          "loss.mean",
+          "ops.clamp",
+          "ops.logsigmoid"
+        ]
+      }
+    ]
+  },
+  "ir": {
+    "name": "loss_margin_rank_blend_tanh_advantage",
+    "intuition": "Use a pairwise margin loss that blends advantage signals with log-probability gaps via a tanh activation, emphasizing margin ranking with non-linear smoothing and multiplicative weighting by advantage gap magnitude.",
+    "pseudocode": "margin = lpw - lpl\nscaled_margin = alpha * margin\nadvantage_gap = batch['advantage_gap']\nsmooth_margin = tanh(scaled_margin)\nweight_factor = abs(advantage_gap)\nloss_per_pair = relu(1 - smooth_margin) * weight_factor * weight\nfinal_loss = mean(loss_per_pair)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin_rank_blend",
+      "signal_family": "advantage_gap",
+      "link_family": "tanh_relu",
+      "agg_family": "mean",
+      "constraint_family": "relu_weighted"
+    },
+    "operators_used": [
+      "tanh",
+      "relu",
+      "abs",
+      "mul",
+      "sub",
+      "mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.sub(lpw, lpl)\n    scaled_margin = ops.mul(alpha, margin)\n    smooth_margin = ops.tanh(scaled_margin)\n    weight_factor = ops.abs(advantage_gap)\n    hinge_loss = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    loss = ops.mul(hinge_loss, weight_factor)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  },
+  "fitness": Infinity
+}

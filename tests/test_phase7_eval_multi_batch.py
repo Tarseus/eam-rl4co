@@ -9,6 +9,7 @@ import torch
 from rl4co.models.zoo.mgl_jssp.data import JSSPInstanceDataset, load_instance
 from rl4co.models.zoo.mgl_jssp.net import CAMEncoder3, LSTMDecoder2
 from rl4co.models.zoo.mgl_jssp.sampling import sampling
+from scripts.eval_jssp_benchmarks import build_jssp_augmentations
 
 
 def _write_jsp_of_shape(path: Path, num_jobs: int, num_machines: int, seed: int = 0, ref_makespan: float = 1000.0) -> None:
@@ -81,3 +82,34 @@ def test_phase7_eval_multi_batch_gap_calculation():
         # Check that reference makespans were loaded correctly
         for i, instance in enumerate(instances):
             assert instance["makespan"] == ref_makespans[i]
+
+
+def test_phase7_jssp_eval_augmentation_keeps_shape_and_samples():
+    """JSSP eval augmentation creates equivalent same-shape encodings for batched sampling."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+        p = tmp_path / "test.jsp"
+        _write_jsp_of_shape(p, 10, 10, seed=7, ref_makespan=1000.0)
+        instance = load_instance(p.as_posix())
+
+        augmented = build_jssp_augmentations(instance, aug_factor=3, seed=123)
+        assert len(augmented) == 3
+        assert [ins["shape"] for ins in augmented] == ["10x10", "10x10", "10x10"]
+        assert [ins["makespan"] for ins in augmented] == [1000.0, 1000.0, 1000.0]
+
+        encoder = CAMEncoder3(15, hidden_size=16, embed_size=32)
+        decoder = LSTMDecoder2(encoder.out_size, context_size=11, hidden_size=16, att_size=32)
+        makespans, entropies, log_probs = sampling(
+            augmented,
+            encoder,
+            decoder,
+            bs=2,
+            use_greedy=False,
+            device="cpu",
+        )
+
+        assert makespans.shape == (6,)
+        assert entropies.shape == (6, 99)
+        assert log_probs.shape == (6,)

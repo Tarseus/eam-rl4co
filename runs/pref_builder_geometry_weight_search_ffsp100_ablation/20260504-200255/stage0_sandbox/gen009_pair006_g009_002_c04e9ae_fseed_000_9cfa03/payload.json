@@ -1,0 +1,121 @@
+{
+  "generation": 9,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g009_002_c04e9aef",
+    "ir": {
+      "name": "top_gap_sparse_pairs_regret_weight",
+      "intuition": "Select winner-loser pairs where the winner is top-ranked (rank==0) and loser is within top-k ranks but not adjacent, emphasizing regret-weighted distant top pairs for refined preference signal.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "rank",
+          "regret"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "top_gap_sparse_pairs",
+        "cap_family": "linear_cap",
+        "weight_family": "regret_abs_diff",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "sub",
+        "lt",
+        "gt",
+        "neq",
+        "abs",
+        "nonzero",
+        "to",
+        "logical_and",
+        "logical_or"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    rank = feature_cache['rank']            # [B, N]\n    regret = feature_cache['regret']        # [B, N]\n    batch_size, n = objective.shape\n    top_k = 5\n\n    rank_w = rank.unsqueeze(2)  # [B, N, 1]\n    rank_l = rank.unsqueeze(1)  # [B, 1, N]\n\n    # select winners with rank == 0 (top-ranked candidates)\n    winner_top = (rank_w == 0)\n\n    # losers with rank in (1, top_k), excluding adjacent loser with rank==1, to create sparse pairs\n    loser_in_topk = (rank_l > 0) & (rank_l < top_k) \n    non_adjacent = (rank_l - rank_w) > 1\n\n    valid_mask = winner_top & loser_in_topk & non_adjacent\n\n    b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n\n    if b_idx.numel() == 0:\n        # fallback: allow adjacent but require positive gap\n        valid_mask = winner_top & loser_in_topk & ((rank_l - rank_w) == 1)\n        b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n\n    # compute regret absolute difference as weight\n    regret_w = regret[b_idx, w_idx]\n    regret_l = regret[b_idx, l_idx]\n    weight_raw = (regret_w - regret_l).abs()\n\n    # linear cap weights at 1.0\n    weight = weight_raw.clamp(max=1.0)\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(dtype=torch.int64), w_idx.to(dtype=torch.int64), l_idx.to(dtype=torch.int64)),\n        weight=weight.to(dtype=objective.dtype),\n        meta={'builder': 'top_gap_sparse_pairs_regret_weight'}\n    )"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+      "intuition": "Replaced the linear scaling of (log_prob_w - log_prob_l) by normalizing advantage_gap with an exponential margin term to reduce similarity to prior losses. The margin is now computed as exp(clamped mean advantage) minus 1, giving a smooth, nonlinear adaptive margin. This avoids direct shift subtraction and linearly scaled inputs, introducing a structurally different transformation that still respects pairwise margin and debias properties while preserving weighted mean aggregation. This structural shift improves novelty and numeric stability.",
+      "pseudocode": "epsilon=1e-6\nmean_adv = mean(advantage_gap)\nmargin = exp(clamp(abs(mean_adv), 0, 1)) - 1\nnorm = max(mean(norm(advantage_gap)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "abs",
+        "exp",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

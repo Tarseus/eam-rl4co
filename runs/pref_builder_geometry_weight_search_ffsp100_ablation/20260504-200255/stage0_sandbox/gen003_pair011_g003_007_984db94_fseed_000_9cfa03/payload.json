@@ -1,0 +1,123 @@
+{
+  "generation": 3,
+  "pair_index": 11,
+  "g_entry": {
+    "id": "g003_007_984db948",
+    "ir": {
+      "name": "top_gap_bandpass_tiezone_clamp_003",
+      "intuition": "Preserve top winner selection with gap-bandpass weighting but inject tie-zone suppression and clamp weights to enforce stability and explicit pairwise constraint handling without changing geometry or capacity.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "rank",
+          "instance_obj_range",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "top_rank_vs_band",
+        "cap_family": "bandpass_cap",
+        "weight_family": "gap_bandpass",
+        "constraint_family": "tiezone_clamp"
+      },
+      "operators_used": [
+        "topk",
+        "broadcast_sub",
+        "abs",
+        "logical_and",
+        "clamp",
+        "mul",
+        "sum",
+        "max",
+        "nonzero",
+        "where"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    rank = feature_cache['rank']  # (B,N)\n    objective = feature_cache['objective']  # (B,N)\n    obj_range = feature_cache['instance_obj_range']  # (B,)\n    B, N = rank.shape\n    max_pairs = int(extra.get('max_pairs', 16))\n\n    # Select top 1 winner per batch instance\n    top1 = rank.topk(k=1, largest=False)\n    winner_idx = top1.indices.squeeze(1)  # (B,)\n    winner_rank = rank[torch.arange(B), winner_idx].unsqueeze(1)  # (B,1)\n\n    # Mask candidates with rank difference in [1, band]\n    band = 5\n    rank_diff = rank - winner_rank  # (B,N)\n    loser_mask = (rank_diff > 0) & (rank_diff <= band)  # (B,N)\n\n    # Extract pair indices\n    b_idx, loser_idx = loser_mask.nonzero(as_tuple=True)\n    winner_idx_exp = winner_idx[b_idx]\n\n    # Compute normalized gap w.r.t instance objective range with eps guard\n    obj_w = objective[b_idx, winner_idx_exp]\n    obj_l = objective[b_idx, loser_idx]\n    eps = 1e-8\n    gap = obj_l - obj_w  # positive gaps since loser worse\n    norm_gap = gap / (obj_range[b_idx] + eps)\n\n    # Bandpass weighting emphasizing mid-range gap\n    center = 0.5\n    width = 0.5\n    weight = 1 - torch.abs(norm_gap - center) / width\n    weight = torch.clamp(weight, min=0.0, max=1.0)\n\n    # Apply tie-zone suppression: zero weight if gap near zero (|gap|<tie_zone)\n    tie_zone = 0.05\n    tie_mask = (gap.abs() > tie_zone)\n    weight = weight * tie_mask.to(weight.dtype)\n\n    # Clamp weights to min threshold for numerical stability (avoids too small weights)\n    weight = torch.clamp(weight, min=0.1, max=1.0)\n\n    # Cap number of pairs by max_pairs selecting top by weight\n    if weight.numel() > max_pairs:\n        topk_idx = torch.topk(weight, k=max_pairs, largest=True, sorted=False).indices\n        b_idx = b_idx[topk_idx]\n        winner_idx_exp = winner_idx_exp[topk_idx]\n        loser_idx = loser_idx[topk_idx]\n        weight = weight[topk_idx]\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx_exp, loser_idx),\n        weight=weight,\n        meta={'builder': 'top_gap_bandpass_tiezone_clamp_003'}\n    )"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+      "intuition": "Replaced the linear scaling of (log_prob_w - log_prob_l) by normalizing advantage_gap with an exponential margin term to reduce similarity to prior losses. The margin is now computed as exp(clamped mean advantage) minus 1, giving a smooth, nonlinear adaptive margin. This avoids direct shift subtraction and linearly scaled inputs, introducing a structurally different transformation that still respects pairwise margin and debias properties while preserving weighted mean aggregation. This structural shift improves novelty and numeric stability.",
+      "pseudocode": "epsilon=1e-6\nmean_adv = mean(advantage_gap)\nmargin = exp(clamp(abs(mean_adv), 0, 1)) - 1\nnorm = max(mean(norm(advantage_gap)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "abs",
+        "exp",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

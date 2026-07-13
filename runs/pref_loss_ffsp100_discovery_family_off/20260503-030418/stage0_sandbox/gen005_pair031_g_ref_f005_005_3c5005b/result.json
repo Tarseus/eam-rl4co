@@ -1,0 +1,114 @@
+{
+  "ok": false,
+  "generation": 5,
+  "pair_index": 31,
+  "failure_kind": "forward_error",
+  "reason": "forward_error: storage_module && PyModule_Check(storage_module) INTERNAL ASSERT FAILED at \"/opt/conda/conda-bld/pytorch_1727971040866/work/torch/csrc/DynamicTypes.cpp\":71, please report a bug to PyTorch. ",
+  "trace": {
+    "failed_gate": "JointPreference",
+    "failure_kind": "forward_error",
+    "message": "storage_module && PyModule_Check(storage_module) INTERNAL ASSERT FAILED at \"/opt/conda/conda-bld/pytorch_1727971040866/work/torch/csrc/DynamicTypes.cpp\":71, please report a bug to PyTorch. ",
+    "exception_type": "RuntimeError",
+    "traceback": "Traceback (most recent call last):\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_gates.py\", line 507, in run_joint_preference_gates\n    loss = compiled.loss_fn(batch=batch, model_output={}, extra={\"alpha\": 1.0})\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/eam-rl4co/PTP/ptp_discovery/free_loss_compiler.py\", line 457, in loss_fn\n    return fn(batch, merged_model_output, merged_extra)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"<string>\", line 22, in generated_loss\nRuntimeError: storage_module && PyModule_Check(storage_module) INTERNAL ASSERT FAILED at \"/opt/conda/conda-bld/pytorch_1727971040866/work/torch/csrc/DynamicTypes.cpp\":71, please report a bug to PyTorch. \n",
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "advantage_w",
+      "advantage_l"
+    ],
+    "batch_keys_full": [
+      "cost_a",
+      "cost_b",
+      "cost_gap",
+      "delta_rank",
+      "delta_regret",
+      "delta_z",
+      "log_prob_l",
+      "log_prob_w",
+      "weight"
+    ],
+    "batch_keys_filtered": [
+      "advantage_l",
+      "advantage_w",
+      "log_prob_l",
+      "log_prob_w",
+      "weight"
+    ],
+    "batch_schema": {
+      "advantage_l": {
+        "shape": [
+          960
+        ],
+        "dtype": "torch.float32",
+        "device": "cpu",
+        "isfinite": true,
+        "min": -15.069999694824219,
+        "max": -1.0,
+        "mean": -10.36833381652832
+      },
+      "advantage_w": {
+        "shape": [
+          960
+        ],
+        "dtype": "torch.float32",
+        "device": "cpu",
+        "isfinite": true,
+        "min": -14.069999694824219,
+        "max": -0.0,
+        "mean": -4.701666831970215
+      },
+      "log_prob_l": {
+        "shape": [
+          960
+        ],
+        "dtype": "torch.float32",
+        "device": "cpu",
+        "isfinite": true,
+        "min": -1.5,
+        "max": -0.10000000149011612,
+        "mean": -1.0333333015441895
+      },
+      "log_prob_w": {
+        "shape": [
+          960
+        ],
+        "dtype": "torch.float32",
+        "device": "cpu",
+        "isfinite": true,
+        "min": -1.399999976158142,
+        "max": -0.0,
+        "mean": -0.46666666865348816
+      },
+      "weight": {
+        "shape": [
+          960
+        ],
+        "dtype": "torch.float32",
+        "device": "cpu",
+        "isfinite": true,
+        "min": 1.0,
+        "max": 1.0,
+        "mean": 1.0
+      }
+    },
+    "gate_thresholds": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "grad_eps": 1e-08,
+      "min_effective_grad_ratio": 0.1,
+      "swap_check_mode": "data",
+      "swap_test_margin": 1.0
+    },
+    "variant": "visible"
+  },
+  "checks": [
+    {
+      "variant": "visible",
+      "round": 0,
+      "builder_gate_ok": true,
+      "joint_gate_ok": false,
+      "joint_failure_kind": "forward_error"
+    }
+  ]
+}

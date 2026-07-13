@@ -1,0 +1,120 @@
+{
+  "generation": 4,
+  "pair_index": 13,
+  "g_entry": {
+    "id": "g004_006_09f70e93",
+    "ir": {
+      "name": "top_rank_band_positive_regret_gap_pairs_fixed_unpack",
+      "intuition": "Construct pairs by selecting the top-ranked winner and pairing with losers ranked within a fixed band who have strictly worse objectives, weighting pairs by the positive regret difference. Properly unpack all three indices (batch, winner, loser) from the valid mask to ensure correct triple indexing for a pairwise PrefBatch.",
+      "implementation_hint": {
+        "expects": [
+          "rank",
+          "log_prob",
+          "regret",
+          "objective"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "top_rank_vs_rank_band",
+        "cap_family": "fixed_bandwidth",
+        "weight_family": "gap_regret_positive",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "topk",
+        "sub",
+        "gt",
+        "le",
+        "nonzero",
+        "clamp",
+        "to"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    rank = feature_cache['rank']  # [B, N]\n    objective = feature_cache['objective']  # [B, N]\n    regret = feature_cache['regret']  # [B, N]\n    batch_size, n = rank.shape\n\n    max_pairs = extra.get('pairing_budget', 16)\n    band_size = 7\n\n    # Select top-1 winner per batch\n    winner_idx = rank.topk(k=1, largest=False).indices  # [B, 1]\n    batch_idx = torch.arange(batch_size, device=rank.device)\n\n    winner_rank = rank[batch_idx, winner_idx[:, 0]]  # [B]\n    winner_obj = objective[batch_idx, winner_idx[:, 0]]  # [B]\n    winner_regret = regret[batch_idx, winner_idx[:, 0]]  # [B]\n\n    # Broadcast for comparison\n    rank_expand = rank.unsqueeze(1)  # [B, 1, N]\n    winner_rank_expand = winner_rank.unsqueeze(1)  # [B, 1]\n    winner_obj_expand = winner_obj.unsqueeze(1)  # [B, 1]\n\n    # Loser mask: rank difference > 0 and <= band_size\n    rank_diff = rank_expand - winner_rank_expand  # [B, 1, N]\n    loser_mask = (rank_diff > 0) & (rank_diff <= band_size)  # [B, 1, N]\n\n    objective_expand = objective.unsqueeze(1)  # [B, 1, N]\n    obj_mask = (objective_expand > winner_obj_expand)  # losers worse objective\n\n    valid_mask = (loser_mask & obj_mask)  # [B, 1, N]\n\n    b_idx, one_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        empty = torch.empty(0, dtype=torch.int64, device=rank.device)\n        return PrefBatch(mode='pairwise', pair_idx=(empty, empty, empty), weight=None, meta={'builder': 'top_rank_band_positive_regret_gap_pairs_fixed_unpack'})\n\n    winner_indices = winner_idx[b_idx, 0]  # select corresponding winners\n\n    regret_l = regret[b_idx, l_idx]\n    regret_w = winner_regret[b_idx]\n    regret_gap = torch.clamp(regret_l - regret_w, min=0.0)\n\n    weight = regret_gap\n\n    if weight.numel() > max_pairs:\n        topk_indices = torch.topk(weight, k=max_pairs, largest=True, sorted=False).indices\n        b_idx = b_idx[topk_indices]\n        winner_indices = winner_indices[topk_indices]\n        l_idx = l_idx[topk_indices]\n        weight = weight[topk_indices]\n\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(torch.int64), winner_indices.to(torch.int64), l_idx.to(torch.int64)),\n        weight=weight,\n        meta={'builder': 'top_rank_band_positive_regret_gap_pairs_fixed_unpack'}\n    )"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+      "intuition": "Replaced the linear scaling of (log_prob_w - log_prob_l) by normalizing advantage_gap with an exponential margin term to reduce similarity to prior losses. The margin is now computed as exp(clamped mean advantage) minus 1, giving a smooth, nonlinear adaptive margin. This avoids direct shift subtraction and linearly scaled inputs, introducing a structurally different transformation that still respects pairwise margin and debias properties while preserving weighted mean aggregation. This structural shift improves novelty and numeric stability.",
+      "pseudocode": "epsilon=1e-6\nmean_adv = mean(advantage_gap)\nmargin = exp(clamp(abs(mean_adv), 0, 1)) - 1\nnorm = max(mean(norm(advantage_gap)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "abs",
+        "exp",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

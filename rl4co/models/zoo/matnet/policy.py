@@ -134,7 +134,13 @@ class MultiStageFFSPPolicy(nn.Module):
         self.val_decode_type = val_decode_type
         self.test_decode_type = test_decode_type
 
+    def clear_decoder_cache(self) -> None:
+        """Drop per-rollout decoder caches held on the module."""
+        for decoder in self.decoders:
+            decoder.cached_embs = None
+
     def pre_forward(self, td: TensorDict, env: FFSPEnv, num_starts: int):
+        self.clear_decoder_cache()
         run_time_list = td["run_time"].chunk(env.num_stage, dim=-1)
         for stage_idx in range(self.stage_cnt):
             td["cost_matrix"] = run_time_list[stage_idx]
@@ -169,49 +175,52 @@ class MultiStageFFSPPolicy(nn.Module):
         decode_type = getattr(self, f"{phase}_decode_type")
         device = td.device
 
-        td = self.pre_forward(td, env, num_starts)
+        try:
+            td = self.pre_forward(td, env, num_starts)
 
-        # NOTE: this must come after pre_forward due to batchify op
-        batch_size = td.size(0)
-        logp_list = torch.zeros(size=(batch_size, 0), device=device)
-        action_list = []
+            # NOTE: this must come after pre_forward due to batchify op
+            batch_size = td.size(0)
+            logp_list = torch.zeros(size=(batch_size, 0), device=device)
+            action_list = []
 
-        while not td["done"].all():
-            action_stack = torch.empty(
-                size=(batch_size, self.stage_cnt), dtype=torch.long, device=device
-            )
-            logp_stack = torch.empty(size=(batch_size, self.stage_cnt), device=device)
+            while not td["done"].all():
+                action_stack = torch.empty(
+                    size=(batch_size, self.stage_cnt), dtype=torch.long, device=device
+                )
+                logp_stack = torch.empty(size=(batch_size, self.stage_cnt), device=device)
 
-            for stage_idx in range(self.stage_cnt):
-                decoder = self.decoders[stage_idx]
-                action, logp = decoder(td, decode_type, num_starts, **decoder_kwargs)
-                action_stack[:, stage_idx] = action
-                logp_stack[:, stage_idx] = logp
+                for stage_idx in range(self.stage_cnt):
+                    decoder = self.decoders[stage_idx]
+                    action, logp = decoder(td, decode_type, num_starts, **decoder_kwargs)
+                    action_stack[:, stage_idx] = action
+                    logp_stack[:, stage_idx] = logp
 
-            gathering_index = td["stage_idx"][:, None]
-            # shape: (batch, 1)
-            action = action_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
-            logp = logp_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
-            # shape: (batch)
-            action_list.append(action)
-            # transition
-            td.set("action", action)
-            td = env.step(td)["next"]
+                gathering_index = td["stage_idx"][:, None]
+                # shape: (batch, 1)
+                action = action_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
+                logp = logp_stack.gather(dim=1, index=gathering_index).squeeze(dim=1)
+                # shape: (batch)
+                action_list.append(action)
+                # transition
+                td.set("action", action)
+                td = env.step(td)["next"]
 
-            logp_list = torch.cat((logp_list, logp[:, None]), dim=1)
+                logp_list = torch.cat((logp_list, logp[:, None]), dim=1)
 
-        out = {
-            "reward": td["reward"],
-            "log_likelihood": logp_list.sum(1)
-            if return_sum_log_likelihood
-            else logp_list,
-        }
+            out = {
+                "reward": td["reward"],
+                "log_likelihood": logp_list.sum(1)
+                if return_sum_log_likelihood
+                else logp_list,
+            }
 
-        if return_actions:
-            out["actions"] = torch.stack(action_list, 1)
+            if return_actions:
+                out["actions"] = torch.stack(action_list, 1)
 
-        if return_entropy:
-            # Entropy is not currently tracked in the multistage FFSP decoder path.
-            out["entropy"] = None
+            if return_entropy:
+                # Entropy is not currently tracked in the multistage FFSP decoder path.
+                out["entropy"] = None
 
-        return out
+            return out
+        finally:
+            self.clear_decoder_cache()

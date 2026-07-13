@@ -1,0 +1,109 @@
+{
+  "generation": 1,
+  "pair_index": 25,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_006_040f01c8",
+    "ir": {
+      "name": "loss_logsigmoid_003_advantage_scaled_margin",
+      "intuition": "Fixed insensitivity to objective perturbation by incorporating the advantage_gap signal linearly into the margin term, ensuring the loss varies with objective changes. Retain stable clamp and mean aggregation for numerical stability and scale normalization. The new margin is a small margin base plus a scaled advantage_gap, introducing objective sensitivity and preserving gradient flow.",
+      "pseudocode": "loss = mean(-logsigmoid(clamp(alpha*scale*(log_prob_w - log_prob_l) - (margin + adv_scale * advantage_gap), -20, 20)) * weight)",
+      "hyperparams": {
+        "scale": 1.9496803035382082,
+        "margin": 0.05,
+        "adv_scale": 0.2,
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mean",
+        "sub",
+        "mul",
+        "add"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    margin = float(extra.get('hyperparams', {}).get('margin', 0.05))\n    adv_scale = float(extra.get('hyperparams', {}).get('adv_scale', 0.2))\n    margin_term = margin + adv_scale * advantage_gap\n    x = alpha * scale * (lpw - lpl) - margin_term\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+      "theoretical_basis": "Incorporating advantage_gap into the margin introduces a direct dependency of loss on objective signals, thereby increasing sensitivity to objective perturbations. This addresses the failure of insensitivity by letting variations in advantage_gap shift the margin and change losses accordingly, while using clamp and logsigmoid to maintain numerical stability and smooth gradients."
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

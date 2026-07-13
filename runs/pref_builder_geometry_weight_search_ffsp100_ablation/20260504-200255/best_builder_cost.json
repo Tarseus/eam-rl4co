@@ -1,0 +1,78 @@
+{
+  "builder_id": "g000_007_d4e5e8dd",
+  "cost": 8.0,
+  "perf": 0.0,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": 0.0,
+  "best_perf_anchor": 0.0,
+  "threshold": 0.0,
+  "generation": 1,
+  "phase": "builder",
+  "perf_ref": {
+    "g_id": "g000_007_d4e5e8dd",
+    "f_id": "fseed_000_9cfa032c",
+    "score": 0.0,
+    "final_score": null,
+    "stage": "gate",
+    "stage_final": "none",
+    "phase": "builder",
+    "generation": 1,
+    "pair_reason": "ok_gate_only",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "rank_adjacent_positive_gap_pairs",
+      "intuition": "Select pairs where the winner rank is exactly one better (lower) than the loser rank and the winner's objective is strictly better (lower) than the loser's, ensuring meaningful adjacent ranking pairs with positive gap for pairwise training.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "rank"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "rank_adjacent_pairs",
+        "cap_family": "no_cap",
+        "weight_family": "gap_linear",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "sub",
+        "eq",
+        "gt",
+        "nonzero",
+        "to"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    # shapes: [batch_size, n]\n    rank_w = rank.unsqueeze(2)  # [batch_size, n, 1]\n    rank_l = rank.unsqueeze(1)  # [batch_size, 1, n]\n    # winner rank exactly one better (lower) than loser\n    is_adjacent = (rank_l - rank_w) == 1\n    # winner objective better than loser (assuming lower_is_better)\n    gap = objective.unsqueeze(2) - objective.unsqueeze(1)  # w - l\n    valid_mask = (gap < 0) & is_adjacent\n    b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(dtype=torch.int64), w_idx.to(dtype=torch.int64), l_idx.to(dtype=torch.int64)),\n        weight=None,\n        meta={'builder': 'rank_adjacent_positive_gap_pairs'}\n    )"
+    },
+    "cost": 8.0
+  },
+  "feasible_count": 7,
+  "ir": {
+    "name": "rank_adjacent_positive_gap_pairs",
+    "intuition": "Select pairs where the winner rank is exactly one better (lower) than the loser rank and the winner's objective is strictly better (lower) than the loser's, ensuring meaningful adjacent ranking pairs with positive gap for pairwise training.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "rank"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "rank_adjacent_pairs",
+      "cap_family": "no_cap",
+      "weight_family": "gap_linear",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "sub",
+      "eq",
+      "gt",
+      "nonzero",
+      "to"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    # shapes: [batch_size, n]\n    rank_w = rank.unsqueeze(2)  # [batch_size, n, 1]\n    rank_l = rank.unsqueeze(1)  # [batch_size, 1, n]\n    # winner rank exactly one better (lower) than loser\n    is_adjacent = (rank_l - rank_w) == 1\n    # winner objective better than loser (assuming lower_is_better)\n    gap = objective.unsqueeze(2) - objective.unsqueeze(1)  # w - l\n    valid_mask = (gap < 0) & is_adjacent\n    b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(dtype=torch.int64), w_idx.to(dtype=torch.int64), l_idx.to(dtype=torch.int64)),\n        weight=None,\n        meta={'builder': 'rank_adjacent_positive_gap_pairs'}\n    )"
+  }
+}

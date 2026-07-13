@@ -1,0 +1,249 @@
+{
+  "problem": "TSP100",
+  "method": "Family-disabled",
+  "run_key": "TSP100_family_disabled",
+  "candidate_id": "f007_001_7b75011d",
+  "generation": 7,
+  "family_label": "Rank / Pairwise margin",
+  "family_signature": "pairwise_margin|advantage_gap_delta_rank_entropy_reg_poly|logsigmoid|weighted_avg_sqrtnorm|none",
+  "motifs": {
+    "extra_regularizer": true,
+    "advantage_heavy": true,
+    "rankprob_or_probabilistic": false,
+    "advantage_blend_tanh_relu": false,
+    "unstructured_weighted_sum": false,
+    "raw_cost_additive": false,
+    "bounded_or_normalized": true,
+    "logsigmoid_backbone": true,
+    "plain_pairwise_margin": false
+  },
+  "why_collected": "Late no-family drift example selected for motif `extra_regularizer`.",
+  "ir": {
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_sqrt_norm_entropy_reg_delta_rank_poly",
+    "intuition": "Replaced exponential normalization with square root normalization of total weight to reduce similarity with previously seen exponential and logarithmic normalizations. Additionally, replaced the linear regularization on normalized delta_rank with a polynomial (quadratic) penalty using the square of the normalized delta_rank passed through softplus to encourage smoother gradients and stronger penalization of large deviations. This introduces a different aggregation and penalty scheme while preserving the core signals and pairwise margin loss structure, ensuring novelty and stability.",
+    "pseudocode": "total_weight = sum(weight)\nweight_norm = sqrt(total_weight) + eps\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nsum_weighted_loss = sum(weighted_loss)\nweighted_avg_loss = sum_weighted_loss / total_weight\nnorm_loss = weighted_avg_loss / weight_norm\ndelta_rank_norm = normalize(delta_rank)\npoly_reg = mean(softplus(delta_rank_norm ** 2))\nfinal_loss = norm_loss + gamma * poly_reg\nreturn final_loss",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap_delta_rank_entropy_reg_poly",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_avg_sqrtnorm",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "sum",
+      "mul",
+      "add",
+      "mean",
+      "softplus",
+      "neg",
+      "sub",
+      "div",
+      "sqrt",
+      "normalize",
+      "pow"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, weight)\n    sum_weighted_loss = ops.sum(weighted_loss)\n    total_weight = ops.sum(weight)\n\n    weighted_avg_loss = ops.div(sum_weighted_loss, total_weight)\n    weight_norm = ops.add(ops.sqrt(total_weight), eps)\n    norm_loss = ops.div(weighted_avg_loss, weight_norm)\n\n    delta_rank_norm = ops.normalize(delta_rank)\n    delta_rank_squared = ops.mul(delta_rank_norm, delta_rank_norm)\n    poly_reg = ops.mean(ops.softplus(delta_rank_squared))\n\n    final_loss = ops.add(norm_loss, ops.mul(gamma, poly_reg))\n    return final_loss",
+    "theoretical_basis": ""
+  },
+  "record": {
+    "generation": 7,
+    "index": 1,
+    "id": "f007_001_7b75011d",
+    "signature": "7b75011db71ce16ef795501675238f26f64b9ff1",
+    "family": "pairwise_margin|advantage_gap_delta_rank_entropy_reg_poly|weighted_avg_sqrtnorm|none",
+    "family_signature": "paradigm=pairwise_margin|signal=advantage_gap_delta_rank_entropy_reg_poly|agg=weighted_avg_sqrtnorm|constraint=none",
+    "origin": "REPAIR",
+    "origin_base": "STRUCTURE_SHIFT",
+    "op_type": "REPAIR",
+    "parents": [
+      "f006_015_0509f79f"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "fe962bdf0ca0f30c318d2c2d81cbefef52252a89",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+    "llm_seed": 1188472102,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_STRUCTURE_SHIFT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+        "prompt_sha1": "fe962bdf0ca0f30c318d2c2d81cbefef52252a89"
+      },
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "REPAIR",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+        "prompt_sha1": "e5fb2c4cf143425b372178980f15e12c17f9a47f"
+      },
+      {
+        "attempt": 1,
+        "side": "loss",
+        "llm_op": "REPAIR",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_repair.txt",
+        "prompt_sha1": "5067ad3229b76c8224eeff80a03e42f64ebde773"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8947368421052632,
+      "best_similarity_parts": {
+        "bigram": 0.5263157894736842,
+        "unigram": 0.8947368421052632,
+        "call": 0.875
+      },
+      "neighbors": [
+        {
+          "sig": "0509f79fced0d7894599c2fcd02e3763b6a58d79",
+          "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_log_norm_entropy_reg_delta_rank",
+          "similarity": 0.8947368421052632,
+          "similarity_parts": {
+            "bigram": 0.5263157894736842,
+            "unigram": 0.8947368421052632,
+            "call": 0.875
+          },
+          "call_names_top": [
+            "extra.get",
+            "float",
+            "get",
+            "ops.add",
+            "ops.clamp",
+            "ops.div",
+            "ops.log",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.normalize",
+            "ops.softplus",
+            "ops.sub",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "1fc29ac9ca49628d9da8dd58314f0401e42b7da7",
+          "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_exp_norm_entropy_reg_delta_rank",
+          "similarity": 0.8947368421052632,
+          "similarity_parts": {
+            "bigram": 0.45,
+            "unigram": 0.8947368421052632,
+            "call": 0.875
+          },
+          "call_names_top": [
+            "extra.get",
+            "float",
+            "get",
+            "ops.add",
+            "ops.clamp",
+            "ops.div",
+            "ops.exp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.normalize",
+            "ops.softplus",
+            "ops.sub",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "15d49e3c38aaa774ef10ec2835ec572ad78f550b",
+          "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_entropy_reg_poly_delta_rank",
+          "similarity": 0.8888888888888888,
+          "similarity_parts": {
+            "bigram": 0.4473684210526316,
+            "unigram": 0.8888888888888888,
+            "call": 0.8666666666666667
+          },
+          "call_names_top": [
+            "extra.get",
+            "float",
+            "get",
+            "ops.add",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.normalize",
+            "ops.softplus",
+            "ops.sub",
+            "ops.sum"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_sqrt_norm_entropy_reg_delta_rank_poly",
+      "intuition": "Replaced exponential normalization with square root normalization of total weight to reduce similarity with previously seen exponential and logarithmic normalizations. Additionally, replaced the linear regularization on normalized delta_rank with a polynomial (quadratic) penalty using the square of the normalized delta_rank passed through softplus to encourage smoother gradients and stronger penalization of large deviations. This introduces a different aggregation and penalty scheme while preserving the core signals and pairwise margin loss structure, ensuring novelty and stability.",
+      "pseudocode": "total_weight = sum(weight)\nweight_norm = sqrt(total_weight) + eps\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * weight\nsum_weighted_loss = sum(weighted_loss)\nweighted_avg_loss = sum_weighted_loss / total_weight\nnorm_loss = weighted_avg_loss / weight_norm\ndelta_rank_norm = normalize(delta_rank)\npoly_reg = mean(softplus(delta_rank_norm ** 2))\nfinal_loss = norm_loss + gamma * poly_reg\nreturn final_loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_delta_rank_entropy_reg_poly",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_avg_sqrtnorm",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "mul",
+        "add",
+        "mean",
+        "softplus",
+        "neg",
+        "sub",
+        "div",
+        "sqrt",
+        "normalize",
+        "pow"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, weight)\n    sum_weighted_loss = ops.sum(weighted_loss)\n    total_weight = ops.sum(weight)\n\n    weighted_avg_loss = ops.div(sum_weighted_loss, total_weight)\n    weight_norm = ops.add(ops.sqrt(total_weight), eps)\n    norm_loss = ops.div(weighted_avg_loss, weight_norm)\n\n    delta_rank_norm = ops.normalize(delta_rank)\n    delta_rank_squared = ops.mul(delta_rank_norm, delta_rank_norm)\n    poly_reg = ops.mean(ops.softplus(delta_rank_squared))\n\n    final_loss = ops.add(norm_loss, ops.mul(gamma, poly_reg))\n    return final_loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_family_label": "Rank / Pairwise margin",
+    "_family_signature": "pairwise_margin|advantage_gap_delta_rank_entropy_reg_poly|logsigmoid|weighted_avg_sqrtnorm|none",
+    "_motifs": {
+      "extra_regularizer": true,
+      "advantage_heavy": true,
+      "rankprob_or_probabilistic": false,
+      "advantage_blend_tanh_relu": false,
+      "unstructured_weighted_sum": false,
+      "raw_cost_additive": false,
+      "bounded_or_normalized": true,
+      "logsigmoid_backbone": true,
+      "plain_pairwise_margin": false
+    }
+  }
+}

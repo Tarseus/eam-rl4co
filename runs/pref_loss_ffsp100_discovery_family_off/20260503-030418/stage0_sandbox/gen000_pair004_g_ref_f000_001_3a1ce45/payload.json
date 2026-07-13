@@ -1,0 +1,109 @@
+{
+  "generation": 0,
+  "pair_index": 4,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_001_3a1ce454",
+    "ir": {
+      "name": "loss_logsigmoid_004_cost_scaled_normalized_clamped_weight_stable_grad",
+      "intuition": "Improved stability and fixed affine invariance violation by further reducing the scaled cost factor to 0.01 for smoother gradient dynamics. Added normalization of cost_gap by absolute delta plus epsilon to prevent division instability. Maintained clamping of intermediate logits difference inputs and weights to avoid extreme values. These changes reduce sensitivity to objective perturbations, stabilizing gradient ratios.",
+      "pseudocode": "eps = 1e-6\ndelta = log_prob_w - log_prob_l\nabs_delta = abs(delta) + eps\nscaled_cost = 0.01 * cost_gap / abs_delta\nx_raw = alpha * scale * delta - scaled_cost\nx = clamp(x_raw, -10, 10)\nweight_clamped = clamp(weight, 1e-6, 10.0)\nlosses = -logsigmoid(x)\nloss = sum(losses * weight_clamped) / sum(weight_clamped)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap_scaled_normalized_clamped_weight",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "clamp_stabilized_weight_clamp"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "mul",
+        "div",
+        "abs",
+        "add",
+        "sub",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', lpw.new_ones(lpw.shape))\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.0))\n    cost_gap = batch['cost_gap']\n    delta = ops.sub(lpw, lpl)\n    abs_delta = ops.add(ops.abs(delta), eps)\n    scaled_cost = ops.div(ops.mul(0.01, cost_gap), abs_delta)\n    x_raw = ops.sub(ops.mul(ops.mul(alpha, scale), delta), scaled_cost)\n    x = ops.clamp(x_raw, -10.0, 10.0)\n    weight_clamped = ops.clamp(weight, 1e-6, 10.0)\n    losses = ops.neg(ops.logsigmoid(x))\n    weighted_sum = ops.sum(ops.mul(losses, weight_clamped))\n    weight_sum = ops.sum(weight_clamped)\n    loss = weighted_sum / ops.clamp(weight_sum, 1e-6, 1e6)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -1,0 +1,203 @@
+{
+  "problem": "TSP100",
+  "method": "Family-aware",
+  "run_key": "TSP100_family_aware",
+  "candidate_id": "f004_009_8bc47121",
+  "generation": 4,
+  "family_label": "Cost / Pairwise margin",
+  "family_signature": "pairwise_margin|cost_gap|logsigmoid|median|scale_invariance",
+  "motifs": {
+    "extra_regularizer": true,
+    "advantage_heavy": false,
+    "rankprob_or_probabilistic": false,
+    "advantage_blend_tanh_relu": false,
+    "unstructured_weighted_sum": false,
+    "raw_cost_additive": true,
+    "bounded_or_normalized": true,
+    "logsigmoid_backbone": true,
+    "plain_pairwise_margin": true
+  },
+  "why_collected": "Family-aware TSP best: bounded normalized cost-gap modulation.",
+  "ir": {
+    "name": "loss_logsigmoid_004_cost_shifted_median_normalized",
+    "intuition": "Pairwise logsigmoid loss with cost gap, normalized by sum of weights to enforce scale-invariance and maintain stable aggregation via median.",
+    "pseudocode": "losses = -logsigmoid(clamp(alpha*scale*(lpw - lpl) - 0.1*(cost_b - cost_a), -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = median(weighted_losses) / (sum(weight) + epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "cost_gap",
+      "link_family": "logsigmoid",
+      "agg_family": "median",
+      "constraint_family": "scale_invariance"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "median",
+      "mul",
+      "sum",
+      "add"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "cost_a",
+        "cost_b"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    gap = cost_b - cost_a\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    median_loss = ops.median(weighted_losses)\n    loss = median_loss / norm_factor\n    return loss",
+    "theoretical_basis": ""
+  },
+  "record": {
+    "generation": 4,
+    "index": 9,
+    "id": "f004_009_8bc47121",
+    "signature": "8bc47121174ab7a05b7f0c5caf21594c42bdbdbe",
+    "family": "pairwise_margin|cost_gap|median|scale_invariance",
+    "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=median|constraint=scale_invariance",
+    "origin": "CONSTRAINT_INJECT",
+    "origin_base": "CONSTRAINT_INJECT",
+    "op_type": "LOSS_CONSTRAINT_INJECT",
+    "parents": [
+      "f002_001_b6517213"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "b15a00c81e80e4877748cfc6c905300037931d65",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+    "llm_seed": 1839392114,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_CONSTRAINT_INJECT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+        "prompt_sha1": "b15a00c81e80e4877748cfc6c905300037931d65"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8888888888888888,
+      "best_similarity_parts": {
+        "bigram": 0.6538461538461539,
+        "unigram": 0.8,
+        "call": 0.8888888888888888
+      },
+      "neighbors": [
+        {
+          "sig": "b65172134ae7f584257e92dca2083b09c60da3a5",
+          "name": "loss_logsigmoid_003_cost_shifted_median",
+          "similarity": 0.8888888888888888,
+          "similarity_parts": {
+            "bigram": 0.6538461538461539,
+            "unigram": 0.8,
+            "call": 0.8888888888888888
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.median",
+            "ops.ones_like"
+          ]
+        },
+        {
+          "sig": "3c0966c55c54ee47f6a9f6d89d2eeb263a7cf227",
+          "name": "loss_logsigmoid_002_cost_shifted_sum",
+          "similarity": 0.8888888888888888,
+          "similarity_parts": {
+            "bigram": 0.43333333333333335,
+            "unigram": 0.8,
+            "call": 0.8888888888888888
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.ones_like",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "ec78f8e4f6b01091c04fc3769bb5ce614c548294",
+          "name": "pairwise_cost_advantage_gap_logsigmoid_clamped_weighted_normalized",
+          "similarity": 0.875,
+          "similarity_parts": {
+            "bigram": 0.2647058823529412,
+            "unigram": 0.875,
+            "call": 0.8
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.ones_like",
+            "ops.sum"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "loss_logsigmoid_004_cost_shifted_median_normalized",
+      "intuition": "Pairwise logsigmoid loss with cost gap, normalized by sum of weights to enforce scale-invariance and maintain stable aggregation via median.",
+      "pseudocode": "losses = -logsigmoid(clamp(alpha*scale*(lpw - lpl) - 0.1*(cost_b - cost_a), -20, 20))\nweighted_losses = losses * weight\nnormalized_loss = median(weighted_losses) / (sum(weight) + epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "median",
+        "constraint_family": "scale_invariance"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "median",
+        "mul",
+        "sum",
+        "add"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    gap = cost_b - cost_a\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    weighted_losses = losses * weight\n    norm_factor = ops.sum(weight) + eps\n    median_loss = ops.median(weighted_losses)\n    loss = median_loss / norm_factor\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_family_label": "Cost / Pairwise margin",
+    "_family_signature": "pairwise_margin|cost_gap|logsigmoid|median|scale_invariance",
+    "_motifs": {
+      "extra_regularizer": true,
+      "advantage_heavy": false,
+      "rankprob_or_probabilistic": false,
+      "advantage_blend_tanh_relu": false,
+      "unstructured_weighted_sum": false,
+      "raw_cost_additive": true,
+      "bounded_or_normalized": true,
+      "logsigmoid_backbone": true,
+      "plain_pairwise_margin": true
+    }
+  }
+}

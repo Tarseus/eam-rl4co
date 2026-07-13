@@ -88,6 +88,7 @@ from ptp_discovery.pref_builder_ir import (
 )
 
 import ptp_discovery.free_loss_llm_ops as loss_llm_ops
+import ptp_discovery.joint_pair_llm_ops as joint_pair_llm_ops
 import ptp_discovery.pref_builder_llm_ops as builder_llm_ops
 from ptp_discovery.cuda_diagnostics import collect_cuda_snapshot, format_cuda_snapshot
 from ptp_discovery.runtime_trace import RuntimeTrace
@@ -1746,6 +1747,19 @@ def _normalize_loss_transfer_seed_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, 
     }
 
 
+def _normalize_builder_transfer_seed_cfg(cfg_yaml: Mapping[str, Any]) -> Dict[str, Any]:
+    raw = cfg_yaml.get("builder_transfer_seed", {}) or {}
+    if not isinstance(raw, Mapping):
+        return {"enabled": False}
+
+    return {
+        "enabled": bool(raw.get("enabled", False)),
+        "source_builder_path": str(raw.get("source_builder_path", "") or "").strip(),
+        "keep_source_fitness": bool(raw.get("keep_source_fitness", True)),
+        "reset_history": bool(raw.get("reset_history", False)),
+    }
+
+
 def _resolve_loss_transfer_seed_checkpoint_path(seed_cfg: Mapping[str, Any]) -> str:
     ckpt_path = str(seed_cfg.get("source_checkpoint_path", "") or "").strip()
     if ckpt_path:
@@ -1763,6 +1777,13 @@ def _resolve_loss_transfer_seed_loss_path(seed_cfg: Mapping[str, Any]) -> str:
     if not loss_path:
         raise ValueError("loss_transfer_seed requires source_loss_path")
     return _abs_from_repo_root(loss_path)
+
+
+def _resolve_builder_transfer_seed_builder_path(seed_cfg: Mapping[str, Any]) -> str:
+    builder_path = str(seed_cfg.get("source_builder_path", "") or "").strip()
+    if not builder_path:
+        raise ValueError("builder_transfer_seed requires source_builder_path")
+    return _abs_from_repo_root(builder_path)
 
 
 def _coerce_numeric_transfer_seed_fitness(value: Any) -> float | None:
@@ -1854,6 +1875,95 @@ def _build_transfer_seed_entry(
         "source_loss_id": str(src_id),
         "source_fitness": source_fitness,
     }
+
+
+def _build_builder_transfer_seed_entry(
+    raw: Mapping[str, Any],
+    *,
+    index: int,
+    source_ref: str,
+    keep_source_fitness: bool,
+    reset_history: bool,
+) -> Dict[str, Any] | None:
+    ir_raw = raw.get("ir")
+    if not isinstance(ir_raw, dict):
+        return None
+
+    try:
+        ir = pref_builder_ir_from_json(ir_raw)
+    except Exception:  # noqa: BLE001
+        return None
+
+    sig = str(raw.get("signature") or _sig_pref_builder(ir))
+    family_signature = str(raw.get("family_signature") or _builder_family_signature(ir))
+    src_id = str(raw.get("id") or sig[:8])
+    new_id = f"gseed_{int(index):03d}_{sig[:8]}"
+
+    hist: List[Dict[str, Any]] = []
+    if (not bool(reset_history)) and isinstance(raw.get("history"), list):
+        hist.extend([dict(item) for item in list(raw.get("history") or []) if isinstance(item, Mapping)])
+    hist.append(
+        {
+            "op": "BUILDER_TRANSFER_SEED",
+            "source_builder_path": os.path.abspath(source_ref),
+            "source_id": str(src_id),
+        }
+    )
+
+    source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("fitness"))
+    if source_fitness is None:
+        source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("score"))
+    if source_fitness is None:
+        source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("final_score"))
+    if source_fitness is None:
+        source_fitness = _coerce_numeric_transfer_seed_fitness(raw.get("score_history_summary"))
+
+    return {
+        "generation": -1,
+        "index": int(index),
+        "id": str(new_id),
+        "signature": str(sig),
+        "family_signature": str(family_signature),
+        "origin": "BUILDER_TRANSFER_SEED",
+        "origin_base": str(src_id),
+        "op_type": "BUILDER_TRANSFER_SEED",
+        "parents": [str(src_id)],
+        "attempt": 0,
+        "prompt_sha1": None,
+        "prompt_path": None,
+        "llm_seed": None,
+        "history": hist,
+        "novelty": None,
+        "ir": asdict(ir),
+        "compile_ok": True,
+        "compile_reason": "builder_transfer_seed",
+        "builder_static_ok": True,
+        "builder_static_reason": "builder_transfer_seed",
+        "builder_static_trace": {},
+        "fitness": (float(source_fitness) if bool(keep_source_fitness) and source_fitness is not None else 0.0),
+        "source_builder_path": os.path.abspath(source_ref),
+        "source_builder_id": str(src_id),
+        "source_fitness": source_fitness,
+    }
+
+
+def _load_builder_transfer_seed_entry_from_builder_path(
+    builder_path: str,
+    *,
+    keep_source_fitness: bool = True,
+    reset_history: bool = False,
+) -> Dict[str, Any] | None:
+    payload = _load_json(builder_path)
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"Invalid transfer builder artifact: {builder_path}")
+
+    return _build_builder_transfer_seed_entry(
+        payload,
+        index=0,
+        source_ref=builder_path,
+        keep_source_fitness=keep_source_fitness,
+        reset_history=reset_history,
+    )
 
 
 def _load_loss_transfer_seed_entries(
@@ -2283,6 +2393,166 @@ def _resolve_hf_timeout_s(
     return max(1.0, timeout_s)
 
 
+def _hf_task_physical_device(logical_device: str) -> str:
+    physical_device = str(logical_device or "")
+    if physical_device.startswith("cuda:"):
+        idx = physical_device.split(":", 1)[1].strip()
+        visible_raw = str(os.environ.get("CUDA_VISIBLE_DEVICES", "") or "").strip()
+        visible_list = [part.strip() for part in visible_raw.split(",") if part.strip()]
+        try:
+            logical_idx = int(idx)
+        except ValueError:
+            logical_idx = -1
+        if 0 <= logical_idx < len(visible_list):
+            physical_device = f"cuda:{visible_list[logical_idx]}"
+    return physical_device
+
+
+def _hf_task_artifact_dir(task_root: str, generation: int, pair_index: int, physical_device: str) -> str:
+    return os.path.join(
+        task_root,
+        f"gen{int(generation):03d}_pair{int(pair_index):03d}_{str(physical_device).replace(':', '_')}",
+    )
+
+
+def _hf_existing_result_is_reusable(
+    rec: Mapping[str, Any],
+    *,
+    task: Mapping[str, Any],
+    result_path: str,
+    reuse_failed: bool,
+) -> Tuple[bool, str]:
+    expected_gid = str(task.get("g_entry", {}).get("id", task.get("g_id", "")))
+    expected_fid = str(task.get("f_entry", {}).get("id", task.get("f_id", "")))
+    if expected_gid and str(rec.get("g_id", "")) != expected_gid:
+        return False, "g_id_mismatch"
+    if expected_fid and str(rec.get("f_id", "")) != expected_fid:
+        return False, "f_id_mismatch"
+
+    expected_eval_sig = str(task.get("eval_budget_signature", "") or "")
+    rec_eval_sig = str(rec.get("eval_budget_signature", "") or "")
+    if expected_eval_sig and rec_eval_sig and rec_eval_sig != expected_eval_sig:
+        return False, "eval_budget_signature_mismatch"
+
+    rec_gen = rec.get("generation")
+    if rec_gen is not None and _safe_int(rec_gen, -10**9) != _safe_int(task.get("generation", -1), -1):
+        return False, "generation_mismatch"
+    rec_pair_index = rec.get("pair_index")
+    if rec_pair_index is not None and _safe_int(rec_pair_index, -10**9) != _safe_int(task.get("pair_index", -1), -1):
+        return False, "pair_index_mismatch"
+
+    if bool(reuse_failed):
+        return True, "ok"
+
+    if not isinstance(rec.get("fitness"), Mapping):
+        return False, "missing_fitness"
+    try:
+        score = float(rec.get("score"))
+    except (TypeError, ValueError):
+        return False, "score_not_float"
+    if not math.isfinite(score):
+        return False, "score_not_finite"
+    if not bool(rec.get("pair_ok", False)):
+        return False, "pair_not_ok"
+    stage = str(rec.get("stage", "") or "").strip()
+    if stage and stage != "high_fidelity":
+        return False, "not_high_fidelity"
+    if not os.path.isfile(result_path):
+        return False, "result_path_missing"
+    return True, "ok"
+
+
+def _load_existing_hf_subprocess_result(
+    *,
+    task: Mapping[str, Any],
+    task_root: str,
+    run_dir: str,
+) -> Dict[str, Any] | None:
+    cfg_like = task.get("cfg_yaml") if isinstance(task.get("cfg_yaml"), Mapping) else {}
+    if isinstance(cfg_like, Mapping) and not bool(cfg_like.get("hf_subprocess_reuse_existing_results", True)):
+        return None
+    reuse_failed = bool(cfg_like.get("hf_subprocess_reuse_failed_results", False)) if isinstance(cfg_like, Mapping) else False
+
+    gen = _safe_int(task.get("generation", -1), -1)
+    pair_index = _safe_int(task.get("pair_index", -1), -1)
+    if gen < 0 or pair_index < 0:
+        return None
+
+    logical_device = str(task.get("device_str", ""))
+    physical_device = _hf_task_physical_device(logical_device)
+    expected_dir = _hf_task_artifact_dir(task_root, gen, pair_index, physical_device)
+    candidate_paths: List[str] = [os.path.join(expected_dir, "result.json")]
+
+    prefix = f"gen{int(gen):03d}_pair{int(pair_index):03d}_"
+    try:
+        for name in os.listdir(task_root):
+            if not str(name).startswith(prefix):
+                continue
+            p = os.path.join(task_root, str(name), "result.json")
+            if p not in candidate_paths:
+                candidate_paths.append(p)
+    except FileNotFoundError:
+        return None
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.warning("Failed to scan existing HF subprocess results under %s: %s", task_root, str(exc))
+        return None
+
+    for result_path in candidate_paths:
+        if not os.path.isfile(result_path):
+            continue
+        try:
+            rec_raw = _load_json(result_path)
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("Failed to load existing HF subprocess result %s: %s", result_path, str(exc))
+            continue
+        if not isinstance(rec_raw, Mapping):
+            continue
+        ok, reason = _hf_existing_result_is_reusable(
+            rec_raw,
+            task=task,
+            result_path=result_path,
+            reuse_failed=bool(reuse_failed),
+        )
+        if not ok:
+            LOGGER.info(
+                "Ignoring existing HF result gen=%d pair_index=%d path=%s reason=%s",
+                int(gen),
+                int(pair_index),
+                result_path,
+                str(reason),
+            )
+            continue
+        rec = dict(rec_raw)
+        rec.setdefault("generation", int(gen))
+        rec.setdefault("pair_index", int(pair_index))
+        rec.setdefault("g_id", str(task.get("g_entry", {}).get("id", task.get("g_id", ""))))
+        rec.setdefault("f_id", str(task.get("f_entry", {}).get("id", task.get("f_id", ""))))
+        if task.get("eval_budget_signature") is not None:
+            rec.setdefault("eval_budget_signature", str(task.get("eval_budget_signature")))
+        rec["hf_subprocess_reused_existing_result"] = True
+        rec["hf_subprocess_result"] = os.path.relpath(result_path, start=run_dir)
+        log_path = os.path.join(os.path.dirname(result_path), "subprocess.log")
+        if os.path.isfile(log_path):
+            rec["hf_subprocess_log"] = os.path.relpath(log_path, start=run_dir)
+        diag_path = os.path.join(os.path.dirname(result_path), "cuda_diagnostics.jsonl")
+        if os.path.isfile(diag_path):
+            rec["hf_cuda_diagnostics"] = os.path.relpath(diag_path, start=run_dir)
+        if physical_device:
+            rec.setdefault("device", physical_device)
+            rec.setdefault("device_str", physical_device)
+            rec.setdefault("device_physical_str", physical_device)
+        LOGGER.info(
+            "Reusing existing HF subprocess result gen=%d pair_index=%d g_id=%s f_id=%s path=%s",
+            int(gen),
+            int(pair_index),
+            str(rec.get("g_id", "")),
+            str(rec.get("f_id", "")),
+            result_path,
+        )
+        return rec
+    return None
+
+
 def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
     *,
     hf_tasks: Sequence[Mapping[str, Any]],
@@ -2303,9 +2573,7 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
     max_workers = max(1, int(max_workers))
     max_workers = min(int(max_workers), max(1, len(device_list)), max(1, len(hf_tasks)))
 
-    pending: List[Dict[str, Any]] = [dict(t) for t in hf_tasks]
     active: List[Dict[str, Any]] = []
-    results_by_key: Dict[Tuple[int, int, str, str], Dict[str, Any]] = {}
 
     def _task_key(task_like: Mapping[str, Any]) -> Tuple[int, int, str, str]:
         return (
@@ -2314,6 +2582,16 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
             str(task_like.get("g_entry", {}).get("id", task_like.get("g_id", ""))),
             str(task_like.get("f_entry", {}).get("id", task_like.get("f_id", ""))),
         )
+
+    pending: List[Dict[str, Any]] = []
+    results_by_key: Dict[Tuple[int, int, str, str], Dict[str, Any]] = {}
+    for task_like in hf_tasks:
+        task = dict(task_like)
+        reused = _load_existing_hf_subprocess_result(task=task, task_root=task_root, run_dir=run_dir)
+        if reused is not None:
+            results_by_key[_task_key(task)] = dict(reused)
+        else:
+            pending.append(task)
 
     def _launch_ready_tasks() -> bool:
         launched = False
@@ -2332,17 +2610,7 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
 
             task = dict(pending.pop(next_idx))
             logical_device = str(task.get("device_str", ""))
-            physical_device = logical_device
-            if logical_device.startswith("cuda:"):
-                idx = logical_device.split(":", 1)[1].strip()
-                visible_raw = str(os.environ.get("CUDA_VISIBLE_DEVICES", "") or "").strip()
-                visible_list = [part.strip() for part in visible_raw.split(",") if part.strip()]
-                try:
-                    logical_idx = int(idx)
-                except ValueError:
-                    logical_idx = -1
-                if 0 <= logical_idx < len(visible_list):
-                    physical_device = f"cuda:{visible_list[logical_idx]}"
+            physical_device = _hf_task_physical_device(logical_device)
             env, worker_device = _hf_subprocess_env_and_device(
                 logical_device,
                 task.get("cfg_yaml") if isinstance(task.get("cfg_yaml"), Mapping) else None,
@@ -2352,10 +2620,7 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
 
             gen = _safe_int(task.get("generation", -1), -1)
             pair_index = _safe_int(task.get("pair_index", -1), -1)
-            task_dir = os.path.join(
-                task_root,
-                f"gen{int(gen):03d}_pair{int(pair_index):03d}_{str(physical_device).replace(':', '_')}",
-            )
+            task_dir = _hf_task_artifact_dir(task_root, int(gen), int(pair_index), str(physical_device))
             os.makedirs(task_dir, exist_ok=True)
             diag_jsonl_path = os.path.join(task_dir, "cuda_diagnostics.jsonl")
             payload_path = os.path.join(task_dir, "payload.json")
@@ -4060,7 +4325,7 @@ def _normalize_metric_mode(value: Any) -> str:
 
 def _normalize_search_mode(value: Any, *, default_mode: str) -> str:
     mode = str(value or default_mode).strip().lower()
-    if mode not in {"alternating", "coevo", "loss_only", "builder_only"}:
+    if mode not in {"alternating", "coevo", "loss_only", "builder_only", "joint_pair"}:
         return str(default_mode)
     return mode
 
@@ -4660,6 +4925,32 @@ def _refresh_loss_population_scores_from_history(
         reverse=bool(str(metric_mode) == "maximize"),
     )
     return refreshed
+
+
+def _clear_population_score_fields(entries: Sequence[Mapping[str, Any]]) -> List[Dict[str, Any]]:
+    score_keys = {
+        "fitness",
+        "selection_sort_key",
+        "score",
+        "final_score",
+        "reference_score",
+        "delta_vs_incumbent",
+        "delta_vs_last_phase",
+        "better_than_incumbent",
+        "better_than_last_phase",
+        "score_history",
+        "score_history_summary",
+        "stage_final",
+        "metric_mode",
+        "improve_eps",
+    }
+    out: List[Dict[str, Any]] = []
+    for entry in entries:
+        item = dict(entry)
+        for key in score_keys:
+            item.pop(key, None)
+        out.append(item)
+    return out
 
 
 def _extract_builder_cost(rec: Mapping[str, Any]) -> float | None:
@@ -6758,6 +7049,24 @@ def _validate_builder_search_space_contract(
                 "reference_pairs": int(ref_b.numel()),
             },
         )
+    allowed_weight_families = [
+        str(v).strip()
+        for v in (search_space_cfg.get("allowed_weight_families", []) or [])
+        if str(v).strip()
+    ]
+    if allowed_weight_families and not bool(search_space_cfg.get("allow_freeform_weight_family", False)):
+        weight_family = _builder_weight_family_label(compiled.ir)
+        if str(weight_family) not in set(allowed_weight_families):
+            return False, _builder_failure_report(
+                stage="search_space",
+                reason="weight_family_not_allowed",
+                trace={
+                    "failed_gate": "SearchSpace",
+                    "failure_kind": "weight_family_not_allowed",
+                    "weight_family": str(weight_family),
+                    "allowed_weight_families": list(allowed_weight_families),
+                },
+            )
     pair_weight_normalization = str(search_space_cfg.get("pair_weight_normalization", "instance_mean") or "instance_mean")
     if pair_weight_normalization == "none" and _builder_uses_instance_weight_normalization(compiled.ir):
         return False, _builder_failure_report(
@@ -8490,6 +8799,338 @@ def _propose_losses_for_generation(
     return out[:pop_f]
 
 
+def _propose_joint_pairs_for_generation(
+    *,
+    generation: int,
+    pop_pairs: int,
+    rng: random.Random,
+    operator_whitelist: Sequence[str] | None = None,
+    llm_cfg: Mapping[str, Any] | None = None,
+    global_feedback: Mapping[str, Any] | None = None,
+    loss_observables: Sequence[str] | None = None,
+    llm_init_only: bool = False,
+) -> List[Dict[str, Any]]:
+    """Propose complete bound (builder, loss) pairs from one LLM call each."""
+
+    pop_pairs = max(int(pop_pairs), 1)
+    operator_whitelist = list(operator_whitelist or [])
+    llm_root: Mapping[str, Any] = llm_cfg or {}
+    joint_cfg: Mapping[str, Any] = llm_root
+    if isinstance(llm_root.get("joint_pair"), Mapping):
+        joint_cfg = llm_root.get("joint_pair")  # type: ignore[assignment]
+    if not bool(joint_cfg and joint_cfg.get("enabled", False)):
+        return []
+
+    prompts = llm_root.get("prompts", joint_cfg.get("prompts", {})) or {}
+    if not isinstance(prompts, dict):
+        prompts = {}
+    p_joint = str(joint_cfg.get("prompt_path") or prompts.get("joint_pair_generation", "") or "")
+    if not p_joint:
+        raise RuntimeError("joint_pair search requires a joint_pair_generation prompt path")
+
+    builder_context = (
+        llm_root.get("builder_prompt_context")
+        if isinstance(llm_root.get("builder_prompt_context"), Mapping)
+        else builder_llm_ops.build_runtime_prompt_context(loss_observables=loss_observables, mode="pairwise")
+    )
+    loss_context = (
+        llm_root.get("loss_prompt_context")
+        if isinstance(llm_root.get("loss_prompt_context"), Mapping)
+        else loss_llm_ops.build_runtime_prompt_context(loss_observables=loss_observables, mode="pairwise")
+    )
+    blocked_keys: set[str] = set()
+    for ctx in (builder_context, loss_context):
+        if isinstance(ctx, Mapping):
+            for key_name in ("blocked_optional_keys", "unavailable_supported_keys"):
+                raw = ctx.get(key_name, [])
+                if isinstance(raw, (list, tuple, set)):
+                    blocked_keys.update(str(v) for v in raw if str(v).strip())
+    prompt_context: Dict[str, Any] = {
+        "mode": "bound_builder_loss_pair",
+        "builder_context": dict(builder_context) if isinstance(builder_context, Mapping) else {},
+        "loss_context": dict(loss_context) if isinstance(loss_context, Mapping) else {},
+        "blocked_optional_keys": sorted(blocked_keys),
+        "notes": [
+            "Generate one builder and one loss as a single bound design.",
+            "The returned builder and loss will only be evaluated together.",
+            "Do not rely on later cross-combination with other losses or builders.",
+        ],
+    }
+    builder_cfg_root = llm_root.get("builder", {}) if isinstance(llm_root.get("builder", {}), Mapping) else {}
+    builder_search_space_cfg = _normalize_builder_search_space_cfg(
+        builder_cfg_root.get("search_space", joint_cfg.get("search_space", {}))
+        if isinstance(builder_cfg_root, Mapping)
+        else joint_cfg.get("search_space", {})
+    )
+    proposal_family_quota_cfg = _normalize_builder_proposal_family_quota_cfg(
+        joint_cfg.get(
+            "proposal_family_quota",
+            builder_cfg_root.get("proposal_family_quota", {}) if isinstance(builder_cfg_root, Mapping) else {},
+        ),
+        search_space_cfg=builder_search_space_cfg,
+    )
+    builder_gate_cfg_raw = llm_root.get("builder_gate", {}) if isinstance(llm_root.get("builder_gate", {}), Mapping) else {}
+    builder_gate_cfg = dict(builder_gate_cfg_raw)
+    builder_gate_cfg["search_space"] = dict(builder_search_space_cfg)
+
+    def _joint_builder_family_counts(items: Sequence[Mapping[str, Any]]) -> collections.Counter[str]:
+        ctr: collections.Counter[str] = collections.Counter()
+        for item in items:
+            fam = _builder_weight_family_label(item.get("builder_ir"))
+            if fam and fam != "unknown":
+                ctr[fam] += 1
+        return ctr
+
+    def _next_joint_target_weight_family(items: Sequence[Mapping[str, Any]]) -> str | None:
+        if not bool(proposal_family_quota_cfg.get("enabled", False)):
+            return None
+        min_per = int(proposal_family_quota_cfg.get("min_per_weight_family", 0) or 0)
+        if min_per <= 0:
+            return None
+        counts = _joint_builder_family_counts(items)
+        for fam in list(proposal_family_quota_cfg.get("target_weight_families", [])):
+            fam_key = str(fam)
+            if int(counts.get(fam_key, 0)) < int(min_per):
+                return fam_key
+        return None
+
+    def _missing_joint_weight_families(items: Sequence[Mapping[str, Any]]) -> List[str]:
+        if not bool(proposal_family_quota_cfg.get("enabled", False)):
+            return []
+        min_per = int(proposal_family_quota_cfg.get("min_per_weight_family", 0) or 0)
+        if min_per <= 0:
+            return []
+        counts = _joint_builder_family_counts(items)
+        missing: List[str] = []
+        for fam in list(proposal_family_quota_cfg.get("target_weight_families", [])):
+            fam_key = str(fam)
+            if int(counts.get(fam_key, 0)) < int(min_per):
+                missing.append(fam_key)
+        return missing
+
+    out: List[Dict[str, Any]] = []
+    llm_failure_counts: Dict[str, int] = {}
+    llm_failure_samples: List[Dict[str, Any]] = []
+    proposal_reject_counts: Dict[str, int] = {}
+    proposal_reject_samples: List[Dict[str, Any]] = []
+    try:
+        max_attempts = int(joint_cfg.get("max_proposal_attempts", pop_pairs + max(4, pop_pairs)) or 0)
+    except (TypeError, ValueError):
+        max_attempts = pop_pairs + max(4, pop_pairs)
+    max_attempts = max(int(pop_pairs), int(max_attempts))
+    attempt_idx = 0
+    while len(out) < int(pop_pairs) and int(attempt_idx) < int(max_attempts):
+        llm_attempt_index = int(attempt_idx)
+        attempt_idx += 1
+        cand_idx = int(len(out))
+        llm_seed = int(rng.randrange(0, 2**31 - 1))
+        target_weight_family = _next_joint_target_weight_family(out)
+        missing_weight_families = _missing_joint_weight_families(out)
+        call_feedback = dict(global_feedback or {})
+        call_feedback["llm_call"] = {
+            "side": "joint_pair",
+            "op_type": "JOINT_PAIR_GENERATE",
+            "seed": int(llm_seed),
+            "candidate_index": int(cand_idx),
+            "attempt_index": int(llm_attempt_index),
+        }
+        call_feedback["builder_search_space"] = dict(builder_search_space_cfg)
+        call_feedback["builder_search"] = dict(call_feedback.get("builder_search") or {})
+        call_feedback["builder_search"]["proposal_family_quota"] = dict(proposal_family_quota_cfg)
+        call_feedback["builder_search"]["missing_weight_families"] = list(missing_weight_families)
+        template_constraints: Dict[str, Any] = {"force_template": True}
+        call_prompt_context = dict(prompt_context)
+        template_control: Dict[str, Any] = {
+            "force_template": True,
+            "proposal_family_quota": dict(proposal_family_quota_cfg),
+            "missing_weight_families": list(missing_weight_families),
+        }
+        if target_weight_family:
+            call_feedback["builder_search"]["target_weight_family"] = str(target_weight_family)
+            template_constraints["target_weight_family"] = str(target_weight_family)
+            template_control["target_weight_family"] = str(target_weight_family)
+        call_prompt_context["template_control"] = template_control
+        try:
+            builder_ir, loss_ir, meta = joint_pair_llm_ops.generate_joint_pair_candidate_with_meta(
+                prompt_path=p_joint,
+                global_feedback=call_feedback,
+                prompt_context=call_prompt_context,
+                template_constraints=template_constraints,
+            )
+            builder_ok, builder_fail = validate_builder_candidate(
+                builder_ir,
+                operator_whitelist=operator_whitelist,
+                gate_cfg=builder_gate_cfg,
+                op_type="JOINT_PAIR_GENERATE",
+            )
+            if not bool(builder_ok):
+                reason = str(builder_fail.get("reason") or builder_fail.get("stage") or "builder_static_failed")
+                key = f"builder:{reason}"
+                proposal_reject_counts[key] = int(proposal_reject_counts.get(key, 0)) + 1
+                if len(proposal_reject_samples) < 8:
+                    proposal_reject_samples.append(
+                        {
+                            "candidate_index": int(cand_idx),
+                            "attempt_index": int(llm_attempt_index),
+                            "side": "builder",
+                            "reason": reason,
+                            "target_weight_family": str(target_weight_family) if target_weight_family else None,
+                            "failure": dict(builder_fail),
+                        }
+                    )
+                LOGGER.warning(
+                    "Joint-pair proposal rejected at gen=%d idx=%d attempt=%d/%d side=builder target_family=%s reason=%s",
+                    int(generation),
+                    int(cand_idx),
+                    int(llm_attempt_index),
+                    int(max_attempts),
+                    str(target_weight_family) if target_weight_family else "",
+                    reason[:200],
+                )
+                continue
+
+            try:
+                loss_static = run_static_gates(loss_ir, operator_whitelist=operator_whitelist)
+                if not bool(loss_static.ok):
+                    reason = str(loss_static.reason or "loss_static_failed")
+                    key = f"loss:{reason}"
+                    proposal_reject_counts[key] = int(proposal_reject_counts.get(key, 0)) + 1
+                    if len(proposal_reject_samples) < 8:
+                        proposal_reject_samples.append(
+                            {
+                                "candidate_index": int(cand_idx),
+                                "attempt_index": int(llm_attempt_index),
+                                "side": "loss",
+                                "reason": reason,
+                                "target_weight_family": str(target_weight_family) if target_weight_family else None,
+                            }
+                        )
+                    LOGGER.warning(
+                        "Joint-pair proposal rejected at gen=%d idx=%d attempt=%d/%d side=loss target_family=%s reason=%s",
+                        int(generation),
+                        int(cand_idx),
+                        int(llm_attempt_index),
+                        int(max_attempts),
+                        str(target_weight_family) if target_weight_family else "",
+                        reason[:200],
+                    )
+                    continue
+                _ = compile_free_loss(loss_ir, operator_whitelist=operator_whitelist)
+            except Exception as exc:  # noqa: BLE001
+                reason = f"{type(exc).__name__}: {str(exc)[:300]}"
+                key = f"loss_compile:{type(exc).__name__}"
+                proposal_reject_counts[key] = int(proposal_reject_counts.get(key, 0)) + 1
+                if len(proposal_reject_samples) < 8:
+                    proposal_reject_samples.append(
+                        {
+                            "candidate_index": int(cand_idx),
+                            "attempt_index": int(llm_attempt_index),
+                            "side": "loss",
+                            "reason": reason,
+                            "target_weight_family": str(target_weight_family) if target_weight_family else None,
+                        }
+                    )
+                LOGGER.warning(
+                    "Joint-pair proposal rejected at gen=%d idx=%d attempt=%d/%d side=loss_compile target_family=%s reason=%s",
+                    int(generation),
+                    int(cand_idx),
+                    int(llm_attempt_index),
+                    int(max_attempts),
+                    str(target_weight_family) if target_weight_family else "",
+                    reason[:200],
+                )
+                continue
+
+            prompt_sha1 = str(meta.get("prompt_sha1") or "")
+            suffix = prompt_sha1[:8] if prompt_sha1 else f"{llm_seed:08x}"[-8:]
+            joint_pair_id = f"jp{generation:03d}_{cand_idx:03d}_{suffix}"
+            history = [
+                {
+                    "attempt": 0,
+                    "side": "joint_pair",
+                    "llm_op": "JOINT_PAIR_GENERATE",
+                    "prompt_path": str(meta.get("prompt_path") or p_joint),
+                    "prompt_sha1": prompt_sha1 or None,
+                    "llm_seed": int(llm_seed),
+                    "candidate_index": int(cand_idx),
+                    "attempt_index": int(llm_attempt_index),
+                    "target_weight_family": str(target_weight_family) if target_weight_family else None,
+                }
+            ]
+            out.append(
+                {
+                    "builder_ir": builder_ir,
+                    "loss_ir": loss_ir,
+                    "joint_pair_id": joint_pair_id,
+                    "origin": "JOINT_PAIR",
+                    "origin_base": "JOINT_PAIR",
+                    "op_type": "JOINT_PAIR_GENERATE",
+                    "parents": [],
+                    "attempt": 0,
+                    "prompt_sha1": prompt_sha1 or None,
+                    "prompt_path": str(meta.get("prompt_path") or p_joint),
+                    "history": history,
+                    "llm_seed": int(llm_seed),
+                    "target_weight_family": str(target_weight_family) if target_weight_family else None,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            llm_failure_counts["JOINT_PAIR_GENERATE"] = llm_failure_counts.get("JOINT_PAIR_GENERATE", 0) + 1
+            if len(llm_failure_samples) < 8:
+                llm_failure_samples.append(
+                    {
+                        "candidate_index": int(cand_idx),
+                        "attempt_index": int(llm_attempt_index),
+                        "error_type": type(exc).__name__,
+                        "error": str(exc)[:500],
+                    }
+                )
+            LOGGER.warning(
+                "Joint-pair LLM proposal failed at gen=%d idx=%d attempt=%d/%d prompt=%s error=%s: %s",
+                int(generation),
+                int(cand_idx),
+                int(llm_attempt_index),
+                int(max_attempts),
+                str(p_joint),
+                type(exc).__name__,
+                str(exc)[:500],
+            )
+            continue
+
+    if llm_failure_counts:
+        failure_summary = ", ".join(
+            f"{str(op_name)}={int(count)}" for op_name, count in sorted(llm_failure_counts.items(), key=lambda item: str(item[0]))
+        )
+        LOGGER.warning("Joint-pair LLM proposal failure summary at gen=%d: %s", int(generation), failure_summary)
+        if bool(llm_init_only) and not out:
+            msg = (
+                "Joint-pair generation "
+                f"{int(generation)} produced zero valid proposals while llm_init_only=true; "
+                "all LLM attempts failed and seed/backfill is disabled. "
+                f"failure_samples={llm_failure_samples}"
+            )
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
+
+    if proposal_reject_counts:
+        reject_summary = ", ".join(
+            f"{str(reason)}={int(count)}"
+            for reason, count in sorted(proposal_reject_counts.items(), key=lambda item: str(item[0]))
+        )
+        LOGGER.warning("Joint-pair proposal rejection summary at gen=%d: %s", int(generation), reject_summary)
+        if bool(llm_init_only) and not out:
+            msg = (
+                "Joint-pair generation "
+                f"{int(generation)} produced zero valid proposals while llm_init_only=true; "
+                "all LLM attempts failed static validation or parsing. "
+                f"rejection_samples={proposal_reject_samples}"
+            )
+            LOGGER.error(msg)
+            raise RuntimeError(msg)
+
+    return out[:pop_pairs]
+
+
 def _sample_pairs(
     *,
     g_ids: Sequence[str],
@@ -9541,6 +10182,14 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
 
     g_ir = pref_builder_ir_from_json(g_entry["ir"])
     f_ir = free_loss_ir_from_json(f_entry["ir"])
+    joint_pair_id = str(payload.get("joint_pair_id") or "").strip()
+    if not joint_pair_id and proxy_record is not None:
+        joint_pair_id = str(proxy_record.get("joint_pair_id") or "").strip()
+    if not joint_pair_id:
+        g_joint_pair_id = str(g_entry.get("joint_pair_id") or "").strip()
+        f_joint_pair_id = str(f_entry.get("joint_pair_id") or "").strip()
+        if g_joint_pair_id and f_joint_pair_id and g_joint_pair_id == f_joint_pair_id:
+            joint_pair_id = g_joint_pair_id
 
     record: Dict[str, Any] = {
         "generation": generation,
@@ -9562,6 +10211,8 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "seed_signature": None,
         "descriptor": None,
     }
+    if joint_pair_id:
+        record["joint_pair_id"] = str(joint_pair_id)
     if isinstance(payload.get("scheduler_launch_cuda_diag"), Mapping):
         record["scheduler_launch_cuda_diag"] = dict(payload.get("scheduler_launch_cuda_diag") or {})
     if isinstance(payload.get("worker_start_cuda_diag"), Mapping):
@@ -11523,18 +12174,28 @@ def run_pref_loss_coevo(
 
     builder_llm_raw = cfg_yaml.get("builder_llm", {}) or {}
     loss_llm_raw = cfg_yaml.get("loss_llm", {}) or {}
+    joint_pair_llm_raw = cfg_yaml.get("joint_pair_llm", {}) or {}
     if not isinstance(builder_llm_raw, dict):
         builder_llm_raw = {}
     if not isinstance(loss_llm_raw, dict):
         loss_llm_raw = {}
+    if not isinstance(joint_pair_llm_raw, dict):
+        joint_pair_llm_raw = {}
 
     builder_llm_enabled = bool(builder_llm_raw.get("enabled", legacy_llm_enabled))
     loss_llm_enabled = bool(loss_llm_raw.get("enabled", legacy_llm_enabled))
-    llm_enabled = bool(builder_llm_enabled or loss_llm_enabled)
+    joint_pair_llm_enabled = bool(
+        joint_pair_llm_raw.get(
+            "enabled",
+            legacy_llm_enabled if str(search_mode) == "joint_pair" else False,
+        )
+    )
+    llm_enabled = bool(builder_llm_enabled or loss_llm_enabled or joint_pair_llm_enabled)
 
     builder_offline = bool(builder_llm_raw.get("offline_mode", legacy_llm_offline_mode))
     loss_offline = bool(loss_llm_raw.get("offline_mode", legacy_llm_offline_mode))
-    llm_offline_mode = bool(builder_offline or loss_offline or legacy_llm_offline_mode)
+    joint_pair_offline = bool(joint_pair_llm_raw.get("offline_mode", legacy_llm_offline_mode))
+    llm_offline_mode = bool(builder_offline or loss_offline or joint_pair_offline or legacy_llm_offline_mode)
 
     llm_prompts_raw: Dict[str, Any] = {}
     legacy_prompts = cfg_yaml.get("llm_prompts", {}) or {}
@@ -11544,6 +12205,8 @@ def run_pref_loss_coevo(
         llm_prompts_raw.update(dict(builder_llm_raw.get("prompts") or {}))
     if isinstance(loss_llm_raw.get("prompts"), dict):
         llm_prompts_raw.update(dict(loss_llm_raw.get("prompts") or {}))
+    if isinstance(joint_pair_llm_raw.get("prompts"), dict):
+        llm_prompts_raw.update(dict(joint_pair_llm_raw.get("prompts") or {}))
 
     loss_prompt_context = loss_llm_ops.build_runtime_prompt_context(
         loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
@@ -11574,6 +12237,7 @@ def run_pref_loss_coevo(
         "loss_m2": "PTP/prompts/free_loss_m2.txt",
         "loss_m3": "PTP/prompts/free_loss_m3.txt",
         "loss_repair": "PTP/prompts/free_loss_repair.txt",
+        "joint_pair_generation": "PTP/prompts/joint_pair_generation.txt",
     }
     llm_prompts: Dict[str, str] = {}
     for k, v in llm_prompts_defaults.items():
@@ -11675,6 +12339,18 @@ def run_pref_loss_coevo(
             loss_llm_raw.get("family_diversity", (cfg_yaml.get("loss", {}) or {}).get("family_diversity", {}))
         ),
     }
+    pop_cfg_raw = cfg_yaml.get("population", {}) or {}
+    if not isinstance(pop_cfg_raw, dict):
+        pop_cfg_raw = {}
+    default_joint_candidates = int(pop_cfg_raw.get("n_candidates_pair", min(int(pop_g), int(pop_f))) or min(int(pop_g), int(pop_f)))
+    joint_pair_cfg: Dict[str, Any] = {
+        "enabled": bool(joint_pair_llm_enabled),
+        "n_candidates": int(joint_pair_llm_raw.get("n_candidates", default_joint_candidates) or default_joint_candidates),
+        "prompt_path": _abs_from_repo_root(
+            str(joint_pair_llm_raw.get("prompt_path") or llm_prompts.get("joint_pair_generation", "PTP/prompts/joint_pair_generation.txt"))
+        ),
+        "seed_reserve": int(joint_pair_llm_raw.get("seed_reserve", 0) or 0),
+    }
 
     llm_cfg: Dict[str, Any] = {
         "enabled": bool(llm_enabled),
@@ -11696,11 +12372,13 @@ def run_pref_loss_coevo(
         },
         "builder": builder_cfg,
         "loss": loss_cfg,
+        "joint_pair": joint_pair_cfg,
     }
 
     if llm_enabled:
         loss_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=llm_offline_mode)
         builder_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=llm_offline_mode)
+        joint_pair_llm_ops.configure_llm_run(run_dir=run_dir, offline_mode=llm_offline_mode)
         try:
             LOGGER.info("LLM cache stats: %s", dict(loss_llm_ops.llm_cache_stats()))
         except Exception:  # noqa: BLE001
@@ -11748,6 +12426,7 @@ def run_pref_loss_coevo(
     archive_g: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_g", {})) if resume_state else {}
     archive_f: Dict[str, List[Dict[str, Any]]] = dict(resume_state.get("archive_f", {})) if resume_state else {}
     imported_loss_baseline_entry: Dict[str, Any] | None = None
+    builder_transfer_seed_cfg = _normalize_builder_transfer_seed_cfg(cfg_yaml)
     loss_transfer_seed_cfg = _normalize_loss_transfer_seed_cfg(cfg_yaml)
     if resume_state:
         pair_score_history_map_resume = resume_state.get("pair_score_history_map", {})
@@ -11772,6 +12451,25 @@ def run_pref_loss_coevo(
             )
             elites_f = list(refreshed_elites_f[: max(0, min(len(refreshed_elites_f), len(elites_f)))])
     if resume_state is None:
+        if bool(builder_transfer_seed_cfg.get("enabled", False)) and (not resident_pop_g):
+            resolved_builder_path = _resolve_builder_transfer_seed_builder_path(builder_transfer_seed_cfg)
+            imported_builder = _load_builder_transfer_seed_entry_from_builder_path(
+                resolved_builder_path,
+                keep_source_fitness=bool(builder_transfer_seed_cfg.get("keep_source_fitness", True)),
+                reset_history=bool(builder_transfer_seed_cfg.get("reset_history", False)),
+            )
+            if imported_builder is not None:
+                resident_pop_g = [dict(imported_builder)]
+                elites_g = [dict(imported_builder)]
+                sig = str(imported_builder.get("signature") or "").strip()
+                if sig:
+                    seen_g.add(sig)
+                LOGGER.info(
+                    "Initialized builder population from transfer seed artifact: builder=%s id=%s source_fitness=%s",
+                    str(resolved_builder_path),
+                    str(imported_builder.get("id")),
+                    str(imported_builder.get("source_fitness")),
+                )
         if bool(loss_transfer_seed_cfg.get("enabled", False)) and (not resident_pop_f):
             transfer_loss_path = str(loss_transfer_seed_cfg.get("source_loss_path", "") or "").strip()
             if transfer_loss_path:
@@ -11915,6 +12613,8 @@ def run_pref_loss_coevo(
         "eval_budget_signature": str(eval_sig),
     }
     _atomic_write_json(eval_protocol_json, eval_protocol_payload)
+
+    resume_score_state_revalidated = resume_state is None
 
     # Sanity: proxy rollouts (pomo_size) control per-instance pair count for all_pairs (~K*(K-1)/2).
     # If this exceeds builder_max_pairs_per_instance, cheap gates will reject most/all builders,
@@ -12093,8 +12793,8 @@ def run_pref_loss_coevo(
             records=list(caches.pair_cache.values()),
         )
         rebuilt_pair_score_history_map = _rebuild_pair_score_history_map(list(caches.pair_cache.values()))
+        pair_score_history_map = dict(rebuilt_pair_score_history_map or {})
         if rebuilt_pair_score_history_map:
-            pair_score_history_map = dict(rebuilt_pair_score_history_map)
             resident_pop_f = _refresh_loss_population_scores_from_history(
                 resident_pop_f,
                 pair_score_history_map,
@@ -12116,6 +12816,12 @@ def run_pref_loss_coevo(
                         metric_mode=metric_mode,
                     )[: max(0, min(len(refreshed_elites_f), len(elites_f)))]
                 )
+        else:
+            resident_pop_f = _clear_population_score_fields(resident_pop_f)
+            elites_f = _clear_population_score_fields(elites_f)
+            diverse_elites_f = _clear_population_score_fields(diverse_elites_f)
+            hof_f = _clear_population_score_fields(hof_f)
+            archive_f = {}
         resolved_resume_best = _resolve_best_pair_record(
             best_so_far=best_so_far,
             pair_records=None,
@@ -12152,6 +12858,25 @@ def run_pref_loss_coevo(
                         "stage3_nonnegative_scenario_count": rebuilt_best_rec.get("stage3_nonnegative_scenario_count"),
                         "stage3_worst_scenario_delta": rebuilt_best_rec.get("stage3_worst_scenario_delta"),
                     }
+                    resume_score_state_revalidated = True
+            if not resume_score_state_revalidated:
+                LOGGER.warning(
+                    "Resume incumbent score state is not valid under current eval_budget_signature; clearing inherited "
+                    "best/history scores. checkpoint_eval_budget_signature=%s current_eval_budget_signature=%s "
+                    "loaded_current_records=%d",
+                    resume_state.get("eval_budget_signature"),
+                    str(eval_sig),
+                    int(loaded_total),
+                )
+                best_so_far = None
+                pair_score_history_map = {}
+                resident_pop_f = _clear_population_score_fields(resident_pop_f)
+                elites_f = _clear_population_score_fields(elites_f)
+                diverse_elites_f = _clear_population_score_fields(diverse_elites_f)
+                hof_f = _clear_population_score_fields(hof_f)
+                archive_f = {}
+        else:
+            resume_score_state_revalidated = True
 
     reevaluated_transfer_seed_baseline: Dict[str, Any] | None = None
     if (
@@ -12301,6 +13026,7 @@ def run_pref_loss_coevo(
             "improve_eps": float(improve_eps),
             "improve_eps_calibration": (dict(improve_eps_calibration) if isinstance(improve_eps_calibration, dict) else None),
             "eval_stages": dict(eval_stages),
+            "eval_budget_signature": str(eval_sig),
             "last_generation": int(last_generation),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
             "best_builder_cost": dict(best_builder_cost) if isinstance(best_builder_cost, dict) else None,
@@ -12343,6 +13069,7 @@ def run_pref_loss_coevo(
             "improve_eps": float(improve_eps),
             "improve_eps_calibration": (dict(improve_eps_calibration) if isinstance(improve_eps_calibration, dict) else None),
             "eval_stages": dict(eval_stages),
+            "eval_budget_signature": str(eval_sig),
             "best_so_far": dict(best_so_far) if isinstance(best_so_far, dict) else None,
             "best_builder_cost": dict(best_builder_cost) if isinstance(best_builder_cost, dict) else None,
             "builder_cost_archive": dict(builder_cost_archive),
@@ -12393,6 +13120,7 @@ def run_pref_loss_coevo(
             last_phase_block_best_score = None
         last_phase_block_label = str(best_so_far.get("phase") or "baseline")
     baseline_incumbent_calibrated = False
+    joint_pair_mode = str(search_mode) == "joint_pair"
 
     for gen in range(gen_start, generations):
         (
@@ -12416,6 +13144,8 @@ def run_pref_loss_coevo(
             alternating_start_phase=str(alternating_start_phase),
         )
         generation_phase_label = str(alternating_phase_hint) if _uses_fixed_side_search(search_mode) else "coevo"
+        if bool(joint_pair_mode):
+            generation_phase_label = "joint_pair"
         runtime_trace.heartbeat(
             extra={
                 "stage": "generation_loop",
@@ -12453,32 +13183,47 @@ def run_pref_loss_coevo(
 
         builder_llm_enabled_this_gen = bool(builder_cfg.get("enabled", False))
         loss_llm_enabled_this_gen = bool(loss_cfg.get("enabled", False))
+        joint_pair_llm_enabled_this_gen = bool(joint_pair_cfg.get("enabled", False))
         if str(search_mode) == "loss_only":
             builder_llm_enabled_this_gen = False
+            joint_pair_llm_enabled_this_gen = False
         elif str(search_mode) == "builder_only":
+            loss_llm_enabled_this_gen = False
+            joint_pair_llm_enabled_this_gen = False
+        elif bool(joint_pair_mode):
+            builder_llm_enabled_this_gen = False
             loss_llm_enabled_this_gen = False
         elif str(search_mode) == "alternating":
             builder_llm_enabled_this_gen = bool(builder_llm_enabled_this_gen and alternating_phase_hint in {"builder", "mixed"})
             loss_llm_enabled_this_gen = bool(loss_llm_enabled_this_gen and alternating_phase_hint in {"loss", "mixed"})
+            joint_pair_llm_enabled_this_gen = False
+        else:
+            joint_pair_llm_enabled_this_gen = False
 
         llm_cfg_for_gen: Dict[str, Any] | None = None
         if llm_enabled:
             llm_cfg_for_gen = dict(llm_cfg)
             builder_cfg_for_gen = dict(builder_cfg)
             loss_cfg_for_gen = dict(loss_cfg)
+            joint_pair_cfg_for_gen = dict(joint_pair_cfg)
             builder_cfg_for_gen["enabled"] = bool(builder_llm_enabled_this_gen)
             loss_cfg_for_gen["enabled"] = bool(loss_llm_enabled_this_gen)
+            joint_pair_cfg_for_gen["enabled"] = bool(joint_pair_llm_enabled_this_gen)
             llm_cfg_for_gen["builder"] = builder_cfg_for_gen
             llm_cfg_for_gen["loss"] = loss_cfg_for_gen
-            llm_cfg_for_gen["enabled"] = bool(builder_llm_enabled_this_gen or loss_llm_enabled_this_gen)
-            if _uses_fixed_side_search(search_mode):
+            llm_cfg_for_gen["joint_pair"] = joint_pair_cfg_for_gen
+            llm_cfg_for_gen["enabled"] = bool(
+                builder_llm_enabled_this_gen or loss_llm_enabled_this_gen or joint_pair_llm_enabled_this_gen
+            )
+            if _uses_fixed_side_search(search_mode) or bool(joint_pair_mode):
                 LOGGER.info(
-                    "%s LLM gating gen=%d phase=%s llm_enabled(builder=%s,loss=%s)",
+                    "%s LLM gating gen=%d phase=%s llm_enabled(builder=%s,loss=%s,joint_pair=%s)",
                     str(search_mode),
                     int(gen),
                     str(alternating_phase_hint),
                     str(builder_llm_enabled_this_gen),
                     str(loss_llm_enabled_this_gen),
+                    str(joint_pair_llm_enabled_this_gen),
                 )
 
         LOGGER.info("=== %s generation %d/%d ===", str(search_mode), gen, generations - 1)
@@ -12614,18 +13359,75 @@ def run_pref_loss_coevo(
 
         builder_population_active = not (_uses_fixed_side_search(search_mode) and str(alternating_phase_hint) == "loss")
         loss_population_active = not (_uses_fixed_side_search(search_mode) and str(alternating_phase_hint) == "builder")
+        if bool(joint_pair_mode):
+            builder_population_active = True
+            loss_population_active = True
         builder_offspring_target = 0
         loss_offspring_target = 0
-        if bool(builder_population_active):
+        if bool(joint_pair_mode):
+            joint_raw = joint_pair_cfg.get("n_candidates", 0)
+            joint_offspring_target = max(1, int(joint_raw or cfg_yaml.get("n_candidates_pair", 0) or min(int(pop_g), int(pop_f))))
+            builder_offspring_target = int(joint_offspring_target)
+            loss_offspring_target = int(joint_offspring_target)
+        elif bool(builder_population_active):
             raw = builder_cfg.get("init_llm_g", 0) if int(gen) <= 0 else builder_cfg.get("llm_per_gen_g", 0)
             builder_offspring_target = max(1, int(raw or pop_g))
-        if bool(loss_population_active):
+        if (not bool(joint_pair_mode)) and bool(loss_population_active):
             raw = loss_cfg.get("init_llm_f", 0) if int(gen) <= 0 else loss_cfg.get("llm_per_gen_f", 0)
             loss_offspring_target = max(1, int(raw or pop_f))
 
         llm_init_only = bool(cfg_yaml.get("llm_init_only", False))
+        joint_pair_proposals: List[Dict[str, Any]] = []
+        joint_pair_order: List[str] = []
         proposed_g = []
-        if bool(builder_population_active):
+        proposed_f = []
+        if bool(joint_pair_mode):
+            joint_pair_proposals = _propose_joint_pairs_for_generation(
+                generation=int(gen),
+                pop_pairs=int(max(builder_offspring_target, 1)),
+                rng=rng,
+                operator_whitelist=operator_whitelist,
+                llm_cfg=llm_cfg_for_gen if llm_enabled else None,
+                global_feedback=global_feedback if llm_enabled else None,
+                loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
+                llm_init_only=bool(llm_init_only),
+            )
+            joint_pair_order = [str(p.get("joint_pair_id")) for p in joint_pair_proposals if str(p.get("joint_pair_id", "")).strip()]
+            proposed_g = [
+                {
+                    "ir": p["builder_ir"],
+                    "origin": p.get("origin", "JOINT_PAIR"),
+                    "origin_base": p.get("origin_base", "JOINT_PAIR"),
+                    "op_type": p.get("op_type", "JOINT_PAIR_GENERATE"),
+                    "parents": list(p.get("parents", [])),
+                    "attempt": p.get("attempt", 0),
+                    "prompt_sha1": p.get("prompt_sha1"),
+                    "prompt_path": p.get("prompt_path"),
+                    "history": list(p.get("history", [])) if isinstance(p.get("history", []), list) else [],
+                    "llm_seed": p.get("llm_seed"),
+                    "joint_pair_id": p.get("joint_pair_id"),
+                }
+                for p in joint_pair_proposals
+                if isinstance(p.get("builder_ir"), PreferenceBuilderIR)
+            ]
+            proposed_f = [
+                {
+                    "ir": p["loss_ir"],
+                    "origin": p.get("origin", "JOINT_PAIR"),
+                    "origin_base": p.get("origin_base", "JOINT_PAIR"),
+                    "op_type": p.get("op_type", "JOINT_PAIR_GENERATE"),
+                    "parents": list(p.get("parents", [])),
+                    "attempt": p.get("attempt", 0),
+                    "prompt_sha1": p.get("prompt_sha1"),
+                    "prompt_path": p.get("prompt_path"),
+                    "history": list(p.get("history", [])) if isinstance(p.get("history", []), list) else [],
+                    "llm_seed": p.get("llm_seed"),
+                    "joint_pair_id": p.get("joint_pair_id"),
+                }
+                for p in joint_pair_proposals
+                if isinstance(p.get("loss_ir"), FreeLossIR)
+            ]
+        elif bool(builder_population_active):
             proposed_g = _propose_builders_for_generation(
                 generation=int(gen),
                 pop_g=int(max(builder_offspring_target, 1)),
@@ -12638,8 +13440,7 @@ def run_pref_loss_coevo(
                 llm_init_only=bool(llm_init_only),
                 carry_elites=False,
             )
-        proposed_f = []
-        if bool(loss_population_active):
+        if (not bool(joint_pair_mode)) and bool(loss_population_active):
             proposed_f = _propose_losses_for_generation(
                 generation=int(gen),
                 pop_f=int(max(loss_offspring_target, 1)),
@@ -12656,7 +13457,12 @@ def run_pref_loss_coevo(
 
         # Ensure generation-0 default pair/loss match PO4COPs-style baseline
         # before search-driven variants are considered.
-        if int(gen) == 0 and bool(cfg_yaml.get("seed_with_po4cops_default", True)) and (not bool(llm_init_only)):
+        if (
+            int(gen) == 0
+            and bool(cfg_yaml.get("seed_with_po4cops_default", True))
+            and (not bool(llm_init_only))
+            and (not bool(joint_pair_mode))
+        ):
             if bool(builder_population_active):
                 proposed_g = [
                     {
@@ -12779,16 +13585,17 @@ def run_pref_loss_coevo(
                 current_sigs.add(sig)
             return unique2[: int(target_size)]
 
-        proposed_g = _fill_unique_builders(
-            proposed_g,
-            target_size=int(builder_offspring_target),
-            resident_entries=resident_pop_g,
-        ) if bool(builder_population_active) else []
-        proposed_f = _fill_unique_losses(
-            proposed_f,
-            target_size=int(loss_offspring_target),
-            resident_entries=resident_pop_f,
-        ) if bool(loss_population_active) else []
+        if not bool(joint_pair_mode):
+            proposed_g = _fill_unique_builders(
+                proposed_g,
+                target_size=int(builder_offspring_target),
+                resident_entries=resident_pop_g,
+            ) if bool(builder_population_active) else []
+            proposed_f = _fill_unique_losses(
+                proposed_f,
+                target_size=int(loss_offspring_target),
+                resident_entries=resident_pop_f,
+            ) if bool(loss_population_active) else []
         if len(proposed_g) < int(builder_offspring_target) or len(proposed_f) < int(loss_offspring_target):
             LOGGER.warning(
                 "Offspring fill shortfall at gen=%d: proposed_g=%d/%d proposed_f=%d/%d resident_g=%d resident_f=%d",
@@ -12820,6 +13627,7 @@ def run_pref_loss_coevo(
                 "prompt_sha1": proposal.get("prompt_sha1"),
                 "prompt_path": proposal.get("prompt_path"),
                 "llm_seed": proposal.get("llm_seed"),
+                "joint_pair_id": proposal.get("joint_pair_id"),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "ir": asdict(ir),
             }
@@ -12891,6 +13699,7 @@ def run_pref_loss_coevo(
                 "prompt_sha1": proposal.get("prompt_sha1"),
                 "prompt_path": proposal.get("prompt_path"),
                 "llm_seed": proposal.get("llm_seed"),
+                "joint_pair_id": proposal.get("joint_pair_id"),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "novelty": proposal.get("novelty"),
                 "ir": asdict(ir),
@@ -13386,10 +14195,59 @@ def run_pref_loss_coevo(
 
         pairs: List[Tuple[str, str]] = []
         reasons_by_pair: Dict[Tuple[str, str], List[str]] = {}
+        joint_pair_id_by_pair: Dict[Tuple[str, str], str] = {}
         alternating_active_phase = "none"
         alternating_fixed_builder_id: str | None = None
         alternating_fixed_loss_id: str | None = None
-        if _uses_fixed_side_search(search_mode):
+        if bool(joint_pair_mode):
+            LOGGER.info("EVAL_STAGES enabled: %s", _format_eval_stages_for_log(eval_stages))
+            joint_g_by_pair: Dict[str, str] = {}
+            joint_f_by_pair: Dict[str, str] = {}
+            for e in g_pool:
+                jp_id = str(e.get("joint_pair_id") or "").strip()
+                if jp_id and str(e.get("id") or "").strip():
+                    joint_g_by_pair.setdefault(jp_id, str(e["id"]))
+            for e in f_pool:
+                jp_id = str(e.get("joint_pair_id") or "").strip()
+                if jp_id and str(e.get("id") or "").strip():
+                    joint_f_by_pair.setdefault(jp_id, str(e["id"]))
+            ordered_joint_ids = list(dict.fromkeys(list(joint_pair_order) + sorted(set(joint_g_by_pair) | set(joint_f_by_pair))))
+            scheduled = 0
+            missing_builder = 0
+            missing_loss = 0
+            max_joint_pairs = max(0, int(pairing_budget))
+            for jp_id in ordered_joint_ids:
+                if max_joint_pairs > 0 and scheduled >= max_joint_pairs:
+                    break
+                gid = joint_g_by_pair.get(str(jp_id))
+                fid = joint_f_by_pair.get(str(jp_id))
+                if not gid:
+                    missing_builder += 1
+                    continue
+                if not fid:
+                    missing_loss += 1
+                    continue
+                pair = (str(gid), str(fid))
+                pairs.append(pair)
+                reasons_by_pair[pair] = ["joint_pair_llm", f"joint_pair_id:{jp_id}"]
+                pair_phase_by_pair[pair] = "joint_pair"
+                joint_pair_id_by_pair[pair] = str(jp_id)
+                scheduled += 1
+            LOGGER.info(
+                "Joint-pair binding gen=%d: scheduled=%d requested=%d valid_builders=%d valid_losses=%d missing_builder=%d missing_loss=%d",
+                int(gen),
+                int(len(pairs)),
+                int(len(joint_pair_order)),
+                int(len(joint_g_by_pair)),
+                int(len(joint_f_by_pair)),
+                int(missing_builder),
+                int(missing_loss),
+            )
+            if bool(llm_init_only) and not pairs:
+                raise RuntimeError(
+                    f"Joint-pair generation {int(gen)} produced zero schedulable bound pairs after compile/static gates."
+                )
+        elif _uses_fixed_side_search(search_mode):
             loss_budget_now = int(alternating_loss_budget_now)
             builder_budget_now = int(alternating_builder_budget_now)
             if str(search_mode) == "alternating" and alternating_schedule_enabled:
@@ -13617,6 +14475,8 @@ def run_pref_loss_coevo(
                     cheap_gate_on=bool(stage0_gate_enabled),
                 )
                 pair_key = (str(gid), str(fid))
+                if pair_key in joint_pair_id_by_pair:
+                    rec["joint_pair_id"] = str(joint_pair_id_by_pair[pair_key])
                 gate_repair_events: List[Dict[str, Any]] = []
                 gate_repair_applied = False
                 gate_repair_attempted = False
@@ -13944,6 +14804,8 @@ def run_pref_loss_coevo(
                             loss_scale=loss_scale,
                             cheap_gate_on=bool(stage0_gate_enabled),
                         )
+                        if pair_key in joint_pair_id_by_pair:
+                            rec["joint_pair_id"] = str(joint_pair_id_by_pair[pair_key])
                         rec["gate_repair"] = {
                             "enabled": True,
                             "events": gate_repair_events,
@@ -14029,6 +14891,10 @@ def run_pref_loss_coevo(
             for p_idx, (gid, fid) in enumerate(pairs):
                 if (gid, fid) in pair_records_map and pair_records_map[(gid, fid)].get("stage") == "anchor":
                     pair_records_map[(gid, fid)]["phase"] = pair_phase_by_pair.get((gid, fid), "coevo")
+                    if (str(gid), str(fid)) in joint_pair_id_by_pair:
+                        pair_records_map[(gid, fid)]["joint_pair_id"] = str(
+                            joint_pair_id_by_pair[(str(gid), str(fid))]
+                        )
                     continue
 
                 cache_key = (str(gid), str(fid), str(eval_sig))
@@ -14069,9 +14935,12 @@ def run_pref_loss_coevo(
                             "cheap_gate_on": bool(stage0_gate_enabled),
                             "high_fidelity_on": False,
                             "eval_budget_signature": str(eval_sig),
+                            "joint_pair_id": joint_pair_id_by_pair.get((str(gid), str(fid))),
                         }
                     )
                 joint_gate_repair_attempt_records_gen.extend(_pop_joint_gate_repair_reports(rec))
+                if (str(gid), str(fid)) in joint_pair_id_by_pair:
+                    rec["joint_pair_id"] = str(joint_pair_id_by_pair[(str(gid), str(fid))])
                 rec["stage"] = "gate"
                 rec["phase"] = pair_phase_by_pair.get((str(gid), str(fid)), "coevo")
                 caches.set_pair(cache_key, dict(rec))
@@ -14201,6 +15070,8 @@ def run_pref_loss_coevo(
                     loss_scale=loss_scale,
                     cheap_gate_on=bool(stage0_gate_enabled),
                 )
+                if (str(gid), str(fid)) in joint_pair_id_by_pair:
+                    rec2["joint_pair_id"] = str(joint_pair_id_by_pair[(str(gid), str(fid))])
                 pair_records_map[(str(gid), str(fid))] = rec2
             if recheck_pairs:
                 LOGGER.info(
@@ -14519,6 +15390,7 @@ def run_pref_loss_coevo(
                         "cheap_gate_on": False,
                         "high_fidelity_on": True,
                         "eval_budget_signature": str(eval_sig),
+                        "joint_pair_id": r.get("joint_pair_id") or joint_pair_id_by_pair.get((str(gid), str(fid))),
                         "proxy_record": dict(r),
                         "baseline_epoch_objectives": list(baseline_epoch_objectives)
                         if baseline_epoch_objectives
@@ -14906,6 +15778,11 @@ def run_pref_loss_coevo(
                                     "cheap_gate_on": False,
                                     "high_fidelity_on": True,
                                     "eval_budget_signature": str(eval_sig_round),
+                                    "joint_pair_id": (
+                                        (proxy_rec or {}).get("joint_pair_id")
+                                        if isinstance(proxy_rec, dict)
+                                        else joint_pair_id_by_pair.get((str(gid), str(fid)))
+                                    ),
                                     "proxy_record": dict(proxy_rec) if isinstance(proxy_rec, dict) else None,
                                     "baseline_epoch_objectives": list(baseline_epoch_objectives) if baseline_epoch_objectives else None,
                                     "baseline_early_valid": baseline_early_valid,
@@ -15389,6 +16266,7 @@ def run_pref_loss_coevo(
                     "pair_index": int(rec.get("pair_index", -1)),
                     "g_id": rec.get("g_id"),
                     "f_id": rec.get("f_id"),
+                    "joint_pair_id": rec.get("joint_pair_id"),
                     "stage": rec.get("stage"),
                     "phase": rec.get("phase"),
                     "score": rec.get("score"),

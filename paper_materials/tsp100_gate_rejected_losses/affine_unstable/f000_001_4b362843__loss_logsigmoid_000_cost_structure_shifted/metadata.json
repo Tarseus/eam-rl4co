@@ -1,0 +1,381 @@
+{
+  "f_id": "f000_001_4b362843",
+  "category": "affine_unstable",
+  "category_title": "Affine-unstable candidates",
+  "why_collected": "These formulas pass the basic winner/loser preference gate, but CO-alignment rejects them because the loss changes under irrelevant objective affine transformations. They are good examples of plausible cost-gap objectives that use the objective scale too literally.",
+  "source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "gate_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "generation": 0,
+  "pair_index": 4,
+  "pair_reason": "co_gate_failed",
+  "joint_gate_reason": "ok",
+  "joint_failure_kind": null,
+  "joint_where_failed": [],
+  "joint_observed": {
+    "grad_w_pass_rate": 1.0,
+    "grad_l_pass_rate": 1.0,
+    "effective_grad_ratio": 1.0,
+    "loss": 0.47336772084236145,
+    "loss_swap": 1.0115199089050293,
+    "swap_ok": true,
+    "swap_check_mode": "data",
+    "swap_ref_loss": 0.47336772084236145
+  },
+  "co_reason": "affine_invariance_violation",
+  "co_failed_gate": "AffineInvariance",
+  "co_failure_kind": "affine_invariance_violation",
+  "co_sensitivity_visible_reason": "ok",
+  "co_invariance_visible_reason": "affine_invariance_violation",
+  "name": "loss_logsigmoid_000_cost_structure_shifted",
+  "intuition": "rule_based: pairwise logsigmoid loss with shifted aggregation structure",
+  "pseudocode": "losses = -logsigmoid(clamp(alpha*scale*(lpw - lpl) - 0.1*gap, -20, 20))\nweighted_losses = losses * weight if weight is not None\nloss = sum(weighted_losses) / sum(weight) if weight is not None else sum(losses)",
+  "hyperparams": {
+    "scale": 1.9496803035382082,
+    "paradigm_family": "pairwise_margin",
+    "signal_family": "cost_gap",
+    "link_family": "logsigmoid",
+    "agg_family": "sum_div_sum",
+    "constraint_family": "clamp_stabilized"
+  },
+  "operators_used": [
+    "logsigmoid",
+    "clamp",
+    "sum",
+    "div"
+  ],
+  "implementation_hint": {
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "cost_a",
+      "cost_b"
+    ],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    if weight is not None:\n        weighted_losses = losses * weight\n        loss = ops.sum(weighted_losses) / ops.sum(weight)\n    else:\n        loss = ops.sum(losses)\n    return loss",
+  "loss_record": {
+    "generation": 0,
+    "index": 1,
+    "id": "f000_001_4b362843",
+    "signature": "4b3628430dd82a067fdd61fdd360e225b3676708",
+    "family": "pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized",
+    "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=sum_div_sum|constraint=clamp_stabilized",
+    "origin": "STRUCTURE_SHIFT",
+    "origin_base": "STRUCTURE_SHIFT",
+    "op_type": "LOSS_STRUCTURE_SHIFT",
+    "parents": [
+      "bootstrap_f_000"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "8e88e129944efa99305dd41933e39637651ecfe8",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+    "llm_seed": 270916581,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_STRUCTURE_SHIFT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+        "prompt_sha1": "8e88e129944efa99305dd41933e39637651ecfe8"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8125,
+      "best_similarity_parts": {
+        "bigram": 0.6333333333333333,
+        "unigram": 0.8125,
+        "call": 0.7777777777777778
+      },
+      "neighbors": [
+        {
+          "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+          "name": "loss_logsigmoid_000_cost",
+          "similarity": 0.8125,
+          "similarity_parts": {
+            "bigram": 0.6333333333333333,
+            "unigram": 0.8125,
+            "call": 0.7777777777777778
+          },
+          "call_names_top": [
+            "batch.get",
+            "detach",
+            "extra.get",
+            "float",
+            "get",
+            "loss.mean",
+            "ops.clamp",
+            "ops.logsigmoid"
+          ]
+        },
+        {
+          "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+          "name": "loss_logsigmoid_001",
+          "similarity": 0.75,
+          "similarity_parts": {
+            "bigram": 0.36363636363636365,
+            "unigram": 0.75,
+            "call": 0.6666666666666666
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "loss.mean",
+            "ops.clamp",
+            "ops.logsigmoid"
+          ]
+        },
+        {
+          "sig": "e8e19b52d4617b88dfab911817a317c38d5274a2",
+          "name": "loss_diff_squared_advantage",
+          "similarity": 0.2222222222222222,
+          "similarity_parts": {
+            "bigram": 0.0625,
+            "unigram": 0.2222222222222222,
+            "call": 0.09090909090909091
+          },
+          "call_names_top": [
+            "batch.get",
+            "ops.mean",
+            "ops.mul",
+            "ops.sub"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "loss_logsigmoid_000_cost_structure_shifted",
+      "intuition": "rule_based: pairwise logsigmoid loss with shifted aggregation structure",
+      "pseudocode": "losses = -logsigmoid(clamp(alpha*scale*(lpw - lpl) - 0.1*gap, -20, 20))\nweighted_losses = losses * weight if weight is not None\nloss = sum(weighted_losses) / sum(weight) if weight is not None else sum(losses)",
+      "hyperparams": {
+        "scale": 1.9496803035382082,
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "sum_div_sum",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    gap = (cost_b - cost_a).detach()\n    x = alpha * scale * (lpw - lpl) - 0.1 * gap\n    x = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x)\n    if weight is not None:\n        weighted_losses = losses * weight\n        loss = ops.sum(weighted_losses) / ops.sum(weight)\n    else:\n        loss = ops.sum(losses)\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  },
+  "gate_record": {
+    "generation": 0,
+    "pair_index": 4,
+    "g_id": "g_ref",
+    "f_id": "f000_001_4b362843",
+    "stage": "gate",
+    "phase": "loss",
+    "score": Infinity,
+    "proxy_metrics": null,
+    "seed_signature": null,
+    "descriptor": null,
+    "stages_enabled": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "stages_ran": [
+      "stage0_gate"
+    ],
+    "stages_skipped": {
+      "stage1_proxy": "disabled",
+      "stage2_micro_unroll": "disabled",
+      "stage3_high_fidelity": "not_selected_for_high_fidelity"
+    },
+    "stage_final": "none",
+    "final_score": null,
+    "reference_score": Infinity,
+    "improve_eps": 0.0,
+    "better_than_incumbent": false,
+    "delta_vs_incumbent": null,
+    "better_than_last_phase": false,
+    "delta_vs_last_phase": null,
+    "last_phase_label": "baseline",
+    "last_phase_reference_score": Infinity,
+    "better_than_incumbent_note": null,
+    "compare_target": "incumbent",
+    "static_ok": true,
+    "static_reason": "",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": true,
+    "joint_gate_reason": "ok",
+    "joint_gate_trace": {
+      "failed_gate": null,
+      "failure_kind": null,
+      "observed": {
+        "grad_w_pass_rate": 1.0,
+        "grad_l_pass_rate": 1.0,
+        "effective_grad_ratio": 1.0,
+        "loss": 0.47336772084236145,
+        "loss_swap": 1.0115199089050293,
+        "swap_ok": true,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 0.47336772084236145
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [],
+      "variant": "visible"
+    },
+    "co_ok": false,
+    "co_reason": "affine_invariance_violation",
+    "co_failed_gate": "AffineInvariance",
+    "co_failure_kind": "affine_invariance_violation",
+    "co_sensitivity_ok": true,
+    "co_invariance_ok": false,
+    "co_sensitivity_visible_ok": true,
+    "co_sensitivity_visible_reason": "ok",
+    "co_sensitivity_visible_abs_delta": 0.108734130859375,
+    "co_sensitivity_visible_rel_delta": 0.029232847982319173,
+    "co_sensitivity_visible_trace": {
+      "failed_gate": null,
+      "metric_name": "delta_loss_under_objective_perturbation",
+      "observed": {
+        "abs_delta": 0.108734130859375,
+        "rel_delta": 0.029232847982319173,
+        "grad_ratio": 1.0324779277178664
+      },
+      "threshold": {
+        "min_abs_delta": 0.001,
+        "min_rel_delta": 0.01
+      },
+      "direction": {
+        "abs_delta": ">=",
+        "rel_delta": ">=",
+        "grad_ratio": "informational"
+      },
+      "where_failed": null,
+      "counterexamples": [
+        {
+          "loss_small": 1.8054265975952148,
+          "loss_large": 1.9141607284545898,
+          "log_prob_w": -8.984585762023926,
+          "log_prob_l": -6.531116485595703
+        }
+      ],
+      "variant": "visible"
+    },
+    "co_sensitivity_hidden_ok": null,
+    "co_sensitivity_hidden_reason": null,
+    "co_sensitivity_hidden_abs_delta": null,
+    "co_sensitivity_hidden_rel_delta": null,
+    "co_sensitivity_hidden_trace": null,
+    "co_invariance_visible_ok": false,
+    "co_invariance_visible_reason": "affine_invariance_violation",
+    "co_invariance_visible_abs_delta": 0.15391886234283447,
+    "co_invariance_visible_rel_delta": 0.0458122000855241,
+    "co_invariance_visible_trace": {
+      "failed_gate": "AffineInvariance",
+      "metric_name": "delta_loss_under_affine_transform",
+      "observed": {
+        "abs_delta": 0.15391886234283447,
+        "rel_delta": 0.0458122000855241
+      },
+      "threshold": {
+        "max_abs_delta": 0.001,
+        "max_rel_delta": 0.01
+      },
+      "direction": {
+        "abs_delta": "<=",
+        "rel_delta": "<="
+      },
+      "where_failed": "abs_delta_and_rel_delta",
+      "counterexamples": [
+        {
+          "a": 7.0,
+          "b": 3.0,
+          "loss_raw": 1.6029300689697266,
+          "loss_affine": 1.756848931312561,
+          "log_prob_w": -2.8081159591674805,
+          "log_prob_l": -3.199709415435791,
+          "cost_a_raw": 0.3984442353248596,
+          "cost_a_affine": 5.789109706878662,
+          "cost_b_raw": 0.48013418912887573,
+          "cost_b_affine": 6.360939025878906
+        }
+      ],
+      "variant": "visible"
+    },
+    "co_invariance_hidden_ok": null,
+    "co_invariance_hidden_reason": null,
+    "co_invariance_hidden_abs_delta": null,
+    "co_invariance_hidden_rel_delta": null,
+    "co_invariance_hidden_trace": null,
+    "pref_semantic_ok": null,
+    "pref_semantic_reason": null,
+    "pref_semantic_trace": null,
+    "dynamic_ok": null,
+    "dynamic_visible_trace": null,
+    "dynamic_hidden_trace": null,
+    "pair_ok": false,
+    "pair_reason": "co_gate_failed",
+    "gate_repair": null,
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  }
+}

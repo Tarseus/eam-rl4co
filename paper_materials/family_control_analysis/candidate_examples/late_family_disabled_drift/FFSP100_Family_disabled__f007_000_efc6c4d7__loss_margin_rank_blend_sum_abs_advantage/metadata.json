@@ -1,0 +1,227 @@
+{
+  "problem": "FFSP100",
+  "method": "Family-disabled",
+  "run_key": "FFSP100_family_disabled",
+  "candidate_id": "f007_000_efc6c4d7",
+  "generation": 7,
+  "family_label": "Rank / Pairwise margin",
+  "family_signature": "pairwise_margin_advantage_blend|advantage_combined_sum_abs|tanh_relu|sum|weighted",
+  "motifs": {
+    "extra_regularizer": false,
+    "advantage_heavy": true,
+    "rankprob_or_probabilistic": false,
+    "advantage_blend_tanh_relu": true,
+    "unstructured_weighted_sum": true,
+    "raw_cost_additive": false,
+    "bounded_or_normalized": true,
+    "logsigmoid_backbone": false,
+    "plain_pairwise_margin": true
+  },
+  "why_collected": "Late no-family drift example selected for motif `advantage_blend_tanh_relu`.",
+  "ir": {
+    "name": "loss_margin_rank_blend_sum_abs_advantage",
+    "intuition": "Change aggregation from mean to sum and use the sum of absolute advantages from winner and loser as weighting. Maintains tanh smoothing and hinge loss with clamping for stability, but aggregates total pair loss by summation to emphasize total batch loss magnitude.",
+    "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_w = batch['advantage_w']\nadv_l = batch['advantage_l']\nmargin = alpha * (lpw - lpl)\nsmooth_margin = tanh(clamp(margin, -10, 10))\nweight_factor = abs(adv_w) + abs(adv_l)\nhinge = relu(1 - smooth_margin)\nloss = hinge * weight_factor\nif weight exists:\n  loss *= weight\nfinal_loss = sum(loss)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin_advantage_blend",
+      "signal_family": "advantage_combined_sum_abs",
+      "link_family": "tanh_relu",
+      "agg_family": "sum",
+      "constraint_family": "weighted"
+    },
+    "operators_used": [
+      "add",
+      "sub",
+      "mul",
+      "clamp",
+      "tanh",
+      "abs",
+      "relu",
+      "ones_like",
+      "sum"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_w",
+        "advantage_l",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.sub(lpw, lpl)\n    scaled_margin = ops.mul(alpha, margin)\n    clamped_margin = ops.clamp(scaled_margin, -10.0, 10.0)\n    smooth_margin = ops.tanh(clamped_margin)\n    weight_factor = ops.add(ops.abs(adv_w), ops.abs(adv_l))\n    hinge = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    loss = ops.mul(hinge, weight_factor)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.sum(loss)",
+    "theoretical_basis": ""
+  },
+  "record": {
+    "generation": 7,
+    "index": 0,
+    "id": "f007_000_efc6c4d7",
+    "signature": "efc6c4d745550a82acc3ed18312603e02096dc8a",
+    "family": "pairwise_margin_advantage_blend|advantage_combined_sum_abs|sum|weighted",
+    "family_signature": "paradigm=pairwise_margin_advantage_blend|signal=advantage_combined_sum_abs|agg=sum|constraint=weighted",
+    "origin": "STRUCTURE_SHIFT",
+    "origin_base": "STRUCTURE_SHIFT",
+    "op_type": "LOSS_STRUCTURE_SHIFT",
+    "parents": [
+      "f001_002_78090851"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "24fff302144b9abbf5da7145d8a96480732c3fb7",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+    "llm_seed": 1930714622,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_STRUCTURE_SHIFT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+        "prompt_sha1": "24fff302144b9abbf5da7145d8a96480732c3fb7"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8947368421052632,
+      "best_similarity_parts": {
+        "bigram": 0.34375,
+        "unigram": 0.8947368421052632,
+        "call": 0.8666666666666667
+      },
+      "neighbors": [
+        {
+          "sig": "eaa3493ecb8af4c2da27aa5b7cb5cd5069724831",
+          "name": "loss_margin_rank_blend_tanh_max_advantage_weighted_mean",
+          "similarity": 0.8947368421052632,
+          "similarity_parts": {
+            "bigram": 0.34375,
+            "unigram": 0.8947368421052632,
+            "call": 0.8666666666666667
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.add",
+            "ops.clamp",
+            "ops.div",
+            "ops.maximum",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum",
+            "ops.tanh"
+          ]
+        },
+        {
+          "sig": "1838f5e0c90efe2b30ece12609a03f9a42444c46",
+          "name": "loss_margin_rank_blend_tanh_max_advantage_sum",
+          "similarity": 0.8888888888888888,
+          "similarity_parts": {
+            "bigram": 0.56,
+            "unigram": 0.8888888888888888,
+            "call": 0.8571428571428571
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.clamp",
+            "ops.maximum",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum",
+            "ops.tanh"
+          ]
+        },
+        {
+          "sig": "996e92d52758ec8dd19b607ec618b59f67210ea7",
+          "name": "loss_margin_rank_blend_tanh_weighted_advantage_gap_normalized",
+          "similarity": 0.8571428571428571,
+          "similarity_parts": {
+            "bigram": 0.3,
+            "unigram": 0.7777777777777778,
+            "call": 0.8571428571428571
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.clamp",
+            "ops.div",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum",
+            "ops.tanh"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "loss_margin_rank_blend_sum_abs_advantage",
+      "intuition": "Change aggregation from mean to sum and use the sum of absolute advantages from winner and loser as weighting. Maintains tanh smoothing and hinge loss with clamping for stability, but aggregates total pair loss by summation to emphasize total batch loss magnitude.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_w = batch['advantage_w']\nadv_l = batch['advantage_l']\nmargin = alpha * (lpw - lpl)\nsmooth_margin = tanh(clamp(margin, -10, 10))\nweight_factor = abs(adv_w) + abs(adv_l)\nhinge = relu(1 - smooth_margin)\nloss = hinge * weight_factor\nif weight exists:\n  loss *= weight\nfinal_loss = sum(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin_advantage_blend",
+        "signal_family": "advantage_combined_sum_abs",
+        "link_family": "tanh_relu",
+        "agg_family": "sum",
+        "constraint_family": "weighted"
+      },
+      "operators_used": [
+        "add",
+        "sub",
+        "mul",
+        "clamp",
+        "tanh",
+        "abs",
+        "relu",
+        "ones_like",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.sub(lpw, lpl)\n    scaled_margin = ops.mul(alpha, margin)\n    clamped_margin = ops.clamp(scaled_margin, -10.0, 10.0)\n    smooth_margin = ops.tanh(clamped_margin)\n    weight_factor = ops.add(ops.abs(adv_w), ops.abs(adv_l))\n    hinge = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    loss = ops.mul(hinge, weight_factor)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.sum(loss)",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_family_label": "Rank / Pairwise margin",
+    "_family_signature": "pairwise_margin_advantage_blend|advantage_combined_sum_abs|tanh_relu|sum|weighted",
+    "_motifs": {
+      "extra_regularizer": false,
+      "advantage_heavy": true,
+      "rankprob_or_probabilistic": false,
+      "advantage_blend_tanh_relu": true,
+      "unstructured_weighted_sum": true,
+      "raw_cost_additive": false,
+      "bounded_or_normalized": true,
+      "logsigmoid_backbone": false,
+      "plain_pairwise_margin": true
+    }
+  }
+}

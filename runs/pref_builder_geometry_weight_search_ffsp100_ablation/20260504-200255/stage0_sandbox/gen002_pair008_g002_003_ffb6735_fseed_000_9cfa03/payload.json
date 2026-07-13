@@ -1,0 +1,116 @@
+{
+  "generation": 2,
+  "pair_index": 8,
+  "g_entry": {
+    "id": "g002_003_ffb6735e",
+    "ir": {
+      "name": "sampled_pairs_gap_linear_tiezone_clamp",
+      "intuition": "Add tie-zone suppression and clamp weights to explicitly constrain pairwise weights while preserving linear gap weighting and budget clamp geometry.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "sampled_pairs",
+        "cap_family": "budget_clamp",
+        "weight_family": "gap_linear",
+        "constraint_family": "tiezone_clamp"
+      },
+      "operators_used": [
+        "sub",
+        "gt",
+        "lt",
+        "nonzero",
+        "where",
+        "min",
+        "clamp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    batch_size, n = objective.shape\n    gap = objective[:, :, None] - objective[:, None, :]  # w - l\n    # Positive gap means loser worse than winner\n    mask = gap > 0\n    b_idx, i_idx, j_idx = mask.nonzero(as_tuple=True)\n    winner_idx, loser_idx = j_idx, i_idx\n    raw_weight = (objective[b_idx, loser_idx] - objective[b_idx, winner_idx])  # positive gap\n    # Tie-zone suppression: suppress weights where gap below threshold (e.g. 5% of instance_obj_range)\n    instance_obj_range = feature_cache.get('instance_obj_range', None)\n    if instance_obj_range is None:\n        tie_zone_threshold = 1e-3  # fallback small\n    else:\n        tie_zone_threshold = 0.05 * instance_obj_range[b_idx]\n    suppress_mask = raw_weight <= tie_zone_threshold\n    weight = raw_weight.clone()\n    weight = weight.where(~suppress_mask, 0.0)\n    # Clamp weights to max 1.0 for stability\n    weight = weight.clamp(min=0.0, max=1.0)\n    max_pairs = extra.get('pairing_budget', 16)\n    n_pairs = weight.size(0)\n    if n_pairs > max_pairs:\n        weight_sorted, top_indices = weight.topk(max_pairs, largest=True, sorted=False)\n        b_idx = b_idx[top_indices]\n        winner_idx = winner_idx[top_indices]\n        loser_idx = loser_idx[top_indices]\n        weight = weight_sorted\n    pair_idx = (b_idx, winner_idx, loser_idx)\n    return PrefBatch(mode='pairwise', pair_idx=pair_idx, weight=weight, meta={'builder': 'sampled_pairs_gap_linear_tiezone_clamp'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_logsigmoid_scaled_difference_loss_v5",
+      "intuition": "Repaired the previous instability by replacing the denominator softplus(advantage_gap) + epsilon with a stabilized scaling using max(softplus(abs(advantage_gap)), epsilon) to ensure strictly positive and magnitude-based scaling, avoiding denominator near zero or sign dependency. Additionally, flipped the sign of the margin multiplication to align gradient directions correctly with advantage signs, which restores correct gradients for both winner and loser probabilities and satisfies the JointPreference gate. This avoids gradient vanishing or inversion issues from prior designs, ensuring consistent incentive to favor the better candidate.",
+      "pseudocode": "epsilon = 1e-6\nadv = advantage_gap\nsafe_adv = max(abs(adv), epsilon)\ndenom = softplus(safe_adv)\nmargin = (log_prob_w - log_prob_l) / denom\nx = margin * (-adv)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "softplus_abs_normalized_advantage_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "sub",
+        "mul",
+        "div",
+        "neg",
+        "sum",
+        "add",
+        "softplus",
+        "abs",
+        "max"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    abs_adv = ops.abs(advantage_gap)\n    safe_adv = ops.maximum(abs_adv, epsilon)\n    denom = ops.softplus(safe_adv)\n    margin = ops.div(ops.sub(lpw, lpl), denom)\n    x = ops.mul(margin, ops.neg(advantage_gap))\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": "Ensuring denominator depends on magnitude only (abs) and is thresholded by epsilon avoids small denominators and division-by-zero issues. Using softplus maintains smooth gradients. Flipping the sign in the margin * advantage product fixes gradient directionality so that positive advantage corresponds correctly to positive margin incentives, restoring consistent and stable gradients that satisfy the joint preference constraints while maintaining the advantage margin signal."
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

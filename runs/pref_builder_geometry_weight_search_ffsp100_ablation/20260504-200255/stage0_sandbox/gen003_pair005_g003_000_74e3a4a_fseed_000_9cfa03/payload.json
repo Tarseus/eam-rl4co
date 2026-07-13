@@ -1,0 +1,120 @@
+{
+  "generation": 3,
+  "pair_index": 5,
+  "g_entry": {
+    "id": "g003_000_74e3a4a6",
+    "ir": {
+      "name": "disagreement_topgap_margin_sigmoid_weighted",
+      "intuition": "Construct pairs by selecting top disagreement margin pairs ignoring rank adjacency, weight according to a sigmoid of normalized objective gap to emphasize moderate margins, introducing disagreement-based pairing with nonlinear weighting.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "instance_obj_range"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "top_gap_disagreement",
+        "cap_family": "margin_threshold",
+        "weight_family": "gap_sigmoid",
+        "constraint_family": "instance_coverage_clamp"
+      },
+      "operators_used": [
+        "sub",
+        "unsqueeze",
+        "nonzero",
+        "topk",
+        "sigmoid",
+        "clamp",
+        "div",
+        "max",
+        "min"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # shape [B, N]\n    obj_range = feature_cache['instance_obj_range']  # shape [B]\n    batch_size, n = objective.shape\n\n    # Compute pairwise gap: w - l\n    gap = objective.unsqueeze(2) - objective.unsqueeze(1)  # shape [B, N, N]\n    # We consider only pairs where gap < 0 (winner better)\n    valid_mask = gap < 0\n    b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n\n    if b_idx.numel() == 0:\n        # No valid pairs, return empty batch\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, w_idx, l_idx), weight=None, meta={'builder': 'disagreement_topgap_margin_sigmoid_weighted'})\n\n    # Calculate gap values for filtered pairs\n    gap_vals = gap[b_idx, w_idx, l_idx]  # negative values\n    pos_gap = -gap_vals  # positive gap magnitudes\n\n    # Normalize gap by instance range to scale between 0 and 1\n    instance_ranges = obj_range[b_idx].clamp(min=1e-6)  # avoid div by zero\n    normalized_gap = pos_gap / instance_ranges  # shape [num_pairs]\n\n    # Cap pairs by margin threshold (cap_family: margin_threshold)\n    margin_threshold = extra.get('margin_threshold', 0.1)\n    margin_mask = normalized_gap > margin_threshold\n\n    b_idx = b_idx[margin_mask]\n    w_idx = w_idx[margin_mask]\n    l_idx = l_idx[margin_mask]\n    normalized_gap = normalized_gap[margin_mask]\n\n    # If no pairs left after margin thresholding, fallback to prior masked pairs without margin filter\n    if b_idx.numel() == 0:\n        b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n        gap_vals = gap[b_idx, w_idx, l_idx]\n        pos_gap = -gap_vals\n        instance_ranges = obj_range[b_idx].clamp(min=1e-6)\n        normalized_gap = pos_gap / instance_ranges\n\n    # Select top-K pairs by disagreement margin\n    max_pairs = extra.get('max_pairs', 16)\n    if b_idx.numel() > max_pairs:\n        topk_vals, topk_indices = normalized_gap.topk(max_pairs, largest=True, sorted=False)\n        b_idx = b_idx[topk_indices]\n        w_idx = w_idx[topk_indices]\n        l_idx = l_idx[topk_indices]\n        normalized_gap = topk_vals\n\n    # Weight calculation: gap_sigmoid weighting emphasizing moderate differences\n    # weight = sigmoid(4 * normalized_gap - 2), shifts sigmoid so values near 0.5 at gap=0.5\n    weights = (4.0 * normalized_gap - 2.0)\n    # Use pure tensor ops (assuming torch-like API with sigmoid available as exp-based formula)\n    # sigmoid(x) = 1 / (1 + exp(-x))\n    weights = 1.0 / (1.0 + (-(weights)).exp())\n\n    # Clamp weights to [0.1, 1.0] to avoid trivial zero weights\n    weights = weights.clamp(min=0.1, max=1.0)\n\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, w_idx, l_idx), weight=weights, meta={'builder': 'disagreement_topgap_margin_sigmoid_weighted'})"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v4",
+      "intuition": "Replaced the linear scaling of (log_prob_w - log_prob_l) by normalizing advantage_gap with an exponential margin term to reduce similarity to prior losses. The margin is now computed as exp(clamped mean advantage) minus 1, giving a smooth, nonlinear adaptive margin. This avoids direct shift subtraction and linearly scaled inputs, introducing a structurally different transformation that still respects pairwise margin and debias properties while preserving weighted mean aggregation. This structural shift improves novelty and numeric stability.",
+      "pseudocode": "epsilon=1e-6\nmean_adv = mean(advantage_gap)\nmargin = exp(clamp(abs(mean_adv), 0, 1)) - 1\nnorm = max(mean(norm(advantage_gap)), epsilon)\nx_raw = (log_prob_w - log_prob_l) / norm\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "abs",
+        "exp",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), epsilon)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

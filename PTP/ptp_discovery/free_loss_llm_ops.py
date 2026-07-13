@@ -199,11 +199,21 @@ def _openai_symbols() -> tuple[Any, tuple[type[BaseException], ...], type[BaseEx
     return OpenAI, retryable, BadRequestError
 
 
+def _normalize_openai_base_url(raw_base_url: str) -> str:
+    """Accept either an SDK base URL or a full chat.completions endpoint."""
+
+    base_url = str(raw_base_url or "").strip().rstrip("/")
+    suffix = "/chat/completions"
+    if base_url.endswith(suffix):
+        base_url = base_url[: -len(suffix)].rstrip("/")
+    return base_url or str(raw_base_url)
+
+
 def _make_openai_client() -> Any:
     timeout_s = float(os.getenv("OPENAI_TIMEOUT_S", "60") or 60)
     max_retries = int(os.getenv("OPENAI_MAX_RETRIES", "2") or 2)
     api_key = os.environ["OPENAI_API_KEY"]
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    base_url = _normalize_openai_base_url(os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
     OpenAI, _, _ = _openai_symbols()
     return OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_s, max_retries=max_retries)
 
@@ -219,6 +229,28 @@ def _get_openai_client() -> Any:
 def _should_retry_llm_error(exc: Exception) -> bool:
     # Treat transient transport/service issues as retryable. Some providers/proxies
     # return "get_token_error" as a 500; this is usually transient as well.
+    status_code = getattr(exc, "status_code", None)
+    try:
+        status_code_i = int(status_code)
+    except (TypeError, ValueError):
+        status_code_i = 0
+    if status_code_i in {408, 409, 425, 429} or status_code_i >= 500:
+        return True
+    text = str(exc).lower()
+    retryable_markers = (
+        "no available channel",
+        "remote end closed connection",
+        "connection reset",
+        "connection aborted",
+        "unexpected_eof",
+        "eof occurred",
+        "ssl",
+        "temporarily unavailable",
+        "timeout",
+        "llm returned empty content",
+    )
+    if any(marker in text for marker in retryable_markers):
+        return True
     try:
         _, retryable_types, bad_request = _openai_symbols()
     except Exception:  # noqa: BLE001
@@ -228,6 +260,31 @@ def _should_retry_llm_error(exc: Exception) -> bool:
     if bad_request is not None and isinstance(exc, bad_request) and "get_token_error" in str(exc):
         return True
     return False
+
+
+def _retry_after_seconds(exc: Exception) -> float | None:
+    response = getattr(exc, "response", None)
+    headers = getattr(response, "headers", None)
+    if not headers:
+        return None
+
+    value = None
+    try:
+        value = headers.get("retry-after")
+        if value is None:
+            value = headers.get("Retry-After")
+    except Exception:  # noqa: BLE001
+        value = None
+    if value is None:
+        return None
+
+    try:
+        seconds = float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    if seconds <= 0.0:
+        return None
+    return float(seconds)
 
 
 def _read_prompt(path: str) -> str:
@@ -543,7 +600,10 @@ def _call_llm(prompt: str, *, llm_op: str, prompt_path: str | None) -> str:
             if attempt >= max_attempts or not _should_retry_llm_error(exc):
                 raise
 
+            retry_after_s = _retry_after_seconds(exc)
             sleep_s = min(max_backoff_s, base_backoff_s * (2 ** (attempt - 1)))
+            if retry_after_s is not None:
+                sleep_s = min(max_backoff_s, max(sleep_s, retry_after_s))
             sleep_s = sleep_s * (0.5 + random.random())  # jitter
             LOGGER.warning(
                 "LLM call failed (attempt %d/%d, model=%s): %s; retrying in %.1fs",

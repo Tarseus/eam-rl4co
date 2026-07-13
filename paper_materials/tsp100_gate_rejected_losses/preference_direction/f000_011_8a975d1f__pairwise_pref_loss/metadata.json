@@ -1,0 +1,321 @@
+{
+  "f_id": "f000_011_8a975d1f",
+  "category": "preference_direction",
+  "category_title": "Preference-direction failures",
+  "why_collected": "These formulas are executable and have an interpretable pairwise structure, but the joint preference gate detects wrong swap behavior or wrong log-probability gradient direction. They show that plausible ingredients do not guarantee correct preference semantics.",
+  "source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442",
+  "gate_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442",
+  "generation": 0,
+  "pair_index": 7,
+  "pair_reason": "cheap_gate_failed",
+  "joint_gate_reason": "joint_preference_violation",
+  "joint_failure_kind": "joint_preference_violation",
+  "joint_where_failed": [
+    "swap"
+  ],
+  "joint_observed": {
+    "grad_w_pass_rate": 1.0,
+    "grad_l_pass_rate": 1.0,
+    "effective_grad_ratio": 1.0,
+    "loss": 2.1787893772125244,
+    "loss_swap": -6.712122440338135,
+    "swap_ok": false,
+    "swap_check_mode": "data",
+    "swap_ref_loss": 2.1787893772125244
+  },
+  "co_reason": null,
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_visible_reason": null,
+  "co_invariance_visible_reason": null,
+  "name": "pairwise_pref_loss",
+  "intuition": "This loss compares pairwise log probabilities to encourage the model to assign higher probabilities to preferred options. By using logsigmoid on the difference, it emphasizes relative ranking, making the model learn to prefer better options consistently. This approach directly encodes preference signals and leverages pairwise comparisons, leading to robust preference modeling.",
+  "pseudocode": "loss = -mean(logsigmoid(log_prob_w - log_prob_l) * (cost_b - cost_a))",
+  "hyperparams": {
+    "paradigm_family": "discrete-rank",
+    "signal_family": "preference",
+    "link_family": "logits",
+    "agg_family": "pairwise",
+    "constraint_family": "monotonic"
+  },
+  "operators_used": [
+    "logsigmoid"
+  ],
+  "implementation_hint": {
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "cost_a",
+      "cost_b"
+    ],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    cost_a = batch.get('cost_a', None)\n    cost_b = batch.get('cost_b', None)\n    # Compute the difference in log probabilities\n    diff_log_prob = log_prob_w - log_prob_l\n    # Preference signal: logsigmoid of the difference\n    pref_signal = ops.logsigmoid(diff_log_prob)\n    # Optionally multiply by the cost difference to emphasize preferred options\n    cost_diff = (cost_b - cost_a) if (cost_a is not None and cost_b is not None) else 1.0\n    weighted_signal = pref_signal * cost_diff\n    # Aggregate over batch to produce scalar loss\n    loss = -ops.mean(weighted_signal)\n    return loss",
+  "loss_record": {
+    "generation": 0,
+    "index": 11,
+    "id": "f000_011_8a975d1f",
+    "signature": "8a975d1fd1e598234a7c5c88301b27ac06c67b61",
+    "family": "discrete-rank|preference|pairwise|monotonic",
+    "family_signature": "paradigm=discrete-rank|signal=preference|agg=pairwise|constraint=monotonic",
+    "origin": "E1",
+    "origin_base": "E1",
+    "op_type": "E1_GENERATE",
+    "parents": [],
+    "attempt": 0,
+    "prompt_sha1": "96dd3ce64ae6deba6abdef57c69b76d3f81d5fb6",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+    "llm_seed": 704388509,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "E1_GENERATE",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+        "prompt_sha1": "96dd3ce64ae6deba6abdef57c69b76d3f81d5fb6"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.5333333333333333,
+      "best_similarity_parts": {
+        "bigram": 0.03333333333333333,
+        "unigram": 0.5333333333333333,
+        "call": 0.25
+      },
+      "neighbors": [
+        {
+          "sig": "d3a6bc49ca6406ec3f961d8cee8e61c545d113f0",
+          "name": "loss_logsigmoid_001",
+          "similarity": 0.5333333333333333,
+          "similarity_parts": {
+            "bigram": 0.03333333333333333,
+            "unigram": 0.5333333333333333,
+            "call": 0.25
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "loss.mean",
+            "ops.clamp",
+            "ops.logsigmoid"
+          ]
+        },
+        {
+          "sig": "692fdd7cc6f9539d305f59eda9d75a4a4343a67b",
+          "name": "loss_logsigmoid_000_cost",
+          "similarity": 0.5,
+          "similarity_parts": {
+            "bigram": 0.06060606060606061,
+            "unigram": 0.5,
+            "call": 0.2222222222222222
+          },
+          "call_names_top": [
+            "batch.get",
+            "detach",
+            "extra.get",
+            "float",
+            "get",
+            "loss.mean",
+            "ops.clamp",
+            "ops.logsigmoid"
+          ]
+        },
+        {
+          "sig": "3bfa284da5f9b7dc1fa6ccafffc6eef6b64e5f37",
+          "name": "loss_logsigmoid_000_cost_shifted_sum",
+          "similarity": 0.5,
+          "similarity_parts": {
+            "bigram": 0.06060606060606061,
+            "unigram": 0.5,
+            "call": 0.2222222222222222
+          },
+          "call_names_top": [
+            "batch.get",
+            "detach",
+            "extra.get",
+            "float",
+            "get",
+            "loss.sum",
+            "ops.clamp",
+            "ops.logsigmoid"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "pairwise_pref_loss",
+      "intuition": "This loss compares pairwise log probabilities to encourage the model to assign higher probabilities to preferred options. By using logsigmoid on the difference, it emphasizes relative ranking, making the model learn to prefer better options consistently. This approach directly encodes preference signals and leverages pairwise comparisons, leading to robust preference modeling.",
+      "pseudocode": "loss = -mean(logsigmoid(log_prob_w - log_prob_l) * (cost_b - cost_a))",
+      "hyperparams": {
+        "paradigm_family": "discrete-rank",
+        "signal_family": "preference",
+        "link_family": "logits",
+        "agg_family": "pairwise",
+        "constraint_family": "monotonic"
+      },
+      "operators_used": [
+        "logsigmoid"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    cost_a = batch.get('cost_a', None)\n    cost_b = batch.get('cost_b', None)\n    # Compute the difference in log probabilities\n    diff_log_prob = log_prob_w - log_prob_l\n    # Preference signal: logsigmoid of the difference\n    pref_signal = ops.logsigmoid(diff_log_prob)\n    # Optionally multiply by the cost difference to emphasize preferred options\n    cost_diff = (cost_b - cost_a) if (cost_a is not None and cost_b is not None) else 1.0\n    weighted_signal = pref_signal * cost_diff\n    # Aggregate over batch to produce scalar loss\n    loss = -ops.mean(weighted_signal)\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442"
+  },
+  "gate_record": {
+    "generation": 0,
+    "pair_index": 7,
+    "g_id": "g_ref",
+    "f_id": "f000_011_8a975d1f",
+    "stage": "gate",
+    "phase": "loss",
+    "score": Infinity,
+    "proxy_metrics": null,
+    "seed_signature": null,
+    "descriptor": null,
+    "stages_enabled": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "stages_ran": [
+      "stage0_gate"
+    ],
+    "stages_skipped": {
+      "stage1_proxy": "disabled",
+      "stage2_micro_unroll": "disabled",
+      "stage3_high_fidelity": "not_selected_for_high_fidelity"
+    },
+    "stage_final": "none",
+    "final_score": null,
+    "reference_score": Infinity,
+    "improve_eps": 0.0,
+    "better_than_incumbent": false,
+    "delta_vs_incumbent": null,
+    "better_than_last_phase": false,
+    "delta_vs_last_phase": null,
+    "last_phase_label": "baseline",
+    "last_phase_reference_score": Infinity,
+    "better_than_incumbent_note": null,
+    "compare_target": "incumbent",
+    "static_ok": true,
+    "static_reason": "",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": false,
+    "joint_gate_reason": "joint_preference_violation",
+    "joint_gate_trace": {
+      "failed_gate": "JointPreference",
+      "failure_kind": "joint_preference_violation",
+      "observed": {
+        "grad_w_pass_rate": 1.0,
+        "grad_l_pass_rate": 1.0,
+        "effective_grad_ratio": 1.0,
+        "loss": 2.1787893772125244,
+        "loss_swap": -6.712122440338135,
+        "swap_ok": false,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 2.1787893772125244
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [
+        "swap"
+      ],
+      "variant": "visible"
+    },
+    "co_ok": null,
+    "co_reason": null,
+    "co_failed_gate": null,
+    "co_failure_kind": null,
+    "co_sensitivity_ok": null,
+    "co_invariance_ok": null,
+    "co_sensitivity_visible_ok": null,
+    "co_sensitivity_visible_reason": null,
+    "co_sensitivity_visible_abs_delta": null,
+    "co_sensitivity_visible_rel_delta": null,
+    "co_sensitivity_visible_trace": null,
+    "co_sensitivity_hidden_ok": null,
+    "co_sensitivity_hidden_reason": null,
+    "co_sensitivity_hidden_abs_delta": null,
+    "co_sensitivity_hidden_rel_delta": null,
+    "co_sensitivity_hidden_trace": null,
+    "co_invariance_visible_ok": null,
+    "co_invariance_visible_reason": null,
+    "co_invariance_visible_abs_delta": null,
+    "co_invariance_visible_rel_delta": null,
+    "co_invariance_visible_trace": null,
+    "co_invariance_hidden_ok": null,
+    "co_invariance_hidden_reason": null,
+    "co_invariance_hidden_abs_delta": null,
+    "co_invariance_hidden_rel_delta": null,
+    "co_invariance_hidden_trace": null,
+    "pref_semantic_ok": null,
+    "pref_semantic_reason": null,
+    "pref_semantic_trace": null,
+    "dynamic_ok": null,
+    "dynamic_visible_trace": null,
+    "dynamic_hidden_trace": null,
+    "pair_ok": false,
+    "pair_reason": "cheap_gate_failed",
+    "gate_repair": null,
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442"
+  }
+}

@@ -15,7 +15,7 @@ if str(REPO_ROOT) not in sys.path:
 
 import torch
 
-from rl4co.models.zoo.mgl_jssp.data import load_instance
+from rl4co.models.zoo.mgl_jssp.data import cluster_edges, extract_features, load_instance
 from rl4co.models.zoo.mgl_jssp.sampling import sampling
 from scripts.prepare_bopo_jsp_data import prepare_bopo_jsp
 
@@ -44,6 +44,27 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--device", type=str, default="cuda:0", help="Torch device.")
     parser.add_argument("--B", type=int, default=128, help="Number of sampled candidates per instance.")
     parser.add_argument(
+        "--aug-factor",
+        type=int,
+        default=1,
+        help=(
+            "Number of semantics-preserving JSSP encodings per instance. "
+            "Each augmented encoding still receives B rollouts; final prediction is the best across encodings."
+        ),
+    )
+    parser.add_argument(
+        "--aug-batch-size",
+        type=int,
+        default=16,
+        help="Maximum augmented encodings of one instance to evaluate in one batched sampling call.",
+    )
+    parser.add_argument(
+        "--aug-seed",
+        type=int,
+        default=1234,
+        help="Seed for deterministic job/machine permutation augmentation.",
+    )
+    parser.add_argument(
         "--greedy",
         type=int,
         default=None,
@@ -51,9 +72,9 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--sets",
-        nargs="+",
+        nargs="*",
         default=["TA", "LA", "DMU"],
-        help="Built-in BOPO/JSP benchmark sets to evaluate.",
+        help="Built-in BOPO/JSP benchmark sets to evaluate. Pass --sets with no values to skip built-in sets.",
     )
     parser.add_argument(
         "--ood-dir",
@@ -68,7 +89,74 @@ def _parse_args() -> argparse.Namespace:
         default=None,
         help="Directory to save CSV/JSON outputs. Defaults to logs/eval/<checkpoint-stem>_<timestamp>.",
     )
+    parser.add_argument(
+        "--skip-prepare",
+        action="store_true",
+        help="Skip syncing BOPO/JSP source data before evaluation. Use this for explicit --ood-dir only runs.",
+    )
     return parser.parse_args()
+
+
+def augment_jssp_instance(
+    instance: dict[str, object],
+    *,
+    job_perm: torch.Tensor,
+    machine_perm: torch.Tensor,
+    suffix: str,
+) -> dict[str, object]:
+    """Return an equivalent JSSP instance with permuted jobs and machine labels."""
+    num_jobs = int(instance["j"])
+    num_machines = int(instance["m"])
+    if tuple(job_perm.shape) != (num_jobs,):
+        raise ValueError(f"job_perm must have shape ({num_jobs},), got {tuple(job_perm.shape)}")
+    if tuple(machine_perm.shape) != (num_machines,):
+        raise ValueError(
+            f"machine_perm must have shape ({num_machines},), got {tuple(machine_perm.shape)}"
+        )
+
+    costs = instance["costs"].detach().clone().cpu()[job_perm]
+    machines = instance["machines"].detach().clone().cpu()[job_perm].long()
+    machines = machine_perm.long()[machines]
+    job_edges, mac_edges = cluster_edges(num_jobs, num_machines, machines, device="cpu")
+    x = extract_features(num_jobs, num_machines, costs, machines, device="cpu")
+
+    return {
+        **instance,
+        "name": f"{instance['name']}{suffix}",
+        "x": x,
+        "job_edges": job_edges,
+        "mac_edges": mac_edges,
+        "costs": costs,
+        "machines": machines,
+    }
+
+
+def build_jssp_augmentations(
+    instance: dict[str, object],
+    *,
+    aug_factor: int,
+    seed: int,
+) -> list[dict[str, object]]:
+    if aug_factor < 1:
+        raise ValueError(f"aug_factor must be >= 1, got {aug_factor}")
+
+    num_jobs = int(instance["j"])
+    num_machines = int(instance["m"])
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(int(seed))
+    augmented = [instance]
+    for aug_idx in range(1, int(aug_factor)):
+        job_perm = torch.randperm(num_jobs, generator=generator)
+        machine_perm = torch.randperm(num_machines, generator=generator)
+        augmented.append(
+            augment_jssp_instance(
+                instance,
+                job_perm=job_perm,
+                machine_perm=machine_perm,
+                suffix=f"__aug{aug_idx:03d}",
+            )
+        )
+    return augmented
 
 
 def _default_set_dirs(root_dir: Path) -> dict[str, Path]:
@@ -102,29 +190,65 @@ def _evaluate_file(
     device: torch.device,
     num_samples: int,
     use_greedy: bool,
+    aug_factor: int,
+    aug_batch_size: int,
+    aug_seed: int,
 ) -> dict[str, object]:
-    instance = load_instance(file_path.as_posix(), device=str(device))
-    start = time.perf_counter()
-    makespans, entropies, _ = sampling(
+    instance = load_instance(file_path.as_posix(), device="cpu")
+    if int(aug_batch_size) < 1:
+        raise ValueError(f"aug_batch_size must be >= 1, got {aug_batch_size}")
+
+    aug_instances = build_jssp_augmentations(
         instance,
-        model.encoder,
-        model.decoder,
-        bs=int(num_samples),
-        use_greedy=bool(use_greedy),
-        device=str(device),
+        aug_factor=int(aug_factor),
+        seed=int(aug_seed),
     )
+    start = time.perf_counter()
+    best_by_aug: list[torch.Tensor] = []
+    mean_by_aug: list[torch.Tensor] = []
+    max_by_aug: list[torch.Tensor] = []
+    entropy_chunks: list[torch.Tensor] = []
+    for offset in range(0, len(aug_instances), int(aug_batch_size)):
+        chunk = aug_instances[offset : offset + int(aug_batch_size)]
+        makespans_chunk, entropies_chunk, _ = sampling(
+            chunk,
+            model.encoder,
+            model.decoder,
+            bs=int(num_samples),
+            use_greedy=bool(use_greedy),
+            device=str(device),
+        )
+        chunk_makespans = makespans_chunk.view(len(chunk), int(num_samples))
+        best_by_aug.extend(chunk_makespans.min(dim=1).values.unbind(0))
+        mean_by_aug.extend(chunk_makespans.mean(dim=1).unbind(0))
+        max_by_aug.extend(chunk_makespans.max(dim=1).values.unbind(0))
+        entropy_chunks.append(entropies_chunk.detach())
     elapsed = time.perf_counter() - start
+
+    best_tensor = torch.stack(best_by_aug)
+    mean_tensor = torch.stack(mean_by_aug)
+    max_tensor = torch.stack(max_by_aug)
+    base_makespan = best_tensor[0]
+    pred_makespan = best_tensor.min()
     ref = float(instance["makespan"])
-    gaps = (makespans / ref - 1.0) * 100.0
+    base_gap = (base_makespan / ref - 1.0) * 100.0
+    best_gap = (pred_makespan / ref - 1.0) * 100.0
+    avg_gap = (mean_tensor.mean() / ref - 1.0) * 100.0
+    max_gap = (max_tensor.max() / ref - 1.0) * 100.0
+    entropy_mean = torch.cat(entropy_chunks, dim=0).mean() if entropy_chunks else torch.tensor(0.0)
     return {
         "instance": instance["name"],
         "shape": instance["shape"],
         "ref_makespan": ref,
-        "pred_makespan": float(makespans.min().item()),
-        "gap": float(gaps.min().item()),
-        "gap_avg": float(gaps.mean().item()),
-        "gap_max": float(gaps.max().item()),
-        "entropy_mean": float(entropies.mean().item()),
+        "pred_makespan": float(pred_makespan.item()),
+        "gap": float(best_gap.item()),
+        "gap_avg": float(avg_gap.item()),
+        "gap_max": float(max_gap.item()),
+        "base_pred_makespan": float(base_makespan.item()),
+        "base_gap": float(base_gap.item()),
+        "aug_factor": int(aug_factor),
+        "aug_batch_size": int(aug_batch_size),
+        "entropy_mean": float(entropy_mean.item()),
         "time_sec": float(elapsed),
     }
 
@@ -147,7 +271,8 @@ def _summarize_rows(rows: list[dict[str, object]]) -> dict[str, object]:
 
 def main() -> int:
     args = _parse_args()
-    prepare_bopo_jsp(REPO_ROOT)
+    if not args.skip_prepare:
+        prepare_bopo_jsp(REPO_ROOT)
 
     model_path = args.model_path.resolve()
     if not model_path.is_file():
@@ -178,6 +303,9 @@ def main() -> int:
         "device": str(device),
         "B": int(args.B),
         "greedy": int(use_greedy),
+        "aug_factor": int(args.aug_factor),
+        "aug_batch_size": int(args.aug_batch_size),
+        "aug_seed": int(args.aug_seed),
         "baseline": model.baseline,
         "sets": {},
     }
@@ -187,13 +315,16 @@ def main() -> int:
             raise FileNotFoundError(f"Benchmark directory not found: {set_dir.as_posix()}")
 
         rows = []
-        for file_path in sorted(set_dir.glob("*.jsp")):
+        for file_idx, file_path in enumerate(sorted(set_dir.glob("*.jsp"))):
             row = _evaluate_file(
                 file_path,
                 model,
                 device,
                 num_samples=int(args.B),
                 use_greedy=bool(use_greedy),
+                aug_factor=int(args.aug_factor),
+                aug_batch_size=int(args.aug_batch_size),
+                aug_seed=int(args.aug_seed) + file_idx,
             )
             row["set"] = set_name
             rows.append(row)
@@ -217,6 +348,10 @@ def main() -> int:
                     "gap",
                     "gap_avg",
                     "gap_max",
+                    "base_pred_makespan",
+                    "base_gap",
+                    "aug_factor",
+                    "aug_batch_size",
                     "entropy_mean",
                     "time_sec",
                 ],

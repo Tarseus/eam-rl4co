@@ -1,0 +1,334 @@
+{
+  "f_id": "f000_012_50dd0498",
+  "category": "preference_saturation",
+  "category_title": "Preference-saturation failures",
+  "why_collected": "These formulas collapse to zero or near-zero effective gradients on the gate batch. They may encode a reasonable hinge, softplus, or advantage idea, but their link/thresholding makes the preference signal inactive or flat.",
+  "source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "gate_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "generation": 0,
+  "pair_index": 1,
+  "pair_reason": "cheap_gate_failed",
+  "joint_gate_reason": "joint_preference_violation",
+  "joint_failure_kind": "joint_preference_violation",
+  "joint_where_failed": [
+    "log_prob_w_direction",
+    "log_prob_l_direction",
+    "saturation"
+  ],
+  "joint_observed": {
+    "grad_w_pass_rate": 0.0,
+    "grad_l_pass_rate": 0.0,
+    "effective_grad_ratio": 0.0,
+    "loss": 0.0,
+    "loss_swap": 4.5333333015441895,
+    "swap_ok": true,
+    "swap_check_mode": "data",
+    "swap_ref_loss": 0.0
+  },
+  "co_reason": null,
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_visible_reason": null,
+  "co_invariance_visible_reason": null,
+  "name": "pairwise_cost_gap_obj_loss",
+  "intuition": "This loss encourages ordering of pairs based on the cost gap signal, which measures the difference in actual costs between chosen and alternative options, promoting preference for lower-cost choices. Incorporating the log probabilities ensures it is a likelihood-based comparison, suitable for RL settings where relative rankings are crucial.",
+  "pseudocode": "loss = mean_over_pairs( max(0, (log_prob_l - log_prob_w) * cost_gap) )",
+  "hyperparams": {
+    "paradigm_family": "pairwise_comparison",
+    "signal_family": "cost",
+    "link_family": "difference",
+    "agg_family": "mean",
+    "constraint_family": "none",
+    "other_hparams": ""
+  },
+  "operators_used": [
+    "logsigmoid",
+    "sub",
+    "mul",
+    "max",
+    "mean"
+  ],
+  "implementation_hint": {
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "cost_gap"
+    ],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    cost_gap = batch.get('cost_gap', ops.zeros_like(log_prob_w))\n    # Compute pairwise difference weighted by cost gap\n    diff = ops.sub(log_prob_l, log_prob_w)\n    weighted_diff = ops.mul(diff, cost_gap)\n    # Apply hinge: only penalize if weighted diff > 0 (i.e., incorrect ordering)\n    hinge_loss = ops.relu(weighted_diff)\n    # Average over pairs to get scalar loss\n    loss = ops.mean(hinge_loss)\n    return loss",
+  "loss_record": {
+    "generation": 0,
+    "index": 12,
+    "id": "f000_012_50dd0498",
+    "signature": "50dd049861d8d41bb2f044110bc1347e2eb00ba0",
+    "family": "pairwise_comparison|cost|mean|none",
+    "family_signature": "paradigm=pairwise_comparison|signal=cost|agg=mean|constraint=none",
+    "origin": "E1",
+    "origin_base": "E1",
+    "op_type": "E1_GENERATE",
+    "parents": [],
+    "attempt": 0,
+    "prompt_sha1": "96dd3ce64ae6deba6abdef57c69b76d3f81d5fb6",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+    "llm_seed": 704388509,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "E1_GENERATE",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+        "prompt_sha1": "96dd3ce64ae6deba6abdef57c69b76d3f81d5fb6"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.6666666666666666,
+      "best_similarity_parts": {
+        "bigram": 0.2727272727272727,
+        "unigram": 0.5555555555555556,
+        "call": 0.6666666666666666
+      },
+      "neighbors": [
+        {
+          "sig": "e8e19b52d4617b88dfab911817a317c38d5274a2",
+          "name": "loss_diff_squared_advantage",
+          "similarity": 0.6666666666666666,
+          "similarity_parts": {
+            "bigram": 0.2727272727272727,
+            "unigram": 0.5555555555555556,
+            "call": 0.6666666666666666
+          },
+          "call_names_top": [
+            "batch.get",
+            "ops.mean",
+            "ops.mul",
+            "ops.sub"
+          ]
+        },
+        {
+          "sig": "dfa4a10a749b070732eb8c91b2239f63c1df1a2b",
+          "name": "loss_advantage_tanh_rank_000",
+          "similarity": 0.4166666666666667,
+          "similarity_parts": {
+            "bigram": 0.043478260869565216,
+            "unigram": 0.4,
+            "call": 0.4166666666666667
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.rank_gap",
+            "ops.relu",
+            "ops.sub",
+            "ops.tanh"
+          ]
+        },
+        {
+          "sig": "46117a248d1be1f22a359ad9d12246ab9b5d656b",
+          "name": "loss_diff_exp_advantage",
+          "similarity": 0.36363636363636365,
+          "similarity_parts": {
+            "bigram": 0.1,
+            "unigram": 0.35714285714285715,
+            "call": 0.36363636363636365
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.exp",
+            "ops.mean",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.sub"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "pairwise_cost_gap_obj_loss",
+      "intuition": "This loss encourages ordering of pairs based on the cost gap signal, which measures the difference in actual costs between chosen and alternative options, promoting preference for lower-cost choices. Incorporating the log probabilities ensures it is a likelihood-based comparison, suitable for RL settings where relative rankings are crucial.",
+      "pseudocode": "loss = mean_over_pairs( max(0, (log_prob_l - log_prob_w) * cost_gap) )",
+      "hyperparams": {
+        "paradigm_family": "pairwise_comparison",
+        "signal_family": "cost",
+        "link_family": "difference",
+        "agg_family": "mean",
+        "constraint_family": "none",
+        "other_hparams": ""
+      },
+      "operators_used": [
+        "logsigmoid",
+        "sub",
+        "mul",
+        "max",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    cost_gap = batch.get('cost_gap', ops.zeros_like(log_prob_w))\n    # Compute pairwise difference weighted by cost gap\n    diff = ops.sub(log_prob_l, log_prob_w)\n    weighted_diff = ops.mul(diff, cost_gap)\n    # Apply hinge: only penalize if weighted diff > 0 (i.e., incorrect ordering)\n    hinge_loss = ops.relu(weighted_diff)\n    # Average over pairs to get scalar loss\n    loss = ops.mean(hinge_loss)\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  },
+  "gate_record": {
+    "generation": 0,
+    "pair_index": 1,
+    "g_id": "g_ref",
+    "f_id": "f000_012_50dd0498",
+    "stage": "gate",
+    "phase": "loss",
+    "score": Infinity,
+    "proxy_metrics": null,
+    "seed_signature": null,
+    "descriptor": null,
+    "stages_enabled": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "stages_ran": [
+      "stage0_gate"
+    ],
+    "stages_skipped": {
+      "stage1_proxy": "disabled",
+      "stage2_micro_unroll": "disabled",
+      "stage3_high_fidelity": "not_selected_for_high_fidelity"
+    },
+    "stage_final": "none",
+    "final_score": null,
+    "reference_score": Infinity,
+    "improve_eps": 0.0,
+    "better_than_incumbent": false,
+    "delta_vs_incumbent": null,
+    "better_than_last_phase": false,
+    "delta_vs_last_phase": null,
+    "last_phase_label": "baseline",
+    "last_phase_reference_score": Infinity,
+    "better_than_incumbent_note": null,
+    "compare_target": "incumbent",
+    "static_ok": true,
+    "static_reason": "",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": false,
+    "joint_gate_reason": "joint_preference_violation",
+    "joint_gate_trace": {
+      "failed_gate": "JointPreference",
+      "failure_kind": "joint_preference_violation",
+      "observed": {
+        "grad_w_pass_rate": 0.0,
+        "grad_l_pass_rate": 0.0,
+        "effective_grad_ratio": 0.0,
+        "loss": 0.0,
+        "loss_swap": 4.5333333015441895,
+        "swap_ok": true,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 0.0
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [
+        "log_prob_w_direction",
+        "log_prob_l_direction",
+        "saturation"
+      ],
+      "variant": "visible"
+    },
+    "co_ok": null,
+    "co_reason": null,
+    "co_failed_gate": null,
+    "co_failure_kind": null,
+    "co_sensitivity_ok": null,
+    "co_invariance_ok": null,
+    "co_sensitivity_visible_ok": null,
+    "co_sensitivity_visible_reason": null,
+    "co_sensitivity_visible_abs_delta": null,
+    "co_sensitivity_visible_rel_delta": null,
+    "co_sensitivity_visible_trace": null,
+    "co_sensitivity_hidden_ok": null,
+    "co_sensitivity_hidden_reason": null,
+    "co_sensitivity_hidden_abs_delta": null,
+    "co_sensitivity_hidden_rel_delta": null,
+    "co_sensitivity_hidden_trace": null,
+    "co_invariance_visible_ok": null,
+    "co_invariance_visible_reason": null,
+    "co_invariance_visible_abs_delta": null,
+    "co_invariance_visible_rel_delta": null,
+    "co_invariance_visible_trace": null,
+    "co_invariance_hidden_ok": null,
+    "co_invariance_hidden_reason": null,
+    "co_invariance_hidden_abs_delta": null,
+    "co_invariance_hidden_rel_delta": null,
+    "co_invariance_hidden_trace": null,
+    "pref_semantic_ok": null,
+    "pref_semantic_reason": null,
+    "pref_semantic_trace": null,
+    "dynamic_ok": null,
+    "dynamic_visible_trace": null,
+    "dynamic_hidden_trace": null,
+    "pair_ok": false,
+    "pair_reason": "cheap_gate_failed",
+    "gate_repair": null,
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  }
+}

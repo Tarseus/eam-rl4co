@@ -1,0 +1,123 @@
+{
+  "generation": 2,
+  "pair_index": 5,
+  "g_entry": {
+    "id": "g002_009_fd4f0136",
+    "ir": {
+      "name": "rank_adj_pos_gap_softmax_weight_pairs",
+      "intuition": "Select pairs where the winner rank is exactly one better (lower) than the loser rank and the winner's objective is strictly better (lower). Assign weights to pairs using a softmax over positive objective gaps to emphasize larger gaps during pairwise training.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "rank",
+          "advantage"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "rank_adjacent_pairs",
+        "cap_family": "no_cap",
+        "weight_family": "gap_softmax",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "sub",
+        "eq",
+        "lt",
+        "logical_and",
+        "exp",
+        "sum",
+        "div",
+        "nonzero",
+        "to"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # [B, N]\n    rank = feature_cache['rank']  # [B, N]\n    rank_w = rank.unsqueeze(2)  # [B, N, 1]\n    rank_l = rank.unsqueeze(1)  # [B, 1, N]\n    is_adjacent = (rank_l - rank_w) == 1\n    gap = objective.unsqueeze(2) - objective.unsqueeze(1)  # w - l\n    valid_mask = (gap < 0) & is_adjacent\n    b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n    if b_idx.numel() == 0:\n        return PrefBatch(\n            mode='pairwise',\n            pair_idx=(b_idx, w_idx, l_idx),\n            weight=None,\n            meta={'builder': 'rank_adj_pos_gap_softmax_weight_pairs'}\n        )\n    gap_vals = gap[b_idx, w_idx, l_idx]  # negative values\n    gap_pos = -gap_vals  # positive gap magnitudes\n    exp_gap = gap_pos.exp()\n    weight = exp_gap / exp_gap.sum()\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(torch.int64), w_idx.to(torch.int64), l_idx.to(torch.int64)),\n        weight=weight,\n        meta={'builder': 'rank_adj_pos_gap_softmax_weight_pairs'}\n    )"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_safeweight_clamp_v5_repair",
+      "intuition": "This loss leverages the advantage gap to create a normalized exponential margin for pairwise comparisons, ensuring stable, meaningful training signals weighted by sample importance.",
+      "pseudocode": "eps=1e-6\nlpw=batch['log_prob_w']\nlpl=batch['log_prob_l']\nweight=batch.get('weight', ones_like(lpw))\nweight=clamp(weight, min=eps, max=1e6)\nzeros=zeros_like(lpw)\nadvantage_gap=batch.get('advantage_gap', batch.get('advantage_l', zeros) - batch.get('advantage_w', zeros))\nmean_adv=mean(advantage_gap)\nmargin=exp(clamp(abs(mean_adv),0,1))-1\nnorm=maximum(mean(norm(advantage_gap)), eps)\nx_raw=(lpw-lpl)/norm\nx=margin*x_raw\nx=clamp(x, -20, 20)\nloss=-logsigmoid(x)\nloss_weighted=loss*weight\nloss_mean=sum(loss_weighted)/maximum(sum(weight), eps)\nreturn loss_mean",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "abs",
+        "exp",
+        "sum",
+        "ones_like",
+        "zeros_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    weight = ops.clamp(weight, min=eps, max=1e6)\n    zeros = ops.zeros_like(lpw)\n    advantage_gap = batch.get('advantage_gap', batch.get('advantage_l', zeros) - batch.get('advantage_w', zeros))\n    mean_adv = ops.mean(advantage_gap)\n    margin = ops.sub(ops.exp(ops.clamp(ops.abs(mean_adv), 0.0, 1.0)), 1.0)\n    norm_per_sample = ops.norm(advantage_gap)\n    norm = ops.maximum(ops.mean(norm_per_sample), eps)\n    x_raw = ops.div(ops.sub(lpw, lpl), norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), eps))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

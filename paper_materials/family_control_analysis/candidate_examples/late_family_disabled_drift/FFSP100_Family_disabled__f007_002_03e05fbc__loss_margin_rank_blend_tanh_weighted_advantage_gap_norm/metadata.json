@@ -1,0 +1,226 @@
+{
+  "problem": "FFSP100",
+  "method": "Family-disabled",
+  "run_key": "FFSP100_family_disabled",
+  "candidate_id": "f007_002_03e05fbc",
+  "generation": 7,
+  "family_label": "Rank / Pairwise margin",
+  "family_signature": "pairwise_margin_rank_blend|advantage_gap|tanh_relu|mean|weight_normalization",
+  "motifs": {
+    "extra_regularizer": true,
+    "advantage_heavy": true,
+    "rankprob_or_probabilistic": false,
+    "advantage_blend_tanh_relu": true,
+    "unstructured_weighted_sum": false,
+    "raw_cost_additive": false,
+    "bounded_or_normalized": true,
+    "logsigmoid_backbone": false,
+    "plain_pairwise_margin": true
+  },
+  "why_collected": "Late no-family drift example selected for motif `advantage_blend_tanh_relu`.",
+  "ir": {
+    "name": "loss_margin_rank_blend_tanh_weighted_advantage_gap_norm",
+    "intuition": "Normalize the weighting by advantage_gap to ensure scale-invariance and prevent instability caused by large advantage magnitude variations. This normalization stabilizes the pairwise loss by scaling weights to have unit mean absolute value, preserving relative weighting but ensuring consistent magnitude across batches.",
+    "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_gap = batch['advantage_gap']\nweight = batch['weight'] if present else 1\nmargin = alpha * (lpw - lpl)\nclamped_margin = clamp(margin, -10, 10)\nsmooth_margin = tanh(clamped_margin)\nweight_factor = abs(adv_gap)\nnormalized_weight = weight_factor / (mean(weight_factor) + eps)\nhinge = relu(1 - smooth_margin)\nloss = hinge * normalized_weight\nif weight exists:\n  loss *= weight\nfinal_loss = mean(loss)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin_rank_blend",
+      "signal_family": "advantage_gap",
+      "link_family": "tanh_relu",
+      "agg_family": "mean",
+      "constraint_family": "weight_normalization"
+    },
+    "operators_used": [
+      "sub",
+      "mul",
+      "clamp",
+      "tanh",
+      "abs",
+      "relu",
+      "ones_like",
+      "mean",
+      "add",
+      "div"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.mul(alpha, ops.sub(lpw, lpl))\n    clamped_margin = ops.clamp(margin, -10.0, 10.0)\n    smooth_margin = ops.tanh(clamped_margin)\n    weight_factor = ops.abs(adv_gap)\n    mean_abs_wf = ops.mean(weight_factor)\n    eps = 1e-8\n    norm_weight = ops.div(weight_factor, ops.add(mean_abs_wf, eps))\n    hinge = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    loss = ops.mul(hinge, norm_weight)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+    "theoretical_basis": ""
+  },
+  "record": {
+    "generation": 7,
+    "index": 2,
+    "id": "f007_002_03e05fbc",
+    "signature": "03e05fbcd162ce4244537357f9ff72d3f11dfc3b",
+    "family": "pairwise_margin_rank_blend|advantage_gap|mean|weight_normalization",
+    "family_signature": "paradigm=pairwise_margin_rank_blend|signal=advantage_gap|agg=mean|constraint=weight_normalization",
+    "origin": "CONSTRAINT_INJECT",
+    "origin_base": "CONSTRAINT_INJECT",
+    "op_type": "LOSS_CONSTRAINT_INJECT",
+    "parents": [
+      "f002_012_4514d84b"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "f072fd29d90a9893861e189a81d3b20c90cf305d",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+    "llm_seed": 704763235,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_CONSTRAINT_INJECT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+        "prompt_sha1": "f072fd29d90a9893861e189a81d3b20c90cf305d"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8888888888888888,
+      "best_similarity_parts": {
+        "bigram": 0.7083333333333334,
+        "unigram": 0.8888888888888888,
+        "call": 0.8571428571428571
+      },
+      "neighbors": [
+        {
+          "sig": "4514d84b6ce5f80877d446370f62cdbcef7a06a9",
+          "name": "loss_margin_rank_blend_tanh_weighted_advantage_gap",
+          "similarity": 0.8888888888888888,
+          "similarity_parts": {
+            "bigram": 0.7083333333333334,
+            "unigram": 0.8888888888888888,
+            "call": 0.8571428571428571
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.clamp",
+            "ops.mean",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.tanh"
+          ]
+        },
+        {
+          "sig": "574d329e912ee843d0077b73b904dfad5b4b79ae",
+          "name": "loss_margin_rank_blend_tanh_max_advantage_normalized",
+          "similarity": 0.85,
+          "similarity_parts": {
+            "bigram": 0.40625,
+            "unigram": 0.85,
+            "call": 0.8125
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.clamp",
+            "ops.div",
+            "ops.maximum",
+            "ops.mean",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum",
+            "ops.tanh"
+          ]
+        },
+        {
+          "sig": "eaa3493ecb8af4c2da27aa5b7cb5cd5069724831",
+          "name": "loss_margin_rank_blend_tanh_max_advantage_weighted_mean",
+          "similarity": 0.85,
+          "similarity_parts": {
+            "bigram": 0.3235294117647059,
+            "unigram": 0.85,
+            "call": 0.8125
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.add",
+            "ops.clamp",
+            "ops.div",
+            "ops.maximum",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum",
+            "ops.tanh"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "loss_margin_rank_blend_tanh_weighted_advantage_gap_norm",
+      "intuition": "Normalize the weighting by advantage_gap to ensure scale-invariance and prevent instability caused by large advantage magnitude variations. This normalization stabilizes the pairwise loss by scaling weights to have unit mean absolute value, preserving relative weighting but ensuring consistent magnitude across batches.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_gap = batch['advantage_gap']\nweight = batch['weight'] if present else 1\nmargin = alpha * (lpw - lpl)\nclamped_margin = clamp(margin, -10, 10)\nsmooth_margin = tanh(clamped_margin)\nweight_factor = abs(adv_gap)\nnormalized_weight = weight_factor / (mean(weight_factor) + eps)\nhinge = relu(1 - smooth_margin)\nloss = hinge * normalized_weight\nif weight exists:\n  loss *= weight\nfinal_loss = mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin_rank_blend",
+        "signal_family": "advantage_gap",
+        "link_family": "tanh_relu",
+        "agg_family": "mean",
+        "constraint_family": "weight_normalization"
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "clamp",
+        "tanh",
+        "abs",
+        "relu",
+        "ones_like",
+        "mean",
+        "add",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.mul(alpha, ops.sub(lpw, lpl))\n    clamped_margin = ops.clamp(margin, -10.0, 10.0)\n    smooth_margin = ops.tanh(clamped_margin)\n    weight_factor = ops.abs(adv_gap)\n    mean_abs_wf = ops.mean(weight_factor)\n    eps = 1e-8\n    norm_weight = ops.div(weight_factor, ops.add(mean_abs_wf, eps))\n    hinge = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    loss = ops.mul(hinge, norm_weight)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_family_label": "Rank / Pairwise margin",
+    "_family_signature": "pairwise_margin_rank_blend|advantage_gap|tanh_relu|mean|weight_normalization",
+    "_motifs": {
+      "extra_regularizer": true,
+      "advantage_heavy": true,
+      "rankprob_or_probabilistic": false,
+      "advantage_blend_tanh_relu": true,
+      "unstructured_weighted_sum": false,
+      "raw_cost_additive": false,
+      "bounded_or_normalized": true,
+      "logsigmoid_backbone": false,
+      "plain_pairwise_margin": true
+    }
+  }
+}

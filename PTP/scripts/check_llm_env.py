@@ -109,7 +109,7 @@ def _ping_openai(timeout_s: float) -> tuple[bool, str]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return False, "OPENAI_API_KEY is missing"
-    base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    base_url = _normalize_openai_base_url(os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"))
     model = os.getenv("OPENAI_MODEL", "gpt-4.1")
     try:
         client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout_s, max_retries=0)
@@ -122,6 +122,14 @@ def _ping_openai(timeout_s: float) -> tuple[bool, str]:
         return True, "chat.completions request succeeded"
     except Exception as exc:
         return False, f"chat.completions request failed: {exc}"
+
+
+def _normalize_openai_base_url(raw_base_url: str) -> str:
+    base_url = str(raw_base_url or "").strip().rstrip("/")
+    suffix = "/chat/completions"
+    if base_url.endswith(suffix):
+        base_url = base_url[: -len(suffix)].rstrip("/")
+    return base_url or str(raw_base_url)
 
 
 def main() -> int:

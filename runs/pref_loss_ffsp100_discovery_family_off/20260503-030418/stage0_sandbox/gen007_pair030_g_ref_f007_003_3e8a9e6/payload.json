@@ -1,0 +1,109 @@
+{
+  "generation": 7,
+  "pair_index": 30,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f007_003_3e8a9e64",
+    "ir": {
+      "name": "loss_margin_rank_sign_tanh_weighted_abs_advantage_gap_fixed_objective_sensitivity",
+      "intuition": "Addressed objective insensitivity by incorporating the raw advantage_gap as a multiplicative factor instead of its sign only, enhancing gradient sensitivity to advantage variations. Retained tanh smoothing and margin clamping for stability. Ensured robust weighting fallback to ones_like if missing. This change allows loss values to reflect magnitude changes in advantage_gap, ensuring sensitivity to objective perturbations and passing co_gate checks.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_gap = batch['advantage_gap']\nweight = batch.get('weight', ops.ones_like(lpw))\nalpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\nmargin = alpha * (lpw - lpl)\nclamped_margin = clamp(margin, -10, 10)\nsmooth_margin = tanh(clamped_margin)\nhinge = relu(1 - smooth_margin)\nloss = hinge * abs(adv_gap) * weight\nreturn mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin_advantage_blend",
+        "signal_family": "advantage_gap",
+        "link_family": "tanh_relu_absweight",
+        "agg_family": "mean",
+        "constraint_family": "weighted",
+        "other_hparams": null
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "clamp",
+        "tanh",
+        "relu",
+        "ones_like",
+        "mean",
+        "abs"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "advantage_gap",
+          "weight"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.mul(alpha, ops.sub(lpw, lpl))\n    clamped_margin = ops.clamp(margin, -10.0, 10.0)\n    smooth_margin = ops.tanh(clamped_margin)\n    hinge = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    abs_adv = ops.abs(adv_gap)\n    loss = ops.mul(ops.mul(hinge, abs_adv), weight)\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

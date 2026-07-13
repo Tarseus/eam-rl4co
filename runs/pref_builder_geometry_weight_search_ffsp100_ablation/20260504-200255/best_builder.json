@@ -1,0 +1,38 @@
+{
+  "id": "g_ref",
+  "ir": {
+    "name": "ref_all_pairs_builder",
+    "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "ref_all_pairs"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+  },
+  "stage_final": "none",
+  "score": -0.054500007629400216,
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "compare_target": "incumbent",
+  "reference_score": null,
+  "best_pair_generation": -1,
+  "best_pair_phase": "builder",
+  "score_history": [],
+  "score_history_summary": {
+    "count": 0,
+    "scores": []
+  }
+}

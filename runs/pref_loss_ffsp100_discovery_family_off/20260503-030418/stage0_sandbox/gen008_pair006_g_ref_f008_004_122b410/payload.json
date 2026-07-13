@@ -1,0 +1,106 @@
+{
+  "generation": 8,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_004_122b4103",
+    "ir": {
+      "name": "loss_logsigmoid_delta_regret_exp_weighted_advgap_v2",
+      "intuition": "The original loss was insensitive to the objective due to using exp(clamped advantage_gap) which grows slowly and saturates, resulting in negligible gradient variation. We fix this by replacing the exponential weighting with a softplus applied to advantage_gap, creating a smooth, unbounded positive weight that grows more gradually and sensitively with advantage_gap. This preserves probabilistic pairwise preference loss but improves sensitivity to objective signals and ensures stable scalar output.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_gap = batch['advantage_gap']\nweight = batch['weight']\ndelta = lpw - lpl\nprob_loss = -logsigmoid(delta)\npos_weight = softplus(adv_gap)\nloss = prob_loss * pos_weight * weight\nfinal_loss = mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_probabilistic",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "softplus_weighted"
+      },
+      "operators_used": [
+        "sub",
+        "logsigmoid",
+        "mul",
+        "softplus",
+        "mean",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch['weight']\n    delta = ops.sub(lpw, lpl)\n    prob_loss = ops.neg(ops.logsigmoid(delta))\n    pos_weight = ops.softplus(adv_gap)\n    loss = ops.mul(prob_loss, pos_weight)\n    loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

@@ -41,7 +41,7 @@ echo "  - cvrp50: bopo, sll"
 echo "  - cvrp100: po, bopo, sll, loss_only, weighting"
 echo "  - ffsp50: rl, po, bopo"
 echo "  - ffsp100: po, bopo"
-echo "[routing-eval] The Python evaluator will skip any entry that already has test/max_aug_reward."
+echo "[routing-eval] The Python evaluator freshly evaluates by default; pass --trust-existing-metrics only for vetted metrics files."
 echo "[routing-eval] FFSP note: max_aug_reward is computed by repeated RandomOneHot inference passes (default x${FFSP_AUG_FACTOR}, override with FFSP_AUG_FACTOR=...)."
 
 CMD=(

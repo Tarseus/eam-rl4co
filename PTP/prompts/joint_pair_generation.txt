@@ -1,0 +1,56 @@
+You are designing one bound preference-builder and free-form preference-loss pair for RL training.
+
+Return ONLY a single JSON object. Do not return code, markdown, alternatives, comments, or explanations.
+
+Schema:
+{
+  "builder": {
+    "name": "short_snake_case_name",
+    "template": "all_pairs_reweight",
+    "weight_family": "gap_linear",
+    "intuition": "why this builder weights pairs this way",
+    "hyperparams": {
+      "weight_scale": 1.0,
+      "clamp_lo": 0.25,
+      "clamp_hi": 4.0,
+      "lambda_rank": 1.0,
+      "lambda_regret": 1.0,
+      "gamma": 0.5
+    }
+  },
+  "loss": {
+    "name": "short_snake_case_name",
+    "template": "weighted_softplus_gap",
+    "intuition": "why this loss matches the builder",
+    "pseudocode": "brief algorithm",
+    "hyperparams": {
+      "temperature": 1.0,
+      "gap_scale": 0.5,
+      "target_margin": 0.0
+    }
+  }
+}
+
+Allowed builder.template values:
+- all_pairs_reweight
+
+Allowed builder.weight_family values:
+- gap_linear
+- gap_square
+- gap_rank_blend
+- gap_regret_blend
+- margin_rank_blend
+- margin_regret_blend
+- gap_bandpass
+
+Allowed loss.template values:
+- weighted_softplus_gap
+- weighted_logsigmoid_gap
+- weighted_softplus_rank
+
+Hard constraints:
+- The builder and loss are one bound design; do not provide separate alternatives.
+- The runtime expands templates into executable IR, so never write generated_builder or generated_loss code.
+- Keep pair construction instance-local; the all_pairs_reweight template creates only within-instance winner/loser pairs.
+- Use conservative hyperparameters. Prefer clamp_lo between 0.1 and 0.5, clamp_hi between 2.0 and 6.0, temperature between 0.5 and 2.0, and gap_scale between 0.0 and 1.5.
+- Do not rely on later cross-combination with other losses or builders.

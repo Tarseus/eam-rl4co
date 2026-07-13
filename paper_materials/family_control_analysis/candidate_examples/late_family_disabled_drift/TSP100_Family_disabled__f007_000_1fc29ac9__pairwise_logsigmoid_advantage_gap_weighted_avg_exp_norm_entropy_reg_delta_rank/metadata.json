@@ -1,0 +1,234 @@
+{
+  "problem": "TSP100",
+  "method": "Family-disabled",
+  "run_key": "TSP100_family_disabled",
+  "candidate_id": "f007_000_1fc29ac9",
+  "generation": 7,
+  "family_label": "Rank / Pairwise margin",
+  "family_signature": "pairwise_margin|advantage_gap_delta_rank_entropy_reg|logsigmoid|weighted_avg_exp_norm|none",
+  "motifs": {
+    "extra_regularizer": true,
+    "advantage_heavy": true,
+    "rankprob_or_probabilistic": false,
+    "advantage_blend_tanh_relu": false,
+    "unstructured_weighted_sum": false,
+    "raw_cost_additive": false,
+    "bounded_or_normalized": true,
+    "logsigmoid_backbone": true,
+    "plain_pairwise_margin": false
+  },
+  "why_collected": "Late no-family drift example selected for motif `extra_regularizer`.",
+  "ir": {
+    "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_exp_norm_entropy_reg_delta_rank",
+    "intuition": "Shift aggregation from weighted sum with logarithmic normalization to a weighted average with exponential normalization of weights, maintaining the pairwise margin and advantage_gap signal. This structure normalizes the pair weights exponentially to emphasize medium-sized weights more evenly, combined with a softplus regularization on normalized delta_rank for stability and better generalization.",
+    "pseudocode": "exp_weights = exp(weight)\ntotal_exp_weight = sum(exp_weights) + eps\nnorm_weights = exp_weights / total_exp_weight\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * norm_weights\navg_loss = sum(weighted_loss)\ndelta_rank_norm = normalize(delta_rank)\nentropy_reg = gamma * mean(softplus(delta_rank_norm))\nfinal_loss = avg_loss + entropy_reg\nreturn final_loss",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap_delta_rank_entropy_reg",
+      "link_family": "logsigmoid",
+      "agg_family": "weighted_avg_exp_norm",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "logsigmoid",
+      "clamp",
+      "sum",
+      "mul",
+      "add",
+      "mean",
+      "softplus",
+      "neg",
+      "sub",
+      "div",
+      "exp",
+      "normalize"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap",
+        "delta_rank"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    exp_weights = ops.exp(weight)\n    total_exp_weight = ops.add(ops.sum(exp_weights), eps)\n    norm_weights = ops.div(exp_weights, total_exp_weight)\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, norm_weights)\n    avg_loss = ops.sum(weighted_loss)\n\n    delta_rank_norm = ops.normalize(delta_rank)\n    entropy_reg = ops.mul(gamma, ops.mean(ops.softplus(delta_rank_norm)))\n\n    final_loss = ops.add(avg_loss, entropy_reg)\n    return final_loss",
+    "theoretical_basis": ""
+  },
+  "record": {
+    "generation": 7,
+    "index": 0,
+    "id": "f007_000_1fc29ac9",
+    "signature": "1fc29ac9ca49628d9da8dd58314f0401e42b7da7",
+    "family": "pairwise_margin|advantage_gap_delta_rank_entropy_reg|weighted_avg_exp_norm|none",
+    "family_signature": "paradigm=pairwise_margin|signal=advantage_gap_delta_rank_entropy_reg|agg=weighted_avg_exp_norm|constraint=none",
+    "origin": "STRUCTURE_SHIFT",
+    "origin_base": "STRUCTURE_SHIFT",
+    "op_type": "LOSS_STRUCTURE_SHIFT",
+    "parents": [
+      "f006_015_0509f79f"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "29b24657d1992005c1920d2ef8d5649a434f8916",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+    "llm_seed": 1930714622,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_STRUCTURE_SHIFT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+        "prompt_sha1": "29b24657d1992005c1920d2ef8d5649a434f8916"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8947368421052632,
+      "best_similarity_parts": {
+        "bigram": 0.5555555555555556,
+        "unigram": 0.8947368421052632,
+        "call": 0.875
+      },
+      "neighbors": [
+        {
+          "sig": "0509f79fced0d7894599c2fcd02e3763b6a58d79",
+          "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_log_norm_entropy_reg_delta_rank",
+          "similarity": 0.8947368421052632,
+          "similarity_parts": {
+            "bigram": 0.5555555555555556,
+            "unigram": 0.8947368421052632,
+            "call": 0.875
+          },
+          "call_names_top": [
+            "extra.get",
+            "float",
+            "get",
+            "ops.add",
+            "ops.clamp",
+            "ops.div",
+            "ops.log",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.normalize",
+            "ops.softplus",
+            "ops.sub",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "15d49e3c38aaa774ef10ec2835ec572ad78f550b",
+          "name": "pairwise_logsigmoid_advantage_gap_weighted_sum_entropy_reg_poly_delta_rank",
+          "similarity": 0.8888888888888888,
+          "similarity_parts": {
+            "bigram": 0.7096774193548387,
+            "unigram": 0.8888888888888888,
+            "call": 0.8666666666666667
+          },
+          "call_names_top": [
+            "extra.get",
+            "float",
+            "get",
+            "ops.add",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.normalize",
+            "ops.softplus",
+            "ops.sub",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "08c0381c622ca2fcce3f3cd52b16ac95815f3fa0",
+          "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_entropy_reg_norm_delta_rank",
+          "similarity": 0.85,
+          "similarity_parts": {
+            "bigram": 0.43902439024390244,
+            "unigram": 0.85,
+            "call": 0.8235294117647058
+          },
+          "call_names_top": [
+            "extra.get",
+            "float",
+            "get",
+            "ops.add",
+            "ops.clamp",
+            "ops.div",
+            "ops.logsigmoid",
+            "ops.maximum",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.normalize",
+            "ops.ones_like",
+            "ops.softplus",
+            "ops.sub",
+            "ops.sum"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "pairwise_logsigmoid_advantage_gap_weighted_avg_exp_norm_entropy_reg_delta_rank",
+      "intuition": "Shift aggregation from weighted sum with logarithmic normalization to a weighted average with exponential normalization of weights, maintaining the pairwise margin and advantage_gap signal. This structure normalizes the pair weights exponentially to emphasize medium-sized weights more evenly, combined with a softplus regularization on normalized delta_rank for stability and better generalization.",
+      "pseudocode": "exp_weights = exp(weight)\ntotal_exp_weight = sum(exp_weights) + eps\nnorm_weights = exp_weights / total_exp_weight\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) + beta * advantage_gap, -20, 20)\nloss = -logsigmoid(x)\nweighted_loss = loss * norm_weights\navg_loss = sum(weighted_loss)\ndelta_rank_norm = normalize(delta_rank)\nentropy_reg = gamma * mean(softplus(delta_rank_norm))\nfinal_loss = avg_loss + entropy_reg\nreturn final_loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap_delta_rank_entropy_reg",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_avg_exp_norm",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "mul",
+        "add",
+        "mean",
+        "softplus",
+        "neg",
+        "sub",
+        "div",
+        "exp",
+        "normalize"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap",
+          "delta_rank"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    delta_rank = batch['delta_rank']\n\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    beta = float(extra.get('beta', extra.get('hyperparams', {}).get('beta', 1.0)))\n    gamma = float(extra.get('gamma', extra.get('hyperparams', {}).get('gamma', 0.1)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 2.0))\n    eps = 1e-12\n\n    exp_weights = ops.exp(weight)\n    total_exp_weight = ops.add(ops.sum(exp_weights), eps)\n    norm_weights = ops.div(exp_weights, total_exp_weight)\n\n    x = ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n\n    weighted_loss = ops.mul(loss, norm_weights)\n    avg_loss = ops.sum(weighted_loss)\n\n    delta_rank_norm = ops.normalize(delta_rank)\n    entropy_reg = ops.mul(gamma, ops.mean(ops.softplus(delta_rank_norm)))\n\n    final_loss = ops.add(avg_loss, entropy_reg)\n    return final_loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_family_label": "Rank / Pairwise margin",
+    "_family_signature": "pairwise_margin|advantage_gap_delta_rank_entropy_reg|logsigmoid|weighted_avg_exp_norm|none",
+    "_motifs": {
+      "extra_regularizer": true,
+      "advantage_heavy": true,
+      "rankprob_or_probabilistic": false,
+      "advantage_blend_tanh_relu": false,
+      "unstructured_weighted_sum": false,
+      "raw_cost_additive": false,
+      "bounded_or_normalized": true,
+      "logsigmoid_backbone": true,
+      "plain_pairwise_margin": false
+    }
+  }
+}

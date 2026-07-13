@@ -1,0 +1,208 @@
+{
+  "problem": "FFSP100",
+  "method": "Family-disabled",
+  "run_key": "FFSP100_family_disabled",
+  "candidate_id": "f004_006_b9dc8aa5",
+  "generation": 4,
+  "family_label": "Rank / Pairwise margin",
+  "family_signature": "pairwise_margin_rank_blend|advantage_gap|sigmoid_linear|sum|weighted",
+  "motifs": {
+    "extra_regularizer": false,
+    "advantage_heavy": true,
+    "rankprob_or_probabilistic": false,
+    "advantage_blend_tanh_relu": false,
+    "unstructured_weighted_sum": true,
+    "raw_cost_additive": false,
+    "bounded_or_normalized": false,
+    "logsigmoid_backbone": false,
+    "plain_pairwise_margin": true
+  },
+  "why_collected": "Family-disabled FFSP best: advantage-weighted sigmoid/sum formula that never beats the baseline.",
+  "ir": {
+    "name": "loss_pairwise_margin_sigmoid_weighted_advantage_sum",
+    "intuition": "Maintains the pairwise margin approach with sigmoid smoothing of the scaled margin but replaces mean aggregation with sum aggregation to emphasize total pairwise loss contribution. This change in aggregation structure shifts focus from average per pair to total accumulated loss, suitable for scenarios valuing aggregate penalty.",
+    "pseudocode": "margin = log_prob_w - log_prob_l\nscaled_margin = alpha * margin\nsmooth_margin = sigmoid(scaled_margin)\nweight_factor = abs(advantage_gap)\nloss_per_pair = (1 - smooth_margin) * weight_factor * weight\nfinal_loss = sum(loss_per_pair)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin_rank_blend",
+      "signal_family": "advantage_gap",
+      "link_family": "sigmoid_linear",
+      "agg_family": "sum",
+      "constraint_family": "weighted"
+    },
+    "operators_used": [
+      "sigmoid",
+      "abs",
+      "mul",
+      "sub",
+      "ones_like",
+      "sum"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "weight",
+        "advantage_gap"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.sub(lpw, lpl)\n    scaled_margin = ops.mul(alpha, margin)\n    smooth_margin = ops.sigmoid(scaled_margin)\n    weight_factor = ops.abs(advantage_gap)\n    loss = ops.mul(ops.sub(ops.ones_like(smooth_margin), smooth_margin), weight_factor)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.sum(loss)",
+    "theoretical_basis": ""
+  },
+  "record": {
+    "generation": 4,
+    "index": 6,
+    "id": "f004_006_b9dc8aa5",
+    "signature": "b9dc8aa565df7e7ce027f8bcf2cc72b3c36b9566",
+    "family": "pairwise_margin_rank_blend|advantage_gap|sum|weighted",
+    "family_signature": "paradigm=pairwise_margin_rank_blend|signal=advantage_gap|agg=sum|constraint=weighted",
+    "origin": "STRUCTURE_SHIFT",
+    "origin_base": "STRUCTURE_SHIFT",
+    "op_type": "LOSS_STRUCTURE_SHIFT",
+    "parents": [
+      "f001_004_05dd00c0"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "29328097281f671d4c416375c63f8bf6bc91df33",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+    "llm_seed": 885919724,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_STRUCTURE_SHIFT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_structure_shift.txt",
+        "prompt_sha1": "29328097281f671d4c416375c63f8bf6bc91df33"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.8571428571428571,
+      "best_similarity_parts": {
+        "bigram": 0.7647058823529411,
+        "unigram": 0.8571428571428571,
+        "call": 0.8181818181818182
+      },
+      "neighbors": [
+        {
+          "sig": "05dd00c0239aa91b854d281e67f924f1906a8ef3",
+          "name": "pairwise_margin_sigmoid_weighted_advantage_loss",
+          "similarity": 0.8571428571428571,
+          "similarity_parts": {
+            "bigram": 0.7647058823529411,
+            "unigram": 0.8571428571428571,
+            "call": 0.8181818181818182
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.mean",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.sigmoid",
+            "ops.sub"
+          ]
+        },
+        {
+          "sig": "3eac22f064e063bbd6039705a7afcf7b5af1022d",
+          "name": "loss_margin_rank_blend_sigmoid_weighted_advantage_gap_distinct",
+          "similarity": 0.7333333333333333,
+          "similarity_parts": {
+            "bigram": 0.2916666666666667,
+            "unigram": 0.7333333333333333,
+            "call": 0.6666666666666666
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.sigmoid",
+            "ops.sub"
+          ]
+        },
+        {
+          "sig": "b6d089ca6b0b344d37ee15bed49e984d395c05f8",
+          "name": "loss_margin_rank_blend_sigmoid_advantage_gap_weighted",
+          "similarity": 0.7058823529411765,
+          "similarity_parts": {
+            "bigram": 0.4166666666666667,
+            "unigram": 0.7058823529411765,
+            "call": 0.6923076923076923
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.clamp",
+            "ops.mean",
+            "ops.mul",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sigmoid",
+            "ops.sub"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "loss_pairwise_margin_sigmoid_weighted_advantage_sum",
+      "intuition": "Maintains the pairwise margin approach with sigmoid smoothing of the scaled margin but replaces mean aggregation with sum aggregation to emphasize total pairwise loss contribution. This change in aggregation structure shifts focus from average per pair to total accumulated loss, suitable for scenarios valuing aggregate penalty.",
+      "pseudocode": "margin = log_prob_w - log_prob_l\nscaled_margin = alpha * margin\nsmooth_margin = sigmoid(scaled_margin)\nweight_factor = abs(advantage_gap)\nloss_per_pair = (1 - smooth_margin) * weight_factor * weight\nfinal_loss = sum(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin_rank_blend",
+        "signal_family": "advantage_gap",
+        "link_family": "sigmoid_linear",
+        "agg_family": "sum",
+        "constraint_family": "weighted"
+      },
+      "operators_used": [
+        "sigmoid",
+        "abs",
+        "mul",
+        "sub",
+        "ones_like",
+        "sum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.sub(lpw, lpl)\n    scaled_margin = ops.mul(alpha, margin)\n    smooth_margin = ops.sigmoid(scaled_margin)\n    weight_factor = ops.abs(advantage_gap)\n    loss = ops.mul(ops.sub(ops.ones_like(smooth_margin), smooth_margin), weight_factor)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.sum(loss)",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_family_label": "Rank / Pairwise margin",
+    "_family_signature": "pairwise_margin_rank_blend|advantage_gap|sigmoid_linear|sum|weighted",
+    "_motifs": {
+      "extra_regularizer": false,
+      "advantage_heavy": true,
+      "rankprob_or_probabilistic": false,
+      "advantage_blend_tanh_relu": false,
+      "unstructured_weighted_sum": true,
+      "raw_cost_additive": false,
+      "bounded_or_normalized": false,
+      "logsigmoid_backbone": false,
+      "plain_pairwise_margin": true
+    }
+  }
+}

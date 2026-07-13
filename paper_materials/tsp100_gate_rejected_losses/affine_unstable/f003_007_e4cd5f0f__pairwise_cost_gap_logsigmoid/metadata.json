@@ -1,0 +1,386 @@
+{
+  "f_id": "f003_007_e4cd5f0f",
+  "category": "affine_unstable",
+  "category_title": "Affine-unstable candidates",
+  "why_collected": "These formulas pass the basic winner/loser preference gate, but CO-alignment rejects them because the loss changes under irrelevant objective affine transformations. They are good examples of plausible cost-gap objectives that use the objective scale too literally.",
+  "source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "gate_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "generation": 3,
+  "pair_index": 21,
+  "pair_reason": "co_gate_failed",
+  "joint_gate_reason": "ok",
+  "joint_failure_kind": null,
+  "joint_where_failed": [],
+  "joint_observed": {
+    "grad_w_pass_rate": 1.0,
+    "grad_l_pass_rate": 1.0,
+    "effective_grad_ratio": 1.0,
+    "loss": 0.5655002593994141,
+    "loss_swap": 0.8488335013389587,
+    "swap_ok": true,
+    "swap_check_mode": "data",
+    "swap_ref_loss": 0.5655002593994141
+  },
+  "co_reason": "affine_invariance_violation",
+  "co_failed_gate": "AffineInvariance",
+  "co_failure_kind": "affine_invariance_violation",
+  "co_sensitivity_visible_reason": "ok",
+  "co_invariance_visible_reason": "affine_invariance_violation",
+  "name": "pairwise_cost_gap_logsigmoid",
+  "intuition": "This loss leverages the cost gap signal (cost_b - cost_a) to encourage the model to prefer lower-cost options. Using logsigmoid on the scaled difference between log probabilities ensures smooth and bounded gradients that push the model toward better ordering. Pairwise operations and direct cost gap signal focus the training on cost-based preferences, improving the policy's ability to distinguish better options robustly.",
+  "pseudocode": "losses = -logsigmoid(alpha * scale * (log_prob_w - log_prob_l) - lambda * (cost_b - cost_a))\nloss = mean(losses)",
+  "hyperparams": {
+    "paradigm_family": "pairwise_margin",
+    "signal_family": "cost_gap",
+    "link_family": "logsigmoid",
+    "agg_family": "mean",
+    "constraint_family": "clamp_stabilized",
+    "other_hparams": "alpha=1.0, scale=1.5, lambda=0.1"
+  },
+  "operators_used": [
+    "logsigmoid",
+    "clamp",
+    "mean",
+    "mul"
+  ],
+  "implementation_hint": {
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "cost_a",
+      "cost_b"
+    ],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', 1.0))\n    scale = float(extra.get('scale', 1.5))\n    lambda_ = float(extra.get('lambda', 0.1))\n    diff_logprob = alpha * scale * (lpw - lpl)\n    gap = cost_b - cost_a\n    x = diff_logprob - lambda_ * gap\n    x_clamped = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x_clamped)\n    weighted_losses = losses * weight\n    loss = ops.mean(weighted_losses)\n    return loss",
+  "loss_record": {
+    "generation": 3,
+    "index": 7,
+    "id": "f003_007_e4cd5f0f",
+    "signature": "e4cd5f0f8120ae4f960e0a211d04943aa2130c79",
+    "family": "pairwise_margin|cost_gap|mean|clamp_stabilized",
+    "family_signature": "paradigm=pairwise_margin|signal=cost_gap|agg=mean|constraint=clamp_stabilized",
+    "origin": "E1",
+    "origin_base": "E1",
+    "op_type": "E1_GENERATE",
+    "parents": [],
+    "attempt": 0,
+    "prompt_sha1": "e88e3c17e37def8189ee69aebbda89a58bf904b9",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+    "llm_seed": 1005753023,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "E1_GENERATE",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_generation.txt",
+        "prompt_sha1": "e88e3c17e37def8189ee69aebbda89a58bf904b9"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.9166666666666666,
+      "best_similarity_parts": {
+        "bigram": 0.4230769230769231,
+        "unigram": 0.9166666666666666,
+        "call": 0.875
+      },
+      "neighbors": [
+        {
+          "sig": "7a9533f89dacdba81ee813d454714fc414e2cb60",
+          "name": "loss_logsigmoid_002_cost_shifted_mean",
+          "similarity": 0.9166666666666666,
+          "similarity_parts": {
+            "bigram": 0.4230769230769231,
+            "unigram": 0.9166666666666666,
+            "call": 0.875
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.ones_like"
+          ]
+        },
+        {
+          "sig": "ec78f8e4f6b01091c04fc3769bb5ce614c548294",
+          "name": "pairwise_cost_advantage_gap_logsigmoid_clamped_weighted_normalized",
+          "similarity": 0.7777777777777778,
+          "similarity_parts": {
+            "bigram": 0.32142857142857145,
+            "unigram": 0.7333333333333333,
+            "call": 0.7777777777777778
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.ones_like",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "935306c7b4fd0b9e3649a656ff61a65b967a63e8",
+          "name": "pairwise_cost_gap_logsigmoid_normalized",
+          "similarity": 0.7777777777777778,
+          "similarity_parts": {
+            "bigram": 0.4482758620689655,
+            "unigram": 0.7333333333333333,
+            "call": 0.7777777777777778
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.abs",
+            "ops.clamp",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.ones_like"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "pairwise_cost_gap_logsigmoid",
+      "intuition": "This loss leverages the cost gap signal (cost_b - cost_a) to encourage the model to prefer lower-cost options. Using logsigmoid on the scaled difference between log probabilities ensures smooth and bounded gradients that push the model toward better ordering. Pairwise operations and direct cost gap signal focus the training on cost-based preferences, improving the policy's ability to distinguish better options robustly.",
+      "pseudocode": "losses = -logsigmoid(alpha * scale * (log_prob_w - log_prob_l) - lambda * (cost_b - cost_a))\nloss = mean(losses)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "mean",
+        "constraint_family": "clamp_stabilized",
+        "other_hparams": "alpha=1.0, scale=1.5, lambda=0.1"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mean",
+        "mul"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_a",
+          "cost_b"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    alpha = float(extra.get('alpha', 1.0))\n    scale = float(extra.get('scale', 1.5))\n    lambda_ = float(extra.get('lambda', 0.1))\n    diff_logprob = alpha * scale * (lpw - lpl)\n    gap = cost_b - cost_a\n    x = diff_logprob - lambda_ * gap\n    x_clamped = ops.clamp(x, -20.0, 20.0)\n    losses = -ops.logsigmoid(x_clamped)\n    weighted_losses = losses * weight\n    loss = ops.mean(weighted_losses)\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  },
+  "gate_record": {
+    "generation": 3,
+    "pair_index": 21,
+    "g_id": "g_ref",
+    "f_id": "f003_007_e4cd5f0f",
+    "stage": "gate",
+    "phase": "loss",
+    "score": Infinity,
+    "proxy_metrics": null,
+    "seed_signature": null,
+    "descriptor": null,
+    "stages_enabled": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "stages_ran": [
+      "stage0_gate"
+    ],
+    "stages_skipped": {
+      "stage1_proxy": "disabled",
+      "stage2_micro_unroll": "disabled",
+      "stage3_high_fidelity": "not_selected_for_high_fidelity"
+    },
+    "stage_final": "none",
+    "final_score": null,
+    "reference_score": -0.013375043106078621,
+    "improve_eps": 0.0,
+    "better_than_incumbent": false,
+    "delta_vs_incumbent": null,
+    "better_than_last_phase": false,
+    "delta_vs_last_phase": null,
+    "last_phase_label": "baseline",
+    "last_phase_reference_score": Infinity,
+    "better_than_incumbent_note": null,
+    "compare_target": "incumbent",
+    "static_ok": true,
+    "static_reason": "",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": true,
+    "joint_gate_reason": "ok",
+    "joint_gate_trace": {
+      "failed_gate": null,
+      "failure_kind": null,
+      "observed": {
+        "grad_w_pass_rate": 1.0,
+        "grad_l_pass_rate": 1.0,
+        "effective_grad_ratio": 1.0,
+        "loss": 0.5655002593994141,
+        "loss_swap": 0.8488335013389587,
+        "swap_ok": true,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 0.5655002593994141
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [],
+      "variant": "visible"
+    },
+    "co_ok": false,
+    "co_reason": "affine_invariance_violation",
+    "co_failed_gate": "AffineInvariance",
+    "co_failure_kind": "affine_invariance_violation",
+    "co_sensitivity_ok": true,
+    "co_invariance_ok": false,
+    "co_sensitivity_visible_ok": true,
+    "co_sensitivity_visible_reason": "ok",
+    "co_sensitivity_visible_abs_delta": 0.09946763515472412,
+    "co_sensitivity_visible_rel_delta": 0.034844364525017185,
+    "co_sensitivity_visible_trace": {
+      "failed_gate": null,
+      "metric_name": "delta_loss_under_objective_perturbation",
+      "observed": {
+        "abs_delta": 0.09946763515472412,
+        "rel_delta": 0.034844364525017185,
+        "grad_ratio": 1.037276718331364
+      },
+      "threshold": {
+        "min_abs_delta": 0.001,
+        "min_rel_delta": 0.01
+      },
+      "direction": {
+        "abs_delta": ">=",
+        "rel_delta": ">=",
+        "grad_ratio": "informational"
+      },
+      "where_failed": null,
+      "counterexamples": [
+        {
+          "loss_small": 1.3775793313980103,
+          "loss_large": 1.4770469665527344,
+          "log_prob_w": -9.773567199707031,
+          "log_prob_l": -6.812900543212891
+        }
+      ],
+      "variant": "visible"
+    },
+    "co_sensitivity_hidden_ok": null,
+    "co_sensitivity_hidden_reason": null,
+    "co_sensitivity_hidden_abs_delta": null,
+    "co_sensitivity_hidden_rel_delta": null,
+    "co_sensitivity_hidden_trace": null,
+    "co_invariance_visible_ok": false,
+    "co_invariance_visible_reason": "affine_invariance_violation",
+    "co_invariance_visible_abs_delta": 0.1465771198272705,
+    "co_invariance_visible_rel_delta": 0.048585161045541655,
+    "co_invariance_visible_trace": {
+      "failed_gate": "AffineInvariance",
+      "metric_name": "delta_loss_under_affine_transform",
+      "observed": {
+        "abs_delta": 0.1465771198272705,
+        "rel_delta": 0.048585161045541655
+      },
+      "threshold": {
+        "max_abs_delta": 0.001,
+        "max_rel_delta": 0.01
+      },
+      "direction": {
+        "abs_delta": "<=",
+        "rel_delta": "<="
+      },
+      "where_failed": "abs_delta_and_rel_delta",
+      "counterexamples": [
+        {
+          "a": 7.0,
+          "b": 3.0,
+          "loss_raw": 1.4351670742034912,
+          "loss_affine": 1.5817441940307617,
+          "log_prob_w": -4.177087783813477,
+          "log_prob_l": -4.566425323486328,
+          "cost_a_raw": 0.560539722442627,
+          "cost_a_affine": 6.923778057098389,
+          "cost_b_raw": 0.779897928237915,
+          "cost_b_affine": 8.459285736083984
+        }
+      ],
+      "variant": "visible"
+    },
+    "co_invariance_hidden_ok": null,
+    "co_invariance_hidden_reason": null,
+    "co_invariance_hidden_abs_delta": null,
+    "co_invariance_hidden_rel_delta": null,
+    "co_invariance_hidden_trace": null,
+    "pref_semantic_ok": null,
+    "pref_semantic_reason": null,
+    "pref_semantic_trace": null,
+    "dynamic_ok": null,
+    "dynamic_visible_trace": null,
+    "dynamic_hidden_trace": null,
+    "pair_ok": false,
+    "pair_reason": "co_gate_failed",
+    "gate_repair": null,
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  }
+}

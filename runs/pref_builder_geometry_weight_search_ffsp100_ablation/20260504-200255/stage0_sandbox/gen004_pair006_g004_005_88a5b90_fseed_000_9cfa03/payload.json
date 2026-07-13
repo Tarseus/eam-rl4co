@@ -1,0 +1,113 @@
+{
+  "generation": 4,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g004_005_88a5b906",
+    "ir": {
+      "name": "rank_adjacent_regret_gap_weighted_pairs",
+      "intuition": "Select pairs where winner's rank is exactly one better than loser and weight pairs by the positive regret difference, promoting preference learning focused on meaningful regret-based gaps in adjacent ranks.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "rank"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "rank_adjacent_pairs",
+        "cap_family": "no_cap",
+        "weight_family": "gap_regret_blend",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "sub",
+        "eq",
+        "gt",
+        "nonzero",
+        "to",
+        "clamp"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    rank = feature_cache['rank']  # [batch, n]\n    regret = feature_cache['regret']  # [batch, n]\n    rank_w = rank.unsqueeze(2)  # [batch, n, 1]\n    rank_l = rank.unsqueeze(1)  # [batch, 1, n]\n    is_adjacent = (rank_l - rank_w) == 1  # winner's rank is exactly one better\n    regret_w = regret.unsqueeze(2)  # [batch, n, 1]\n    regret_l = regret.unsqueeze(1)  # [batch, 1, n]\n    regret_gap = regret_l - regret_w  # positive if loser has more regret\n    positive_regret_gap = (regret_gap > 0) & is_adjacent\n    b_idx, w_idx, l_idx = positive_regret_gap.nonzero(as_tuple=True)\n    weights_raw = regret_gap[b_idx, w_idx, l_idx]\n    weight = weights_raw.clamp(min=0)  # ensure nonnegative weights\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(dtype=torch.int64), w_idx.to(dtype=torch.int64), l_idx.to(dtype=torch.int64)),\n        weight=weight,\n        meta={'builder': 'rank_adjacent_regret_gap_weighted_pairs'}\n    )"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_scaled_logsigmoid_margin_loss_v5",
+      "intuition": "Adjusted the loss to explicitly incorporate delta_regret as a margin signal to increase sensitivity to the objective changes. Instead of normalizing advantage_gap, this loss uses delta_regret directly as a margin multiplier for the score difference (log_prob_w - log_prob_l), clamping the margin to [0,5] to prevent extreme scaling. This enforces a stronger adaptive margin tied directly to objective improvement, which should increase the loss variation under objective perturbations, overcoming previous insensitivity. Weighted mean aggregation and the logsigmoid link are maintained for smoothness and stability.",
+      "pseudocode": "epsilon=1e-6\nmargin = clamp(mean(delta_regret), 0, 5)\nx_raw = log_prob_w - log_prob_l\nx = margin * x_raw\nx = clamp(x, -20, 20)\nloss = -logsigmoid(x)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / max(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "delta_regret",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "adaptive_clamped_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "mean",
+        "neg",
+        "mul",
+        "sub",
+        "sum",
+        "maximum"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "delta_regret"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    delta_regret = batch['delta_regret']\n    epsilon = 1e-6\n    margin = ops.clamp(ops.mean(delta_regret), 0.0, 5.0)\n    x_raw = ops.sub(lpw, lpl)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

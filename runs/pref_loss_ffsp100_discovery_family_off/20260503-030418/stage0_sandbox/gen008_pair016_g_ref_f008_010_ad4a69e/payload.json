@@ -1,0 +1,109 @@
+{
+  "generation": 8,
+  "pair_index": 16,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f008_010_ad4a69ee",
+    "ir": {
+      "name": "loss_pairwise_regret_weighted_logsigmoid_cost_gap_repaired",
+      "intuition": "Preserves probabilistic preference loss weighted by regret and cost gap, safely handling missing weights and clamping sums for stability.",
+      "pseudocode": "eps=1e-6\nlpw=batch['log_prob_w']\nlpl=batch['log_prob_l']\ncost_gap=batch['cost_gap']\ndelta_regret=batch.get('delta_regret', ones_like(lpw))\nweight=batch.get('weight', ones_like(lpw))\nregret_weight=relu(delta_regret)\nlog_diff=lpw - lpl\nsigmoid_loss=-logsigmoid(log_diff)\nweighted_loss=sigmoid_loss * abs(cost_gap) * regret_weight * weight\nloss=sum(weighted_loss) / clamp(sum(weight), eps, inf)\nreturn loss",
+      "hyperparams": {
+        "paradigm_family": "pairwise_probabilistic_regret_weighted",
+        "signal_family": "cost_gap_regret",
+        "link_family": "logsigmoid",
+        "agg_family": "normalized_sum",
+        "constraint_family": "weight_regret_relu"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "abs",
+        "mul",
+        "sub",
+        "relu",
+        "sum",
+        "div",
+        "neg",
+        "clamp"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-6\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    cost_gap = batch['cost_gap']\n    delta_regret = batch.get('delta_regret', ops.ones_like(lpw))\n    weight = batch.get('weight', ops.ones_like(lpw))\n    regret_weight = ops.relu(delta_regret)\n    log_diff = ops.sub(lpw, lpl)\n    sigmoid_loss = ops.neg(ops.logsigmoid(log_diff))\n    weighted_loss = ops.mul(sigmoid_loss, ops.abs(cost_gap))\n    weighted_loss = ops.mul(weighted_loss, regret_weight)\n    weighted_loss = ops.mul(weighted_loss, weight)\n    weight_sum = ops.clamp(ops.sum(weight), eps, 1e10)\n    loss = ops.div(ops.sum(weighted_loss), weight_sum)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

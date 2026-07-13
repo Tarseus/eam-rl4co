@@ -1,0 +1,106 @@
+{
+  "generation": 0,
+  "pair_index": 8,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_006_040f01c8",
+    "ir": {
+      "name": "loss_logsigmoid_001_cost_weighted_mean_clamp",
+      "intuition": "Fixed affine invariance violation by normalizing the difference with cost gap for scale invariance, replaced sum aggregation with weighted mean to stabilize loss magnitude, and kept clamping for numerical stability. Using cost_gap signal aligns the loss closely with the objective perturbation. This ensures the loss changes proportionally to input shifts and is stable.",
+      "pseudocode": "x = clamp(alpha * scale * (log_prob_w - log_prob_l) - 0.1 * cost_gap, -20, 20)\nloss_per_pair = -logsigmoid(x) * weight\nloss = sum(loss_per_pair) / sum(weight + eps)",
+      "hyperparams": {
+        "scale": 1.0,
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "cost_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "sum",
+        "div",
+        "add"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n    # Use alpha from extra or default 1.0\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    # Use fixed scale=1.0 for affine invariance\n    scale = 1.0\n    # Compute stabilized score with clamp\n    x = ops.clamp(ops.add(ops.mul(alpha * scale, ops.sub(lpw, lpl)), ops.neg(ops.mul(0.1, cost_gap))), -20.0, 20.0)\n    loss_per_pair = ops.mul(ops.neg(ops.logsigmoid(x)), weight)\n    weight_sum = ops.sum(weight)\n    weight_sum = ops.add(weight_sum, 1e-6)  # avoid div by zero\n    loss = ops.div(ops.sum(loss_per_pair), weight_sum)\n    return loss",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

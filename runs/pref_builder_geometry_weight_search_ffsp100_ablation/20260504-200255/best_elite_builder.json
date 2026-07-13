@@ -1,0 +1,136 @@
+{
+  "generation": 0,
+  "index": 7,
+  "id": "g000_007_d4e5e8dd",
+  "signature": "d4e5e8ddff7d8f492c6f0b82e2798a275ec4f6df",
+  "family_signature": "geometry=rank_adjacent_pairs|cap=no_cap|weight=gap_linear|constraint=none",
+  "origin": "REPAIR",
+  "origin_base": "PARADIGM_SHIFT",
+  "op_type": "REPAIR",
+  "parents": [
+    "bootstrap_g_000",
+    "bootstrap_g_001"
+  ],
+  "attempt": 0,
+  "prompt_sha1": "c45fd5f551ec2a7c16c08333fb02dba4b3c90ea7",
+  "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+  "llm_seed": 1947286704,
+  "history": [
+    {
+      "attempt": 0,
+      "side": "builder",
+      "llm_op": "BUILDER_PARADIGM_SHIFT",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_paradigm_shift.txt",
+      "prompt_sha1": "e834ce8cdbac74ab088781795905421b1d56887b"
+    },
+    {
+      "attempt": 0,
+      "op": "M3",
+      "llm_op": "M3",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_m3.txt",
+      "prompt_sha1": "55949a717f30006bf428f0aaaf26a569502c73ec"
+    },
+    {
+      "attempt": 0,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "4ce8968e1bc0f45918c517c1d9618b9068af8cb8"
+    },
+    {
+      "attempt": 1,
+      "op": "REPAIR",
+      "llm_op": "REPAIR",
+      "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/pref_builder_repair.txt",
+      "prompt_sha1": "c45fd5f551ec2a7c16c08333fb02dba4b3c90ea7"
+    }
+  ],
+  "ir": {
+    "name": "rank_adjacent_positive_gap_pairs",
+    "intuition": "Select pairs where the winner rank is exactly one better (lower) than the loser rank and the winner's objective is strictly better (lower) than the loser's, ensuring meaningful adjacent ranking pairs with positive gap for pairwise training.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "rank"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "rank_adjacent_pairs",
+      "cap_family": "no_cap",
+      "weight_family": "gap_linear",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "sub",
+      "eq",
+      "gt",
+      "nonzero",
+      "to"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    rank = feature_cache['rank']\n    # shapes: [batch_size, n]\n    rank_w = rank.unsqueeze(2)  # [batch_size, n, 1]\n    rank_l = rank.unsqueeze(1)  # [batch_size, 1, n]\n    # winner rank exactly one better (lower) than loser\n    is_adjacent = (rank_l - rank_w) == 1\n    # winner objective better than loser (assuming lower_is_better)\n    gap = objective.unsqueeze(2) - objective.unsqueeze(1)  # w - l\n    valid_mask = (gap < 0) & is_adjacent\n    b_idx, w_idx, l_idx = valid_mask.nonzero(as_tuple=True)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx.to(dtype=torch.int64), w_idx.to(dtype=torch.int64), l_idx.to(dtype=torch.int64)),\n        weight=None,\n        meta={'builder': 'rank_adjacent_positive_gap_pairs'}\n    )"
+  },
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "builder_static_ok": true,
+  "builder_static_reason": "ok",
+  "builder_static_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 8,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 1,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": false,
+      "cv_threshold": 0.0,
+      "pass_rate_threshold": 1.0,
+      "eligible_instances": 0,
+      "observed_cv_values": []
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "fitness": 0.0,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  },
+  "builder_perf": 0.0,
+  "builder_cost": 8.0,
+  "builder_feasible": true,
+  "builder_threshold": 0.0,
+  "builder_best_perf": 0.0,
+  "selection_sort_key": [
+    0.0,
+    8.0,
+    0.0
+  ]
+}

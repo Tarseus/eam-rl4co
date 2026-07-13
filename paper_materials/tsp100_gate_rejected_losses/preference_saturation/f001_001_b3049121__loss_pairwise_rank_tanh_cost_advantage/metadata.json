@@ -1,0 +1,351 @@
+{
+  "f_id": "f001_001_b3049121",
+  "category": "preference_saturation",
+  "category_title": "Preference-saturation failures",
+  "why_collected": "These formulas collapse to zero or near-zero effective gradients on the gate batch. They may encode a reasonable hinge, softplus, or advantage idea, but their link/thresholding makes the preference signal inactive or flat.",
+  "source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442",
+  "gate_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442",
+  "generation": 1,
+  "pair_index": 10,
+  "pair_reason": "cheap_gate_failed",
+  "joint_gate_reason": "joint_preference_violation",
+  "joint_failure_kind": "joint_preference_violation",
+  "joint_where_failed": [
+    "log_prob_w_direction",
+    "log_prob_l_direction",
+    "saturation",
+    "swap"
+  ],
+  "joint_observed": {
+    "grad_w_pass_rate": 0.0,
+    "grad_l_pass_rate": 0.0,
+    "effective_grad_ratio": 0.0,
+    "loss": 0.5666666626930237,
+    "loss_swap": 0.5666666626930237,
+    "swap_ok": false,
+    "swap_check_mode": "data",
+    "swap_ref_loss": 0.5666666626930237
+  },
+  "co_reason": null,
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_visible_reason": null,
+  "co_invariance_visible_reason": null,
+  "name": "loss_pairwise_rank_tanh_cost_advantage",
+  "intuition": "A pairwise ranking loss that combines a tanh-transformed advantage gap with a cost gap penalty, using a hinge-like margin on the rank difference. This paradigm shift replaces the logistic link with a margin ranking approach linked via a tanh non-linearity, aggregating losses by weighted sum to emphasize significant pairwise disagreements prioritized by cost and advantage signals.",
+  "pseudocode": "adv_gap = tanh(advantage_w - advantage_l)\ncost_penalty = relu(cost_gap)\nrank_diff = log_prob_w - log_prob_l\nmargin = 0.1\nmargin_diff = relu(margin - adv_gap * rank_diff)\nloss_per_pair = margin_diff * cost_penalty * weight\nloss = sum(loss_per_pair) / sum(weight)",
+  "hyperparams": {
+    "paradigm_family": "pairwise_ranking",
+    "signal_family": "advantage_costgap",
+    "link_family": "hinge_margin_tanh",
+    "agg_family": "weighted_sum_normalized",
+    "constraint_family": "nonnegative_relu"
+  },
+  "operators_used": [
+    "tanh",
+    "relu",
+    "sub",
+    "mul",
+    "add",
+    "sum",
+    "div"
+  ],
+  "implementation_hint": {
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "advantage_w",
+      "advantage_l",
+      "cost_gap"
+    ],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    cost_gap = batch.get('cost_gap', ops.zeros_like(lpw))\n    margin = float(extra.get('margin', 0.1))\n\n    adv_gap = ops.tanh(ops.sub(adv_w, adv_l))\n    cost_penalty = ops.relu(cost_gap)\n    rank_diff = ops.sub(lpw, lpl)\n    margin_diff = ops.relu(ops.sub(margin, ops.mul(adv_gap, rank_diff)))\n\n    loss_per_pair = ops.mul(ops.mul(margin_diff, cost_penalty), weight)\n    total_weight = ops.sum(weight) + 1e-8\n    loss = ops.div(ops.sum(loss_per_pair), total_weight)\n    return loss",
+  "loss_record": {
+    "generation": 1,
+    "index": 1,
+    "id": "f001_001_b3049121",
+    "signature": "b30491213a53722a0baaf6f545aedadef7ed4e10",
+    "family": "pairwise_ranking|advantage_costgap|weighted_sum_normalized|nonnegative_relu",
+    "family_signature": "paradigm=pairwise_ranking|signal=advantage_costgap|agg=weighted_sum_normalized|constraint=nonnegative_relu",
+    "origin": "PARADIGM_SHIFT",
+    "origin_base": "PARADIGM_SHIFT",
+    "op_type": "LOSS_PARADIGM_SHIFT",
+    "parents": [
+      "f000_003_ca0db1ee",
+      "f000_012_deb76282",
+      "f000_001_8f194615",
+      "f000_007_dfaa3872",
+      "f000_005_cd3ef125"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "a4234c86df1c1dac6c157fdc40d2909a1dac15bd",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+    "llm_seed": 337121000,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_PARADIGM_SHIFT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_paradigm_shift.txt",
+        "prompt_sha1": "a4234c86df1c1dac6c157fdc40d2909a1dac15bd"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.4166666666666667,
+      "best_similarity_parts": {
+        "bigram": 0.11538461538461539,
+        "unigram": 0.375,
+        "call": 0.4166666666666667
+      },
+      "neighbors": [
+        {
+          "sig": "cd3ef12524b8ce4bb30538c549dfce82df583d98",
+          "name": "loss_diffadvantage_tanh_relu_costgap",
+          "similarity": 0.4166666666666667,
+          "similarity_parts": {
+            "bigram": 0.11538461538461539,
+            "unigram": 0.375,
+            "call": 0.4166666666666667
+          },
+          "call_names_top": [
+            "batch.get",
+            "ops.mean",
+            "ops.mul",
+            "ops.relu",
+            "ops.sub",
+            "ops.tanh"
+          ]
+        },
+        {
+          "sig": "61d6c06dbc39ba7d90f9187cb1080ed36cb53cf2",
+          "name": "loss_rank_gap_huber_entropy_advantage",
+          "similarity": 0.4,
+          "similarity_parts": {
+            "bigram": 0.125,
+            "unigram": 0.38095238095238093,
+            "call": 0.4
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "ops.abs",
+            "ops.ones_like",
+            "ops.rank_gap",
+            "ops.sigmoid",
+            "ops.sum",
+            "ops.where",
+            "ops.zeros_like"
+          ]
+        },
+        {
+          "sig": "deb7628251229c1267d12e9716f95fc33d32489a",
+          "name": "pairwise_pref_zscore_loss",
+          "similarity": 0.3888888888888889,
+          "similarity_parts": {
+            "bigram": 0.10810810810810811,
+            "unigram": 0.3888888888888889,
+            "call": 0.375
+          },
+          "call_names_top": [
+            "batch.get",
+            "ops.clamp",
+            "ops.div",
+            "ops.logsigmoid",
+            "ops.mean",
+            "ops.mul",
+            "ops.neg",
+            "ops.ones_like",
+            "ops.sqrt",
+            "ops.sub",
+            "ops.zeros_like"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "loss_pairwise_rank_tanh_cost_advantage",
+      "intuition": "A pairwise ranking loss that combines a tanh-transformed advantage gap with a cost gap penalty, using a hinge-like margin on the rank difference. This paradigm shift replaces the logistic link with a margin ranking approach linked via a tanh non-linearity, aggregating losses by weighted sum to emphasize significant pairwise disagreements prioritized by cost and advantage signals.",
+      "pseudocode": "adv_gap = tanh(advantage_w - advantage_l)\ncost_penalty = relu(cost_gap)\nrank_diff = log_prob_w - log_prob_l\nmargin = 0.1\nmargin_diff = relu(margin - adv_gap * rank_diff)\nloss_per_pair = margin_diff * cost_penalty * weight\nloss = sum(loss_per_pair) / sum(weight)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_ranking",
+        "signal_family": "advantage_costgap",
+        "link_family": "hinge_margin_tanh",
+        "agg_family": "weighted_sum_normalized",
+        "constraint_family": "nonnegative_relu"
+      },
+      "operators_used": [
+        "tanh",
+        "relu",
+        "sub",
+        "mul",
+        "add",
+        "sum",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w",
+          "advantage_l",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    cost_gap = batch.get('cost_gap', ops.zeros_like(lpw))\n    margin = float(extra.get('margin', 0.1))\n\n    adv_gap = ops.tanh(ops.sub(adv_w, adv_l))\n    cost_penalty = ops.relu(cost_gap)\n    rank_diff = ops.sub(lpw, lpl)\n    margin_diff = ops.relu(ops.sub(margin, ops.mul(adv_gap, rank_diff)))\n\n    loss_per_pair = ops.mul(ops.mul(margin_diff, cost_penalty), weight)\n    total_weight = ops.sum(weight) + 1e-8\n    loss = ops.div(ops.sum(loss_per_pair), total_weight)\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442"
+  },
+  "gate_record": {
+    "generation": 1,
+    "pair_index": 10,
+    "g_id": "g_ref",
+    "f_id": "f001_001_b3049121",
+    "stage": "gate",
+    "phase": "loss",
+    "score": Infinity,
+    "proxy_metrics": null,
+    "seed_signature": null,
+    "descriptor": null,
+    "stages_enabled": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "stages_ran": [
+      "stage0_gate"
+    ],
+    "stages_skipped": {
+      "stage1_proxy": "disabled",
+      "stage2_micro_unroll": "disabled",
+      "stage3_high_fidelity": "not_selected_for_high_fidelity"
+    },
+    "stage_final": "none",
+    "final_score": null,
+    "reference_score": Infinity,
+    "improve_eps": 0.0,
+    "better_than_incumbent": false,
+    "delta_vs_incumbent": null,
+    "better_than_last_phase": false,
+    "delta_vs_last_phase": null,
+    "last_phase_label": "baseline",
+    "last_phase_reference_score": Infinity,
+    "better_than_incumbent_note": null,
+    "compare_target": "incumbent",
+    "static_ok": true,
+    "static_reason": "",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": false,
+    "joint_gate_reason": "joint_preference_violation",
+    "joint_gate_trace": {
+      "failed_gate": "JointPreference",
+      "failure_kind": "joint_preference_violation",
+      "observed": {
+        "grad_w_pass_rate": 0.0,
+        "grad_l_pass_rate": 0.0,
+        "effective_grad_ratio": 0.0,
+        "loss": 0.5666666626930237,
+        "loss_swap": 0.5666666626930237,
+        "swap_ok": false,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 0.5666666626930237
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [
+        "log_prob_w_direction",
+        "log_prob_l_direction",
+        "saturation",
+        "swap"
+      ],
+      "variant": "visible"
+    },
+    "co_ok": null,
+    "co_reason": null,
+    "co_failed_gate": null,
+    "co_failure_kind": null,
+    "co_sensitivity_ok": null,
+    "co_invariance_ok": null,
+    "co_sensitivity_visible_ok": null,
+    "co_sensitivity_visible_reason": null,
+    "co_sensitivity_visible_abs_delta": null,
+    "co_sensitivity_visible_rel_delta": null,
+    "co_sensitivity_visible_trace": null,
+    "co_sensitivity_hidden_ok": null,
+    "co_sensitivity_hidden_reason": null,
+    "co_sensitivity_hidden_abs_delta": null,
+    "co_sensitivity_hidden_rel_delta": null,
+    "co_sensitivity_hidden_trace": null,
+    "co_invariance_visible_ok": null,
+    "co_invariance_visible_reason": null,
+    "co_invariance_visible_abs_delta": null,
+    "co_invariance_visible_rel_delta": null,
+    "co_invariance_visible_trace": null,
+    "co_invariance_hidden_ok": null,
+    "co_invariance_hidden_reason": null,
+    "co_invariance_hidden_abs_delta": null,
+    "co_invariance_hidden_rel_delta": null,
+    "co_invariance_hidden_trace": null,
+    "pref_semantic_ok": null,
+    "pref_semantic_reason": null,
+    "pref_semantic_trace": null,
+    "dynamic_ok": null,
+    "dynamic_visible_trace": null,
+    "dynamic_hidden_trace": null,
+    "pair_ok": false,
+    "pair_reason": "cheap_gate_failed",
+    "gate_repair": null,
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-102442"
+  }
+}

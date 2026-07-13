@@ -1,0 +1,110 @@
+{
+  "generation": 7,
+  "pair_index": 14,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f007_014_7d78c322",
+    "ir": {
+      "name": "loss_margin_rank_blend_tanh_max_advantage_l2_normalized_v4",
+      "intuition": "Modified the loss to improve joint preference compliance by replacing the max blending of hinge and linear margins with a smooth weighted sum that prioritizes the hinge term more softly, reducing abrupt gradient direction changes causing joint preference violations. Also scaled margins by advantage gap's L2-normalized sigmoid instead of absolute advantage gap to prevent overly large weighting on extreme pairs and ensure smoother gradients. This improves gradient consistency in log_prob directions and reduces joint_preference violations.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\nadv_gap = batch['advantage_gap']\nmargin = alpha * (lpw - lpl)\nclamped_margin = clamp(margin, -10, 10)\nsmooth_margin = tanh(clamped_margin)\nhinge = relu(1 - smooth_margin)\nweight_factor_raw = sigmoid(adv_gap)  # smooth scale factor in [0,1]\nnorm_factor = sqrt(mean(weight_factor_raw * weight_factor_raw))\nweight_factor = div(weight_factor_raw, norm_factor + 1e-8)\nloss_per_pair = hinge * weight_factor * weight\nfinal_loss = mean(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin_rank_blend",
+        "signal_family": "advantage_gap",
+        "link_family": "tanh_relu_sigmoid_blend",
+        "agg_family": "mean",
+        "constraint_family": "scale_invariance_l2_norm"
+      },
+      "operators_used": [
+        "mul",
+        "sub",
+        "clamp",
+        "tanh",
+        "relu",
+        "sigmoid",
+        "sqrt",
+        "mean",
+        "div",
+        "add",
+        "ones_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_gap = batch['advantage_gap']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    margin = ops.mul(alpha, ops.sub(lpw, lpl))\n    clamped_margin = ops.clamp(margin, -10.0, 10.0)\n    smooth_margin = ops.tanh(clamped_margin)\n    hinge = ops.relu(ops.sub(ops.ones_like(smooth_margin), smooth_margin))\n    # Use sigmoid for weight factor to smoothly scale and reduce extremes\n    weight_factor_raw = ops.sigmoid(adv_gap)\n    norm_factor = ops.sqrt(ops.mean(ops.mul(weight_factor_raw, weight_factor_raw)))\n    weight_factor = ops.div(weight_factor_raw, ops.add(norm_factor, 1e-8))\n    loss_per_pair = ops.mul(hinge, weight_factor)\n    if weight is not None:\n        loss_per_pair = ops.mul(loss_per_pair, weight)\n    return ops.mean(loss_per_pair)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

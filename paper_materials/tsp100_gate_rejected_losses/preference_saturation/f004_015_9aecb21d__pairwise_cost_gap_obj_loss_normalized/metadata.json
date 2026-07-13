@@ -1,0 +1,339 @@
+{
+  "f_id": "f004_015_9aecb21d",
+  "category": "preference_saturation",
+  "category_title": "Preference-saturation failures",
+  "why_collected": "These formulas collapse to zero or near-zero effective gradients on the gate batch. They may encode a reasonable hinge, softplus, or advantage idea, but their link/thresholding makes the preference signal inactive or flat.",
+  "source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "gate_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507",
+  "generation": 4,
+  "pair_index": 0,
+  "pair_reason": "cheap_gate_failed",
+  "joint_gate_reason": "joint_preference_violation",
+  "joint_failure_kind": "joint_preference_violation",
+  "joint_where_failed": [
+    "log_prob_w_direction",
+    "log_prob_l_direction",
+    "saturation"
+  ],
+  "joint_observed": {
+    "grad_w_pass_rate": 0.0,
+    "grad_l_pass_rate": 0.0,
+    "effective_grad_ratio": 0.0,
+    "loss": 0.0,
+    "loss_swap": 4.5333333015441895,
+    "swap_ok": true,
+    "swap_check_mode": "data",
+    "swap_ref_loss": 0.0
+  },
+  "co_reason": null,
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_visible_reason": null,
+  "co_invariance_visible_reason": null,
+  "name": "pairwise_cost_gap_obj_loss_normalized",
+  "intuition": "This loss normalizes the pairwise hinge loss by the total sum of weights to ensure scale-invariance and prevent large batch size effects, promoting stable training regardless of batch composition.",
+  "pseudocode": "diff = log_prob_l - log_prob_w\nweighted_diff = diff * cost_gap * weight\nhinge_loss = max(0, weighted_diff)\nloss = sum(hinge_loss) / sum(weight)",
+  "hyperparams": {
+    "paradigm_family": "pairwise_comparison",
+    "signal_family": "cost",
+    "link_family": "difference",
+    "agg_family": "sum_div_sum",
+    "constraint_family": "normalization"
+  },
+  "operators_used": [
+    "sub",
+    "mul",
+    "relu",
+    "sum",
+    "div"
+  ],
+  "implementation_hint": {
+    "expects": [
+      "log_prob_w",
+      "log_prob_l",
+      "weight",
+      "cost_gap"
+    ],
+    "returns": "scalar",
+    "mode": "pairwise"
+  },
+  "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(log_prob_w))\n    cost_gap = batch.get('cost_gap', ops.zeros_like(log_prob_w))\n    diff = ops.sub(log_prob_l, log_prob_w)\n    weighted_diff = ops.mul(ops.mul(diff, cost_gap), weight)\n    hinge_loss = ops.relu(weighted_diff)\n    loss = ops.div(ops.sum(hinge_loss), ops.sum(weight))\n    return loss",
+  "loss_record": {
+    "generation": 4,
+    "index": 15,
+    "id": "f004_015_9aecb21d",
+    "signature": "9aecb21dd6ef4c5db2755d18b9f2375d84a85f7a",
+    "family": "pairwise_comparison|cost|sum_div_sum|normalization",
+    "family_signature": "paradigm=pairwise_comparison|signal=cost|agg=sum_div_sum|constraint=normalization",
+    "origin": "CONSTRAINT_INJECT",
+    "origin_base": "CONSTRAINT_INJECT",
+    "op_type": "LOSS_CONSTRAINT_INJECT",
+    "parents": [
+      "f000_012_50dd0498"
+    ],
+    "attempt": 0,
+    "prompt_sha1": "0969f7ad64e1c596ceacbce98fa8201e5e4774b1",
+    "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+    "llm_seed": 863650211,
+    "history": [
+      {
+        "attempt": 0,
+        "side": "loss",
+        "llm_op": "LOSS_CONSTRAINT_INJECT",
+        "prompt_path": "/data1/gushengda/eam-rl4co/PTP/prompts/free_loss_constraint_inject.txt",
+        "prompt_sha1": "0969f7ad64e1c596ceacbce98fa8201e5e4774b1"
+      }
+    ],
+    "novelty": {
+      "max_similarity": 0.6,
+      "best_similarity_parts": {
+        "bigram": 0.3076923076923077,
+        "unigram": 0.6,
+        "call": 0.5555555555555556
+      },
+      "neighbors": [
+        {
+          "sig": "50dd049861d8d41bb2f044110bc1347e2eb00ba0",
+          "name": "pairwise_cost_gap_obj_loss",
+          "similarity": 0.6,
+          "similarity_parts": {
+            "bigram": 0.3076923076923077,
+            "unigram": 0.6,
+            "call": 0.5555555555555556
+          },
+          "call_names_top": [
+            "batch.get",
+            "ops.mean",
+            "ops.mul",
+            "ops.relu",
+            "ops.sub",
+            "ops.zeros_like"
+          ]
+        },
+        {
+          "sig": "52eed4b69cafc7dc1806872e66bd7037ba63e33b",
+          "name": "loss_delta_regret_exp_normalized_relu",
+          "similarity": 0.5,
+          "similarity_parts": {
+            "bigram": 0.15384615384615385,
+            "unigram": 0.4444444444444444,
+            "call": 0.5
+          },
+          "call_names_top": [
+            "batch.get",
+            "extra.get",
+            "float",
+            "get",
+            "ops.clamp",
+            "ops.div",
+            "ops.exp",
+            "ops.mul",
+            "ops.neg",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum"
+          ]
+        },
+        {
+          "sig": "c64692a2c6d43d3b15f515894db35ddf714561bf",
+          "name": "loss_rank_regret_relu_clamped_weighted_zscore",
+          "similarity": 0.38461538461538464,
+          "similarity_parts": {
+            "bigram": 0.045454545454545456,
+            "unigram": 0.375,
+            "call": 0.38461538461538464
+          },
+          "call_names_top": [
+            "batch.get",
+            "div",
+            "ops.clamp",
+            "ops.mean",
+            "ops.ones_like",
+            "ops.relu",
+            "ops.sub",
+            "ops.sum",
+            "ops.tanh",
+            "ops.zscore"
+          ]
+        }
+      ]
+    },
+    "ir": {
+      "name": "pairwise_cost_gap_obj_loss_normalized",
+      "intuition": "This loss normalizes the pairwise hinge loss by the total sum of weights to ensure scale-invariance and prevent large batch size effects, promoting stable training regardless of batch composition.",
+      "pseudocode": "diff = log_prob_l - log_prob_w\nweighted_diff = diff * cost_gap * weight\nhinge_loss = max(0, weighted_diff)\nloss = sum(hinge_loss) / sum(weight)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_comparison",
+        "signal_family": "cost",
+        "link_family": "difference",
+        "agg_family": "sum_div_sum",
+        "constraint_family": "normalization"
+      },
+      "operators_used": [
+        "sub",
+        "mul",
+        "relu",
+        "sum",
+        "div"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(log_prob_w))\n    cost_gap = batch.get('cost_gap', ops.zeros_like(log_prob_w))\n    diff = ops.sub(log_prob_l, log_prob_w)\n    weighted_diff = ops.mul(ops.mul(diff, cost_gap), weight)\n    hinge_loss = ops.relu(weighted_diff)\n    loss = ops.div(ops.sum(hinge_loss), ops.sum(weight))\n    return loss",
+      "theoretical_basis": ""
+    },
+    "static_ok": true,
+    "static_reason": "",
+    "static_trace": null,
+    "compile_ok": true,
+    "compile_reason": "ok",
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  },
+  "gate_record": {
+    "generation": 4,
+    "pair_index": 0,
+    "g_id": "g_ref",
+    "f_id": "f004_015_9aecb21d",
+    "stage": "gate",
+    "phase": "loss",
+    "score": Infinity,
+    "proxy_metrics": null,
+    "seed_signature": null,
+    "descriptor": null,
+    "stages_enabled": {
+      "stage0_gate": true,
+      "stage1_proxy": false,
+      "stage2_micro_unroll": false,
+      "stage3_high_fidelity": true
+    },
+    "stages_ran": [
+      "stage0_gate"
+    ],
+    "stages_skipped": {
+      "stage1_proxy": "disabled",
+      "stage2_micro_unroll": "disabled",
+      "stage3_high_fidelity": "not_selected_for_high_fidelity"
+    },
+    "stage_final": "none",
+    "final_score": null,
+    "reference_score": -0.013375043106078621,
+    "improve_eps": 0.0,
+    "better_than_incumbent": false,
+    "delta_vs_incumbent": null,
+    "better_than_last_phase": false,
+    "delta_vs_last_phase": null,
+    "last_phase_label": "baseline",
+    "last_phase_reference_score": Infinity,
+    "better_than_incumbent_note": null,
+    "compare_target": "incumbent",
+    "static_ok": true,
+    "static_reason": "",
+    "builder_gate_ok": true,
+    "builder_gate_reason": "ok",
+    "builder_gate_trace": {
+      "failed_gate": null,
+      "checks": [
+        {
+          "metric_name": "pair_count",
+          "observed_value": 960,
+          "threshold": 1,
+          "direction": ">="
+        },
+        {
+          "metric_name": "coverage",
+          "observed_value": 1.0,
+          "threshold": 0.0,
+          "direction": ">="
+        },
+        {
+          "metric_name": "max_pairs_per_instance",
+          "observed_value": 120,
+          "threshold": 8192,
+          "direction": "<="
+        },
+        {
+          "metric_name": "semantic_pass_rate",
+          "observed_value": 1.0,
+          "threshold": 1.0,
+          "direction": ">="
+        }
+      ],
+      "builder_pref_cache_hit": false,
+      "memory_metric_available": false,
+      "memory_device": "cpu"
+    },
+    "joint_gate_ok": false,
+    "joint_gate_reason": "joint_preference_violation",
+    "joint_gate_trace": {
+      "failed_gate": "JointPreference",
+      "failure_kind": "joint_preference_violation",
+      "observed": {
+        "grad_w_pass_rate": 0.0,
+        "grad_l_pass_rate": 0.0,
+        "effective_grad_ratio": 0.0,
+        "loss": 0.0,
+        "loss_swap": 4.5333333015441895,
+        "swap_ok": true,
+        "swap_check_mode": "data",
+        "swap_ref_loss": 0.0
+      },
+      "threshold": {
+        "min_pass_rate": 0.8,
+        "swap_tolerance": 0.001,
+        "swap_test_margin": 1.0,
+        "min_effective_grad_ratio": 0.1,
+        "grad_eps": 1e-08
+      },
+      "where_failed": [
+        "log_prob_w_direction",
+        "log_prob_l_direction",
+        "saturation"
+      ],
+      "variant": "visible"
+    },
+    "co_ok": null,
+    "co_reason": null,
+    "co_failed_gate": null,
+    "co_failure_kind": null,
+    "co_sensitivity_ok": null,
+    "co_invariance_ok": null,
+    "co_sensitivity_visible_ok": null,
+    "co_sensitivity_visible_reason": null,
+    "co_sensitivity_visible_abs_delta": null,
+    "co_sensitivity_visible_rel_delta": null,
+    "co_sensitivity_visible_trace": null,
+    "co_sensitivity_hidden_ok": null,
+    "co_sensitivity_hidden_reason": null,
+    "co_sensitivity_hidden_abs_delta": null,
+    "co_sensitivity_hidden_rel_delta": null,
+    "co_sensitivity_hidden_trace": null,
+    "co_invariance_visible_ok": null,
+    "co_invariance_visible_reason": null,
+    "co_invariance_visible_abs_delta": null,
+    "co_invariance_visible_rel_delta": null,
+    "co_invariance_visible_trace": null,
+    "co_invariance_hidden_ok": null,
+    "co_invariance_hidden_reason": null,
+    "co_invariance_hidden_abs_delta": null,
+    "co_invariance_hidden_rel_delta": null,
+    "co_invariance_hidden_trace": null,
+    "pref_semantic_ok": null,
+    "pref_semantic_reason": null,
+    "pref_semantic_trace": null,
+    "dynamic_ok": null,
+    "dynamic_visible_trace": null,
+    "dynamic_hidden_trace": null,
+    "pair_ok": false,
+    "pair_reason": "cheap_gate_failed",
+    "gate_repair": null,
+    "_source_run": "runs\\pref_loss_tsp100_discovery\\20260317-131507"
+  }
+}

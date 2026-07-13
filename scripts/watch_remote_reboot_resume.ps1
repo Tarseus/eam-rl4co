@@ -68,6 +68,20 @@ function Build-Args {
         }
     }
 
+    if ($Cfg.ContainsKey("RemoteEnvFile")) {
+        $remoteEnvFile = [string]$Cfg.RemoteEnvFile
+        if (-not [string]::IsNullOrWhiteSpace($remoteEnvFile)) {
+            $argList += @("--remote-env-file", $remoteEnvFile)
+        }
+    }
+
+    if ($Cfg.ContainsKey("RemoteProcessNeedle")) {
+        $remoteProcessNeedle = [string]$Cfg.RemoteProcessNeedle
+        if (-not [string]::IsNullOrWhiteSpace($remoteProcessNeedle)) {
+            $argList += @("--process-needle", $remoteProcessNeedle)
+        }
+    }
+
     if ($Cfg.ContainsKey("WatchMode")) {
         $watchMode = [string]$Cfg.WatchMode
         if (-not [string]::IsNullOrWhiteSpace($watchMode)) {
@@ -114,14 +128,34 @@ function Start-Watcher {
         throw "Python watcher script not found: $scriptPath"
     }
 
+    $argList = Build-Args -Cfg $Cfg -ScriptPath $scriptPath
+
     $running = Get-WatcherProcesses
     if ($running) {
-        Write-Host "Watcher already running:"
-        $running | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize
-        return
+        $identityNeedle = ""
+        if ($Cfg.ContainsKey("RemoteOutputRoot")) {
+            $identityNeedle = [string]$Cfg.RemoteOutputRoot
+        }
+        if ([string]::IsNullOrWhiteSpace($identityNeedle)) {
+            $identityNeedle = [string]$Cfg.RemoteConfigPath
+        }
+        $hostNeedle = [string]$Cfg.Host
+        $same = @()
+        if (-not [string]::IsNullOrWhiteSpace($identityNeedle)) {
+            $same = @($running | Where-Object {
+                $cmd = [string]$_.CommandLine
+                $cmd.Contains($identityNeedle) -and (
+                    [string]::IsNullOrWhiteSpace($hostNeedle) -or $cmd.Contains($hostNeedle)
+                )
+            })
+        }
+        if ($same) {
+            Write-Host "Watcher already running for this config:"
+            $same | Select-Object ProcessId, Name, CommandLine | Format-Table -AutoSize
+            return
+        }
+        Write-Host "Other watcher process(es) already running; starting an additional watcher for this config."
     }
-
-    $argList = Build-Args -Cfg $Cfg -ScriptPath $scriptPath
 
     $localPython = [string]$Cfg.PythonExe
     if ([string]::IsNullOrWhiteSpace($localPython)) {
@@ -254,6 +288,13 @@ function Invoke-ExternalWithTimeout {
 
 function Get-RemoteProcessNeedle {
     param([hashtable]$Cfg)
+
+    if ($Cfg.ContainsKey("RemoteProcessNeedle")) {
+        $needle = [string]$Cfg.RemoteProcessNeedle
+        if (-not [string]::IsNullOrWhiteSpace($needle)) {
+            return $needle
+        }
+    }
 
     $watchMode = ""
     if ($Cfg.ContainsKey("WatchMode")) {

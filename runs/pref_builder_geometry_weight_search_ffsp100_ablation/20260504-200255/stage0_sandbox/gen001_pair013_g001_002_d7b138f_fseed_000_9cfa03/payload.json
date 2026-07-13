@@ -1,0 +1,118 @@
+{
+  "generation": 1,
+  "pair_index": 13,
+  "g_entry": {
+    "id": "g001_002_d7b138f1",
+    "ir": {
+      "name": "builder_all_pairs_tiezone_gap_linear",
+      "intuition": "Filter pairs by objective margin (> epsilon) and weight them proportionally to linear gap to emphasize clearer pairwise preferences",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob",
+          "advantage"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "gap_linear",
+        "constraint_family": "tiezone_threshold"
+      },
+      "operators_used": [
+        "abs",
+        "sub",
+        "ge",
+        "mul",
+        "nonzero"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']  # shape: (B, N)\n    epsilon = 1e-4\n    diff = objective[:, :, None] - objective[:, None, :]  # shape: (B, N, N)\n    tiezone_mask = (abs(diff) >= epsilon)\n    winner_mask = diff < -epsilon\n    mask = winner_mask & tiezone_mask\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    gap = (-diff[b_idx, winner_idx, loser_idx]).clamp(min=0.0)\n    return PrefBatch(\n        mode='pairwise',\n        pair_idx=(b_idx, winner_idx, loser_idx),\n        weight=gap,\n        meta={'builder': 'all_pairs_tiezone_gap_linear'}\n    )"
+    }
+  },
+  "f_entry": {
+    "id": "fseed_000_9cfa032c",
+    "ir": {
+      "name": "weighted_advantage_exp_margin_logsigmoid_scaled_weighted_mean_loss_v5",
+      "intuition": "Adjusted the margin computation to depend directly on the advantage_gap scaled by a smooth exponential sigmoid mapping, rather than on the mean advantage. This increases sensitivity to local variations rather than just a global average, addressing the insensitivity to objective perturbations. Also, added a small learnable margin floor by adding a constant to the margin for stability and ensured margin and normalization are strictly positive. This adjustment enhances gradient signal responsiveness to advantage_gap variations, improving objective sensitivity while retaining original structure and stability.",
+      "pseudocode": "epsilon=1e-6\nadv_norm = maximum(norm(advantage_gap), epsilon)\nmargin = exp(clamp(sigmoid(advantage_gap), 0, 1)) + 0.1\nx_raw = (log_prob_w - log_prob_l) / adv_norm\nx = margin * x_raw\nx_clamped = clamp(x, -20, 20)\nloss = -logsigmoid(x_clamped)\nloss_weighted = loss * weight\nreturn sum(loss_weighted) / maximum(sum(weight), epsilon)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_gap",
+        "link_family": "logsigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "normalization_exponential_margin"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "clamp",
+        "norm",
+        "mean",
+        "maximum",
+        "neg",
+        "mul",
+        "sub",
+        "div",
+        "abs",
+        "exp",
+        "sum",
+        "sigmoid"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    adv_norm = ops.maximum(ops.norm(advantage_gap), epsilon)\n    margin = ops.add(ops.exp(ops.clamp(ops.sigmoid(advantage_gap), 0.0, 1.0)), 0.1)\n    x_raw = ops.div(ops.sub(lpw, lpl), adv_norm)\n    x = ops.mul(margin, x_raw)\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    loss_weighted = ops.mul(loss, weight)\n    loss_mean = ops.div(ops.sum(loss_weighted), ops.maximum(ops.sum(weight), epsilon))\n    return loss_mean",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

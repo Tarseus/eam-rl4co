@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import csv
+import itertools
 import json
 import math
 import os
@@ -26,10 +27,25 @@ sys.modules.setdefault("bottleneck", None)
 
 import numpy as np
 
-from ortools.sat.python import cp_model
-from pyvrp import Client, Depot, ProblemData, VehicleType, solve as pyvrp_solve
-from pyvrp.constants import MAX_VALUE as PYVRP_MAX_VALUE
-from pyvrp.stop import MaxRuntime
+try:
+    from ortools.sat.python import cp_model
+
+    _ORTOOLS_IMPORT_ERROR: Exception | None = None
+except Exception as exc:  # pragma: no cover - depends on optional solver package.
+    cp_model = None  # type: ignore[assignment]
+    _ORTOOLS_IMPORT_ERROR = exc
+
+try:
+    from pyvrp import Client, Depot, ProblemData, VehicleType, solve as pyvrp_solve
+    from pyvrp.constants import MAX_VALUE as PYVRP_MAX_VALUE
+    from pyvrp.stop import MaxRuntime
+
+    _PYVRP_IMPORT_ERROR: Exception | None = None
+except Exception as exc:  # pragma: no cover - depends on optional compiled solver package.
+    Client = Depot = ProblemData = VehicleType = MaxRuntime = None  # type: ignore[assignment]
+    pyvrp_solve = None  # type: ignore[assignment]
+    PYVRP_MAX_VALUE = 10**12
+    _PYVRP_IMPORT_ERROR = exc
 
 
 @dataclass(frozen=True)
@@ -97,7 +113,7 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         ffsp_stages=3,
         ffsp_machines=4,
         cp_sat_time_limit_s=180.0,
-        solvers=("ortools_cp_sat", "sjf"),
+        solvers=("ortools_cp_sat", "sjf", "neh"),
     ),
     "ffsp100": ScenarioConfig(
         name="ffsp100",
@@ -108,14 +124,14 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         ffsp_stages=3,
         ffsp_machines=4,
         cp_sat_time_limit_s=600.0,
-        solvers=("ortools_cp_sat", "sjf"),
+        solvers=("ortools_cp_sat", "sjf", "neh"),
     ),
     "jssp10x10": ScenarioConfig(
         name="jssp10x10",
         problem="jssp",
         size=10,
         test_file=None,
-        generated_count=0,
+        generated_count=100,
         jssp_shape="10x10",
         cp_sat_time_limit_s=180.0,
         solvers=("ortools_cp_sat", "spt", "mor", "mwr"),
@@ -125,7 +141,7 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         problem="jssp",
         size=15,
         test_file=None,
-        generated_count=0,
+        generated_count=100,
         jssp_shape="15x15",
         cp_sat_time_limit_s=600.0,
         solvers=("ortools_cp_sat", "spt", "mor", "mwr"),
@@ -193,6 +209,16 @@ def parse_args() -> argparse.Namespace:
         help="Override TSP solver list.",
     )
     parser.add_argument(
+        "--scheduling-solvers",
+        nargs="+",
+        default=None,
+        choices=["ortools_cp_sat", "sjf", "neh", "spt", "mor", "mwr"],
+        help=(
+            "Override scheduling solver list for JSSP/FFSP scenarios. "
+            "Use --scheduling-solvers ortools_cp_sat to run only the high-performance CP-SAT baseline."
+        ),
+    )
+    parser.add_argument(
         "--require-test-data",
         action="store_true",
         help="Fail instead of generating fallback routing instances when the expected test file is missing.",
@@ -208,6 +234,27 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=1,
         help="OR-Tools CP-SAT threads per instance. Keep at 1 when maximizing outer parallelism across instances.",
+    )
+    parser.add_argument(
+        "--scheduling-cp-sat-time-limit",
+        type=float,
+        default=None,
+        help="Override the per-instance CP-SAT time limit for JSSP/FFSP scenarios.",
+    )
+    parser.add_argument(
+        "--jssp-data-dir",
+        type=Path,
+        default=None,
+        help="Override the JSSP instance directory. Files are filtered by scenario shape prefix.",
+    )
+    parser.add_argument(
+        "--ffsp-data-file",
+        type=Path,
+        default=None,
+        help=(
+            "Optional NPZ file containing a run_time array for a single FFSP scenario. "
+            "Use this to evaluate exactly the same instances as neural FFSP evaluation."
+        ),
     )
     return parser.parse_args()
 
@@ -350,9 +397,29 @@ def _load_cvrp_instances(
     ]
 
 
-def _load_ffsp_instances(cfg: ScenarioConfig, seed: int, max_instances: int | None) -> list[np.ndarray]:
+def _load_ffsp_instances(
+    cfg: ScenarioConfig,
+    seed: int,
+    max_instances: int | None,
+    data_file: Path | None = None,
+) -> list[np.ndarray]:
     assert cfg.ffsp_stages is not None and cfg.ffsp_machines is not None
     count = cfg.generated_count if max_instances is None else min(cfg.generated_count, max_instances)
+    if data_file is not None:
+        with np.load(data_file) as payload:
+            if "run_time" not in payload:
+                raise ValueError(f"FFSP data file must contain key 'run_time': {data_file}")
+            run_time = np.asarray(payload["run_time"])
+        expected_tail = (cfg.size, cfg.ffsp_stages * cfg.ffsp_machines)
+        if run_time.ndim != 3 or tuple(run_time.shape[1:]) != expected_tail:
+            raise ValueError(
+                f"FFSP data shape mismatch for {cfg.name}: got {run_time.shape}, "
+                f"expected (*, {expected_tail[0]}, {expected_tail[1]})"
+            )
+        if max_instances is not None:
+            run_time = run_time[:count]
+        return [instance.astype(np.int32) for instance in run_time]
+
     rng = np.random.default_rng(seed)
     run_time = rng.integers(
         low=2,
@@ -363,10 +430,51 @@ def _load_ffsp_instances(cfg: ScenarioConfig, seed: int, max_instances: int | No
     return [instance.astype(np.int32) for instance in run_time]
 
 
-def _load_jssp_instances(cfg: ScenarioConfig, max_instances: int | None) -> list[Path]:
+def _write_generated_jssp(path: Path, *, num_jobs: int, num_machines: int, rng: np.random.Generator) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [f"{num_jobs} {num_machines}"]
+    for _ in range(num_jobs):
+        machines = rng.permutation(num_machines)
+        durations = rng.integers(1, 100, size=num_machines)
+        row: list[str] = []
+        for machine, duration in zip(machines, durations, strict=True):
+            row.extend([str(int(machine)), str(int(duration))])
+        lines.append(" ".join(row))
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _load_jssp_instances(
+    cfg: ScenarioConfig,
+    max_instances: int | None,
+    seed: int,
+    data_dir: Path | None = None,
+) -> list[Path]:
     assert cfg.jssp_shape is not None
-    root = REPO_ROOT / "data" / "jssp_bopo" / "validation"
+    num_jobs, num_machines = (int(part) for part in cfg.jssp_shape.split("x", 1))
+    root = data_dir.resolve() if data_dir is not None else REPO_ROOT / "data" / "jssp_bopo" / "validation"
     files = sorted(root.glob(f"{cfg.jssp_shape}_*.jsp"))
+    if data_dir is not None:
+        if max_instances is not None:
+            files = files[:max_instances]
+        return files
+    target_count = cfg.generated_count if max_instances is None else min(cfg.generated_count, max_instances)
+    if len(files) < target_count:
+        rng = np.random.default_rng(seed + num_jobs * 1000 + num_machines)
+        existing_names = {path.name for path in files}
+        idx = 0
+        while len(files) < target_count:
+            path = root / f"{cfg.jssp_shape}_{idx}.jsp"
+            if path.name not in existing_names:
+                _write_generated_jssp(
+                    path,
+                    num_jobs=num_jobs,
+                    num_machines=num_machines,
+                    rng=rng,
+                )
+                files.append(path)
+                existing_names.add(path.name)
+            idx += 1
+        files = sorted(root.glob(f"{cfg.jssp_shape}_*.jsp"))
     if max_instances is not None:
         files = files[:max_instances]
     return files
@@ -479,6 +587,11 @@ def run_tsp_concorde(
 
 
 def _build_pyvrp_problem(instance: dict[str, np.ndarray]) -> ProblemData:
+    if _PYVRP_IMPORT_ERROR is not None:
+        raise RuntimeError(
+            "PyVRP is required for CVRP classical baselines but could not be imported"
+        ) from _PYVRP_IMPORT_ERROR
+
     depot_coord = np.asarray(instance["depot"], dtype=np.float32)
     locs = np.asarray(instance["locs"], dtype=np.float32)
     demand = np.asarray(instance["demand"], dtype=np.float32)
@@ -520,6 +633,11 @@ def run_cvrp_pyvrp(
     scenario_name: str,
     time_limit_sec: float,
 ) -> PerInstanceResult:
+    if _PYVRP_IMPORT_ERROR is not None or pyvrp_solve is None or MaxRuntime is None:
+        raise RuntimeError(
+            "PyVRP is required for CVRP classical baselines but could not be imported"
+        ) from _PYVRP_IMPORT_ERROR
+
     t0 = time.perf_counter()
     result = pyvrp_solve(_build_pyvrp_problem(instance), MaxRuntime(time_limit_sec))
     elapsed = time.perf_counter() - t0
@@ -534,25 +652,144 @@ def run_cvrp_pyvrp(
     )
 
 
-def ffsp_sjf_makespan(run_time: np.ndarray, num_stage: int, num_machine: int) -> int:
+def ffsp_sjf_schedule(
+    run_time: np.ndarray,
+    num_stage: int,
+    num_machine: int,
+    machine_order: tuple[int, ...] | None = None,
+) -> tuple[int, list[tuple[int, int, int, int, int]]]:
+    """Environment-faithful FFSP shortest-job-first schedule.
+
+    The FFSP policy environment iterates over stage-machine candidates in discrete
+    time and chooses either a ready job or the dummy wait action.  The older
+    implementation scheduled a whole stage at once, which is not the same problem
+    protocol used by MatNet/PO4COPs and gives costs on the wrong scale.
+    """
     num_job = run_time.shape[0]
-    prev_finish = np.zeros(num_job, dtype=int)
-    for stage in range(num_stage):
-        stage_times = run_time[:, stage * num_machine : (stage + 1) * num_machine]
-        machine_ready = np.zeros(num_machine, dtype=int)
-        stage_finish = np.zeros(num_job, dtype=int)
-        order = sorted(range(num_job), key=lambda job: (int(stage_times[job].min()), int(stage_times[job].sum()), job))
-        for job in order:
-            best_machine = min(
-                range(num_machine),
-                key=lambda machine: max(machine_ready[machine], prev_finish[job]) + int(stage_times[job, machine]),
-            )
-            start = max(machine_ready[best_machine], prev_finish[job])
-            end = start + int(stage_times[job, best_machine])
-            machine_ready[best_machine] = end
-            stage_finish[job] = end
-        prev_finish = stage_finish
-    return int(prev_finish.max())
+    num_machine_total = num_stage * num_machine
+    if machine_order is None:
+        machine_order = tuple(range(num_machine))
+    if sorted(machine_order) != list(range(num_machine)):
+        raise ValueError(f"Invalid FFSP machine order {machine_order} for {num_machine} machines")
+    time_idx = 0
+    sub_time_idx = 0
+    machine_wait_step = np.zeros(num_machine_total, dtype=int)
+    job_wait_step = np.zeros(num_job, dtype=int)
+    job_location = np.zeros(num_job, dtype=int)
+    schedule = np.full((num_machine_total, num_job), -999_999, dtype=int)
+    assignments: list[tuple[int, int, int, int, int]] = []
+
+    def advance_candidate() -> None:
+        nonlocal time_idx, sub_time_idx, machine_wait_step, job_wait_step
+        sub_time_idx += 1
+        if sub_time_idx == num_machine_total:
+            sub_time_idx = 0
+            time_idx += 1
+            machine_wait_step = np.maximum(machine_wait_step - 1, 0)
+            job_wait_step = np.maximum(job_wait_step - 1, 0)
+
+    while not np.all(job_location == num_stage):
+        while True:
+            stage = sub_time_idx // num_machine
+            local_machine = machine_order[sub_time_idx % num_machine]
+            machine = stage * num_machine + local_machine
+            available = np.where((job_location == stage) & (job_wait_step == 0))[0]
+            if machine_wait_step[machine] == 0 and available.size > 0:
+                break
+            advance_candidate()
+
+        stage = sub_time_idx // num_machine
+        local_machine = machine_order[sub_time_idx % num_machine]
+        machine = stage * num_machine + local_machine
+        available = np.where((job_location == stage) & (job_wait_step == 0))[0]
+        job = min(available.tolist(), key=lambda item: (int(run_time[item, machine]), item))
+        duration = int(run_time[job, machine])
+        schedule[machine, job] = time_idx
+        assignments.append((job, stage, local_machine, time_idx, duration))
+        job_location[job] += 1
+        machine_wait_step[machine] = duration
+        job_wait_step[job] = duration
+
+        if not np.all(job_location == num_stage):
+            advance_candidate()
+
+    end_schedule = schedule + run_time.T
+    return int(end_schedule[:, :num_job].max()), assignments
+
+
+def ffsp_best_sjf_schedule(
+    run_time: np.ndarray,
+    num_stage: int,
+    num_machine: int,
+) -> tuple[int, list[tuple[int, int, int, int, int]]]:
+    """Best SJF schedule over the same machine-order starts used by MatNet."""
+    best_makespan: int | None = None
+    best_assignments: list[tuple[int, int, int, int, int]] | None = None
+    for machine_order in itertools.permutations(range(num_machine)):
+        makespan, assignments = ffsp_sjf_schedule(
+            run_time,
+            num_stage,
+            num_machine,
+            machine_order=machine_order,
+        )
+        if best_makespan is None or makespan < best_makespan:
+            best_makespan = makespan
+            best_assignments = assignments
+    assert best_makespan is not None and best_assignments is not None
+    return best_makespan, best_assignments
+
+
+def ffsp_sjf_makespan(run_time: np.ndarray, num_stage: int, num_machine: int) -> int:
+    return ffsp_best_sjf_schedule(run_time, num_stage, num_machine)[0]
+
+
+def ffsp_sequence_makespan(
+    run_time: np.ndarray,
+    num_stage: int,
+    num_machine: int,
+    job_sequence: list[int],
+) -> int:
+    """List-schedule a fixed FFSP job order using earliest-completion machine assignment."""
+    machine_ready = np.zeros((num_stage, num_machine), dtype=int)
+    job_ready = np.zeros(run_time.shape[0], dtype=int)
+    for job in job_sequence:
+        for stage in range(num_stage):
+            durations = run_time[job, stage * num_machine : (stage + 1) * num_machine]
+            completion_times = np.maximum(job_ready[job], machine_ready[stage]) + durations
+            local_machine = int(np.argmin(completion_times))
+            completion = int(completion_times[local_machine])
+            machine_ready[stage, local_machine] = completion
+            job_ready[job] = completion
+    return int(job_ready.max())
+
+
+def ffsp_neh_makespan(run_time: np.ndarray, num_stage: int, num_machine: int) -> int:
+    """NEH-style constructive heuristic adapted to flexible flow shop instances."""
+    min_stage_times = np.stack(
+        [
+            run_time[:, stage * num_machine : (stage + 1) * num_machine].min(axis=1)
+            for stage in range(num_stage)
+        ],
+        axis=1,
+    )
+    ordered_jobs = sorted(
+        range(run_time.shape[0]),
+        key=lambda job: (-int(min_stage_times[job].sum()), job),
+    )
+
+    sequence: list[int] = []
+    for job in ordered_jobs:
+        best_sequence: list[int] | None = None
+        best_makespan: int | None = None
+        for pos in range(len(sequence) + 1):
+            candidate = sequence[:pos] + [job] + sequence[pos:]
+            makespan = ffsp_sequence_makespan(run_time, num_stage, num_machine, candidate)
+            if best_makespan is None or makespan < best_makespan:
+                best_makespan = makespan
+                best_sequence = candidate
+        assert best_sequence is not None
+        sequence = best_sequence
+    return ffsp_sequence_makespan(run_time, num_stage, num_machine, sequence)
 
 
 def ffsp_cp_sat_makespan(
@@ -562,11 +799,19 @@ def ffsp_cp_sat_makespan(
     time_limit_sec: float,
     num_search_workers: int,
 ) -> tuple[str, int | None]:
+    if _ORTOOLS_IMPORT_ERROR is not None or cp_model is None:
+        raise RuntimeError(
+            "OR-Tools is required for CP-SAT scheduling baselines but could not be imported"
+        ) from _ORTOOLS_IMPORT_ERROR
+
     num_job = run_time.shape[0]
     horizon = int(run_time.sum())
     model = cp_model.CpModel()
     start: dict[tuple[int, int], cp_model.IntVar] = {}
     end: dict[tuple[int, int], cp_model.IntVar] = {}
+    selected_var: dict[tuple[int, int, int], cp_model.BoolVar] = {}
+    local_start_var: dict[tuple[int, int, int], cp_model.IntVar] = {}
+    local_end_var: dict[tuple[int, int, int], cp_model.IntVar] = {}
     machine_intervals: dict[tuple[int, int], list[cp_model.IntervalVar]] = defaultdict(list)
 
     for job in range(num_job):
@@ -579,6 +824,9 @@ def ffsp_cp_sat_makespan(
                 selected = model.NewBoolVar(f"sel_{job}_{stage}_{machine}")
                 local_start = model.NewIntVar(0, horizon, f"ls_{job}_{stage}_{machine}")
                 local_end = model.NewIntVar(0, horizon, f"le_{job}_{stage}_{machine}")
+                selected_var[(job, stage, machine)] = selected
+                local_start_var[(job, stage, machine)] = local_start
+                local_end_var[(job, stage, machine)] = local_end
                 interval = model.NewOptionalIntervalVar(
                     local_start,
                     duration,
@@ -602,6 +850,22 @@ def ffsp_cp_sat_makespan(
         model.Add(makespan >= end[(job, num_stage - 1)])
     model.Minimize(makespan)
 
+    hint_makespan, hint_assignments = ffsp_best_sjf_schedule(run_time, num_stage, num_machine)
+    model.Add(makespan <= hint_makespan)
+    assigned = {(job, stage): machine for job, stage, machine, _, _ in hint_assignments}
+    for job, stage, machine, start_value, duration in hint_assignments:
+        model.AddHint(start[(job, stage)], start_value)
+        model.AddHint(end[(job, stage)], start_value + duration)
+        model.AddHint(selected_var[(job, stage, machine)], 1)
+        model.AddHint(local_start_var[(job, stage, machine)], start_value)
+        model.AddHint(local_end_var[(job, stage, machine)], start_value + duration)
+    for job in range(num_job):
+        for stage in range(num_stage):
+            for machine in range(num_machine):
+                if assigned[(job, stage)] == machine:
+                    continue
+                model.AddHint(selected_var[(job, stage, machine)], 0)
+
     solver = cp_model.CpSolver()
     solver.parameters.max_time_in_seconds = float(time_limit_sec)
     solver.parameters.num_search_workers = max(1, int(num_search_workers))
@@ -618,13 +882,25 @@ def parse_jssp_file(path: Path) -> tuple[int, list[list[tuple[int, int]]]]:
         if stripped:
             rows.append([int(token) for token in stripped.split()])
     num_jobs, num_machines = rows[0][0], rows[0][1]
+    machine_ids = [line[idx] for line in rows[1 : 1 + num_jobs] for idx in range(0, len(line), 2)]
+    min_machine = min(machine_ids)
+    max_machine = max(machine_ids)
+    if min_machine == 0 and max_machine <= num_machines - 1:
+        machine_offset = 0
+    elif min_machine >= 1 and max_machine <= num_machines:
+        machine_offset = 1
+    else:
+        raise ValueError(
+            f"Unsupported machine indexing range [{min_machine}, {max_machine}] "
+            f"for {num_machines} machines in {path}"
+        )
     jobs = []
     for line in rows[1 : 1 + num_jobs]:
         operations = []
         for idx in range(0, len(line), 2):
-            machine = int(line[idx])
+            machine = int(line[idx]) - machine_offset
             duration = int(line[idx + 1])
-            operations.append((machine - 1 if machine >= 1 else machine, duration))
+            operations.append((machine, duration))
         jobs.append(operations)
     return num_machines, jobs
 
@@ -673,6 +949,11 @@ def jssp_cp_sat_makespan(
     time_limit_sec: float,
     num_search_workers: int,
 ) -> tuple[str, int | None]:
+    if _ORTOOLS_IMPORT_ERROR is not None or cp_model is None:
+        raise RuntimeError(
+            "OR-Tools is required for CP-SAT scheduling baselines but could not be imported"
+        ) from _ORTOOLS_IMPORT_ERROR
+
     horizon = sum(duration for job in jobs for _, duration in job)
     model = cp_model.CpModel()
     intervals: dict[int, list[cp_model.IntervalVar]] = {machine: [] for machine in range(num_machines)}
@@ -750,6 +1031,7 @@ def _run_single_ffsp_task(
     run_time: np.ndarray,
     idx: int,
     cp_sat_search_workers: int,
+    cp_sat_time_limit_s: float | None,
 ) -> PerInstanceResult:
     assert cfg.ffsp_stages is not None and cfg.ffsp_machines is not None
     instance_id = f"{cfg.name}_{idx:05d}"
@@ -757,14 +1039,19 @@ def _run_single_ffsp_task(
         t0 = time.perf_counter()
         objective = ffsp_sjf_makespan(run_time, cfg.ffsp_stages, cfg.ffsp_machines)
         return PerInstanceResult(cfg.name, "sjf", instance_id, "ok", float(objective), time.perf_counter() - t0)
+    if solver == "neh":
+        t0 = time.perf_counter()
+        objective = ffsp_neh_makespan(run_time, cfg.ffsp_stages, cfg.ffsp_machines)
+        return PerInstanceResult(cfg.name, "neh", instance_id, "ok", float(objective), time.perf_counter() - t0)
     if solver == "ortools_cp_sat":
         assert cfg.cp_sat_time_limit_s is not None
+        time_limit_s = float(cp_sat_time_limit_s if cp_sat_time_limit_s is not None else cfg.cp_sat_time_limit_s)
         t0 = time.perf_counter()
         status, objective = ffsp_cp_sat_makespan(
             run_time,
             cfg.ffsp_stages,
             cfg.ffsp_machines,
-            cfg.cp_sat_time_limit_s,
+            time_limit_s,
             cp_sat_search_workers,
         )
         return PerInstanceResult(
@@ -783,6 +1070,7 @@ def _run_single_jssp_task(
     cfg: ScenarioConfig,
     path: Path,
     cp_sat_search_workers: int,
+    cp_sat_time_limit_s: float | None,
 ) -> PerInstanceResult:
     assert cfg.cp_sat_time_limit_s is not None
     num_machines, jobs = parse_jssp_file(path)
@@ -791,8 +1079,9 @@ def _run_single_jssp_task(
         objective = jssp_dispatch_makespan(jobs, num_machines, solver)
         return PerInstanceResult(cfg.name, solver, path.name, "ok", float(objective), time.perf_counter() - t0)
     if solver == "ortools_cp_sat":
+        time_limit_s = float(cp_sat_time_limit_s if cp_sat_time_limit_s is not None else cfg.cp_sat_time_limit_s)
         t0 = time.perf_counter()
-        status, objective = jssp_cp_sat_makespan(jobs, num_machines, cfg.cp_sat_time_limit_s, cp_sat_search_workers)
+        status, objective = jssp_cp_sat_makespan(jobs, num_machines, time_limit_s, cp_sat_search_workers)
         return PerInstanceResult(
             cfg.name,
             solver,
@@ -860,9 +1149,14 @@ def benchmark_scenario(
         return scenario_rows, summaries
 
     if cfg.problem == "ffsp":
-        instances = _load_ffsp_instances(cfg, args.seed, args.max_instances)
-        for solver in cfg.solvers:
-            tasks = [(solver, cfg, run_time, idx, args.cp_sat_search_workers) for idx, run_time in enumerate(instances)]
+        instances = _load_ffsp_instances(cfg, args.seed, args.max_instances, args.ffsp_data_file)
+        solvers = tuple(args.scheduling_solvers) if args.scheduling_solvers is not None else cfg.solvers
+        solvers = tuple(solver for solver in solvers if solver in cfg.solvers)
+        for solver in solvers:
+            tasks = [
+                (solver, cfg, run_time, idx, args.cp_sat_search_workers, args.scheduling_cp_sat_time_limit)
+                for idx, run_time in enumerate(instances)
+            ]
             print(f"[{cfg.name}/{solver}] launching {len(tasks)} instances", flush=True)
             rows, summary = _execute_parallel(solver, tasks, _run_single_ffsp_task, args)
             scenario_rows.extend(rows)
@@ -870,9 +1164,14 @@ def benchmark_scenario(
         return scenario_rows, summaries
 
     if cfg.problem == "jssp":
-        files = _load_jssp_instances(cfg, args.max_instances)
-        for solver in cfg.solvers:
-            tasks = [(solver, cfg, path, args.cp_sat_search_workers) for path in files]
+        files = _load_jssp_instances(cfg, args.max_instances, args.seed, args.jssp_data_dir)
+        solvers = tuple(args.scheduling_solvers) if args.scheduling_solvers is not None else cfg.solvers
+        solvers = tuple(solver for solver in solvers if solver in cfg.solvers)
+        for solver in solvers:
+            tasks = [
+                (solver, cfg, path, args.cp_sat_search_workers, args.scheduling_cp_sat_time_limit)
+                for path in files
+            ]
             print(f"[{cfg.name}/{solver}] launching {len(tasks)} instances", flush=True)
             rows, summary = _execute_parallel(solver, tasks, _run_single_jssp_task, args)
             scenario_rows.extend(rows)
@@ -903,9 +1202,13 @@ def write_outputs(rows: list[PerInstanceResult], batch_summaries: list[SolverBat
     batch_lookup = {(row.scenario, row.solver): row for row in batch_summaries}
 
     summary_records = []
+    success_statuses = {"ok", "optimal", "feasible"}
     for (scenario, solver), solver_rows in sorted(grouped.items()):
-        ok_rows = [row for row in solver_rows if row.status == "ok"]
+        ok_rows = [row for row in solver_rows if row.status in success_statuses]
         objective_rows = [row for row in ok_rows if row.objective is not None]
+        optimal_count = sum(1 for row in solver_rows if row.status == "optimal")
+        feasible_count = sum(1 for row in solver_rows if row.status == "feasible")
+        failed_count = len(solver_rows) - len(ok_rows)
         sum_instance_elapsed = float(sum(row.elapsed_s for row in solver_rows))
         batch_summary = batch_lookup.get((scenario, solver))
         total_elapsed = batch_summary.wall_clock_s if batch_summary is not None else sum_instance_elapsed
@@ -915,6 +1218,9 @@ def write_outputs(rows: list[PerInstanceResult], batch_summaries: list[SolverBat
                 "solver": solver,
                 "count": len(solver_rows),
                 "ok_count": len(ok_rows),
+                "optimal_count": optimal_count,
+                "feasible_count": feasible_count,
+                "failed_count": failed_count,
                 "total_elapsed_s": total_elapsed,
                 "sum_instance_elapsed_s": sum_instance_elapsed,
                 "avg_elapsed_s": (sum_instance_elapsed / len(solver_rows)) if solver_rows else None,
@@ -937,6 +1243,9 @@ def write_outputs(rows: list[PerInstanceResult], batch_summaries: list[SolverBat
                 "solver",
                 "count",
                 "ok_count",
+                "optimal_count",
+                "feasible_count",
+                "failed_count",
                 "total_elapsed_s",
                 "sum_instance_elapsed_s",
                 "avg_elapsed_s",

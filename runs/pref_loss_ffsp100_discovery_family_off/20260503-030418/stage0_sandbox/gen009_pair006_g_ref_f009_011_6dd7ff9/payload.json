@@ -1,0 +1,107 @@
+{
+  "generation": 9,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g_ref",
+    "ir": {
+      "name": "ref_all_pairs_builder",
+      "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "uniform_none",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})"
+    }
+  },
+  "f_entry": {
+    "id": "f009_011_6dd7ff9f",
+    "ir": {
+      "name": "loss_cost_gap_sigmoid_rank_diff_weighted",
+      "intuition": "Shift the loss paradigm from margin-based advantage blending to a cost-gap driven approach using a sigmoid transformation of the rank difference between winner and loser log probabilities. The loss utilizes the cost gap as the signal weight, linking the pairwise difference via a sigmoid for smooth penalization focusing on ranking correctness rather than margin size. The aggregation is a weighted mean normalized by total weight, and the constraint ensures positivity via sigmoid monotonicity. This shifts the paradigm from margin-advantage to cost-gap with rank-link signal, introducing a fresh, contrastive objective that emphasizes cost-improvement and rank ordering rather than margin magnitude.",
+      "pseudocode": "lpw = batch['log_prob_w']\nlpl = batch['log_prob_l']\ncg = batch['cost_gap']\nweight = batch.get('weight', None)\nrank_diff = lpw - lpl\nscaled_rank_diff = alpha * rank_diff\nsigmoid_score = sigmoid(scaled_rank_diff)\nloss_per_pair = (1 - sigmoid_score) * cg\nif weight exists:\n  loss_per_pair *= weight\nfinal_loss = sum(loss_per_pair) / (sum(weight) + 1e-6) if weight exists else mean(loss_per_pair)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_cost_gap_rank_sigmoid",
+        "signal_family": "cost_gap",
+        "link_family": "sigmoid",
+        "agg_family": "weighted_mean",
+        "constraint_family": "positive_sigmoid"
+      },
+      "operators_used": [
+        "sigmoid",
+        "sub",
+        "mul",
+        "add",
+        "div",
+        "sum",
+        "ones_like"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    cost_gap = batch['cost_gap']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    rank_diff = ops.sub(lpw, lpl)\n    scaled_diff = ops.mul(alpha, rank_diff)\n    sigmoid_score = ops.sigmoid(scaled_diff)\n    loss = ops.mul(ops.sub(ops.ones_like(sigmoid_score), sigmoid_score), cost_gap)\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n        total_weight = ops.sum(weight)\n        safe_total_weight = ops.add(total_weight, 1e-6)\n        return ops.div(ops.sum(loss), safe_total_weight)\n    else:\n        return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.0,
+    "min_instance_weight_cv_pass_rate": 1.0
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
