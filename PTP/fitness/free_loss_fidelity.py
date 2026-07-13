@@ -81,6 +81,12 @@ def _tensor_debug_summary(value: torch.Tensor) -> Dict[str, Any]:
     }
     if value.numel() <= 0:
         return summary
+    # OOM diagnostics often run while the allocator is already exhausted.
+    # Avoid reductions such as isfinite/min/max on CUDA tensors because they
+    # allocate temporaries and can turn a useful root-cause log into another OOM.
+    if value.is_cuda:
+        summary["stats_skipped"] = "cuda_tensor"
+        return summary
     try:
         if value.is_floating_point() or value.is_complex():
             finite_mask = torch.isfinite(value)

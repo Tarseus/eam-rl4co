@@ -1,6 +1,8 @@
 import pytest
 
 from rl4co.models import AttentionModelPolicy, N2SPolicy, PointerNetworkPolicy
+from rl4co.envs import FFSPEnv
+from rl4co.models.zoo.matnet.policy import MultiStageFFSPPolicy
 from rl4co.utils.ops import select_start_nodes
 from rl4co.utils.test_utils import generate_env_data
 
@@ -88,3 +90,29 @@ def test_N2S(size=20, batch_size=2):
     policy = N2SPolicy(env_name=env.name)
     out = policy(td, env, decode_type="greedy")
     assert out["cost_bsf"].shape == (batch_size,)
+
+
+def test_multistage_ffsp_policy_clears_decoder_cache():
+    env = FFSPEnv(
+        generator_params={
+            "num_stage": 2,
+            "num_machine": 2,
+            "num_job": 4,
+            "flatten_stages": False,
+        }
+    )
+    td = env.reset(batch_size=[2])
+    policy = MultiStageFFSPPolicy(
+        stage_cnt=env.num_stage,
+        embed_dim=16,
+        num_heads=2,
+        num_encoder_layers=1,
+        feedforward_hidden=16,
+        train_decode_type="greedy",
+    )
+
+    out = policy(td, env, phase="train", num_starts=2, return_actions=False)
+    loss = out["log_likelihood"].sum()
+    loss.backward()
+
+    assert all(decoder.cached_embs is None for decoder in policy.decoders)

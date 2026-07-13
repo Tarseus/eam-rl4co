@@ -340,6 +340,7 @@ def _launch_resume(
     remote_log_dir: str,
     python_bin: str,
     remote_cuda_visible_devices: str,
+    remote_env_file: str,
     log_tz: str,
     log_level: str,
     timeout_s: float,
@@ -358,6 +359,13 @@ def _launch_resume(
     cmd_parts = [
         f"cd {_q(remote_workdir)}",
         f"mkdir -p {_q(remote_log_dir)}",
+    ]
+    remote_env_file_norm = str(remote_env_file or "").strip()
+    if remote_env_file_norm:
+        cmd_parts.append(
+            f"if [ -f {_q(remote_env_file_norm)} ]; then . {_q(remote_env_file_norm)}; fi"
+        )
+    cmd_parts += [
         f"export PYTHONPATH={_q(remote_workdir)}:{_q(os.path.join(remote_workdir, 'PTP'))}:${{PYTHONPATH:-}}",
         f"export LOG_TZ={_q(log_tz)}",
         f"export LOG_LEVEL={_q(log_level)}",
@@ -383,6 +391,7 @@ def _attempt_resume(
     client: RemoteSSH,
     *,
     watch_mode: str,
+    process_needle: str,
     reason: str,
     remote_workdir: str,
     config_path: str,
@@ -390,6 +399,7 @@ def _attempt_resume(
     remote_log_dir: str,
     python_bin: str,
     remote_cuda_visible_devices: str,
+    remote_env_file: str,
     log_tz: str,
     log_level: str,
     cmd_timeout_s: float,
@@ -407,7 +417,7 @@ def _attempt_resume(
     # yet emitted a resumable checkpoint.json.
     running, running_err = _remote_process_running(
         client,
-        process_needle=defaults["process_needle"],
+        process_needle=str(process_needle or defaults["process_needle"]),
         timeout_s=cmd_timeout_s,
     )
     if running is None:
@@ -476,6 +486,7 @@ def _attempt_resume(
         remote_log_dir=remote_log_dir,
         python_bin=python_bin,
         remote_cuda_visible_devices=remote_cuda_visible_devices,
+        remote_env_file=remote_env_file,
         log_tz=log_tz,
         log_level=log_level,
         timeout_s=cmd_timeout_s,
@@ -534,6 +545,21 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional CUDA_VISIBLE_DEVICES value to export before launching the remote resume command.",
     )
+    p.add_argument(
+        "--remote-env-file",
+        type=str,
+        default="",
+        help="Optional remote shell env file to source before launching the resume command.",
+    )
+    p.add_argument(
+        "--process-needle",
+        type=str,
+        default="",
+        help=(
+            "Optional pgrep -af pattern used to decide whether this specific workflow is already running. "
+            "Defaults to the workflow script name."
+        ),
+    )
     p.add_argument("--remote-log-dir", type=str, default="logs")
     p.add_argument(
         "--output-root-override",
@@ -563,6 +589,8 @@ def main() -> int:
     cmd_timeout_s = max(2.0, float(args.command_timeout_s))
     boot_grace_s = max(0.0, float(args.boot_grace_s))
     online_retry_s = max(0.0, float(args.online_retry_s))
+    defaults = _watch_mode_defaults(args.watch_mode)
+    process_needle = str(args.process_needle or "").strip() or defaults["process_needle"]
 
     _log(
         "watcher_start "
@@ -576,8 +604,11 @@ def main() -> int:
         + f"python={sys.executable} ssh_bin={args.ssh_bin} "
         + f"connect_timeout_s={float(args.connect_timeout_s):.1f} command_timeout_s={cmd_timeout_s:.1f}"
     )
+    _log(f"watcher_process_needle {process_needle}")
     if str(args.remote_cuda_visible_devices or "").strip():
         _log(f"watcher_remote_cuda_visible_devices {str(args.remote_cuda_visible_devices).strip()}")
+    if str(args.remote_env_file or "").strip():
+        _log(f"watcher_remote_env_file {str(args.remote_env_file).strip()}")
     if args.ssh_arg:
         _log("watcher_ssh_args " + " ".join(str(x) for x in list(args.ssh_arg or [])))
 
@@ -609,6 +640,7 @@ def main() -> int:
                         _attempt_resume(
                             client,
                             watch_mode=args.watch_mode,
+                            process_needle=process_needle,
                             reason="startup",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
@@ -616,6 +648,7 @@ def main() -> int:
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
                             remote_cuda_visible_devices=args.remote_cuda_visible_devices,
+                            remote_env_file=args.remote_env_file,
                             log_tz=args.log_tz,
                             log_level=args.log_level,
                             cmd_timeout_s=cmd_timeout_s,
@@ -627,6 +660,7 @@ def main() -> int:
                         _attempt_resume(
                             client,
                             watch_mode=args.watch_mode,
+                            process_needle=process_needle,
                             reason="reconnect_boot_id_changed",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
@@ -634,6 +668,7 @@ def main() -> int:
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
                             remote_cuda_visible_devices=args.remote_cuda_visible_devices,
+                            remote_env_file=args.remote_env_file,
                             log_tz=args.log_tz,
                             log_level=args.log_level,
                             cmd_timeout_s=cmd_timeout_s,
@@ -648,6 +683,7 @@ def main() -> int:
                         _attempt_resume(
                             client,
                             watch_mode=args.watch_mode,
+                            process_needle=process_needle,
                             reason="boot_id_changed",
                             remote_workdir=args.remote_workdir,
                             config_path=args.config,
@@ -655,6 +691,7 @@ def main() -> int:
                             remote_log_dir=args.remote_log_dir,
                             python_bin=args.python_bin,
                             remote_cuda_visible_devices=args.remote_cuda_visible_devices,
+                            remote_env_file=args.remote_env_file,
                             log_tz=args.log_tz,
                             log_level=args.log_level,
                             cmd_timeout_s=cmd_timeout_s,
@@ -669,6 +706,7 @@ def main() -> int:
                             _attempt_resume(
                                 client,
                                 watch_mode=args.watch_mode,
+                                process_needle=process_needle,
                                 reason="periodic_online_retry",
                                 remote_workdir=args.remote_workdir,
                                 config_path=args.config,
@@ -676,6 +714,7 @@ def main() -> int:
                                 remote_log_dir=args.remote_log_dir,
                                 python_bin=args.python_bin,
                                 remote_cuda_visible_devices=args.remote_cuda_visible_devices,
+                                remote_env_file=args.remote_env_file,
                                 log_tz=args.log_tz,
                                 log_level=args.log_level,
                                 cmd_timeout_s=cmd_timeout_s,

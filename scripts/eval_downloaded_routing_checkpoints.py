@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import gc
 import json
 import sys
 import time
@@ -122,6 +123,18 @@ def candidate_metrics_paths(entry: DownloadEntry, repo_root: Path) -> list[Path]
 
 def routing_data_dir_name(env_name: str) -> str:
     return "vrp" if env_name == "cvrp" else env_name
+
+
+def expected_routing_test_file(env_name: str, size: int, seed: int, repo_root: Path) -> str:
+    data_dir = repo_root / "data" / routing_data_dir_name(env_name)
+    file_prefix = "vrp" if env_name == "cvrp" else env_name
+    candidate = (data_dir / f"{file_prefix}{size}_test_seed{seed}.npz").resolve()
+    if not candidate.exists():
+        raise FileNotFoundError(
+            f"Expected {env_name}{size} test file is missing: {candidate}. "
+            "Refusing to reuse a checkpoint-embedded test_file from a different scale."
+        )
+    return str(candidate)
 
 
 def _to_float(value: str | None) -> float | None:
@@ -301,11 +314,7 @@ def build_routing_env(
     }
 
     if old_env is not None:
-        resolved_val_file = rewrite_repo_data_path(getattr(old_env, "val_file", None), repo_root)
         for key, value in (
-            ("train_file", rewrite_repo_data_path(getattr(old_env, "train_file", None), repo_root)),
-            ("val_file", resolved_val_file),
-            ("test_file", resolved_test_file),
             ("val_dataloader_names", getattr(old_env, "val_dataloader_names", None)),
             ("test_dataloader_names", getattr(old_env, "test_dataloader_names", None)),
             ("check_solution", getattr(old_env, "check_solution", True)),
@@ -313,6 +322,14 @@ def build_routing_env(
         ):
             if value is not None:
                 env_kwargs[key] = value
+
+    resolved_test_file = expected_routing_test_file(
+        env_name=env_name,
+        size=size,
+        seed=int(hparams.get("seed", 1234)),
+        repo_root=repo_root,
+    )
+    env_kwargs["test_file"] = resolved_test_file
 
     env = get_env(env_name, generator_params=generator_params, **env_kwargs)
     return env, resolved_test_file
@@ -369,6 +386,7 @@ def build_model(
             repo_root=repo_root,
         )
         raw_hparams["env"] = env
+        raw_hparams["num_starts"] = size
         model = POMO(**raw_hparams)
         model = _finalize_model_from_payload(
             model=model,
@@ -575,6 +593,17 @@ def append_row(output_csv: Path, row: dict[str, Any]) -> None:
         writer.writerow({key: row.get(key) for key in CSV_COLUMNS})
 
 
+def cleanup_after_evaluation(device: str) -> None:
+    gc.collect()
+    if str(device).strip().lower().startswith("cuda"):
+        try:
+            import torch
+
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+
+
 def build_base_row(entry: DownloadEntry) -> dict[str, Any]:
     env_name, size = parse_problem_key(entry.problem_key)
     return {
@@ -608,7 +637,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Evaluate downloaded tsp/cvrp/ffsp checkpoints under downloads/ and write a unified CSV. "
-            "Entries that already have test/max_aug_reward are copied into the CSV and skipped."
+            "By default every selected checkpoint is freshly evaluated so stale metrics cannot be reused."
         )
     )
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
@@ -654,7 +683,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--force",
         action="store_true",
-        help="Evaluate even if existing metrics already contain test/max_aug_reward.",
+        help="Deprecated compatibility flag; fresh evaluation is already the default unless --trust-existing-metrics is set.",
+    )
+    parser.add_argument(
+        "--trust-existing-metrics",
+        action="store_true",
+        help="Reuse existing metrics.csv/curve test metrics instead of running fresh evaluation. Use only for vetted files.",
     )
     parser.add_argument(
         "--resume",
@@ -711,7 +745,7 @@ def main() -> int:
             row["train_max_epoch"] = known_training.train_max_epoch
 
         existing_metrics = find_existing_max_aug_metrics(entry, REPO_ROOT)
-        if existing_metrics is not None and not args.force:
+        if existing_metrics is not None and args.trust_existing_metrics and not args.force:
             row.update(
                 {
                     "status": "skipped_existing_metrics",
@@ -785,6 +819,8 @@ def main() -> int:
             processed += 1
             errored += 1
             print(f"[error] {entry.problem_key}/{entry.method}: {exc}")
+        finally:
+            cleanup_after_evaluation(args.device)
 
     print(
         "done:",
