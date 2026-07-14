@@ -1,0 +1,98 @@
+{
+  "observed_at": "2026-07-14T20:31:35+08:00",
+  "screening_step_300": {
+    "usw_k40_a005": 27.56044054031372,
+    "usw_k40_a001": 27.015497088432312,
+    "usw_k64_a001": 26.870725572109222,
+    "asw_k40_a005": 27.61187845468521,
+    "asw_k40_a001": 27.036462604999542,
+    "asw_k40_a001_detach": 27.03071892261505,
+    "po_k20_control300": 27.538395524024963
+  },
+  "selection": {
+    "usw": "usw_k64_a001",
+    "asw": "asw_k40_a001_detach"
+  },
+  "checkpoint_verification": {
+    "usw": {
+      "optimizer_step": 300,
+      "global_step": 300,
+      "epoch": 300,
+      "optimizer_state_entries": 96,
+      "optimizer_state_steps": [300],
+      "learning_rate": 1e-5,
+      "weight_decay": 1e-6
+    },
+    "asw": {
+      "optimizer_step": 300,
+      "global_step": 300,
+      "epoch": 300,
+      "optimizer_state_entries": 96,
+      "optimizer_state_steps": [300],
+      "learning_rate": 1e-5,
+      "weight_decay": 1e-6
+    }
+  },
+  "promotions": [
+    {
+      "run": "usw_k64_a001_from300",
+      "host": "g48",
+      "gpu": 0,
+      "pid": 15609,
+      "resume_optimizer_step": 300,
+      "additional_steps": 700,
+      "target_optimizer_step": 1000,
+      "data_start_index": 20038400,
+      "absolute_optimizer_step": 305,
+      "continuation_step_this_run": 5,
+      "step_sec": 21.57184568000048,
+      "eta_min": 249.87387912667222,
+      "instances_s": 5.933660100242157,
+      "trajectories_s": 379.7542464154981,
+      "loss": 0.4509679675102234,
+      "grad_norm": 0.19716123255910226,
+      "coefficient_abs_mean": 7.100184120645281e-7,
+      "replay_error": 0.0,
+      "peak_memory_allocated_gib": 18.812577724456787,
+      "peak_memory_reserved_gib": 19.66015625,
+      "latest_validation": null
+    },
+    {
+      "run": "asw_k40_a001_detach_from300",
+      "host": "g52",
+      "gpu": 4,
+      "pid": 1511245,
+      "resume_optimizer_step": 300,
+      "additional_steps": 700,
+      "target_optimizer_step": 1000,
+      "data_start_index": 20038400,
+      "absolute_optimizer_step": 308,
+      "continuation_step_this_run": 8,
+      "step_sec": 16.083702063013334,
+      "eta_min": 185.4986971267538,
+      "instances_s": 7.958366767707881,
+      "trajectories_s": 318.33467070831523,
+      "loss": 0.4495857357978821,
+      "grad_norm": 0.40896806890970333,
+      "coefficient_abs_mean": 1.8869006908062147e-6,
+      "replay_error": 0.0,
+      "peak_memory_allocated_gib": 15.787039279937744,
+      "peak_memory_reserved_gib": 23.18359375,
+      "latest_validation": null
+    }
+  ],
+  "infrastructure_anomaly": {
+    "run": "usw_k40_a005",
+    "host": "g48",
+    "duplicate_pid": 11554,
+    "action": "stopped",
+    "selected_winners_affected": false
+  },
+  "safety": {
+    "screening_runs_with_summary": 7,
+    "max_abs_replay_error": 0.0,
+    "oom": false,
+    "nan": false,
+    "traceback": false
+  }
+}

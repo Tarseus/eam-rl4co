@@ -1,0 +1,133 @@
+project:
+  title: "Make USW/ASW beat PO on TSP1000"
+  question: "Which sampling, temperature, weighting, and schedule configuration makes USW or ASW significantly outperform PO on the canonical TSP1000 fixed test?"
+  status: active
+  started: "2026-07-14"
+  domain: "reinforcement learning for neural combinatorial optimization"
+
+evaluation:
+  fast_proxy: "fixed validation set of 32 TSP1000 instances, 1000 starts, augmentation=1"
+  final_metric: "canonical fixed100 mean tour length, 1000 starts, 8 augment, FP32"
+  canonical_dataset: "data/tsp/tsp1000_test_seed1234.npz"
+  canonical_sha256: "fc544f59443a9352f4f3317603d39fae8123cba8502864cae8355e595555f865"
+  po_baseline_mean_tour_length: 27.13804609298706
+  po_baseline_training_budget: "1000 continuation steps from the PO pilot best checkpoint at optimizer step 75; K=20, batch=128"
+  success_criterion: "Only after an USW or ASW candidate also receives 1000 continuation steps from its method-specific pilot best checkpoint: mean tour length < 27.13804609298706 and paired bootstrap 95% CI for candidate-minus-PO lies below zero"
+
+hypotheses:
+  - id: H1
+    statement: "Increasing per-instance candidate paths from K=20 to K=40/64 improves preference estimation enough to overcome lower unique-instance throughput."
+    status: active
+    priority: high
+  - id: H2
+    statement: "Reducing alpha from 0.05 to 0.01 prevents late logistic saturation on TSP1000."
+    status: active
+    priority: high
+  - id: H3
+    statement: "Detaching ASW weights prevents optimization through the weighting rule and improves transfer stability."
+    status: active
+    priority: high
+  - id: H4
+    statement: "A late non-saturating PO component preserves USW/ASW early gains after pure preference learning plateaus."
+    status: pending
+    priority: high
+  - id: H5
+    statement: "Hard-pair mining or removing ASW's absolute-margin factor avoids wasting mass on already-saturated easy pairs."
+    status: pending
+    priority: medium
+
+experiments:
+  proxy_metric: "validation mean tour length at continuation steps 100, 200, 300"
+  proxy_baseline: "PO K20 300-continuation-step control completed at validation32 mean 27.538395524024963; 27.138046 is not a proxy baseline"
+  best_value: 26.870725572109222
+  total_runs: 9
+  active_root: "logs/tsp1000_dynamic/promote1000_20260714"
+  active_runs:
+    - usw_k64_a001_from300
+    - asw_k40_a001_detach_from300
+  last_observation:
+    observed_at: "2026-07-14T20:31:35+08:00"
+    status: "all six exploratory branches and the matched PO-300 control completed at step 300; preregistered winners USW K64/alpha=0.01 and ASW K40/alpha=0.01 detached were resumed from last.ckpt for 700 additional steps to absolute optimizer step 1000"
+    safety: "all seven screen/control runs completed with replay_error=0 and no OOM, NaN, or Traceback; both promoted runs have replay_error=0 in their first observed steps"
+    continuation_steps:
+      usw_k64_a001_from300: 5
+      asw_k40_a001_detach_from300: 8
+    absolute_optimizer_steps:
+      usw_k64_a001_from300: 305
+      asw_k40_a001_detach_from300: 308
+    validation_step_100:
+      usw_k40_a005: 28.071091294288635
+      usw_k40_a001: 27.843908548355103
+      usw_k64_a001: 27.68915557861328
+      asw_k40_a005: 28.00920218229294
+      asw_k40_a001: 27.888632237911224
+      asw_k40_a001_detach: 27.885151088237762
+      po_k20_control300: null
+    validation_step_200:
+      usw_k40_a005: 27.67241859436035
+      usw_k40_a001: 27.300869822502136
+      usw_k64_a001: 27.149820923805237
+      asw_k40_a005: 27.728695034980774
+      asw_k40_a001: 27.365959644317627
+      asw_k40_a001_detach: 27.340087354183197
+      po_k20_control300: 27.887166500091553
+    validation_step_300:
+      usw_k40_a005: 27.56044054031372
+      usw_k40_a001: 27.015497088432312
+      usw_k64_a001: 26.870725572109222
+      asw_k40_a005: 27.61187845468521
+      asw_k40_a001: 27.036462604999542
+      asw_k40_a001_detach: 27.03071892261505
+      po_k20_control300: 27.538395524024963
+    current_metrics_path: "research/tsp1000_usw_asw/experiments/promote_to_1000/results/launch_20260714T203135+0800.json"
+    provisional_interpretation: "At the preregistered step-300 boundary, USW K64/alpha=0.01 wins its method at 26.870726 and ASW K40/alpha=0.01 detached narrowly wins at 27.030719. Both beat matched PO-300=27.538396 on validation32. The 0.005744 detach edge is too small to establish a strong mechanism, but it determines promotion under the locked rule. Neither candidate is eligible for final comparison before absolute optimizer step 1000."
+  promotion_protocol:
+    path: "research/tsp1000_usw_asw/experiments/promote_to_1000/protocol.md"
+    git_commit: "ba197528a"
+    selection: "lowest step-300 validation32 mean within USW and within ASW"
+    continuation: "resume last.ckpt at optimizer step 300 for 700 additional steps with data_start_index=20038400; evaluate last.ckpt at absolute optimizer step 1000"
+    selected_usw: "usw_k64_a001: K64, alpha=0.01, step-300 validation32=26.870725572109222"
+    selected_asw: "asw_k40_a001_detach: K40, alpha=0.01, detached weights, step-300 validation32=27.03071892261505"
+    checkpoint_verification: "both last.ckpt files report optimizer_step/global_step/epoch=300; Adam has 96 state entries all at step 300; lr=1e-5 and weight_decay=1e-6"
+    launch_status: "USW PID 15609 on g48 GPU0 and ASW PID 1511245 on g52 GPU4; configs record resume_optimizer_step=300, additional_steps=700, steps=1000, data_start_index=20038400"
+  trajectory:
+    - run_id: baseline_po_fixed100
+      metric_value: 27.13804609298706
+      change_summary: "PO after 1000 continuation steps"
+    - run_id: baseline_usw_fixed100
+      metric_value: 27.38190589904785
+      change_summary: "USW K20 alpha=0.05 after 1000 continuation steps"
+    - run_id: baseline_asw_fixed100
+      metric_value: 27.561483840942383
+      change_summary: "ASW K20 alpha=0.05 after 1000 continuation steps"
+
+throughput:
+  original_b128_k20_trajectories_per_sec: 220.87
+  sdpa_b128_k20_trajectories_per_sec: 242.11
+  sdpa_b128_k40_trajectories_per_sec: 332.58
+  sdpa_b128_k64_usw_trajectories_per_sec: 393.86
+  sdpa_b128_k64_asw_trajectories_per_sec: 387.06
+  sdpa_b96_k96_trajectories_per_sec: 427.42
+  constraint: "Keep base instance batch <=128; larger fused-SDPA batches failed strict forced-replay equality."
+  host_concurrency_constraint: "Do not run all six RTX 3090s on g48 concurrently; the host rebooted during the first six-way launch. Current conservative limit is four simultaneous training jobs."
+
+deployment:
+  restarted_at: "2026-07-14T20:28:59+08:00"
+  g48:
+    gpu0: "usw_k64_a001_from300, PID 15609, absolute step 305/1000 at last check"
+  g52:
+    gpu4: "asw_k40_a001_detach_from300, PID 1511245, absolute step 308/1000 at last check"
+  g55:
+    gpu0: "po_k20_control300 completed at step 300"
+    isolated_workdir: "/data1/gushengda/eam-rl4co-tsp1000-control"
+
+outer_loop:
+  cycle: 1
+  last_direction: deepen
+  last_reflection: "The complete step-300 screen confirms alpha=0.01 and K64 for USW, while ASW detach remains nearly neutral. Apply the locked selection rather than widening the sweep: continue USW K64/alpha=0.01 and detached ASW K40/alpha=0.01 to absolute optimizer step 1000, then run canonical fixed100 and paired bootstrap. A duplicate g48 K40/alpha=0.05 process was stopped after it appended to an already completed screening directory; promotion outputs use isolated directories."
+
+workspace:
+  findings: "research/tsp1000_usw_asw/findings.md"
+  log: "research/tsp1000_usw_asw/research-log.md"
+  experiments_dir: "research/tsp1000_usw_asw/experiments/"
+  to_human_dir: "research/tsp1000_usw_asw/to_human/"
