@@ -6,6 +6,8 @@ The repository uses the POMO-style heavy encoder (six attention layers) and ligh
 
 The repository's native CVRP1000 generator uses capacity 150 and integer demands 1 through 9. The primary target will therefore be established by evaluating the existing CVRP100 PO checkpoint on a locked local CVRP1000 fixed100 set with 100 starts, eight geometric augmentations, and FP32. PO must finish at least 1000 continuation steps and match or improve that cost; the optimization target is a 0.5% improvement. BOPO receives the same initialization, data indices, rollout count, and continuation-step budget.
 
+The calibration completed on g53 at a mean cost of **59.875156478881834** over the 100 fixed instances. This is the hard PO threshold. The preregistered 0.5% improvement target is **59.57578069648743**.
+
 ## Literature calibration
 
 - POMO introduced the six-layer encoder, one-layer decoder, multistart training, and eightfold augmentation used by this codebase: https://arxiv.org/abs/2010.16011
@@ -19,3 +21,7 @@ The repository's native CVRP1000 generator uses capacity 150 and integer demands
 - The initial implementation uses train batch size one; no mixed-instance aggregation ambiguity is permitted.
 - Proxy validation does not establish success. Only the locked fixed100 evaluation counts.
 - If PO misses the cost target after the first 1000-step chunk, training continues in matched chunks rather than weakening the target.
+
+## Launch health
+
+One-step CVRP1000 probes completed for both objectives. PO used about 1.91 GiB reserved GPU memory and produced finite loss and gradients. BOPO produced loss 0.693075, grad norm 0.1730, and about 1.90 GiB reserved memory. The full 1000-step PO and BOPO jobs were then launched on g53 GPUs 0 and 1 respectively.

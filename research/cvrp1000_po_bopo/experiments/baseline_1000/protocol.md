@@ -1,6 +1,6 @@
 # CVRP1000 PO/BOPO baseline protocol
 
-Status: preregistration draft; commit before remote launch.
+Status: preregistered in commit `2be884922`; launched on 2026-07-15.
 
 ## Data
 
@@ -24,6 +24,7 @@ Status: preregistration draft; commit before remote launch.
 ## Evaluation and decision
 
 - Architecture calibration: evaluate the unmodified CVRP100 PO checkpoint on fixed100 with 100 starts, 8 augment, FP32.
+- Locked architecture calibration mean: `59.875156478881834`; 0.5% lower stretch target: `59.57578069648743`.
 - PO must complete at least 1000 continuation steps and achieve mean cost no worse than the architecture calibration; aim for at least 0.5% lower cost.
 - BOPO is evaluated at the same training budget and on exactly aligned fixed100 rows.
 - If PO misses, resume both methods in matched chunks from verified checkpoints; do not declare completion from validation32.

@@ -1,6 +1,6 @@
 project:
   title: "CVRP1000 PO and BOPO baselines"
-  status: preparing
+  status: running
   started: "2026-07-15"
   question: "Can PO and BOPO train the existing POMO/PO4COPs architecture on CVRP1000, and can PO match or improve the architecture's fixed-set cost?"
 
@@ -18,7 +18,9 @@ evaluation:
   validation_sha256: "5df804938d3fcb8e5c7d0a9d39ca07c4a7ed4aec85cf3f195e46e83c603bdf8f"
   protocol: "fixed100, 100 starts, 8 augment, FP32"
   proxy: "fixed32 seed4321, 100 starts, augmentation=1"
-  architecture_zero_shot_mean: pending
+  architecture_zero_shot_mean: 59.875156478881834
+  po_hard_threshold: 59.875156478881834
+  po_stretch_threshold_0p5pct: 59.57578069648743
   po_success: "A post-training PO checkpoint after at least 1000 continuation steps must be no worse than the zero-shot architecture mean; target a >=0.5% improvement."
   bopo_reporting: "Evaluate BOPO at the same continuation-step budget and paired fixed100 indices."
 
@@ -37,16 +39,27 @@ training:
 
 experiments:
   zero_shot:
-    status: pending
+    status: completed
+    host: g53
+    gpu: 2
+    mean_cost: 59.875156478881834
   po_1000:
-    status: pending
+    status: running
+    host: g53
+    gpu: 0
+    pid: 1686437
+    remote_dir: "logs/cvrp1000_baselines/po_from_cvrp100_1000steps"
   bopo_1000:
-    status: pending
+    status: running
+    host: g53
+    gpu: 1
+    pid: 1685545
+    remote_dir: "logs/cvrp1000_baselines/bopo_from_cvrp100_1000steps"
 
 next:
-  - "Run one-step memory and trainability probes on an idle RTX 3090."
-  - "Lock protocol commit before launching the two long baselines."
-  - "Launch PO and BOPO on separate idle GPUs."
+  - "Monitor the two 1000-step jobs for NaN, OOM, process death, and validation trend."
+  - "After both finish, run canonical fixed100 evaluation on exactly aligned rows."
+  - "Continue matched training chunks if PO remains above 59.875156478881834."
 
 follow_on:
   ffsp: "After the CVRP1000 PO/BOPO baselines are launched and stable, define a larger-than-FFSP100 matched baseline."
