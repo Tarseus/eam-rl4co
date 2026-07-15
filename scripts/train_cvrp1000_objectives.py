@@ -126,7 +126,6 @@ def _build_model(
             "bopo_pair_mode": "anchor_best",
             "bopo_select_strategy": "paper",
             "bopo_select_k": bopo_select_k,
-            "memory_efficient_preference": False,
             "generate_default_data": True,
             "batch_size": 1,
             "train_data_size": 1,
