@@ -9,3 +9,4 @@
 | 5 | 2026-07-15 | calibration | Evaluated the common CVRP100 PO checkpoint on canonical CVRP1000 fixed100/100-start/8-augment/FP32: mean cost `59.875156478881834`; locked the 0.5% stretch target at `59.57578069648743`. |
 | 6 | 2026-07-15 | probe | One-step PO and BOPO probes both completed with finite loss/gradients and under 2 GiB reserved GPU memory. A remote-version-only constructor argument was removed before launch. |
 | 7 | 2026-07-15 | launch | Started PO PID `1686437` on g53 GPU0 and BOPO PID `1685545` on g53 GPU1, each for 1000 continuation steps from the same checkpoint and deterministic stream. At the launch check PO was step 64 and BOPO step 87; no OOM, NaN, or process failure. |
+| 8 | 2026-07-15 | monitor | BOPO reached step100 and improved validation32 from `60.896614` to `60.565683`; PO was healthy at step96 with finite loss/gradients. The final bounded SSH capture for PO step100 hit a banner timeout, so no repeat polling was performed. |

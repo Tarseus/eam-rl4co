@@ -25,3 +25,5 @@ The calibration completed on g53 at a mean cost of **59.875156478881834** over t
 ## Launch health
 
 One-step CVRP1000 probes completed for both objectives. PO used about 1.91 GiB reserved GPU memory and produced finite loss and gradients. BOPO produced loss 0.693075, grad norm 0.1730, and about 1.90 GiB reserved memory. The full 1000-step PO and BOPO jobs were then launched on g53 GPUs 0 and 1 respectively.
+
+The first formal boundary reached was BOPO continuation step 100: validation32 improved from 60.896614 at step 0 to 60.565683. PO was healthy at continuation step 96 in the same snapshot. A final bounded SSH attempt to capture PO's imminent step-100 validation hit a banner timeout, so the run stops polling and preserves the last verified state for the next tick.
