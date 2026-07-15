@@ -10,3 +10,5 @@
 | 6 | 2026-07-15 | probe | One-step PO and BOPO probes both completed with finite loss/gradients and under 2 GiB reserved GPU memory. A remote-version-only constructor argument was removed before launch. |
 | 7 | 2026-07-15 | launch | Started PO PID `1686437` on g53 GPU0 and BOPO PID `1685545` on g53 GPU1, each for 1000 continuation steps from the same checkpoint and deterministic stream. At the launch check PO was step 64 and BOPO step 87; no OOM, NaN, or process failure. |
 | 8 | 2026-07-15 | monitor | BOPO reached step100 and improved validation32 from `60.896614` to `60.565683`; PO was healthy at step96 with finite loss/gradients. The final bounded SSH capture for PO step100 hit a banner timeout, so no repeat polling was performed. |
+| 9 | 2026-07-15 | correction | User rejected capacity150 self-calibration and required a paper-anchored capacity50 experiment. Locked AGFN ICLR 2025 Table 1 as the reference: official fixed128 dataset, POMO no-aug `233.093524`, POMO x8 `192.78563`. |
+| 10 | 2026-07-15 | stop | Stopped and preserved obsolete capacity150 PO PID `1686437` at step186 and BOPO PID `1685545` at step189; GPUs0/1 were released. |

@@ -2,27 +2,32 @@ project:
   title: "CVRP1000 PO and BOPO baselines"
   status: running
   started: "2026-07-15"
-  question: "Can PO and BOPO train the existing POMO/PO4COPs architecture on CVRP1000, and can PO match or improve the architecture's fixed-set cost?"
+  question: "Can capacity50 PO reproduce or beat the AGFN paper's CVRP1000 POMO x8 cost 192.78563, and how does matched-budget BOPO compare?"
 
 problem:
   size: 1000
   coordinate_distribution: "uniform on [0,1]^2"
   demand_distribution: "discrete uniform integers 1..9"
-  capacity: 150
-  note: "Absolute costs from papers using capacity 50 or 250 are not directly comparable."
+  capacity: 50
+  note: "Protocol explicitly follows AGFN ICLR 2025 Table 1."
 
 evaluation:
-  dataset: "data/vrp/vrp1000_test_seed1234.npz"
-  dataset_sha256: "57342809aac9c3cc29b5898d04e52fbf5d20087a0da263e8b6bbb9505fbe9ccc"
-  validation_dataset: "data/vrp/vrp1000_val_seed4321.npz"
-  validation_sha256: "5df804938d3fcb8e5c7d0a9d39ca07c4a7ed4aec85cf3f195e46e83c603bdf8f"
-  protocol: "fixed100, 100 starts, 8 augment, FP32"
+  paper: "AGFN, ICLR 2025, Table 1"
+  paper_pomo_no_augment_cost: 233.093524
+  paper_pomo_x8_cost: 192.78563
+  official_source: "ZHANG-NI/AGFN data/cvrp/testDataset-1000.pt"
+  official_source_sha256: "b8dd0cee789fbda29faf0c68a6de7e351782396a13e2b235c00ca71d6bd9d8ec"
+  dataset: "data/vrp/agfn_vrp1000_capacity50_test128.npz"
+  dataset_sha256: pending_conversion
+  validation_dataset: "data/vrp/agfn_vrp1000_capacity50_val_seed4321.npz"
+  validation_sha256: pending_generation
+  protocol: "official fixed128, 100 starts, 8 augment, FP32"
   proxy: "fixed32 seed4321, 100 starts, augmentation=1"
-  architecture_zero_shot_mean: 59.875156478881834
-  po_hard_threshold: 59.875156478881834
-  po_stretch_threshold_0p5pct: 59.57578069648743
-  po_success: "A post-training PO checkpoint after at least 1000 continuation steps must be no worse than the zero-shot architecture mean; target a >=0.5% improvement."
-  bopo_reporting: "Evaluate BOPO at the same continuation-step budget and paired fixed100 indices."
+  architecture_zero_shot_mean: pending_capacity50
+  po_hard_threshold: 192.78563
+  po_stretch_threshold_0p5pct: 191.82170185
+  po_success: "After at least 1000 continuation steps, PO must reproduce or beat AGFN Table 1 POMO x8 cost 192.78563 on the exact official 128-instance set."
+  bopo_reporting: "Evaluate BOPO at the same continuation-step budget and paired official indices 0..127."
 
 training:
   common_initialization: "downloads/cvrp100/po/checkpoint.ckpt"
@@ -38,28 +43,20 @@ training:
   continuation_policy: "If PO misses the target, resume equal-budget PO and BOPO chunks from their best verified checkpoints until PO reaches the locked cost."
 
 experiments:
+  capacity150_obsolete:
+    status: stopped_by_user_correction
+    stopped_steps: {po: 186, bopo: 189}
   zero_shot:
-    status: completed
-    host: g53
-    gpu: 2
-    mean_cost: 59.875156478881834
+    status: pending_capacity50
   po_1000:
-    status: running
-    host: g53
-    gpu: 0
-    pid: 1686437
-    remote_dir: "logs/cvrp1000_baselines/po_from_cvrp100_1000steps"
+    status: pending_capacity50
   bopo_1000:
-    status: running
-    host: g53
-    gpu: 1
-    pid: 1685545
-    remote_dir: "logs/cvrp1000_baselines/bopo_from_cvrp100_1000steps"
+    status: pending_capacity50
 
 next:
-  - "Monitor the two 1000-step jobs for NaN, OOM, process death, and validation trend."
-  - "After both finish, run canonical fixed100 evaluation on exactly aligned rows."
-  - "Continue matched training chunks if PO remains above 59.875156478881834."
+  - "Download and convert the exact AGFN official CVRP1000 tensor; verify SHA, row order, demands, coordinates, and distances."
+  - "Run capacity50 zero-shot calibration and one-step PO/BOPO probes."
+  - "Launch matched 1000-step capacity50 PO and BOPO jobs, then evaluate official fixed128."
 
 follow_on:
   ffsp: "After the CVRP1000 PO/BOPO baselines are launched and stable, define a larger-than-FFSP100 matched baseline."
