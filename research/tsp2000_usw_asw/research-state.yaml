@@ -1,6 +1,6 @@
 project:
   title: "Transfer USW and ASW to TSP2000"
-  status: active
+  status: aborted_user_correction
   started: "2026-07-15"
   question: "Can USW and ASW each significantly outperform an equal-budget PO control on canonical fixed100 TSP2000?"
 
@@ -21,7 +21,9 @@ protocol:
   asw: "Launch after stable TSP2000 settings are established; must independently beat PO"
 
 deployment:
-  status: preparing_memory_probe
+  status: stopped
   host: g48
   workdir: "/data1/gushengda/eam-rl4co"
+  stopped_at: "2026-07-15T10:22:00+08:00"
+  reason: "User clarified that 2000 meant training steps on TSP1000, not TSP size 2000."
 

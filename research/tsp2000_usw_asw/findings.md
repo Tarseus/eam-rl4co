@@ -11,3 +11,7 @@
 - Whether the TSP1000 USW advantage transfers to TSP2000.
 - Which ASW stability configuration can independently beat PO at TSP2000.
 
+## Scope correction
+
+The user clarified that “2000” meant 2000 training steps on TSP1000, not TSP2000. The two-step memory probe is retained only as an engineering note; the TSP2000 transfer study was stopped and must not be interpreted as an active research objective.
+
