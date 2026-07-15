@@ -59,7 +59,8 @@ def main() -> None:
     # Validate every stored distance entry in bounded row chunks before discarding the matrix.
     max_distance_error = 0.0
     for index in range(args.expected_instances):
-        recomputed = torch.cdist(positions[index], positions[index], p=2)
+        delta = positions[index, :, None, :] - positions[index, None, :, :]
+        recomputed = torch.norm(delta, dim=2, p=2)
         recomputed.fill_diagonal_(1e-10)
         error = float((recomputed - stored_distances[index]).abs().max())
         max_distance_error = max(max_distance_error, error)
