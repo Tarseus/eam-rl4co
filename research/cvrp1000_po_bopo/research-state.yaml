@@ -1,0 +1,53 @@
+project:
+  title: "CVRP1000 PO and BOPO baselines"
+  status: preparing
+  started: "2026-07-15"
+  question: "Can PO and BOPO train the existing POMO/PO4COPs architecture on CVRP1000, and can PO match or improve the architecture's fixed-set cost?"
+
+problem:
+  size: 1000
+  coordinate_distribution: "uniform on [0,1]^2"
+  demand_distribution: "discrete uniform integers 1..9"
+  capacity: 150
+  note: "Absolute costs from papers using capacity 50 or 250 are not directly comparable."
+
+evaluation:
+  dataset: "data/vrp/vrp1000_test_seed1234.npz"
+  dataset_sha256: "57342809aac9c3cc29b5898d04e52fbf5d20087a0da263e8b6bbb9505fbe9ccc"
+  validation_dataset: "data/vrp/vrp1000_val_seed4321.npz"
+  validation_sha256: "5df804938d3fcb8e5c7d0a9d39ca07c4a7ed4aec85cf3f195e46e83c603bdf8f"
+  protocol: "fixed100, 100 starts, 8 augment, FP32"
+  proxy: "fixed32 seed4321, 100 starts, augmentation=1"
+  architecture_zero_shot_mean: pending
+  po_success: "A post-training PO checkpoint after at least 1000 continuation steps must be no worse than the zero-shot architecture mean; target a >=0.5% improvement."
+  bopo_reporting: "Evaluate BOPO at the same continuation-step budget and paired fixed100 indices."
+
+training:
+  common_initialization: "downloads/cvrp100/po/checkpoint.ckpt"
+  first_chunk_steps: 1000
+  train_batch_size: 1
+  num_starts: 20
+  bopo_select_k: 10
+  alpha: 0.05
+  learning_rate: 1.0e-5
+  weight_decay: 1.0e-6
+  precision: bf16-mixed
+  data_policy: "PO and BOPO use the same deterministic instance indices and action seeds."
+  continuation_policy: "If PO misses the target, resume equal-budget PO and BOPO chunks from their best verified checkpoints until PO reaches the locked cost."
+
+experiments:
+  zero_shot:
+    status: pending
+  po_1000:
+    status: pending
+  bopo_1000:
+    status: pending
+
+next:
+  - "Run one-step memory and trainability probes on an idle RTX 3090."
+  - "Lock protocol commit before launching the two long baselines."
+  - "Launch PO and BOPO on separate idle GPUs."
+
+follow_on:
+  ffsp: "After the CVRP1000 PO/BOPO baselines are launched and stable, define a larger-than-FFSP100 matched baseline."
+  jssp: "After the CVRP1000 PO/BOPO baselines are launched and stable, use the existing bucketed 10x10/15x15/20x20 pipeline for larger matched baselines."
