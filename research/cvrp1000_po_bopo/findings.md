@@ -33,3 +33,9 @@ The first formal boundary reached was BOPO continuation step 100: validation32 i
 After the user's correction, both capacity150 jobs were stopped and preserved at PO step186 and BOPO step189. They cannot be resumed or cited as satisfying the paper-aligned experiment.
 
 The exact 981 MiB AGFN official tensor was downloaded on g53 and matched its Git-LFS SHA256. Conversion preserved source indices 0..127, recovered only integer demands 1..9 at capacity50, and reproduced every stored pairwise distance with maximum absolute error `2.22e-16`. The compact evaluation NPZ SHA256 is `58982b91...a4f295d`.
+
+The existing common PO checkpoint achieved **129.3376865386963** on the exact official 128 rows with 100 starts, eightfold augmentation, and FP32. This is substantially better than the paper's POMO x8 result 192.78563 and lies between the paper's LKH-3(100) cost 131.795858 and LKH-3(1000) cost 124.575469. A trajectory audit independently recomputed the selected cost, verified every customer appears exactly once, and verified all route loads respect capacity50. Therefore the low result is not caused by a capacity or reward shortcut.
+
+Both one-step capacity50 probes completed with finite gradients and about 2 GiB reserved memory. The formal matched 1000-step PO and BOPO runs are active on g53 GPUs0/1. Final success still requires evaluating the trained 1000-step PO checkpoint; zero-shot superiority alone does not replace the requested training experiment.
+
+At continuation step100, PO validation32 improved from 130.022788 to **129.641788**, while BOPO improved to **129.768673**. Both processes remain healthy; PO is currently ahead by 0.126885 on this proxy boundary. These proxy results do not replace the official fixed128 final evaluation.

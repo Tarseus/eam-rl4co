@@ -13,3 +13,6 @@
 | 9 | 2026-07-15 | correction | User rejected capacity150 self-calibration and required a paper-anchored capacity50 experiment. Locked AGFN ICLR 2025 Table 1 as the reference: official fixed128 dataset, POMO no-aug `233.093524`, POMO x8 `192.78563`. |
 | 10 | 2026-07-15 | stop | Stopped and preserved obsolete capacity150 PO PID `1686437` at step186 and BOPO PID `1685545` at step189; GPUs0/1 were released. |
 | 11 | 2026-07-15 | data | Downloaded the exact AGFN official CVRP1000 tensor (SHA `b8dd0c...d8ec`) and converted all 128 ordered rows to NPZ (SHA `58982b...f295d`). Demand recovery was exact and full distance verification had max error `2.22e-16`. |
+| 12 | 2026-07-15 | calibration | Common PO checkpoint achieved official fixed128/100-start/x8/FP32 mean `129.3376865386963`, already better than AGFN Table 1 POMO x8 `192.78563`. Independent action/capacity/cost audit passed. |
+| 13 | 2026-07-15 | launch | Capacity50 one-step PO/BOPO probes passed. Started formal PO PID `1696568` on g53 GPU0 and BOPO PID `1696569` on GPU1 for matched 1000-step runs. |
+| 14 | 2026-07-15 | monitor | At step100, PO validation32 improved from `130.022788` to `129.641788`; BOPO improved to `129.768673`. Both jobs were healthy near 3.75 s/step and 2.01 GiB reserved memory. |

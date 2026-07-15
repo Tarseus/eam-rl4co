@@ -23,7 +23,7 @@ evaluation:
   validation_sha256: "8de3059ffffd6594e10b3e91e9dfeeae271342c240518656aacf8bb260d35e94"
   protocol: "official fixed128, 100 starts, 8 augment, FP32"
   proxy: "fixed32 seed4321, 100 starts, augmentation=1"
-  architecture_zero_shot_mean: pending_capacity50
+  architecture_zero_shot_mean: 129.3376865386963
   po_hard_threshold: 192.78563
   po_stretch_threshold_0p5pct: 191.82170185
   po_success: "After at least 1000 continuation steps, PO must reproduce or beat AGFN Table 1 POMO x8 cost 192.78563 on the exact official 128-instance set."
@@ -47,16 +47,28 @@ experiments:
     status: stopped_by_user_correction
     stopped_steps: {po: 186, bopo: 189}
   zero_shot:
-    status: pending_capacity50
+    status: completed_capacity50
+    host: g53
+    gpu: 2
+    mean_cost: 129.3376865386963
+    action_audit: valid
   po_1000:
-    status: pending_capacity50
+    status: running_capacity50
+    host: g53
+    gpu: 0
+    pid: 1696568
+    remote_dir: "logs/cvrp1000_agfn_capacity50/po_1000steps"
   bopo_1000:
-    status: pending_capacity50
+    status: running_capacity50
+    host: g53
+    gpu: 1
+    pid: 1696569
+    remote_dir: "logs/cvrp1000_agfn_capacity50/bopo_1000steps"
 
 next:
   - "Download and convert the exact AGFN official CVRP1000 tensor; verify SHA, row order, demands, coordinates, and distances."
-  - "Run capacity50 zero-shot calibration and one-step PO/BOPO probes."
-  - "Launch matched 1000-step capacity50 PO and BOPO jobs, then evaluate official fixed128."
+  - "Monitor matched 1000-step capacity50 PO and BOPO jobs for health and validation trend."
+  - "At completion, evaluate both checkpoints on the exact official fixed128 and compare with 192.78563."
 
 follow_on:
   ffsp: "After the CVRP1000 PO/BOPO baselines are launched and stable, define a larger-than-FFSP100 matched baseline."
