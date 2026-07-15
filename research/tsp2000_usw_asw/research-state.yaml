@@ -1,0 +1,27 @@
+project:
+  title: "Transfer USW and ASW to TSP2000"
+  status: active
+  started: "2026-07-15"
+  question: "Can USW and ASW each significantly outperform an equal-budget PO control on canonical fixed100 TSP2000?"
+
+evaluation:
+  proxy: "fixed validation16, 1000 starts, augmentation=1"
+  final: "fixed100, 1000 starts, 8 augment, FP32"
+  seed: 1234
+  success: "Each method must have lower mean than PO and a paired candidate-minus-PO bootstrap 95% CI wholly below zero."
+
+protocol:
+  source_scale: 1000
+  target_scale: 2000
+  additional_steps: 1000
+  train_batch_size: 32
+  fresh_data_start_index: 40000000
+  usw: "K64, alpha=0.01, resume successful TSP1000 optimizer-step1000 last checkpoint"
+  po: "K20, resume equal-budget TSP1000 PO checkpoint; same batch and additional-step budget"
+  asw: "Launch after stable TSP2000 settings are established; must independently beat PO"
+
+deployment:
+  status: preparing_memory_probe
+  host: g48
+  workdir: "/data1/gushengda/eam-rl4co"
+
