@@ -1,0 +1,22 @@
+project:
+  title: "Make both PO-anchored USW and ASW beat PO-5075 on TSP1000"
+  status: active
+  started: "2026-07-15"
+  authorization: "User explicitly authorized method variants, PO mixing, hard-pair changes, and stopping the prior scheduled work."
+
+baseline:
+  method: po
+  checkpoint_optimizer_step: 5075
+  checkpoint_sha256: "99e2d20ebb1c4379d0a0d1a67fbbdc2b5c08c65725350f46b0c280507f20a9eb"
+  canonical_fixed100_mean: 25.57453468322754
+  canonical_gap_percent: 10.643731612193829
+
+success:
+  protocol: "fixed100, 1000 starts, 8 augment, FP32, exact full forward"
+  dataset_sha256: "fc544f59443a9352f4f3317603d39fae8123cba8502864cae8355e595555f865"
+  requirement: "USW-variant and ASW-variant must each have mean below25.57453468322754 and paired candidate-minus-PO bootstrap95% CI wholly below zero."
+
+active_stage: "initial_po_anchor_screen"
+active_runs: []
+last_observation: null
+
