@@ -17,6 +17,50 @@ success:
   requirement: "USW-variant and ASW-variant must each have mean below25.57453468322754 and paired candidate-minus-PO bootstrap95% CI wholly below zero."
 
 active_stage: "initial_po_anchor_screen"
-active_runs: []
-last_observation: null
-
+active_runs:
+  - name: "usw_poanchor_w090_k64_a001_screen200"
+    host: g53
+    gpu: 4
+    pid: 1713672
+    target_continuation_step: 200
+    source_optimizer_step: 5075
+    optimizer_state: "fresh Adam; source weights loaded with --checkpoint"
+    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/usw_poanchor_w090_k64_a001_screen200"
+    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_usw_poanchor_w090_20260715-182842.log"
+  - name: "asw_poanchor_w090_k40_a001_detach_screen200"
+    host: g53
+    gpu: 5
+    pid: 1713669
+    target_continuation_step: 200
+    source_optimizer_step: 5075
+    optimizer_state: "fresh Adam; source weights loaded with --checkpoint"
+    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/asw_poanchor_w090_k40_a001_detach_screen200"
+    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_asw_poanchor_w090_20260715-182842.log"
+last_observation:
+  time: "2026-07-15T18:32:02+08:00"
+  usw:
+    continuation_step: 6
+    step_time_sec: 21.27
+    instances_per_sec: 6.02
+    trajectories_per_sec: 385.1
+    loss: -0.179245263338089
+    grad_norm: 0.7822331130799519
+    coefficient_abs_mean: 0.000002849854581654654
+    replay_error: 0.0
+    peak_memory_allocated_gib: 18.8133
+    peak_memory_reserved_gib: 19.6758
+    eta_minutes: 68.8
+  asw:
+    continuation_step: 8
+    step_time_sec: 16.25
+    instances_per_sec: 7.88
+    trajectories_per_sec: 315.1
+    loss: -0.20734214782714844
+    grad_norm: 0.938217492647452
+    coefficient_abs_mean: 0.000004578560492518591
+    replay_error: 0.0
+    peak_memory_allocated_gib: 15.7874
+    peak_memory_reserved_gib: 23.2148
+    eta_minutes: 52.0
+  validation32_mean_at_step0: 25.83826607465744
+  status: "both healthy; no OOM, NaN, traceback, or replay mismatch; wait for next tick"
