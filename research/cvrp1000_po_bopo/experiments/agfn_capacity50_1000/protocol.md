@@ -15,7 +15,8 @@ Status: preregistration; must be committed before evaluation or training.
 - Preserve all 128 source rows in order.
 - Recover integer demand as `round(normalized_demand * 50)` and require every value to be in `1..9` with zero residual.
 - Extract depot/customer coordinates and recompute the complete Euclidean distance matrix for every source row; require max absolute disagreement with the official stored matrix at most `1e-10`.
-- Record the converted NPZ SHA256 before evaluation.
+- Converted official NPZ SHA256: `58982b9168fb21c5defe36d6e1d366f973830d4c7d3c06533d6a4ae52a4f295d`.
+- Capacity50 validation32 seed4321 SHA256: `8de3059ffffd6594e10b3e91e9dfeeae271342c240518656aacf8bb260d35e94`.
 
 ## Training
 

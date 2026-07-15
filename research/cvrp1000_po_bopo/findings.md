@@ -31,3 +31,5 @@ One-step CVRP1000 probes completed for both objectives. PO used about 1.91 GiB r
 The first formal boundary reached was BOPO continuation step 100: validation32 improved from 60.896614 at step 0 to 60.565683. PO was healthy at continuation step 96 in the same snapshot. A final bounded SSH attempt to capture PO's imminent step-100 validation hit a banner timeout, so the run stops polling and preserves the last verified state for the next tick.
 
 After the user's correction, both capacity150 jobs were stopped and preserved at PO step186 and BOPO step189. They cannot be resumed or cited as satisfying the paper-aligned experiment.
+
+The exact 981 MiB AGFN official tensor was downloaded on g53 and matched its Git-LFS SHA256. Conversion preserved source indices 0..127, recovered only integer demands 1..9 at capacity50, and reproduced every stored pairwise distance with maximum absolute error `2.22e-16`. The compact evaluation NPZ SHA256 is `58982b91...a4f295d`.
