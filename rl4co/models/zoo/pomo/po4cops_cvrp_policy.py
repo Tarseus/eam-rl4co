@@ -3,6 +3,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint as activation_checkpoint
 
 from tensordict import TensorDict
 
@@ -37,13 +38,21 @@ class _PO4COPsCVRPEncoder(nn.Module):
             ]
         )
 
-    def forward(self, depot_xy: torch.Tensor, node_xy_demand: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        depot_xy: torch.Tensor,
+        node_xy_demand: torch.Tensor,
+        checkpoint_layers: bool = False,
+    ) -> torch.Tensor:
         out = torch.cat(
             (self.embedding_depot(depot_xy), self.embedding_node(node_xy_demand)),
             dim=1,
         )
         for layer in self.layers:
-            out = layer(out)
+            if checkpoint_layers and torch.is_grad_enabled():
+                out = activation_checkpoint(layer, out, use_reentrant=False)
+            else:
+                out = layer(out)
         return out
 
 
@@ -78,9 +87,25 @@ class _CVRPFeatureDecoderLayer(nn.Module):
         load: torch.Tensor,
         ninf_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
+        return self.forward_with_cache(
+            input_tensor,
+            load,
+            ninf_mask,
+            self.k,
+            self.v,
+        )
+
+    def forward_with_cache(
+        self,
+        input_tensor: torch.Tensor,
+        load: torch.Tensor,
+        ninf_mask: torch.Tensor | None,
+        k: torch.Tensor,
+        v: torch.Tensor,
+    ) -> torch.Tensor:
         input_cat = torch.cat((input_tensor, load[..., None]), dim=2)
         q = _reshape_by_heads(self.Wq_last(input_cat), head_num=self.head_num)
-        out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
+        out_concat = _multi_head_attention(q, k, v, rank3_ninf_mask=ninf_mask)
         multi_head_out = self.multi_head_combine(out_concat)
         out1 = self.add_and_norm_1(input_tensor, multi_head_out)
         out2 = self.feed_forward(out1)
@@ -106,8 +131,16 @@ class _CVRPLogitDecoderLayer(nn.Module):
         self.logitk = self.Wlogit_k(encoded_nodes)
 
     def forward(self, input_tensor: torch.Tensor, ninf_mask: torch.Tensor) -> torch.Tensor:
+        return self.forward_with_cache(input_tensor, ninf_mask, self.logitk)
+
+    def forward_with_cache(
+        self,
+        input_tensor: torch.Tensor,
+        ninf_mask: torch.Tensor,
+        logitk: torch.Tensor,
+    ) -> torch.Tensor:
         q = self.Wq_last(input_tensor)
-        score = torch.matmul(q, self.logitk.transpose(1, 2))
+        score = torch.matmul(q, logitk.transpose(1, 2))
         score_scaled = score / self.sqrt_embedding_dim
         score_clipped = self.logit_clipping * torch.tanh(score_scaled)
         score_masked = score_clipped + ninf_mask
@@ -158,6 +191,37 @@ class _PO4COPsCVRPDecoder(nn.Module):
         for layer in self.feature_layers:
             out = layer(out, load, ninf_mask)
         return self.logit_layer(out, ninf_mask)
+
+    def cache_tensors(self) -> tuple[torch.Tensor, ...]:
+        cache: list[torch.Tensor] = []
+        for layer in self.feature_layers:
+            cache.extend((layer.k, layer.v))
+        cache.append(self.logit_layer.logitk)
+        return tuple(cache)
+
+    def forward_with_cache(
+        self,
+        encoded_last_node: torch.Tensor,
+        load: torch.Tensor,
+        ninf_mask: torch.Tensor,
+        *cache_tensors: torch.Tensor,
+    ) -> torch.Tensor:
+        expected = 2 * len(self.feature_layers) + 1
+        if len(cache_tensors) != expected:
+            raise ValueError(
+                f"Expected {expected} decoder cache tensors, got {len(cache_tensors)}"
+            )
+        out = encoded_last_node
+        offset = 0
+        for layer in self.feature_layers:
+            k, v = cache_tensors[offset : offset + 2]
+            offset += 2
+            out = layer.forward_with_cache(out, load, ninf_mask, k, v)
+        return self.logit_layer.forward_with_cache(
+            out,
+            ninf_mask,
+            cache_tensors[offset],
+        )
 
 
 class PO4COPsCVRPPolicy(nn.Module):
@@ -230,6 +294,9 @@ class PO4COPsCVRPPolicy(nn.Module):
         return_actions: bool = True,
         return_entropy: bool = False,
         return_sum_log_likelihood: bool = True,
+        forced_actions: torch.Tensor | None = None,
+        checkpoint_encoder_layers: bool = False,
+        checkpoint_selected_log_probs: bool = False,
         **unused_kwargs,
     ) -> dict:
         if num_starts is None or num_starts <= 0:
@@ -239,18 +306,61 @@ class PO4COPsCVRPPolicy(nn.Module):
         base_batch = td_base.shape[0]
         depot_xy, node_xy_demand = self._split_inputs(td_base)
 
-        encoded_nodes = self.encoder(depot_xy, node_xy_demand)
+        encoded_nodes = self.encoder(
+            depot_xy,
+            node_xy_demand,
+            checkpoint_layers=checkpoint_encoder_layers,
+        )
         self.decoder.set_kv(encoded_nodes)
+
+        forced_actions_3d = None
+        if forced_actions is not None:
+            if forced_actions.ndim == 2:
+                if forced_actions.shape[0] != base_batch * num_starts:
+                    raise ValueError(
+                        "Flattened forced_actions must have leading dimension "
+                        f"{base_batch * num_starts}, got {forced_actions.shape[0]}"
+                    )
+                forced_actions_3d = forced_actions.reshape(
+                    num_starts,
+                    base_batch,
+                    -1,
+                ).permute(1, 0, 2)
+            elif forced_actions.ndim == 3:
+                if forced_actions.shape[:2] != (base_batch, num_starts):
+                    raise ValueError(
+                        "Rank-3 forced_actions must have shape "
+                        f"[{base_batch}, {num_starts}, T], got {tuple(forced_actions.shape)}"
+                    )
+                forced_actions_3d = forced_actions
+            else:
+                raise ValueError(
+                    f"forced_actions must have rank 2 or 3, got rank {forced_actions.ndim}"
+                )
+            forced_actions_3d = forced_actions_3d.to(
+                device=td_base.device,
+                dtype=torch.long,
+            )
+            if forced_actions_3d.shape[2] < 2:
+                raise ValueError("CVRP forced_actions must contain depot and start actions")
 
         td_flat = batchify(td_base, num_starts)
 
-        depot_action_flat = torch.zeros(
-            base_batch * num_starts, dtype=torch.long, device=td.device
-        )
+        if forced_actions_3d is None:
+            depot_action_flat = torch.zeros(
+                base_batch * num_starts, dtype=torch.long, device=td.device
+            )
+        else:
+            depot_action_flat = forced_actions_3d[:, :, 0].transpose(0, 1).reshape(-1)
+            if (depot_action_flat != 0).any():
+                raise ValueError("CVRP forced replay must begin at depot action 0")
         td_flat.set("action", depot_action_flat)
         td_flat = env.step(td_flat)["next"]
 
-        start_action_flat = select_start_nodes(td_base, env, num_starts)
+        if forced_actions_3d is None:
+            start_action_flat = select_start_nodes(td_base, env, num_starts)
+        else:
+            start_action_flat = forced_actions_3d[:, :, 1].transpose(0, 1).reshape(-1)
         td_flat.set("action", start_action_flat)
         td_flat = env.step(td_flat)["next"]
 
@@ -265,6 +375,7 @@ class PO4COPsCVRPPolicy(nn.Module):
             torch.zeros_like(depot_action, dtype=encoded_nodes.dtype),
             torch.zeros_like(start_action, dtype=encoded_nodes.dtype),
         ]
+        decoder_cache = self.decoder.cache_tensors()
 
         decode_type = getattr(self, f"{phase}_decode_type", "sampling")
         if decode_type.startswith("multistart_"):
@@ -279,6 +390,7 @@ class PO4COPsCVRPPolicy(nn.Module):
         )
 
         done = td_flat["done"]
+        step_index = 2
         while not done.all():
             current_node = unbatchify(td_flat["current_node"], num_starts)
             encoded_last_node = _get_encoding(encoded_nodes, current_node)
@@ -292,29 +404,88 @@ class PO4COPsCVRPPolicy(nn.Module):
                 torch.zeros_like(action_mask, dtype=encoded_nodes.dtype),
                 float("-inf"),
             )
-            probs = self.decoder(encoded_last_node, remaining_load, ninf_mask)
+            if forced_actions_3d is None:
+                probs = self.decoder(encoded_last_node, remaining_load, ninf_mask)
 
-            if use_sampling:
-                while True:
-                    selected = _select_actions_from_probs(probs, use_sampling, use_hybrid)
+                if use_sampling:
+                    while True:
+                        selected = _select_actions_from_probs(probs, use_sampling, use_hybrid)
+                        prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1)
+                        if (prob > 0).all():
+                            break
+                else:
+                    selected = probs.argmax(dim=2)
                     prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1)
-                    if (prob > 0).all():
-                        break
-            else:
-                selected = probs.argmax(dim=2)
-                prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1)
 
-            prob = prob.clamp_min(1e-12)
-            log_probs.append(prob.log())
-            if return_entropy:
-                probs_safe = probs.clamp_min(1e-12)
-                entropies.append(-(probs_safe * probs_safe.log()).sum(dim=2))
+                prob = prob.clamp_min(1e-12)
+                selected_log_prob = prob.log()
+                if return_entropy:
+                    probs_safe = probs.clamp_min(1e-12)
+                    entropies.append(-(probs_safe * probs_safe.log()).sum(dim=2))
+            else:
+                if step_index >= forced_actions_3d.shape[2]:
+                    raise ValueError(
+                        "forced_actions ended before the environment rollout completed"
+                    )
+                selected = forced_actions_3d[:, :, step_index]
+
+                def selected_log_prob_fn(
+                    last_node: torch.Tensor,
+                    load: torch.Tensor,
+                    mask: torch.Tensor,
+                    action: torch.Tensor,
+                    *cache: torch.Tensor,
+                ) -> torch.Tensor:
+                    action_probs = self.decoder.forward_with_cache(
+                        last_node,
+                        load,
+                        mask,
+                        *cache,
+                    )
+                    selected_prob = action_probs.gather(
+                        2,
+                        action.unsqueeze(-1),
+                    ).squeeze(-1)
+                    return selected_prob.clamp_min(1e-12).log()
+
+                if checkpoint_selected_log_probs and torch.is_grad_enabled():
+                    selected_log_prob = activation_checkpoint(
+                        selected_log_prob_fn,
+                        encoded_last_node,
+                        remaining_load,
+                        ninf_mask,
+                        selected,
+                        *decoder_cache,
+                        use_reentrant=False,
+                    )
+                else:
+                    selected_log_prob = selected_log_prob_fn(
+                        encoded_last_node,
+                        remaining_load,
+                        ninf_mask,
+                        selected,
+                        *decoder_cache,
+                    )
+                if return_entropy:
+                    raise ValueError(
+                        "return_entropy is unsupported with forced_actions because the "
+                        "memory-efficient path does not retain full probability tensors"
+                    )
+
+            log_probs.append(selected_log_prob)
             actions.append(selected)
 
             selected_flat = selected.transpose(0, 1).reshape(-1)
             td_flat.set("action", selected_flat)
             td_flat = env.step(td_flat)["next"]
             done = td_flat["done"]
+            step_index += 1
+
+        if forced_actions_3d is not None and step_index != forced_actions_3d.shape[2]:
+            raise ValueError(
+                "forced_actions length does not match the completed environment rollout: "
+                f"used {step_index}, provided {forced_actions_3d.shape[2]}"
+            )
 
         actions_3d = torch.stack(actions, dim=2)
         log_probs_3d = torch.stack(log_probs, dim=2)

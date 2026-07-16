@@ -1,56 +1,57 @@
 project:
-  title: "CVRP1000 replication of the successful TSP1000 PO-anchor route"
-  status: protocol_locked_preflight
+  title: "Replicate the successful TSP1000 PO-anchored USW/ASW route on CVRP1000"
+  status: active
   started: "2026-07-16"
-  host: g53
-  question: "Can PO-anchored USW and ASW both significantly beat a same-start, matched-budget PO continuation on official AGFN capacity50 CVRP1000?"
+  authorization: "User explicitly requested direct replication of the final route where both USW and ASW significantly beat PO."
 
-common:
-  checkpoint: "downloads/cvrp100/po/checkpoint.ckpt"
-  optimizer: "fresh Adam whenever the objective changes"
+problem:
+  name: CVRP1000
+  capacity: 50
+  coordinate_distribution: "uniform on [0,1]^2"
+  demand_distribution: "discrete uniform integers 1..9"
+
+source_po:
+  checkpoint: "/data1/gushengda/eam-rl4co/logs/cvrp1000_agfn_capacity50/po_1000steps/best.ckpt"
+  checkpoint_sha256: "94cbb5e1c7b6391f31ae113c1beae81491cdfffad17199d1db0ac51205a9fd26"
+  heldout_fixed32_mean: 128.06427645683289
+  optimizer_policy: "load weights only; fresh Adam for both changed objectives"
+
+locked_route:
+  seed: 1234
+  data_start_index: 300000000
+  effective_batch_size: 128
   learning_rate: 1.0e-5
   weight_decay: 1.0e-6
   precision: bf16-mixed
-  target_size: 1000
-  capacity: 50
-  effective_instance_batch: 128
-  physical_batch_policy: "probe 4 first; use the largest verified safe physical batch and gradient accumulation to effective128"
-  seed: 1234
-  short_screen_steps: 100
-  total_continuation_steps: 1000
-  short_screen_data_start_index: 300000000
-  resume_data_start_index: 300012800
+  po_anchor_weight: 0.90
+  po_anchor_alpha: 0.05
+  screen_steps: 200
+  promoted_total_steps: 1000
+  usw: "K64, alpha0.01, non-detach"
+  asw: "K40, alpha0.01, detach"
 
-branches:
-  po:
-    num_starts: 64
-    alpha: 0.05
-    po_anchor_weight: 0.0
-  usw:
-    num_starts: 64
-    alpha: 0.01
-    po_anchor_weight: 0.90
-    po_anchor_alpha: 0.05
-    detach_pref_weights: false
-  asw:
-    num_starts: 40
-    alpha: 0.01
-    po_anchor_weight: 0.90
-    po_anchor_alpha: 0.05
-    detach_pref_weights: true
+evaluation:
+  validation_dataset: "data/vrp/agfn_vrp1000_capacity50_val_seed4321.npz"
+  validation_sha256: "8de3059ffffd6594e10b3e91e9dfeeae271342c240518656aacf8bb260d35e94"
+  official_dataset: "data/vrp/agfn_vrp1000_capacity50_test128.npz"
+  official_sha256: "58982b9168fb21c5defe36d6e1d366f973830d4c7d3c06533d6a4ae52a4f295d"
+  official_protocol: "fixed128, 100 starts, 8 augmentations, FP32"
+  success: "Both variants independently beat source PO with candidate-minus-PO paired-bootstrap 95% CI wholly below zero."
 
-selection:
-  step0_requirement: "All three branches must produce exactly the same validation32 per-instance costs before any screen result is trusted."
-  proxy: "AGFN capacity50 validation32, 100 starts, augmentation1, FP32-compatible fixed data"
-  promotion: "Lock candidates only after the 100-step screen; resume the same branch optimizer to total continuation_step1000."
-  integrity: "forced replay error <=1e-5, finite loss/gradients, no optimizer-step reset, no reused output directory"
+active_stage: "protocol_locked; local forced-replay and common-initialization smoke tests passed; remote VRAM probes pending"
+active_runs: []
 
-final_evaluation:
-  dataset: "data/vrp/agfn_vrp1000_capacity50_test128.npz"
-  dataset_sha256: "58982b9168fb21c5defe36d6e1d366f973830d4c7d3c06533d6a4ae52a4f295d"
-  protocol: "official fixed128, 100 starts, 8 augment, FP32"
-  statistics: "paired per-instance bootstrap against same-start, same-budget PO"
-  success: "Both USW and ASW candidate-minus-PO 95% paired bootstrap confidence intervals are wholly below zero."
+last_observation:
+  time: "2026-07-16T10:30:00+08:00"
+  local_tests:
+    cvrp_forced_replay: passed
+    cvrp_memory_efficient_instance_batch: passed
+    replay_error: 0.0
+    usw_asw_common_initialization_exact: true
+  remote:
+    host: g53
+    free_gpus: [3, 4, 5]
+    source_and_artifact_hashes_match_local: true
 
 prior_evidence:
   legacy_po_step1000_validation32: 128.06427645683289
@@ -60,7 +61,7 @@ prior_evidence:
   note: "Legacy USW/ASW used different checkpoints, restored Adam at LR3e-4, K50 and alpha0.03; they are negative context only and do not satisfy this protocol."
 
 next:
-  - "Verify local/remote code and data hashes on g53."
-  - "Run one-update physical-batch probes for PO, USW and ASW without reusing output directories."
-  - "Launch the locked 100-step screen at the largest common safe physical batch with accumulation to effective128."
-
+  - "Commit the locked protocol and implementation."
+  - "Sync only the scoped implementation/protocol files to g53."
+  - "Run one-update K64/K40 batch128 VRAM and integrity probes."
+  - "Launch the paired 200-step screen if both probes pass."

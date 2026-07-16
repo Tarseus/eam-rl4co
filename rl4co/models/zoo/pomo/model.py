@@ -106,6 +106,12 @@ class POMO(REINFORCE):
         pref_pair_json_path: str | None = None,
         pref_builder_kwargs: dict | None = None,
         free_loss_observables: Sequence[str] | None = None,
+        preference_po_anchor_weight: float = 0.0,
+        preference_po_anchor_alpha: float = 0.05,
+        memory_efficient_preference: bool = False,
+        memory_efficient_checkpoint_encoder: bool = True,
+        memory_efficient_checkpoint_decoder: bool = True,
+        memory_efficient_verify_replay: bool = False,
         **kwargs,
     ):
         self.save_hyperparameters(logger=False)
@@ -181,6 +187,16 @@ class POMO(REINFORCE):
         self.pref_pair_json_path = pref_pair_json_path
         self.pref_builder_kwargs = {} if pref_builder_kwargs is None else dict(pref_builder_kwargs)
         self.free_loss_observables = _normalize_free_loss_observables(free_loss_observables)
+        self.preference_po_anchor_weight = float(preference_po_anchor_weight)
+        self.preference_po_anchor_alpha = float(preference_po_anchor_alpha)
+        if not 0.0 <= self.preference_po_anchor_weight <= 1.0:
+            raise ValueError("preference_po_anchor_weight must be in [0, 1]")
+        if self.preference_po_anchor_alpha <= 0.0:
+            raise ValueError("preference_po_anchor_alpha must be > 0")
+        self.memory_efficient_preference = bool(memory_efficient_preference)
+        self.memory_efficient_checkpoint_encoder = bool(memory_efficient_checkpoint_encoder)
+        self.memory_efficient_checkpoint_decoder = bool(memory_efficient_checkpoint_decoder)
+        self.memory_efficient_verify_replay = bool(memory_efficient_verify_replay)
         self.free_loss = None
         self.pref_builder = None
         self._pref_extract_feature_cache = None
@@ -217,6 +233,16 @@ class POMO(REINFORCE):
             n_aug = 0
         elif n_aug > 1:
             td = self.augment(td)
+
+        if phase == "train" and self.memory_efficient_preference:
+            policy_device = next(self.policy.parameters()).device
+            td = td.to(policy_device)
+            return self._memory_efficient_preference_step(
+                td=td,
+                batch=batch,
+                n_start=n_start,
+                dataloader_idx=dataloader_idx,
+            )
 
         # Evaluate policy
         policy_kwargs: dict[str, Any] = {"phase": phase, "num_starts": n_start}
@@ -298,6 +324,142 @@ class POMO(REINFORCE):
         metrics = self.log_metrics(out, phase, dataloader_idx=dataloader_idx)
         return {"loss": out.get("loss", None), **metrics}
 
+    def _memory_efficient_preference_step(
+        self,
+        *,
+        td,
+        batch,
+        n_start: int,
+        dataloader_idx: int | None,
+        log_metrics: bool = True,
+    ):
+        if not isinstance(self.policy, (PO4COPsTSPPolicy, PO4COPsCVRPPolicy)):
+            raise TypeError(
+                "memory_efficient_preference requires a PO4COPs TSP or CVRP policy"
+            )
+        if self.loss_type not in {"po_loss", "bopo_loss", "free_loss"}:
+            raise ValueError(
+                "memory_efficient_preference supports po_loss, bopo_loss, and free_loss; "
+                f"got {self.loss_type}"
+            )
+        if n_start is None or n_start <= 1:
+            raise ValueError("memory_efficient_preference requires num_starts > 1")
+        if set(self.free_loss_observables) & {
+            "log_prob_step",
+            "entropy",
+            "entropy_mean",
+        }:
+            raise ValueError(
+                "memory_efficient_preference does not support step-level log-probability "
+                "or entropy observables"
+            )
+
+        with torch.no_grad():
+            rollout_out = self.policy(
+                td,
+                self.env,
+                phase="train",
+                num_starts=n_start,
+                return_actions=True,
+                return_entropy=False,
+                return_sum_log_likelihood=True,
+            )
+
+        reward = unbatchify(rollout_out["reward"], (0, n_start)).detach()
+        sampled_log_likelihood = unbatchify(
+            rollout_out["log_likelihood"],
+            (0, n_start),
+        ).detach()
+        actions = unbatchify(rollout_out["actions"], (0, n_start)).detach()
+
+        leaf_log_likelihood = sampled_log_likelihood.float().requires_grad_(True)
+        objective_out = {
+            "reward": reward,
+            "log_likelihood": leaf_log_likelihood,
+            "actions": actions,
+        }
+        instance_losses = []
+        for instance_index in range(reward.shape[0]):
+            instance_out = {
+                "reward": reward[instance_index : instance_index + 1],
+                "log_likelihood": leaf_log_likelihood[
+                    instance_index : instance_index + 1
+                ],
+                "actions": actions[instance_index : instance_index + 1],
+            }
+            self.calculate_loss(
+                td,
+                batch,
+                instance_out,
+                reward=instance_out["reward"].float(),
+                log_likelihood=instance_out["log_likelihood"],
+            )
+            instance_losses.append(instance_out["loss"])
+        objective_loss = torch.stack(instance_losses).mean()
+        objective_out["loss"] = objective_loss
+        coefficients = torch.autograd.grad(
+            objective_loss,
+            leaf_log_likelihood,
+            create_graph=False,
+            retain_graph=False,
+        )[0].detach()
+
+        replay_out = self.policy(
+            td,
+            self.env,
+            phase="train",
+            num_starts=n_start,
+            return_actions=False,
+            return_entropy=False,
+            return_sum_log_likelihood=True,
+            forced_actions=rollout_out["actions"],
+            checkpoint_encoder_layers=self.memory_efficient_checkpoint_encoder,
+            checkpoint_selected_log_probs=self.memory_efficient_checkpoint_decoder,
+        )
+        replay_log_likelihood = unbatchify(
+            replay_out["log_likelihood"],
+            (0, n_start),
+        )
+        replay_error = (
+            replay_log_likelihood.detach().float() - sampled_log_likelihood.float()
+        ).abs().max()
+        replay_error_value = float(replay_error.item())
+        if self.memory_efficient_verify_replay and replay_error_value > 1e-5:
+            raise RuntimeError(
+                "Forced replay changed trajectory log-likelihoods: "
+                f"max_abs_error={replay_error_value}"
+            )
+
+        surrogate = (coefficients * replay_log_likelihood.float()).sum()
+        loss = objective_loss.detach() + surrogate - surrogate.detach()
+        objective_out.update(
+            {
+                "loss": loss,
+                "reward": rollout_out["reward"],
+                "log_likelihood": replay_out["log_likelihood"],
+                "memory_efficient_replay_error": replay_error.detach(),
+                "memory_efficient_coefficient_abs_mean": coefficients.abs().mean(),
+            }
+        )
+        max_reward = reward.max(dim=-1).values
+        objective_out["max_reward"] = max_reward
+
+        metrics = (
+            self.log_metrics(
+                objective_out,
+                "train",
+                dataloader_idx=dataloader_idx,
+            )
+            if log_metrics
+            else {}
+        )
+        return {
+            "loss": loss,
+            "memory_efficient_replay_error": replay_error.detach(),
+            "memory_efficient_coefficient_abs_mean": coefficients.abs().mean().detach(),
+            **metrics,
+        }
+
     def calculate_loss(
         self,
         td,
@@ -371,12 +533,31 @@ class POMO(REINFORCE):
             policy_out.update({"loss": loss, "sll_loss": loss.detach()})
             return policy_out
         if self.loss_type == "free_loss":
-            loss, pair_count = self._free_loss_loss_fn(reward, log_likelihood, policy_out)
+            preference_loss, pair_count = self._free_loss_loss_fn(
+                reward, log_likelihood, policy_out
+            )
+            anchor_weight = float(self.preference_po_anchor_weight)
+            if anchor_weight > 0.0:
+                anchor_loss, _ = po_loss(
+                    reward,
+                    log_likelihood,
+                    alpha=float(self.preference_po_anchor_alpha),
+                    impl="exponential",
+                )
+                loss = (
+                    (1.0 - anchor_weight) * preference_loss
+                    + anchor_weight * anchor_loss
+                )
+            else:
+                anchor_loss = preference_loss.new_zeros(())
+                loss = preference_loss
             policy_out.update(
                 {
                     "loss": loss,
-                    "free_loss": loss.detach(),
+                    "free_loss": preference_loss.detach(),
                     "free_loss_pair_count": pair_count,
+                    "preference_po_anchor_loss": anchor_loss.detach(),
+                    "preference_po_anchor_weight": anchor_weight,
                 }
             )
             return policy_out
@@ -571,6 +752,11 @@ class POMO(REINFORCE):
                     **self.pref_builder_kwargs,
                 },
             )
+            if (
+                getattr(self, "detach_pref_weights", False)
+                and isinstance(pref_batch.weight, torch.Tensor)
+            ):
+                pref_batch.weight = pref_batch.weight.detach()
             pair_count_value = int(pref_batch.num_examples())
             if pair_count_value > 0:
                 loss_batch = pref_batch.to_pairwise_loss_batch(feature_cache)

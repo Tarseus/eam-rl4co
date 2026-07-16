@@ -16,6 +16,7 @@ from rl4co.envs import (
     TSPkoptEnv,
 )
 from rl4co.models.rl import A2C, PPO, REINFORCE
+from rl4co.models.rl.reinforce.preference_losses import po_loss
 from rl4co.models.zoo import (
     DACT,
     GLOP,
@@ -39,8 +40,10 @@ from rl4co.models.zoo.pomo.po4cops_tsp_policy import (
     PO4COPsTSPPolicy,
     _select_actions_from_probs,
 )
+from rl4co.models.zoo.pomo.po4cops_cvrp_policy import PO4COPsCVRPPolicy
 from rl4co.utils import RL4COTrainer
 from rl4co.utils.meta_trainer import ReptileCallback
+from rl4co.utils.ops import unbatchify
 from rl4co.utils.test_utils import generate_env_data
 
 # Get env variable MAC_OS_GITHUB_RUNNER
@@ -293,6 +296,261 @@ def test_po4cops_tsp_policy_supports_official_bopo_same_start():
     assert out["reward"].shape == (64,)
     assert out["actions"].shape[0] == 64
     assert (out["actions"][:, 0] == 0).all()
+
+
+def test_po4cops_tsp_forced_replay_matches_sampled_log_likelihood():
+    env, x = generate_env_data("tsp", size=8, batch_size=2)
+    td = env.reset(x)
+    policy = PO4COPsTSPPolicy(env_name=env.name)
+
+    torch.manual_seed(1234)
+    sampled = policy(
+        td,
+        env,
+        phase="train",
+        num_starts=8,
+        return_actions=True,
+    )
+    replayed = policy(
+        td,
+        env,
+        phase="train",
+        num_starts=8,
+        return_actions=False,
+        forced_actions=sampled["actions"],
+        checkpoint_encoder_layers=True,
+        checkpoint_selected_log_probs=True,
+    )
+
+    torch.testing.assert_close(replayed["reward"], sampled["reward"])
+    torch.testing.assert_close(
+        replayed["log_likelihood"],
+        sampled["log_likelihood"],
+    )
+    replayed["log_likelihood"].sum().backward()
+    assert all(
+        parameter.grad is None or torch.isfinite(parameter.grad).all()
+        for parameter in policy.parameters()
+    )
+
+
+def test_po4cops_tsp_replay_surrogate_matches_direct_po_gradients():
+    env, x = generate_env_data("tsp", size=8, batch_size=2)
+    td = env.reset(x)
+    direct_policy = PO4COPsTSPPolicy(env_name=env.name)
+    replay_policy = PO4COPsTSPPolicy(env_name=env.name)
+    replay_policy.load_state_dict(direct_policy.state_dict())
+    num_starts = 8
+
+    torch.manual_seed(1234)
+    direct_out = direct_policy(
+        td,
+        env,
+        phase="train",
+        num_starts=num_starts,
+        return_actions=True,
+    )
+    reward = unbatchify(direct_out["reward"], (0, num_starts))
+    direct_log_likelihood = unbatchify(
+        direct_out["log_likelihood"],
+        (0, num_starts),
+    )
+    direct_loss, _ = po_loss(reward, direct_log_likelihood, alpha=0.05)
+    direct_loss.backward()
+
+    leaf_log_likelihood = direct_log_likelihood.detach().requires_grad_(True)
+    leaf_loss, _ = po_loss(reward, leaf_log_likelihood, alpha=0.05)
+    coefficients = torch.autograd.grad(leaf_loss, leaf_log_likelihood)[0]
+    replay_out = replay_policy(
+        td,
+        env,
+        phase="train",
+        num_starts=num_starts,
+        return_actions=False,
+        forced_actions=direct_out["actions"],
+        checkpoint_encoder_layers=True,
+        checkpoint_selected_log_probs=True,
+    )
+    replay_log_likelihood = unbatchify(
+        replay_out["log_likelihood"],
+        (0, num_starts),
+    )
+    (coefficients.detach() * replay_log_likelihood).sum().backward()
+
+    for direct_parameter, replay_parameter in zip(
+        direct_policy.parameters(),
+        replay_policy.parameters(),
+    ):
+        if direct_parameter.grad is None or replay_parameter.grad is None:
+            assert direct_parameter.grad is replay_parameter.grad
+            continue
+        torch.testing.assert_close(
+            replay_parameter.grad,
+            direct_parameter.grad,
+            rtol=2e-5,
+            atol=2e-6,
+        )
+
+
+def test_po4cops_tsp_memory_efficient_step_supports_instance_batch():
+    env, batch = generate_env_data("tsp", size=8, batch_size=3)
+    td = env.reset(batch)
+    model = POMO(
+        env,
+        policy=PO4COPsTSPPolicy(env_name=env.name),
+        loss_type="po_loss",
+        po_impl="exponential",
+        alpha=0.05,
+        num_starts=8,
+        memory_efficient_preference=True,
+        memory_efficient_checkpoint_encoder=True,
+        memory_efficient_checkpoint_decoder=True,
+        memory_efficient_verify_replay=True,
+        batch_size=3,
+        train_data_size=3,
+        val_data_size=3,
+        test_data_size=3,
+    )
+
+    torch.manual_seed(1234)
+    out = model._memory_efficient_preference_step(
+        td=td,
+        batch=batch,
+        n_start=8,
+        dataloader_idx=None,
+        log_metrics=False,
+    )
+    out["loss"].backward()
+
+    assert torch.isfinite(out["loss"])
+    assert out["memory_efficient_replay_error"] <= 1e-5
+    assert all(
+        parameter.grad is None or torch.isfinite(parameter.grad).all()
+        for parameter in model.parameters()
+    )
+
+
+def test_po4cops_cvrp_forced_replay_matches_sampled_log_likelihood():
+    env, batch = generate_env_data("cvrp", size=8, batch_size=2)
+    td = env.reset(batch)
+    policy = PO4COPsCVRPPolicy(env_name=env.name)
+
+    torch.manual_seed(1234)
+    sampled = policy(
+        td,
+        env,
+        phase="train",
+        num_starts=8,
+        return_actions=True,
+    )
+    replayed = policy(
+        td,
+        env,
+        phase="train",
+        num_starts=8,
+        return_actions=False,
+        forced_actions=sampled["actions"],
+        checkpoint_encoder_layers=True,
+        checkpoint_selected_log_probs=True,
+    )
+
+    torch.testing.assert_close(replayed["reward"], sampled["reward"])
+    torch.testing.assert_close(
+        replayed["log_likelihood"],
+        sampled["log_likelihood"],
+    )
+    replayed["log_likelihood"].sum().backward()
+    assert all(
+        parameter.grad is None or torch.isfinite(parameter.grad).all()
+        for parameter in policy.parameters()
+    )
+
+
+def test_po4cops_cvrp_memory_efficient_step_supports_instance_batch():
+    env, batch = generate_env_data("cvrp", size=8, batch_size=3)
+    td = env.reset(batch)
+    model = POMO(
+        env,
+        policy=PO4COPsCVRPPolicy(env_name=env.name),
+        loss_type="po_loss",
+        po_impl="exponential",
+        alpha=0.05,
+        num_starts=8,
+        memory_efficient_preference=True,
+        memory_efficient_checkpoint_encoder=True,
+        memory_efficient_checkpoint_decoder=True,
+        memory_efficient_verify_replay=True,
+        batch_size=3,
+        train_data_size=3,
+        val_data_size=3,
+        test_data_size=3,
+    )
+
+    torch.manual_seed(1234)
+    out = model._memory_efficient_preference_step(
+        td=td,
+        batch=batch,
+        n_start=8,
+        dataloader_idx=None,
+        log_metrics=False,
+    )
+    out["loss"].backward()
+
+    assert torch.isfinite(out["loss"])
+    assert out["memory_efficient_replay_error"] <= 1e-5
+    assert all(
+        parameter.grad is None or torch.isfinite(parameter.grad).all()
+        for parameter in model.parameters()
+    )
+
+
+def test_pomo_free_loss_can_use_po_anchor():
+    env, _ = generate_env_data("tsp", size=8, batch_size=1)
+    model = POMO(
+        env,
+        policy=PO4COPsTSPPolicy(env_name=env.name),
+        loss_type="po_loss",
+        num_starts=4,
+        preference_po_anchor_weight=0.75,
+        preference_po_anchor_alpha=0.05,
+        batch_size=1,
+        train_data_size=1,
+        val_data_size=1,
+        test_data_size=1,
+    )
+    model.loss_type = "free_loss"
+    reward = torch.tensor([[4.0, 3.0, 2.0, 1.0]])
+    log_likelihood = torch.tensor(
+        [[-1.0, -1.5, -2.0, -2.5]], requires_grad=True
+    )
+    preference_loss = log_likelihood.square().mean()
+    model._free_loss_loss_fn = lambda *_args, **_kwargs: (
+        preference_loss,
+        torch.tensor(6),
+    )
+
+    policy_out = {}
+    model.calculate_loss(
+        None,
+        None,
+        policy_out,
+        reward=reward,
+        log_likelihood=log_likelihood,
+    )
+    po_anchor, _ = po_loss(
+        reward,
+        log_likelihood,
+        alpha=0.05,
+        impl="exponential",
+    )
+    expected = 0.25 * preference_loss + 0.75 * po_anchor
+
+    torch.testing.assert_close(policy_out["loss"], expected)
+    torch.testing.assert_close(policy_out["free_loss"], preference_loss.detach())
+    torch.testing.assert_close(
+        policy_out["preference_po_anchor_loss"], po_anchor.detach()
+    )
+    assert policy_out["preference_po_anchor_weight"] == 0.75
 
 
 def test_po4cops_tsp_hybrid_keeps_one_greedy_line():

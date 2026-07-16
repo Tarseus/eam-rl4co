@@ -28,7 +28,19 @@ from scripts.eval_downloaded_routing_checkpoints import (
 )
 
 
-METHODS = ("po", "bopo")
+METHODS = ("po", "bopo", "usw", "asw")
+DEFAULT_PAIR_PATHS = {
+    "usw": REPO_ROOT
+    / "runs"
+    / "pref_loss_cvrp100_from_tsp100_elite"
+    / "20260320-224008"
+    / "best_pair.json",
+    "asw": REPO_ROOT
+    / "runs"
+    / "pref_builder_weight_search_cvrp100"
+    / "20260403-132739"
+    / "best_pair.json",
+}
 
 
 def _resolve(path: str | Path) -> Path:
@@ -106,6 +118,8 @@ def _build_model(
     bopo_select_k: int,
     alpha: float,
     seed: int,
+    usw_pair_path: Path,
+    asw_pair_path: Path,
 ) -> tuple[POMO, Any, dict[str, Any]]:
     hparams = checkpoint_hparams(checkpoint_path)
     payload = hparams.pop("_checkpoint_payload")
@@ -115,17 +129,30 @@ def _build_model(
         generator_params={"num_loc": target_size, "capacity": float(capacity)},
         seed=seed,
     )
+    loss_type = {
+        "po": "po_loss",
+        "bopo": "bopo_loss",
+        "usw": "free_loss",
+        "asw": "free_loss",
+    }[method]
     hparams.update(
         {
             "env": env,
             "num_starts": num_starts,
             "num_augment": 8,
-            "loss_type": "po_loss" if method == "po" else "bopo_loss",
+            "loss_type": loss_type,
             "alpha": alpha,
-            "po_impl": "bt",
+            "po_impl": "exponential",
             "bopo_pair_mode": "anchor_best",
             "bopo_select_strategy": "paper",
             "bopo_select_k": bopo_select_k,
+            "free_loss_ir_json_path": None,
+            "pref_builder_ir_json_path": None,
+            "pref_pair_json_path": None,
+            "memory_efficient_preference": True,
+            "memory_efficient_checkpoint_encoder": True,
+            "memory_efficient_checkpoint_decoder": True,
+            "memory_efficient_verify_replay": True,
             "generate_default_data": True,
             "batch_size": 1,
             "train_data_size": 1,
@@ -133,6 +160,10 @@ def _build_model(
             "test_data_size": 1,
         }
     )
+    if method in {"usw", "asw"}:
+        hparams["pref_pair_json_path"] = str(
+            usw_pair_path if method == "usw" else asw_pair_path
+        )
     model = POMO(**hparams)
     missing, unexpected = model.load_state_dict(payload["state_dict"], strict=False)
     if missing or unexpected:
@@ -171,6 +202,17 @@ def _checkpoint_payload(
             "bopo_pair_mode": model.bopo_pair_mode,
             "bopo_select_strategy": model.bopo_select_strategy,
             "bopo_select_k": model.bopo_select_k,
+            "pref_pair_json_path": model.pref_pair_json_path,
+            "preference_po_anchor_weight": float(
+                getattr(model, "preference_po_anchor_weight", 0.0)
+            ),
+            "preference_po_anchor_alpha": float(
+                getattr(model, "preference_po_anchor_alpha", 0.05)
+            ),
+            "memory_efficient_preference": True,
+            "memory_efficient_checkpoint_encoder": True,
+            "memory_efficient_checkpoint_decoder": True,
+            "memory_efficient_verify_replay": True,
         }
     )
     return {
@@ -252,16 +294,24 @@ def main() -> None:
     parser.add_argument("--method", choices=METHODS, default="po")
     parser.add_argument("--checkpoint", default="downloads/cvrp100/po/checkpoint.ckpt")
     parser.add_argument("--target-size", type=int, default=1000)
-    parser.add_argument("--capacity", type=int, default=150)
+    parser.add_argument("--capacity", type=int, default=50)
     parser.add_argument("--num-starts", type=int, default=20)
     parser.add_argument("--bopo-select-k", type=int, default=10)
     parser.add_argument("--steps", type=int, default=1000)
+    parser.add_argument("--accumulate", type=int, default=1)
     parser.add_argument("--train-batch-size", type=int, default=1)
     parser.add_argument("--data-start-index", type=int, default=0)
     parser.add_argument("--seed", type=int, default=1234)
     parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--weight-decay", type=float, default=1e-6)
     parser.add_argument("--alpha", type=float, default=0.05)
+    parser.add_argument("--po-anchor-weight", type=float, default=0.0)
+    parser.add_argument("--po-anchor-alpha", type=float, default=0.05)
+    parser.add_argument(
+        "--detach-pref-weights",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+    )
     parser.add_argument("--precision", default="bf16-mixed")
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--validation-file", default="data/vrp/vrp1000_val_seed4321.npz")
@@ -270,8 +320,21 @@ def main() -> None:
     parser.add_argument("--validation-starts", type=int, default=100)
     parser.add_argument("--validation-augment", type=int, default=1)
     parser.add_argument("--log-every", type=int, default=5)
+    parser.add_argument(
+        "--usw-pair-path",
+        default=str(DEFAULT_PAIR_PATHS["usw"].relative_to(REPO_ROOT)),
+    )
+    parser.add_argument(
+        "--asw-pair-path",
+        default=str(DEFAULT_PAIR_PATHS["asw"].relative_to(REPO_ROOT)),
+    )
     parser.add_argument("--output-dir", default=None)
     parser.add_argument("--resume", default=None)
+    parser.add_argument(
+        "--restore-checkpoint-optimizer",
+        action="store_true",
+        help="Restore optimizer/global step from the initial Lightning checkpoint.",
+    )
     parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--evaluation-file", default="data/vrp/vrp1000_test_seed1234.npz")
     parser.add_argument("--evaluation-instances", type=int, default=100)
@@ -281,19 +344,31 @@ def main() -> None:
     parser.add_argument("--evaluation-output", default=None)
     args = parser.parse_args()
 
-    if args.train_batch_size != 1:
-        raise ValueError("Initial CVRP1000 implementation requires train-batch-size=1")
+    if args.steps < 1 or args.accumulate < 1 or args.train_batch_size < 1:
+        raise ValueError("steps, accumulate, and train-batch-size must be >= 1")
+    if args.data_start_index < 0:
+        raise ValueError("data-start-index must be >= 0")
+    if args.capacity <= 0:
+        raise ValueError("capacity must be > 0")
+    if not 0.0 <= args.po_anchor_weight <= 1.0:
+        raise ValueError("po-anchor-weight must be in [0, 1]")
+    if args.po_anchor_alpha <= 0.0:
+        raise ValueError("po-anchor-alpha must be > 0")
     if args.num_starts < 2 or args.num_starts > args.target_size:
         raise ValueError("num-starts must be in [2, target-size]")
     if args.method == "bopo" and args.num_starts % args.bopo_select_k != 0:
         raise ValueError("BOPO num-starts must be divisible by bopo-select-k")
+    if args.validation_augment not in {1, 8} or args.evaluation_augment not in {1, 8}:
+        raise ValueError("validation-augment and evaluation-augment must be 1 or 8")
 
     checkpoint_path = _resolve(args.checkpoint)
+    usw_pair_path = _resolve(args.usw_pair_path)
+    asw_pair_path = _resolve(args.asw_pair_path)
     device = torch.device(args.device)
     torch.manual_seed(args.seed)
     if device.type == "cuda":
         torch.cuda.manual_seed_all(args.seed)
-    model, env, _ = _build_model(
+    model, env, initial_payload = _build_model(
         checkpoint_path=checkpoint_path,
         method=args.method,
         target_size=args.target_size,
@@ -302,10 +377,19 @@ def main() -> None:
         bopo_select_k=args.bopo_select_k,
         alpha=args.alpha,
         seed=args.seed,
+        usw_pair_path=usw_pair_path,
+        asw_pair_path=asw_pair_path,
     )
+    model.bopo_select_k = int(args.bopo_select_k)
+    model.alpha = float(args.alpha)
+    model.detach_pref_weights = bool(args.detach_pref_weights)
+    model.preference_po_anchor_weight = float(args.po_anchor_weight)
+    model.preference_po_anchor_alpha = float(args.po_anchor_alpha)
     model = model.to(device)
 
     resume_path = _resolve(args.resume) if args.resume else None
+    if resume_path is not None and args.restore_checkpoint_optimizer:
+        raise ValueError("Use either --resume or --restore-checkpoint-optimizer, not both")
     resume_payload = None
     if resume_path is not None:
         resume_payload = torch.load(resume_path, map_location="cpu", weights_only=False)
@@ -358,9 +442,18 @@ def main() -> None:
         optimizer_step = int(resume_payload["optimizer_step"])
         best_cost = float(resume_payload["best_cost"])
         best_step = int(resume_payload["best_step"])
+    elif args.restore_checkpoint_optimizer:
+        optimizer_states = initial_payload.get("optimizer_states") or []
+        if len(optimizer_states) != 1:
+            raise ValueError(
+                "Expected exactly one optimizer state in the initial checkpoint, "
+                f"got {len(optimizer_states)}"
+            )
+        optimizer.load_state_dict(optimizer_states[0])
+        optimizer_step = int(initial_payload.get("global_step", 0))
     target_step = optimizer_step + args.steps
     config = {
-        "protocol": "cvrp1000_po_bopo_baseline_v1",
+        "protocol": "cvrp1000_tsp_success_route_v3_batched",
         "method": args.method,
         "common_initialization": str(checkpoint_path),
         "target_size": args.target_size,
@@ -370,12 +463,18 @@ def main() -> None:
         "continuation_steps": args.steps,
         "resume_optimizer_step": optimizer_step,
         "target_optimizer_step": target_step,
+        "accumulate": args.accumulate,
         "train_batch_size": args.train_batch_size,
+        "effective_batch_size": args.accumulate * args.train_batch_size,
         "data_start_index": args.data_start_index,
         "seed": args.seed,
-        "learning_rate": args.learning_rate,
-        "weight_decay": args.weight_decay,
+        "learning_rate": float(optimizer.param_groups[0]["lr"]),
+        "weight_decay": float(optimizer.param_groups[0]["weight_decay"]),
         "alpha": args.alpha,
+        "po_impl": "exponential",
+        "po_anchor_weight": args.po_anchor_weight,
+        "po_anchor_alpha": args.po_anchor_alpha,
+        "detach_pref_weights": bool(args.detach_pref_weights),
         "precision": args.precision,
         "validation_file": str(_resolve(args.validation_file)),
         "validation_size": args.validation_size,
@@ -383,6 +482,11 @@ def main() -> None:
         "validation_starts": args.validation_starts,
         "validation_augment": args.validation_augment,
         "resume": str(resume_path) if resume_path else None,
+        "restored_initial_optimizer": bool(args.restore_checkpoint_optimizer),
+        "fresh_optimizer": not bool(args.restore_checkpoint_optimizer or resume_path),
+        "memory_efficient_forced_replay": True,
+        "usw_pair_path": str(usw_pair_path),
+        "asw_pair_path": str(asw_pair_path),
     }
     (output_dir / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
     history_path = output_dir / "history.jsonl"
@@ -426,30 +530,55 @@ def main() -> None:
         if improved:
             _atomic_save(payload, output_dir / "best.ckpt")
 
-    if optimizer_step == 0:
-        validate(0)
+    if resume_payload is None:
+        validate(optimizer_step)
     started = time.perf_counter()
     while optimizer_step < target_step:
         model.train()
         optimizer.zero_grad(set_to_none=True)
-        instance_index = args.data_start_index + (optimizer_step - config["resume_optimizer_step"])
-        batch = _dynamic_batch(
-            target_size=args.target_size,
-            capacity=args.capacity,
-            seed=args.seed,
-            instance_index=instance_index,
-            batch_size=1,
-        ).to(device)
-        action_seed = args.seed + instance_index * 1_000_003
-        torch.manual_seed(action_seed)
-        if device.type == "cuda":
-            torch.cuda.manual_seed_all(action_seed)
-            torch.cuda.reset_peak_memory_stats(device)
+        micro_losses = []
+        replay_errors = []
+        coefficient_means = []
         step_started = time.perf_counter()
-        with _autocast(device, args.precision):
-            out = model.shared_step(batch, optimizer_step, "train")
-            loss = out["loss"]
-        loss.backward()
+        if device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(device)
+        continuation_step = optimizer_step - config["resume_optimizer_step"]
+        for accumulation_index in range(args.accumulate):
+            micro_batch_index = continuation_step * args.accumulate + accumulation_index
+            instance_index = (
+                args.data_start_index + micro_batch_index * args.train_batch_size
+            )
+            batch = _dynamic_batch(
+                target_size=args.target_size,
+                capacity=args.capacity,
+                seed=args.seed,
+                instance_index=instance_index,
+                batch_size=args.train_batch_size,
+            ).to(device)
+            td = env.reset(batch).to(device)
+            action_seed = args.seed + instance_index * 1_000_003
+            torch.manual_seed(action_seed)
+            if device.type == "cuda":
+                torch.cuda.manual_seed_all(action_seed)
+            with _autocast(device, args.precision):
+                out = model._memory_efficient_preference_step(
+                    td=td,
+                    batch=batch,
+                    n_start=args.num_starts,
+                    dataloader_idx=None,
+                    log_metrics=False,
+                )
+                scaled_loss = out["loss"] / float(args.accumulate)
+            scaled_loss.backward()
+            micro_losses.append(float(out["loss"].detach().cpu()))
+            replay_errors.append(
+                float(out["memory_efficient_replay_error"].detach().cpu())
+            )
+            coefficient_means.append(
+                float(
+                    out["memory_efficient_coefficient_abs_mean"].detach().cpu()
+                )
+            )
         grad_norm = _gradient_norm(model.parameters())
         optimizer.step()
         optimizer_step += 1
@@ -459,8 +588,19 @@ def main() -> None:
             "event": "train",
             "optimizer_step": optimizer_step,
             "continuation_step": optimizer_step - config["resume_optimizer_step"],
-            "loss": float(loss.detach().cpu()),
+            "train_batch_size": args.train_batch_size,
+            "effective_batch_size": args.accumulate * args.train_batch_size,
+            "instances_processed_this_run": (
+                (optimizer_step - config["resume_optimizer_step"])
+                * args.accumulate
+                * args.train_batch_size
+            ),
+            "loss": float(sum(micro_losses) / len(micro_losses)),
             "grad_norm": grad_norm,
+            "replay_error": float(max(replay_errors)),
+            "coefficient_abs_mean": float(
+                sum(coefficient_means) / len(coefficient_means)
+            ),
             "elapsed_sec": float(time.perf_counter() - step_started),
         }
         if device.type == "cuda":
@@ -481,6 +621,11 @@ def main() -> None:
     summary = {
         **config,
         "completed_optimizer_step": optimizer_step,
+        "instances_processed_this_run": (
+            (optimizer_step - config["resume_optimizer_step"])
+            * args.accumulate
+            * args.train_batch_size
+        ),
         "best_mean_cost": best_cost,
         "best_step": best_step,
         "elapsed_sec": time.perf_counter() - started,
