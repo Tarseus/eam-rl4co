@@ -1,0 +1,66 @@
+project:
+  title: "CVRP1000 replication of the successful TSP1000 PO-anchor route"
+  status: protocol_locked_preflight
+  started: "2026-07-16"
+  host: g53
+  question: "Can PO-anchored USW and ASW both significantly beat a same-start, matched-budget PO continuation on official AGFN capacity50 CVRP1000?"
+
+common:
+  checkpoint: "downloads/cvrp100/po/checkpoint.ckpt"
+  optimizer: "fresh Adam whenever the objective changes"
+  learning_rate: 1.0e-5
+  weight_decay: 1.0e-6
+  precision: bf16-mixed
+  target_size: 1000
+  capacity: 50
+  effective_instance_batch: 128
+  physical_batch_policy: "probe 4 first; use the largest verified safe physical batch and gradient accumulation to effective128"
+  seed: 1234
+  short_screen_steps: 100
+  total_continuation_steps: 1000
+  short_screen_data_start_index: 300000000
+  resume_data_start_index: 300012800
+
+branches:
+  po:
+    num_starts: 64
+    alpha: 0.05
+    po_anchor_weight: 0.0
+  usw:
+    num_starts: 64
+    alpha: 0.01
+    po_anchor_weight: 0.90
+    po_anchor_alpha: 0.05
+    detach_pref_weights: false
+  asw:
+    num_starts: 40
+    alpha: 0.01
+    po_anchor_weight: 0.90
+    po_anchor_alpha: 0.05
+    detach_pref_weights: true
+
+selection:
+  step0_requirement: "All three branches must produce exactly the same validation32 per-instance costs before any screen result is trusted."
+  proxy: "AGFN capacity50 validation32, 100 starts, augmentation1, FP32-compatible fixed data"
+  promotion: "Lock candidates only after the 100-step screen; resume the same branch optimizer to total continuation_step1000."
+  integrity: "forced replay error <=1e-5, finite loss/gradients, no optimizer-step reset, no reused output directory"
+
+final_evaluation:
+  dataset: "data/vrp/agfn_vrp1000_capacity50_test128.npz"
+  dataset_sha256: "58982b9168fb21c5defe36d6e1d366f973830d4c7d3c06533d6a4ae52a4f295d"
+  protocol: "official fixed128, 100 starts, 8 augment, FP32"
+  statistics: "paired per-instance bootstrap against same-start, same-budget PO"
+  success: "Both USW and ASW candidate-minus-PO 95% paired bootstrap confidence intervals are wholly below zero."
+
+prior_evidence:
+  legacy_po_step1000_validation32: 128.06427645683289
+  legacy_bopo_step1000_validation32: 128.4075846672058
+  legacy_usw_step100_validation32: 161.2081756591797
+  legacy_asw_step100_validation32: 163.00004959106445
+  note: "Legacy USW/ASW used different checkpoints, restored Adam at LR3e-4, K50 and alpha0.03; they are negative context only and do not satisfy this protocol."
+
+next:
+  - "Verify local/remote code and data hashes on g53."
+  - "Run one-update physical-batch probes for PO, USW and ASW without reusing output directories."
+  - "Launch the locked 100-step screen at the largest common safe physical batch with accumulation to effective128."
+
