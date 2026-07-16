@@ -8,6 +8,8 @@ The completed legacy held-out means were PO `128.064276`, BOPO `128.407585`, USW
 
 The implementation integrity gate currently passes locally: forced replay is exact, the loss is aggregated per instance, candidate pairs remain instance-local, and USW/ASW begin from identical strong-PO weights. No CVRP1000 performance conclusion is made until the locked remote screen produces held-out results.
 
+The first remote launch attempt used the superseded CVRP100-source draft. Once concurrent commit `f6bff1bd0` exposed the final strong-PO protocol, those three mismatched probe PIDs were contained and their output directories retained as excluded evidence. The correct physical-batch128 probes now run only USW and ASW from the locked strong PO-step1000 source on g53 GPUs4/5. At the sole launch verification each had exactly one Python process and only its config file, so no memory or integrity result is claimed this tick.
+
 ## Locked constraints
 
 - Instance batch and per-instance rollout K are separate axes.

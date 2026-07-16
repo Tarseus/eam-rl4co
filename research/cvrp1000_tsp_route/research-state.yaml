@@ -38,11 +38,25 @@ evaluation:
   official_protocol: "fixed128, 100 starts, 8 augmentations, FP32"
   success: "Both variants independently beat source PO with candidate-minus-PO paired-bootstrap 95% CI wholly below zero."
 
-active_stage: "protocol_locked; local forced-replay and common-initialization smoke tests passed; remote VRAM probes pending"
-active_runs: []
+active_stage: "physical_batch128 VRAM/integrity probes running from locked strong PO source"
+active_runs:
+  - name: "usw_poanchor_pb128_probe_from_po1000"
+    host: g53
+    gpu: 4
+    pid: 1791829
+    status: running
+    output_dir: "logs/cvrp1000_tsp_route/probe_pb128_usw_from_po1000_20260716T1038"
+    probe_data_start_index: 299980000
+  - name: "asw_poanchor_pb128_probe_from_po1000"
+    host: g53
+    gpu: 5
+    pid: 1791832
+    status: running
+    output_dir: "logs/cvrp1000_tsp_route/probe_pb128_asw_from_po1000_20260716T1038"
+    probe_data_start_index: 299980000
 
 last_observation:
-  time: "2026-07-16T10:30:00+08:00"
+  time: "2026-07-16T10:34:40+08:00"
   local_tests:
     cvrp_forced_replay: passed
     cvrp_memory_efficient_instance_batch: passed
@@ -50,8 +64,13 @@ last_observation:
     usw_asw_common_initialization_exact: true
   remote:
     host: g53
-    free_gpus: [3, 4, 5]
+    probe_pids: [1791829, 1791832]
+    probe_gpus: [4, 5]
+    physical_batch: 128
+    accumulation: 1
+    result_boundary_present: false
     source_and_artifact_hashes_match_local: true
+    note: "The sole idempotent post-launch check found exactly one Python process per target variant and only config.json; no same-round result poll follows."
 
 prior_evidence:
   legacy_po_step1000_validation32: 128.06427645683289
@@ -61,7 +80,6 @@ prior_evidence:
   note: "Legacy USW/ASW used different checkpoints, restored Adam at LR3e-4, K50 and alpha0.03; they are negative context only and do not satisfy this protocol."
 
 next:
-  - "Commit the locked protocol and implementation."
-  - "Sync only the scoped implementation/protocol files to g53."
-  - "Run one-update K64/K40 batch128 VRAM and integrity probes."
-  - "Launch the paired 200-step screen if both probes pass."
+  - "Collect both physical-batch128 probes once on the next tick and verify exact step0 equality, finite gradients, replay error and peak memory."
+  - "If either probe OOMs, preserve evidence and test the next common physical batch with accumulation to effective128."
+  - "Launch the paired 200-step screen only after both variants pass at one common batch configuration."

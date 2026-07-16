@@ -1,46 +1,45 @@
 # Replicate the successful TSP1000 route on CVRP1000
 
-Status: confirmatory protocol locked before remote preflight and launch.
+Status: confirmatory protocol synchronized to commit `f6bff1bd0` before target execution.
 
-## Hypothesis
+## Question and common source
 
-The TSP1000 result transferred poorly when CVRP1000 USW/ASW restored objective-specific CVRP100 Adam states at LR `3e-4`. Starting all objectives from the same CVRP100 PO weights with fresh Adam, LR `1e-5`, large effective instance batches and a strong PO anchor should preserve the stable PO direction while allowing USW and ASW to improve per-instance route selection.
+Can the final successful TSP1000 PO-anchor route make both a USW variant and an ASW variant significantly outperform the same strong PO source on CVRP1000?
 
-## Common initialization and optimizer
+- Capacity50 CVRP1000 with uniform coordinates and integer demands1..9.
+- Common source: g53 `logs/cvrp1000_agfn_capacity50/po_1000steps/best.ckpt`, SHA256 `94cbb5e1c7b6391f31ae113c1beae81491cdfffad17199d1db0ac51205a9fd26`.
+- The source fixed32/100-start/augment1 mean is `128.06427645683289`.
+- USW and ASW both load only these model weights and create fresh Adam optimizers because the objective changes. They must have exactly identical step0 per-instance validation costs.
 
-- Checkpoint: `downloads/cvrp100/po/checkpoint.ckpt` for PO, USW and ASW.
-- Fresh Adam for every branch; do not restore checkpoint optimizer state when changing objective.
-- LR `1e-5`, weight decay `1e-6`, BF16 mixed training.
-- Capacity50 dynamic CVRP1000, seed1234.
-- Effective instance batch128. Probe physical batch4 first, then choose the largest common safe physical batch in `{4,2,1}` and set accumulation to `128 / physical_batch`.
-- Candidate pools, pairs, weights, anchors and losses are computed per instance before averaging over the physical instance batch.
+## Locked variants
 
-## Branch definitions
+- USW-PO-anchor: dense uniform all-pairs, K64, preference alpha `0.01`, weights not detached, PO anchor weight `0.90`, exponential-PO alpha `0.05`.
+- ASW-PO-anchor: adaptive gap-square weighting, K40, preference alpha `0.01`, detached preference weights, PO anchor weight `0.90`, exponential-PO alpha `0.05`.
+- Pair artifacts are respectively locked at SHA256 `022bf1a3e81b7a01c346153cf1e338e93a2a9c50e5f52b288c62f4b8cf084304` and `9652dddda2eeca7879514c57126a9601bbee12974ba5905ee5ce1d8ee83f6471`.
 
-- PO: exponential PO, K64, PO alpha `0.05`.
-- USW-PO-anchor: uniform dense all-pairs builder, K64, preference alpha `0.01`, PO anchor weight `0.90`, PO anchor alpha `0.05`.
-- ASW-PO-anchor: adaptive gap-square weighting, K40, preference alpha `0.01`, detached preference weights, PO anchor weight `0.90`, PO anchor alpha `0.05`.
+## Shared controls and hardware fallback
 
-## Short screen and step0 gate
+- Seed1234, dynamic data start index `300000000`, BF16, LR `1e-5`, weight decay `1e-6`.
+- Effective instance batch128. Probe physical batch128 first; if it cannot fit a24 GiB GPU, use the largest common safe physical batch and gradient accumulation to preserve effective batch128.
+- Rollout K remains per-instance and separate from the dataloader batch dimension.
+- Candidate pools, weights and pair construction remain strictly within each instance; per-instance losses are averaged across instances.
+- Validation uses `data/vrp/agfn_vrp1000_capacity50_val_seed4321.npz` (SHA `8de3059f...d35e94`), fixed32,100 starts, augmentation1, every100 optimizer steps.
+- Probe instances use a separate index range and never overlap the screen or promoted continuation.
+- Every launch gets a unique output directory. OOM, NaN/nonfinite, traceback, replay mismatch above `1e-5`, optimizer-step reset or output collision is immediately preserved and contained.
 
-- Run 100 optimizer updates for all three branches.
-- Use the same matched dynamic instance indices `300000000..300012799` in every branch.
-- Validation is the locked AGFN capacity50 validation32 with 100 starts and augmentation1 at continuation step0 and step100.
-- The three step0 per-instance validation vectors must be exactly equal. A mean-only match is insufficient.
-- Require finite losses and gradients, forced replay error at most `1e-5`, no OOM/Traceback/nonfinite values, and no output reuse or optimizer-step reset.
-- Short-screen output directories are immutable and unique per branch and launch attempt.
+## Screen and promotion
 
-## Promotion and continuation
-
-- Lock candidates only after the short screen passes all integrity gates.
-- Resume each selected branch from its own verified step100 `last.ckpt`, including its fresh-Adam state.
-- Continue for 900 additional optimizer updates to absolute continuation step1000.
-- Start promoted-run data at index `300012800`; no short-screen instance may repeat.
-- Keep branch definitions, LR, batch semantics, replay checks and validation32 protocol unchanged.
+- First run a one-update integrity/VRAM probe for each variant.
+- Then run both variants for200 updates on matched indices `300000000..300025599`.
+- Promote only when step200 validation improves over the shared step0 validation.
+- Restore the exact step200 `last.ckpt`, including its fresh-Adam state, for800 more updates to absolute continuation step1000.
+- Promoted data starts at `300025600`, so no screen instance is replayed.
+- Candidate locking uses held-out validation only.
 
 ## Final evaluation and success
 
-- Only after candidate lock, evaluate the exact official AGFN capacity50 fixed128 dataset with ordered indices0..127, 100 starts, 8 augmentations and FP32.
-- Verify checkpoint SHA, dataset SHA, configuration, exact row coverage and route feasibility.
-- Compare USW and ASW separately with the same-start, same-continuation-budget PO branch using aligned per-instance costs and a paired bootstrap.
-- Success requires both candidate-minus-PO 95% confidence intervals to lie wholly below zero. Otherwise continue evidence-driven matched experiments or conclude negatively after sufficiently powered failures.
+- Evaluate the source PO and locked step1000 variants on official AGFN capacity50 fixed128 (SHA `58982b91...a4f295d`), exact indices0..127,100 starts,8 augmentations, FP32.
+- Report every aligned per-instance cost and mean.
+- Use a100,000-sample paired bootstrap over candidate-minus-PO costs with seed1234.
+- Each variant must have a lower mean than PO and a wholly negative paired-bootstrap95% confidence interval; both must pass for overall success.
+
