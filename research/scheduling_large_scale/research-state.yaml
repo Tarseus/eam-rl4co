@@ -64,7 +64,7 @@ hypotheses:
     priority: high
   - id: H7
     statement: "Source-length-calibrating USW log-probability differences from 1000 JSSP50x20 decisions back to the 100-decision JSSP10x10 discovery scale can match BOPO's gradient and update scales while preserving the sparse 15-edge local geometry."
-    status: active
+    status: not_supported
     motivation: "H6 matched LR-times-gradient scale without changing the loss curvature and still missed BOPO by 2.937516; H5/H6 gradients were about 9.3x BOPO, matching the 10x source-to-target trajectory-length ratio."
     parent: H6
     priority: high
@@ -171,6 +171,10 @@ experiments:
       experiment: "H7 source-length-normalized USW step50 gate"
       result: "Validation32 improved from common step0 3093.375015 to 3091.031311 at step50, but remains 5.718796 above matched BOPO. Through step56 the run had unique contiguous finite-loss, finite positive-gradient updates with B128/K16, physical batch one, exactly 15 instance-local pairs, about 11.583 GiB peak allocation, and clean observed logs."
       decision: "No promotion; continue the sole authoritative H7 PID523429 unchanged through steps100/150/200/250/300. Do not access paired inference, TA/DMU, or final data unless a scheduled validation mean is strictly below 3085.312515."
+    - cycle: 24
+      experiment: "H7 source-length-normalized sparse-USW completion and batch-scale diagnosis"
+      result: "H7 completed 300 unique contiguous finite-loss, finite positive-gradient updates with B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a clean exact-log scan. Validation32 at steps0/50/100/150/200/250/300 was 3093.375015/3091.031311/3092.499969/3092.468742/3088.375015/3089.781204/3089.343681; best step200 remained 3.062500 above matched BOPO. Mean gradient was 0.517274. A no-update diagnostic on the common first instance measured H7 logit mean -0.025924 versus BOPO-form logit mean -0.029905, confirming scale alignment while exposing H7's global rather than pair-relative gap treatment."
+      decision: "H7 is negative and is not promoted, continued, or retried. Preregister one bounded relative-gap-temperature USW variant that preserves H7's mean logit scale and all rollout/pair semantics while using normalized pairwise advantage magnitude only as an inside-link temperature."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -201,9 +205,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 23
+  cycle: 24
   last_direction: deepen
-  last_reflection: "H6 disproves update-scale matching by LR alone. H7's source-length correction successfully moves gradients into BOPO's range and improves validation by 2.343704 at step50, but still trails BOPO by 5.718796. Continue the locked screen because prior sparse USW improved late; no early-gate promotion is warranted."
+  last_reflection: "H7 proves that source-length normalization can align mean gradient and initial logit scales with BOPO, but its best validation32 checkpoint still trails by 3.062500. The next bounded variable is pair-relative advantage emphasis inside the link, with global mean scale, geometry, optimizer, stream, and rollout semantics fixed."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -217,8 +221,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T05:26:51+08:00"
-  last_observation: "Authoritative H6 screen PID518156 reached step50 validation32 3094.781334, 9.468819 above matched BOPO and worse than common step0. Through step61 it retained finite losses, finite positive gradients, B128/K16, physical batch one, exactly 15 instance-local pairs, and a zero-match exact-log error scan. The run continues unchanged to step300; no paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T06:17:00+08:00"
+  last_observation: "H7 PID523437 exited naturally after 300 clean updates. Best validation32 was step200 at 3088.375015, 3.062500 above matched BOPO; all losses and gradients were finite, every gradient was positive, B128/K16, physical batch one, and exactly 15 instance-local pairs were preserved, and the exact log had no error matches. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -232,8 +236,7 @@ remote:
     jssp50x20_h1_screen500_asw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_asw_retry1_20260717-104851.log"
     jssp50x20_paper_control_step100_b128: "logs/scheduling_large_scale/paper_alignment/jssp50x20_bopo_step100_B128_v2/summary.json (gap 9.6488%; paper delta +1.6488 pp)"
     jssp50x20_selected_official_eval: "logs/scheduling_large_scale/paper_alignment/jssp50x20_selected_step500screen/ (BOPO gaps 9.3718% at B'=128 and 8.8951% at B'=512)"
-  active_jobs:
-    - "H6 sparse-USW LR1e-6 screen300 wrapper PID518156 and GPU7 trainer PID518164; root logs/scheduling_large_scale/h6_sparse_update_scale/jssp50x20/screen300_20260718_0503; exact log logs/codex_remote/h6_screen300_usw_anchor_lr1e6_20260718_0503.log; threshold 3085.312515."
+  active_jobs: []
   completed_diagnostics:
     jssp50x20_h4_matched_bopo: "GPU7 PID464339 completed 500 updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/bopo_lr1e5_screen500_20260718_0110; best validation32 was step500 at 3085.312515. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pair_count was 15, and the exact log was error-scan clean."
     jssp50x20_h4_phase_b_asw_lr2e6_a0: "GPU7 PID473670 completed 300 unique updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/phase_b/asw_lr2e6_a0_screen300_20260718_0148; best validation32 was step100 at 3092.499985, 7.187469 above BOPO. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pairs remained instance-local, and the exact log was error-scan clean."
