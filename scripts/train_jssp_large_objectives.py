@@ -106,6 +106,7 @@ def _build_model(args: argparse.Namespace, checkpoint: Path):
             "pair_mode": "anchor_best",
             "po_impl": "bt",
             "po_alpha": args.po_alpha,
+            "alpha": args.alpha,
             "val_B": args.eval_rollouts,
             "test_B": args.eval_rollouts,
             "greedy": int(args.greedy),
@@ -217,6 +218,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rollouts", type=int, default=128)
     parser.add_argument("--select-k", type=int, default=16)
     parser.add_argument("--po-alpha", type=float, default=0.25)
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Free-loss/preference-builder calibration alpha (used by ASW artifacts).",
+    )
     parser.add_argument("--greedy", type=int, choices=(0, 1), default=0)
     parser.add_argument("--steps", type=int, default=1)
     parser.add_argument("--accumulate", type=int, default=1)
@@ -293,6 +300,7 @@ def main() -> None:
         "physical_batch_size": 1,
         "rollouts_per_instance": args.rollouts,
         "select_k": args.select_k,
+        "alpha": args.alpha,
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
         "accumulate": args.accumulate,
