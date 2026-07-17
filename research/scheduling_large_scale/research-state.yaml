@@ -197,6 +197,10 @@ experiments:
       experiment: "H8 relative-gap-temperature USW screen300 completion and validation lock"
       result: "H8 completed 300 unique contiguous updates with 300 finite losses, 300 finite positive gradients, B128/K16, physical batch one, exactly 15 instance-local pairs, mean gradient 0.509241, 11.583 GiB peak allocation, and zero exact-log error matches. Validation32 at steps0/50/100/150/200/250/300 was 3093.375015/3092.812584/3094.437469/3093.593727/3090.968819/3083.937515/3092.625008. The locked step250 best is 1.375000 below matched BOPO 3085.312515; best.ckpt records optimizer step250 and the terminal step300 regression does not change selection."
       decision: "H8 is the first USW/ASW calibration to pass the fixed matched-BOPO mean screening gate. Freeze its parameterization and step250 checkpoint, run the locked paired validation32 inference next, and continue only this family leader under the matched staged gates. Do not launch H9 or read TA/DMU/final data before the validation lock is recorded."
+    - cycle: 29
+      experiment: "H8 step250 paired validation32 inference"
+      result: "The collision-free paired evaluation reproduced BOPO 3085.312515, H8 USW 3083.937515, and locked ASW 3086.500031 on the fixed validation32 stream. USW minus BOPO was -1.375000 with 17 wins, one tie, 14 losses, bootstrap 95% CI [-9.749956, 7.218765], raw Wilcoxon p=0.746418, and Holm p=0.966267; ASW minus BOPO was +1.187515 with CI [-6.031190, 7.906250] and Holm p=0.966267. Neither comparison passed the locked inference gate."
+      decision: "Treat H8 step250 as a mean-gate leader but not a final statistical win. Preserve the parameterization and optimizer state, preregister continuation from the locked step250 checkpoint to absolute step500, and repeat paired inference only if a later scheduled validation gate improves the locked mean. Do not read TA/DMU/final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -227,9 +231,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 28
+  cycle: 29
   last_direction: deepen
-  last_reflection: "H8 produced a clean late validation win at step250: 3083.937515 is 1.375000 below matched BOPO 3085.312515 on the identical validation32 stream. Step300 regressed, so the step250 checkpoint and fixed parameterization are locked; paired validation inference is the next required gate before any benchmark evaluation."
+  last_reflection: "H8 step250 passes the matched mean gate but its paired validation effect is uncertain: mean -1.375000, bootstrap CI [-9.749956, 7.218765], Holm p=0.966267. Continue only this fixed leader to the matched absolute step500 gate; a new checkpoint must improve the locked validation mean before paired inference is repeated."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -243,8 +247,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T06:49:03+08:00"
-  last_observation: "H8 wrapper PID530609 / trainer PID530617 exited naturally after a single 300-update execution. Step250 validation32 was 3083.937515, beating matched BOPO by 1.375000; step300 regressed to 3092.625008, so best.ckpt at step250 is locked. All 300 updates were unique, finite-loss, finite positive-gradient, B128/K16, physical batch one, exact-15-pair and instance-local, with 11.583 GiB peak allocation and a clean exact log. No paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T06:53:34+08:00"
+  last_observation: "Paired validation-only PID535810 exited naturally and reproduced H8 step250's -1.375000 mean versus BOPO, but the bootstrap CI [-9.749956, 7.218765] crossed zero and Holm p was 0.966267, so the locked inference gate failed. The result explicitly records ta_dmu_final_data_read=false. H8 remains the only mean-gate leader and is eligible for fixed-parameter continuation to absolute step500; no TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
