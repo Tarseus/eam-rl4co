@@ -189,6 +189,10 @@ experiments:
       experiment: "H8 relative-gap-temperature USW step50 gate"
       result: "The authoritative H8 screen improved validation32 from common step0 3093.375015 to 3092.812584 at step50, but remains 7.500069 above matched BOPO 3085.312515. Through step77, all observed losses and gradients were finite, every gradient was positive, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was about 11.583 GiB, and the exact log had zero error-pattern matches."
       decision: "No promotion; continue only PID530609/PID530617 unchanged through steps100/150/200/250/300 because H5-H7 improved late. Do not access paired inference, TA/DMU, or final data unless a scheduled validation mean is strictly below 3085.312515."
+    - cycle: 27
+      experiment: "H8 relative-gap-temperature USW step100 gate"
+      result: "Validation32 regressed to 3094.437469 at step100, so the H8 run-best remains step50 at 3092.812584, 7.500069 above matched BOPO. Through step103, all losses and gradients were finite and positive, B128/K16, physical batch one, exactly 15 instance-local pairs, and about 11.583 GiB peak allocation were preserved, and the exact log remained error-scan clean."
+      decision: "No promotion; continue the sole authoritative H8 screen unchanged through steps150/200/250/300 because prior sparse-USW gains appeared late. Do not access paired inference, TA/DMU, or final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -219,9 +223,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 26
+  cycle: 27
   last_direction: deepen
-  last_reflection: "H8 preserves the intended H7/BOPO gradient scale but its step50 validation32 mean 3092.812584 remains 7.500069 above matched BOPO. The sole screen continues because prior sparse-USW variants improved late; no checkpoint is promotion-eligible yet."
+  last_reflection: "H8 preserves the intended H7/BOPO gradient scale but regressed at step100 to 3094.437469; its run-best step50 remains 7.500069 above matched BOPO. The sole screen continues because prior sparse-USW variants improved late; no checkpoint is promotion-eligible yet."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -235,8 +239,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T06:28:04+08:00"
-  last_observation: "H8 step50 validation32 was 3092.812584, 7.500069 above matched BOPO. The sole screen300 wrapper PID530609 / trainer PID530617 remained healthy through step77 with finite positive gradients, B128/K16, physical batch one, exactly 15 instance-local pairs, about 11.583 GiB peak allocation, and a clean exact log. No paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T06:30:24+08:00"
+  last_observation: "H8 step100 validation32 regressed to 3094.437469; run-best step50 remains 3092.812584, 7.500069 above matched BOPO. The sole screen300 wrapper PID530609 / trainer PID530617 remained healthy through step103 with finite positive gradients, B128/K16, physical batch one, exactly 15 instance-local pairs, about 11.583 GiB peak allocation, and a clean exact log. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
