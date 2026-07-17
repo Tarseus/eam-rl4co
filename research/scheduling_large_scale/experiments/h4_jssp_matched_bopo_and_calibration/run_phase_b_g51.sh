@@ -19,6 +19,19 @@ methods=(usw usw usw asw asw asw)
 learning_rates=(1e-6 5e-7 1e-6 2e-6 1e-6 1e-6)
 weight_decays=(1e-6 1e-6 0 1e-6 1e-6 1e-6)
 alphas=(1.0 1.0 1.0 0.0 0.0 0.25)
+requested=("$@")
+
+is_requested() {
+  local candidate="$1"
+  if [[ ${#requested[@]} -eq 0 ]]; then
+    return 0
+  fi
+  local item
+  for item in "${requested[@]}"; do
+    [[ "$item" == "$candidate" ]] && return 0
+  done
+  return 1
+}
 
 cd "$repo"
 mkdir -p "$(dirname "$root")" logs/codex_remote
@@ -27,6 +40,7 @@ mkdir -p "$(dirname "$root")" logs/codex_remote
 # never be mistaken for one clean six-configuration screen.
 for index in "${!labels[@]}"; do
   label="${labels[$index]}"
+  is_requested "$label" || continue
   output_dir="$root/$label"
   log_path="logs/codex_remote/h4_phase_b_${label}_${tag}.log"
   if [[ -e "$output_dir" || -e "$log_path" ]]; then
@@ -38,6 +52,7 @@ done
 echo "phase_b_start time=$(date -Is) root=$repo/$root gpu=${CUDA_VISIBLE_DEVICES:-unset}"
 for index in "${!labels[@]}"; do
   label="${labels[$index]}"
+  is_requested "$label" || continue
   method="${methods[$index]}"
   learning_rate="${learning_rates[$index]}"
   weight_decay="${weight_decays[$index]}"
