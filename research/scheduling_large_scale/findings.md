@@ -55,3 +55,5 @@ The four FFSP variants shared state SHA `997238c32efaf8c5336d2beda94da6f13d4616f
 The four JSSP variants shared state SHA `da29f48d0e904ece1fd2dc66986bd599888a64622f2a906324673c52f81d6c24`.
 
 JSSP50x20 target-scale H0 gradient norms were PO 27.1649, BOPO 0.4844, USW 1.2189, and ASW 1.4536. FFSP1000 FP32 is ruled out on 24 GiB for all four objectives; BF16 with cuDNN SDPA disabled is the locked FFSP engineering configuration. H1's 100-update validation screen is next.
+
+H1 screening is active on g51: FFSP1000 PO runs on GPU1/PID 3903076, while the locked JSSP50x20 PO->BOPO->USW->ASW chain runs on GPU4/PID 3903972. The JSSP common step-0 validation mean is 3129.374939 over eight instances; its first PO update matches H0 and remains finite.

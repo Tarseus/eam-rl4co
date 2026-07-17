@@ -106,11 +106,23 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20"
-  last_check: "2026-07-17T13:45:28+08:00"
+  last_check: "2026-07-17T14:00:21+08:00"
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
-  active_jobs: []
+  active_jobs:
+    - host: g51
+      pid: 3903076
+      gpu: 1
+      purpose: "FFSP1000 PO H1 100-update screen; BF16 with cuDNN SDPA disabled"
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_screen100_po_20260717-135925.log"
+      output: "logs/scheduling_large_scale/h1_screen100/ffsp1000/po"
+    - host: g51
+      pid: 3903972
+      gpu: 4
+      purpose: "JSSP50x20 PO then BOPO/USW/ASW H1 100-update screens in locked order"
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen100_all_20260717-135951.log"
+      output: "logs/scheduling_large_scale/h1_screen100/jssp50x20"
   completed_diagnostics:
     ffsp1000_fp32: "PO/BOPO/USW/ASW all OOM at approximately 23.68 GiB in-use memory; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_all_methods_20260717-134252.log"
     ffsp1000_bf16: "All objectives completed finite one-update probes at about 18.04 GiB; BOPO/USW/ASW exposed a cuDNN-SDPA exit-time segfault on GPU4"
