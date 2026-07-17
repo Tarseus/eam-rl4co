@@ -139,13 +139,21 @@ class MultiStageFFSPPolicy(nn.Module):
         for decoder in self.decoders:
             decoder.cached_embs = None
 
-    def pre_forward(self, td: TensorDict, env: FFSPEnv, num_starts: int):
+    def pre_forward(
+        self,
+        td: TensorDict,
+        env: FFSPEnv,
+        num_starts: int,
+        checkpoint_encoder_layers: bool = False,
+    ):
         self.clear_decoder_cache()
         run_time_list = td["run_time"].chunk(env.num_stage, dim=-1)
         for stage_idx in range(self.stage_cnt):
             td["cost_matrix"] = run_time_list[stage_idx]
             encoder = self.encoders[stage_idx]
-            embeddings, _ = encoder(td)
+            embeddings, _ = encoder(
+                td, checkpoint_layers=checkpoint_encoder_layers
+            )
             decoder = self.decoders[stage_idx]
             decoder._precompute_cache(embeddings)
 
@@ -166,6 +174,9 @@ class MultiStageFFSPPolicy(nn.Module):
         return_actions: bool = True,
         return_entropy: bool = False,
         return_sum_log_likelihood: bool = True,
+        forced_actions: torch.Tensor | None = None,
+        checkpoint_encoder_layers: bool = False,
+        checkpoint_selected_log_probs: bool = False,
         **decoder_kwargs,
     ):
         assert not env.flatten_stages, "Multistage model only supports unflattened env"
@@ -174,16 +185,56 @@ class MultiStageFFSPPolicy(nn.Module):
         # Get decode type depending on phase
         decode_type = getattr(self, f"{phase}_decode_type")
         device = td.device
+        input_batch_size = td.size(0)
+
+        if forced_actions is not None:
+            if forced_actions.ndim == 3:
+                expected_prefix = (input_batch_size, num_starts)
+                if tuple(forced_actions.shape[:2]) != expected_prefix:
+                    raise ValueError(
+                        "rank-3 forced_actions must be [batch, num_starts, steps]; "
+                        f"got {tuple(forced_actions.shape)}, expected prefix={expected_prefix}"
+                    )
+                forced_actions = forced_actions.transpose(0, 1).reshape(
+                    input_batch_size * num_starts, forced_actions.shape[-1]
+                )
+            elif forced_actions.ndim != 2:
+                raise ValueError(
+                    "forced_actions must be [batch*num_starts, steps] or "
+                    "[batch, num_starts, steps]"
+                )
+            expected_rollouts = input_batch_size * num_starts
+            if forced_actions.shape[0] != expected_rollouts:
+                raise ValueError(
+                    "forced_actions rollout dimension mismatch: "
+                    f"got {forced_actions.shape[0]}, expected {expected_rollouts}"
+                )
+            forced_actions = forced_actions.to(device=device, dtype=torch.long)
 
         try:
-            td = self.pre_forward(td, env, num_starts)
+            td = self.pre_forward(
+                td,
+                env,
+                num_starts,
+                checkpoint_encoder_layers=checkpoint_encoder_layers,
+            )
 
             # NOTE: this must come after pre_forward due to batchify op
             batch_size = td.size(0)
             logp_list = torch.zeros(size=(batch_size, 0), device=device)
             action_list = []
+            step_index = 0
 
             while not td["done"].all():
+                if forced_actions is not None and step_index >= forced_actions.shape[1]:
+                    raise ValueError(
+                        "forced_actions ended before the FFSP episode completed"
+                    )
+                forced_action = (
+                    None
+                    if forced_actions is None
+                    else forced_actions[:, step_index]
+                )
                 action_stack = torch.empty(
                     size=(batch_size, self.stage_cnt), dtype=torch.long, device=device
                 )
@@ -191,7 +242,14 @@ class MultiStageFFSPPolicy(nn.Module):
 
                 for stage_idx in range(self.stage_cnt):
                     decoder = self.decoders[stage_idx]
-                    action, logp = decoder(td, decode_type, num_starts, **decoder_kwargs)
+                    action, logp = decoder(
+                        td,
+                        decode_type,
+                        num_starts,
+                        forced_action=forced_action,
+                        checkpoint_selected_log_prob=checkpoint_selected_log_probs,
+                        **decoder_kwargs,
+                    )
                     action_stack[:, stage_idx] = action
                     logp_stack[:, stage_idx] = logp
 
@@ -206,6 +264,13 @@ class MultiStageFFSPPolicy(nn.Module):
                 td = env.step(td)["next"]
 
                 logp_list = torch.cat((logp_list, logp[:, None]), dim=1)
+                step_index += 1
+
+            if forced_actions is not None and step_index != forced_actions.shape[1]:
+                raise ValueError(
+                    "forced_actions contains trailing actions after FFSP completion: "
+                    f"used={step_index}, provided={forced_actions.shape[1]}"
+                )
 
             out = {
                 "reward": td["reward"],

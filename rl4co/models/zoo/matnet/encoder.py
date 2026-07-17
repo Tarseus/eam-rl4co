@@ -3,6 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint as activation_checkpoint
 
 from rl4co.models.nn.attention import MultiHeadCrossAttention
 from rl4co.models.nn.env_embeddings import env_init_embedding
@@ -209,7 +210,12 @@ class MatNetEncoder(nn.Module):
             ]
         )
 
-    def forward(self, td, attn_mask: torch.Tensor = None):
+    def forward(
+        self,
+        td,
+        attn_mask: torch.Tensor = None,
+        checkpoint_layers: bool = False,
+    ):
         row_emb, col_emb, dmat = self.init_embedding(td)
 
         if self.mask_non_neighbors and attn_mask is None:
@@ -217,7 +223,17 @@ class MatNetEncoder(nn.Module):
             attn_mask = dmat.ne(0)
 
         for layer in self.layers:
-            row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
+            if checkpoint_layers and torch.is_grad_enabled():
+                row_emb, col_emb = activation_checkpoint(
+                    lambda row, col, current_layer=layer: current_layer(
+                        row, col, dmat, attn_mask
+                    ),
+                    row_emb,
+                    col_emb,
+                    use_reentrant=False,
+                )
+            else:
+                row_emb, col_emb = layer(row_emb, col_emb, dmat, attn_mask)
 
         embedding = (row_emb, col_emb)
         init_embedding = None

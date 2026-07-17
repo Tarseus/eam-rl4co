@@ -23,6 +23,7 @@ The clean comparison is checkpoint-backed continuation: select one strong common
 - FFSP1000 PO, BOPO, USW, and ASW with 24 starts each exhausted a 24 GiB RTX 3090 during the FP32 backward pass (about 23.68 GiB in use). The pre-registered BF16 engineering adaptation completed successfully; no FFSP method is promoted beyond H0 yet.
 - FFSP1000 BF16 produced finite nonzero-gradient updates for all four objectives with exactly 24 candidates in 47--49 seconds and about 18.04 GiB peak allocated memory. PO, BOPO, USW, and ASW gradient norms were 189.1890, 0.3448, 6.5276, and 5.4116 respectively.
 - cuDNN SDPA caused a repeatable exit-time segmentation fault after otherwise complete BOPO/USW/ASW updates on GPU4. The locked BOPO rerun with only cuDNN SDPA disabled matched the original loss/gradient (0.689702/0.344631), used 17.94 GiB, wrote post-update validation/checkpoints, and exited cleanly. This backend is now fixed for FFSP1000.
+- An exact FP32 fallback now samples without a graph and checkpoint-replays the same actions plus the same RandomOneHot encoder RNG state. At FFSP10 it matched the full-graph PO loss and gradient norm exactly; all four methods had zero replay error and instance-local pairing. At FFSP1000, PO replay retained all 24 starts, had zero replay error and a finite gradient, used only 0.215 GiB peak allocation, and took 89.4 seconds per update.
 
 ## Patterns and Insights
 
@@ -30,6 +31,7 @@ The clean comparison is checkpoint-backed continuation: select one strong common
 - Zero-shot compatibility does not establish trainability at B=128 or 24 starts; backward probes are mandatory.
 - A fixed source-scale epoch count is misleading because target rollouts have very different costs. Optimizer-update gates plus validation promotion provide a more defensible continuation budget.
 - JSSP50x20 is comfortably trainable in FP32 at the locked B=128 semantics, while FFSP1000's full 24-start graph sits beyond the 24 GiB FP32 boundary even at physical batch one. Precision, not candidate-count reduction, is the first allowed FFSP adaptation because the 24 machine-order starts are part of the protocol.
+- BF16 full graph with cuDNN SDPA disabled is about 1.9x faster than exact FP32 replay at FFSP1000, while replay is the low-memory numerical-audit path. Both preserve the complete 24-candidate pool.
 
 ## Lessons and Constraints
 
@@ -56,4 +58,4 @@ The four JSSP variants shared state SHA `da29f48d0e904ece1fd2dc66986bd599888a646
 
 JSSP50x20 target-scale H0 gradient norms were PO 27.1649, BOPO 0.4844, USW 1.2189, and ASW 1.4536. FFSP1000 FP32 is ruled out on 24 GiB for all four objectives; BF16 with cuDNN SDPA disabled is the locked FFSP engineering configuration. H1's 100-update validation screen is next.
 
-H1 screening is active on g51: FFSP1000 PO runs on GPU1/PID 3903076, while the locked JSSP50x20 PO->BOPO->USW->ASW chain runs on GPU4/PID 3903972. The JSSP common step-0 validation mean is 3129.374939 over eight instances; its first PO update matches H0 and remains finite.
+H1 screening is active on g51. The clean FFSP1000 BF16 screen uses a new output root: PO then ASW on GPU0/PID 3918803, BOPO on GPU1/PID 3917615, and USW on GPU6/PID 3917593. The JSSP50x20 PO->BOPO->USW->ASW chain remains on GPU4/PID 3903972. JSSP PO finished 100 updates with validation 3132.375 versus its same-run step-0 value 3129.374939, so its step-0 checkpoint remains selected while BOPO is running.

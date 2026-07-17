@@ -95,8 +95,8 @@ def _dynamic_batch(
 def _build_model(args: argparse.Namespace, checkpoint: Path):
     hparams = checkpoint_hparams(checkpoint)
     payload = hparams.pop("_checkpoint_payload")
-    # Keep the entry point compatible with remote revisions that predate the
-    # optional routing-only forced-replay flags. FFSP always uses full graph.
+    # Keep the entry point compatible with revisions that store routing-only
+    # forced-replay flags in otherwise reusable checkpoints.
     hparams.pop("memory_efficient_preference", None)
     hparams["policy"] = _patch_legacy_policy_object(hparams.get("policy"))
     env = FFSPEnv(
@@ -145,6 +145,120 @@ def _build_model(args: argparse.Namespace, checkpoint: Path):
     if missing or unexpected:
         raise RuntimeError(f"Checkpoint mismatch: missing={missing}, unexpected={unexpected}")
     return model, env, payload
+
+
+def _memory_efficient_step(model, env, batch, num_starts: int) -> dict[str, torch.Tensor]:
+    """Differentiate an exact preference objective through forced FFSP replay.
+
+    The sampled trajectories and objective coefficients are computed without a
+    policy graph. A checkpointed replay of those same actions then supplies the
+    exact gradient with respect to trajectory log-likelihoods.
+    """
+    batch_device = batch["run_time"].device
+    cpu_rng_state = torch.random.get_rng_state()
+    cuda_rng_state = (
+        torch.cuda.get_rng_state(batch_device) if batch_device.type == "cuda" else None
+    )
+    td = env.reset(batch.clone())
+    with torch.no_grad():
+        rollout_out = model.policy(
+            td,
+            env,
+            phase="train",
+            num_starts=num_starts,
+            return_actions=True,
+            return_entropy=False,
+            return_sum_log_likelihood=True,
+        )
+    post_rollout_cpu_rng_state = torch.random.get_rng_state()
+    post_rollout_cuda_rng_state = (
+        torch.cuda.get_rng_state(batch_device) if batch_device.type == "cuda" else None
+    )
+
+    reward = unbatchify(rollout_out["reward"], (0, num_starts)).detach()
+    sampled_log_likelihood = unbatchify(
+        rollout_out["log_likelihood"], (0, num_starts)
+    ).detach()
+    actions = unbatchify(rollout_out["actions"], (0, num_starts)).detach()
+
+    leaf_log_likelihood = sampled_log_likelihood.float().requires_grad_(True)
+    instance_losses = []
+    diagnostic_values: dict[str, list[torch.Tensor]] = {
+        "bopo_pair_count": [],
+        "free_loss_pair_count": [],
+    }
+    for instance_index in range(reward.shape[0]):
+        instance_out = {
+            "reward": reward[instance_index : instance_index + 1],
+            "log_likelihood": leaf_log_likelihood[
+                instance_index : instance_index + 1
+            ],
+            "actions": actions[instance_index : instance_index + 1],
+        }
+        model.calculate_loss(
+            td,
+            batch,
+            instance_out,
+            reward=instance_out["reward"].float(),
+            log_likelihood=instance_out["log_likelihood"],
+        )
+        instance_losses.append(instance_out["loss"])
+        for key in ("bopo_pair_count", "free_loss_pair_count"):
+            value = instance_out.get(key)
+            if value is not None:
+                diagnostic_values[key].append(
+                    torch.as_tensor(value, device=leaf_log_likelihood.device)
+                    .detach()
+                    .float()
+                )
+
+    objective_loss = torch.stack(instance_losses).mean()
+    coefficients = torch.autograd.grad(objective_loss, leaf_log_likelihood)[0].detach()
+
+    # RandomOneHot is sampled inside every MatNet encoder forward. Rewind the
+    # generators so replay uses the exact same embeddings as the rollout, then
+    # leave the global RNG stream at the post-rollout position.
+    torch.random.set_rng_state(cpu_rng_state)
+    if cuda_rng_state is not None:
+        torch.cuda.set_rng_state(cuda_rng_state, batch_device)
+    try:
+        replay_td = env.reset(batch.clone())
+        replay_out = model.policy(
+            replay_td,
+            env,
+            phase="train",
+            num_starts=num_starts,
+            return_actions=False,
+            return_entropy=False,
+            return_sum_log_likelihood=True,
+            forced_actions=rollout_out["actions"],
+            checkpoint_encoder_layers=True,
+            checkpoint_selected_log_probs=True,
+        )
+    finally:
+        torch.random.set_rng_state(post_rollout_cpu_rng_state)
+        if post_rollout_cuda_rng_state is not None:
+            torch.cuda.set_rng_state(post_rollout_cuda_rng_state, batch_device)
+    replay_log_likelihood = unbatchify(
+        replay_out["log_likelihood"], (0, num_starts)
+    )
+    replay_error = (
+        replay_log_likelihood.detach().float() - sampled_log_likelihood.float()
+    ).abs().max()
+    surrogate = (coefficients * replay_log_likelihood.float()).sum()
+    loss = objective_loss.detach() + surrogate - surrogate.detach()
+    diagnostics = {
+        key: torch.stack(values).mean()
+        for key, values in diagnostic_values.items()
+        if values
+    }
+    return {
+        "loss": loss,
+        "objective_loss": objective_loss.detach(),
+        "memory_efficient_replay_error": replay_error.detach(),
+        "memory_efficient_coefficient_abs_mean": coefficients.abs().mean().detach(),
+        **diagnostics,
+    }
 
 
 def _evaluate(
@@ -251,6 +365,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--weight-decay", type=float, default=1e-6)
     parser.add_argument("--precision", default="fp32")
+    parser.add_argument(
+        "--full-graph",
+        action="store_true",
+        help="Disable forced replay (mainly for small equivalence tests).",
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=12345678)
     parser.add_argument("--data-start-index", type=int, default=0)
@@ -327,6 +446,7 @@ def main() -> None:
         "weight_decay": args.weight_decay,
         "accumulate": args.accumulate,
         "precision": args.precision,
+        "memory_efficient_replay": not args.full_graph,
         "seed": args.seed,
     }
     (output_dir / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
@@ -362,6 +482,9 @@ def main() -> None:
         model.train()
         optimizer.zero_grad(set_to_none=True)
         losses: list[float] = []
+        replay_errors: list[float] = []
+        coefficient_means: list[float] = []
+        pair_counts: list[float] = []
         started = time.perf_counter()
         if device.type == "cuda":
             torch.cuda.reset_peak_memory_stats(device)
@@ -376,12 +499,29 @@ def main() -> None:
             ).to(device)
             _seed(args.seed + index * 1_000_003, device)
             with _autocast(device, args.precision):
-                out = model.shared_step(batch, 0, "train")
+                if args.full_graph:
+                    out = model.shared_step(batch, 0, "train")
+                else:
+                    out = _memory_efficient_step(
+                        model, env, batch, args.num_starts
+                    )
                 loss = out["loss"]
             if loss is None or not torch.isfinite(loss):
                 raise FloatingPointError(f"Non-finite FFSP loss: {loss}")
             (loss / args.accumulate).backward()
             losses.append(float(loss.detach().cpu()))
+            if "memory_efficient_replay_error" in out:
+                replay_errors.append(
+                    float(out["memory_efficient_replay_error"].detach().cpu())
+                )
+                coefficient_means.append(
+                    float(
+                        out["memory_efficient_coefficient_abs_mean"].detach().cpu()
+                    )
+                )
+            for key in ("bopo_pair_count", "free_loss_pair_count"):
+                if key in out:
+                    pair_counts.append(float(out[key].detach().float().cpu()))
         grad_norm = _gradient_norm(model.parameters())
         if not math.isfinite(grad_norm) or grad_norm == 0.0:
             raise FloatingPointError(f"Invalid gradient norm: {grad_norm}")
@@ -397,6 +537,14 @@ def main() -> None:
             "elapsed_sec": time.perf_counter() - started,
             "candidate_count_per_instance": args.num_starts,
         }
+        if replay_errors:
+            record.update(
+                memory_efficient_replay_error=max(replay_errors),
+                memory_efficient_coefficient_abs_mean=sum(coefficient_means)
+                / len(coefficient_means),
+            )
+        if pair_counts:
+            record["pair_count_per_instance"] = sum(pair_counts) / len(pair_counts)
         if device.type == "cuda":
             record.update(
                 peak_memory_allocated_gib=torch.cuda.max_memory_allocated(device) / 1024**3,

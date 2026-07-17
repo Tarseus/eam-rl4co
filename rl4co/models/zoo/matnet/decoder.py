@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from tensordict import TensorDict
 from torch import Tensor
+from torch.utils.checkpoint import checkpoint as activation_checkpoint
 
 from rl4co.models.nn.env_embeddings.context import FFSPContext
 from rl4co.models.zoo.am.decoder import AttentionModelDecoder
@@ -146,20 +147,65 @@ class MultiStageFFSPDecoder(MatNetFFSPDecoder):
         td: TensorDict,
         decode_type="sampling",
         num_starts: int = 1,
+        forced_action: Tensor | None = None,
+        checkpoint_selected_log_prob: bool = False,
         **decoding_kwargs,
     ) -> Tuple[Tensor, Tensor, TensorDict]:
         process_logits_kwargs = {}
         for key in ("temperature", "top_p", "top_k", "mask_logits"):
             if key in decoding_kwargs:
                 process_logits_kwargs[key] = decoding_kwargs[key]
-        logits, mask = super().forward(td, self.cached_embs, num_starts)
-        logprobs = process_logits(
-            logits,
-            mask,
-            tanh_clipping=self.tanh_clipping,
-            **process_logits_kwargs,
-        )
-        job_selected = decode_logprobs(logprobs, mask, decode_type)
-        job_prob = gather_by_index(logprobs, job_selected, dim=1)
+        if forced_action is not None:
+            forced_action = forced_action.to(device=td.device, dtype=torch.long)
+            if forced_action.shape != td.batch_size:
+                raise ValueError(
+                    "forced_action must have one action per FFSP rollout; "
+                    f"got shape={tuple(forced_action.shape)}, batch_size={tuple(td.batch_size)}"
+                )
+
+            cache = self.cached_embs
+
+            def selected_log_prob(stage_machine_idx, action_mask, selected):
+                local_td = TensorDict(
+                    {
+                        "stage_machine_idx": stage_machine_idx,
+                        "action_mask": action_mask,
+                    },
+                    batch_size=[stage_machine_idx.shape[0]],
+                )
+                logits, mask = AttentionModelDecoder.forward(
+                    self, local_td, cache, num_starts
+                )
+                logprobs = process_logits(
+                    logits,
+                    mask,
+                    tanh_clipping=self.tanh_clipping,
+                    **process_logits_kwargs,
+                )
+                return gather_by_index(logprobs, selected, dim=1)
+
+            if checkpoint_selected_log_prob and torch.is_grad_enabled():
+                job_prob = activation_checkpoint(
+                    selected_log_prob,
+                    td["stage_machine_idx"],
+                    td["action_mask"],
+                    forced_action,
+                    use_reentrant=False,
+                )
+            else:
+                job_prob = selected_log_prob(
+                    td["stage_machine_idx"], td["action_mask"], forced_action
+                )
+            job_selected = forced_action
+        else:
+            logits, mask = super().forward(td, self.cached_embs, num_starts)
+            logprobs = process_logits(
+                logits,
+                mask,
+                tanh_clipping=self.tanh_clipping,
+                **process_logits_kwargs,
+            )
+            job_selected = decode_logprobs(logprobs, mask, decode_type)
+            job_prob = gather_by_index(logprobs, job_selected, dim=1)
 
         return job_selected, job_prob

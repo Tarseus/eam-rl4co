@@ -43,7 +43,7 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 30
+  total_runs: 37
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -61,6 +61,10 @@ experiments:
       experiment: "FFSP1000 BF16 one-update H0 probes plus locked backend-stability confirmatory rerun"
       result: "4/4 objectives produced finite nonzero-gradient updates with 24 candidates at about 18.04 GiB; disabling cuDNN SDPA gave BOPO 17.94 GiB and a clean exit"
       decision: "H0 supported; use BF16 with cuDNN SDPA disabled for FFSP1000, and FP32 for JSSP50x20"
+    - cycle: 4
+      experiment: "exact FFSP forced-replay equivalence and FFSP1000 PO probe"
+      result: "zero replay error, exact small-scale full-graph gradient match, and finite FFSP1000 PO update at 0.215 GiB/89.4 sec"
+      decision: "retain exact FP32 replay as audit/fallback; use the faster locked BF16 backend for the clean 100-update comparison"
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -79,6 +83,7 @@ protocol:
     jssp: "One physical instance per microbatch initially, B=128 and K=16; all PO/BOPO/USW/ASW pairs remain within the instance."
   precision_backend:
     ffsp1000: "BF16 autocast with torch.backends.cuda.enable_cudnn_sdp(False); all 24 starts retained"
+    ffsp1000_audit_fallback: "Exact FP32 no-grad rollout plus forced-action/RNG checkpoint replay; zero replay error and 0.215 GiB target-scale peak"
     jssp50x20: "FP32 at B=128/K=16"
   stage_gates:
     probe: "One optimizer update with finite loss/gradient, no OOM, correct instance-local diagnostics."
@@ -90,9 +95,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 0
+  cycle: 4
   last_direction: deepen
-  last_reflection: "H0 is supported. JSSP50x20 fits FP32; FFSP1000 requires BF16 and cuDNN SDPA disabled for stable exit. Proceed to the locked 100-update validation screen from the common checkpoints and fresh Adam."
+  last_reflection: "H0 is supported by both the locked BF16 backend and an exact FP32 replay fallback. Clean FFSP and JSSP 100-update screens are active; promote only from their fixed validation results."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -105,18 +110,31 @@ workspace:
 remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
-  automation_id: "autoresearch-ffsp1000-and-jssp50x20"
-  last_check: "2026-07-17T14:00:21+08:00"
+  automation_id: "autoresearch-ffsp1000-and-jssp50x20 (paused)"
+  last_check: "2026-07-17T14:08:45+08:00"
+  last_observation: "Exact FP32 FFSP1000 replay passed at 0.215 GiB and 89.4 sec/update. Clean BF16 FFSP PO/BOPO/USW screens are active on GPUs 0/1/6, with ASW queued after PO. JSSP PO completed its 100-update screen without improving step 0; BOPO is active."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
   active_jobs:
     - host: g51
-      pid: 3903076
+      pid: 3918803
+      gpu: 0
+      purpose: "Clean FFSP1000 PO then ASW H1 screens; BF16 with cuDNN SDPA disabled"
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_po_then_asw_20260717-140845.log"
+      output: "logs/scheduling_large_scale/h1_screen100_bf16_clean/ffsp1000/{po,asw}"
+    - host: g51
+      pid: 3917615
       gpu: 1
-      purpose: "FFSP1000 PO H1 100-update screen; BF16 with cuDNN SDPA disabled"
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_screen100_po_20260717-135925.log"
-      output: "logs/scheduling_large_scale/h1_screen100/ffsp1000/po"
+      purpose: "Clean FFSP1000 BOPO H1 screen; BF16 with cuDNN SDPA disabled"
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_bopo_20260717-140817.log"
+      output: "logs/scheduling_large_scale/h1_screen100_bf16_clean/ffsp1000/bopo"
+    - host: g51
+      pid: 3917593
+      gpu: 6
+      purpose: "Clean FFSP1000 USW H1 screen; BF16 with cuDNN SDPA disabled"
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_usw_20260717-140817.log"
+      output: "logs/scheduling_large_scale/h1_screen100_bf16_clean/ffsp1000/usw"
     - host: g51
       pid: 3903972
       gpu: 4
@@ -127,3 +145,4 @@ remote:
     ffsp1000_fp32: "PO/BOPO/USW/ASW all OOM at approximately 23.68 GiB in-use memory; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_all_methods_20260717-134252.log"
     ffsp1000_bf16: "All objectives completed finite one-update probes at about 18.04 GiB; BOPO/USW/ASW exposed a cuDNN-SDPA exit-time segfault on GPU4"
     ffsp1000_backend_stability: "BOPO with cuDNN SDPA disabled completed at 17.94 GiB and exited cleanly; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_bf16_bopo_no_cudnn_sdpa_20260717-135441.log"
+    ffsp1000_exact_replay: "PO completed in FP32 with zero replay error, gradient norm 151.2350, 0.215 GiB peak, and 89.4 sec/update; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_replay_po_20260717-140424.log"
