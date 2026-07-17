@@ -1,0 +1,49 @@
+project:
+  title: "Recover remaining USW/ASW significance gaps"
+  started: "2026-07-17"
+  status: active
+  question: "Can validation-selected checkpoints or an unchanged-objective continuation recover FFSP50/JSSP15x15 USW wins and close the CVRP50 ASW-vs-USW gap?"
+
+locked_evaluation:
+  primary_test: "two-sided paired Wilcoxon signed-rank"
+  correction: "Holm over the unchanged 52-comparison paper family"
+  lower_cost_is_better: true
+  bootstrap_samples: 20000
+  bootstrap_seed: 20260716
+  rules:
+    - "No checkpoint selection on the paper test instances."
+    - "Do not change USW or ASW pair construction or loss definitions and still call the result the original method."
+    - "Pairing and candidate pools remain instance-local."
+    - "Do not replace the paper registry until a locked candidate passes."
+
+hypotheses:
+  H1_ffsp50_usw_valbest:
+    status: ready_to_evaluate
+    candidate: "g52:logs/train/runs/ffsp50_loss_only_recover_valbest_20260716-2210/checkpoints/epoch_117.ckpt"
+    checkpoint_sha256: "0b52e9de24c31cc373290c3397081c085914e682981b406bde645a6b068fab1d"
+    test_file: "data/ffsp/ffsp50_test_seed1234_torch.npz"
+    test_sha256: "6b1a46fb75fbdb1e23433c0a11ae9e54adb18a3306df7b9e46ccc357f1d4f372"
+    protocol: "fixed1000, 24 starts, 128 augmentations, seed1234"
+    pass: "mean below PO4COPs and BOPO, with both replacement Holm-adjusted p-values < 0.05"
+  H2_jssp15_usw_valbest:
+    status: ready_to_evaluate
+    candidate: "g52:logs/train/runs/mgl-jssp-bopo-lossonly_15x15_recover_valbest_20260716-2210/checkpoints/epoch_013.ckpt"
+    checkpoint_sha256: "93b79af77a42156753882f5d37c4be1b1e9b814d9890852b666de278be1ac3ff"
+    test_set: "g51:data/jssp_generated_eval/seed12345678_n100_with_ref_fixedparser/15x15"
+    ordered_dataset_sha256: "cf30cda4099e756540c5fe15bd6a47849a6b74a3325bedb0bb7066db40c9294c"
+    protocol: "fixed100, B128, greedy0, sampling_seed12345678, no augmentation"
+    pass: "mean below BOPO and replacement Holm-adjusted p-value < 0.05"
+  H3_cvrp50_asw_from_usw:
+    status: planned_exploratory_screen
+    source: "g52:downloads/paper_final/cvrp50/usw/epoch_775.ckpt"
+    source_sha256: "1a4270b5976586b20441360c11e5bba1361cae4368df2bd5a817fc9247a41e32"
+    objective: "unchanged CVRP50 ASW best_pair.json"
+    plan: "short LR1e-5 USW-to-ASW continuation; validation-only checkpoint selection"
+    label: "ASW-after-USW variant"
+    paper_test_sha256: "1af0d3502e13ce571048e5437593a8679e8ce79c25c33415be22062c2d9e59d7"
+    pass: "candidate beats USW mean 10.437088506984711 with replacement Holm-adjusted p-value < 0.05"
+
+next_actions:
+  - "Evaluate H1 and H2 once under the locked protocols."
+  - "Launch H3 as an exploratory validation screen without reading the paper test set."
+  - "Recompute the full 52-comparison family only for locked candidates."
