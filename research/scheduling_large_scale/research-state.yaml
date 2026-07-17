@@ -55,7 +55,7 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 65
+  total_runs: 66
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -106,9 +106,9 @@ experiments:
       result: "Protocol commit 5172e656e locked the fair-comparison gate. BOPO LR1e-5 launched once on idle GPU7 as PID464339. Its step0 validation32 mean exactly reproduced H3 at 3093.375015; steps1-3 had finite losses, finite nonzero gradients, B128/K16, physical batch one, 15 instance-local anchored pairs, and about 11.57 GiB peak allocation."
       decision: "continue the untouched BOPO run to step500 and compare its minimum validation32 mean against the pre-existing H3 USW step300 and ASW step200 locks. Launch conditional Phase B only if neither candidate wins."
     - cycle: 12
-      experiment: "H4 matched BOPO completion and conditional Phase-B ASW launch"
-      result: "Matched BOPO completed 500/500 finite-loss, finite nonzero-gradient updates with B128/K16, physical batch one, 15 instance-local anchored pairs, about 11.57 GiB peak allocation, and a clean error scan. Validation32 means at steps0/50/100/150/200/250/300/350/400/450/500 were 3093.375/3095.594/3094.531/3094.406/3093.531/3093.250/3093.313/3094.594/3088.313/3087.625/3085.313. The minimum is BOPO step500 at 3085.312515, which beats both existing H3 locks. Conditional ASW LR2e-6 alpha0 launched once on GPU7 as PID473670; step0/50/100/150 means were 3093.375015/3095.187462/3092.499985/3093.156242, while all observed updates remained finite, nonzero-gradient, and instance-local."
-      decision: "continue ASW LR2e-6 alpha0 unchanged to step300 and require a validation32 mean below 3085.312515. Queue PID475104 waits for authoritative PID473670 to exit, then runs only the five missing preregistered Phase-B configurations sequentially on GPU7; it explicitly excludes the active ASW LR2e-6 alpha0 configuration."
+      experiment: "H4 matched BOPO completion and conditional Phase-B search"
+      result: "Matched BOPO completed 500/500 finite-loss, finite nonzero-gradient updates with B128/K16, physical batch one, 15 instance-local anchored pairs, about 11.57 GiB peak allocation, and a clean error scan. Its validation32 minimum was step500 at 3085.312515. Conditional ASW LR2e-6 alpha0 then completed 300/300 finite-loss, finite nonzero-gradient updates with B128/K16, physical batch one, instance-local pairs, and a clean exact-log error scan. ASW validation32 at steps0/50/100/150/200/250/300 was 3093.375015/3095.187462/3092.499985/3093.156242/3095.875015/3094.843811/3094.781166; its best was step100 at 3092.499985, still 7.187469 above BOPO. Queue PID475104 handed off once to the next preregistered USW LR1e-6/WD1e-6 run as PID480666 in its fresh root; its step50 validation32 mean was 3092.999977."
+      decision: "ASW LR2e-6 alpha0 is negative and is not promoted or retried. Continue the bounded Phase-B queue unchanged; require every configuration to beat 3085.312515 on the matched validation32 stream before paired inference."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -141,7 +141,7 @@ protocol:
 outer_loop:
   cycle: 12
   last_direction: deepen
-  last_reflection: "Matched BOPO reached 3085.312515 and beat both H3 locks, so H4 advanced to its preregistered bounded Phase-B search. One ASW configuration is authoritative on GPU7 and the remaining five are collision-safely queued behind it; only a candidate below BOPO proceeds to paired validation inference."
+  last_reflection: "Matched BOPO reached 3085.312515 and beat both H3 locks. The first Phase-B ASW LR2e-6/alpha0 configuration completed cleanly but its best matched validation32 mean was 3092.499985, so it is negative and not promoted. The collision-safe queue advanced once to USW LR1e-6/WD1e-6; only a candidate below BOPO proceeds to paired validation inference."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -155,8 +155,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T02:01:39+08:00"
-  last_observation: "Matched BOPO PID464339 exited naturally after 500 finite-loss, finite nonzero-gradient updates; its validation32 minimum was step500 at 3085.312515 and the exact log had no matched runtime/OOM/non-finite/traceback/segfault/kill error. This beat both existing H3 locks. Conditional Phase-B ASW LR2e-6 alpha0 is authoritative on GPU7 as PID473670; validation32 at steps0/50/100/150 was 3093.375015/3095.187462/3092.499985/3093.156242. Its best remains step100, 7.187469 above BOPO. Updates through step158 were finite, nonzero-gradient, B128/K16, physical batch one, and instance-local. Queue PID475104 waits for PID473670 and then runs only the other five locked Phase-B configurations in fresh roots on GPU7. No TA/DMU/final data were read."
+  last_check: "2026-07-18T02:19:15+08:00"
+  last_observation: "Phase-B ASW LR2e-6 alpha0 PID473670 exited naturally after 300 unique finite-loss, finite nonzero-gradient updates with B128/K16, physical batch one, instance-local pairs, and zero exact-log error matches. Its best validation32 was step100 at 3092.499985, 7.187469 above matched BOPO 3085.312515, so it is negative and not promoted. Queue PID475104 handed off once at 2026-07-18T02:13:37+08:00 to USW LR1e-6/WD1e-6 PID480666 in the preflighted fresh Phase-B root. USW step0/50 means were 3093.375015/3092.999977; step50 is 7.687462 above BOPO. Updates through step61 were finite, nonzero-gradient, B128/K16, physical batch one, and instance-local, and its exact log had zero error-pattern matches. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -171,10 +171,11 @@ remote:
     jssp50x20_paper_control_step100_b128: "logs/scheduling_large_scale/paper_alignment/jssp50x20_bopo_step100_B128_v2/summary.json (gap 9.6488%; paper delta +1.6488 pp)"
     jssp50x20_selected_official_eval: "logs/scheduling_large_scale/paper_alignment/jssp50x20_selected_step500screen/ (BOPO gaps 9.3718% at B'=128 and 8.8951% at B'=512)"
   active_jobs:
-    - "H4 Phase-B ASW LR2e-6 alpha0 GPU7 PID473670; output logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/phase_b/asw_lr2e6_a0_screen300_20260718_0148; log /data1/gushengda/eam-rl4co/logs/codex_remote/h4_asw_lr2e6_a0_screen300_20260718_0148_20260718-014829.log; target step300; beat threshold 3085.312515"
-    - "H4 Phase-B missing-five queue PID475104; waits for PID473670, then sequentially runs USW LR1e-6/WD1e-6, USW LR5e-7/WD1e-6, USW LR1e-6/WD0, ASW LR1e-6/alpha0, and ASW LR1e-6/alpha0.25 on GPU7; root logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148; log /data1/gushengda/eam-rl4co/logs/codex_remote/h4_phase_b_missing5_after_pid473670_20260718_0151_20260718-015055.log"
+    - "H4 Phase-B USW LR1e-6/WD1e-6 GPU7 PID480666 under queue PID475104; output logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148/usw_lr1e6_wd1e6; per-variant log /data1/gushengda/eam-rl4co/logs/codex_remote/h4_phase_b_usw_lr1e6_wd1e6_20260718_0148.log; target step300; beat threshold 3085.312515"
+    - "H4 Phase-B queue PID475104; after active USW LR1e-6/WD1e-6 it sequentially runs USW LR5e-7/WD1e-6, USW LR1e-6/WD0, ASW LR1e-6/alpha0, and ASW LR1e-6/alpha0.25 on GPU7; root logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148; queue log /data1/gushengda/eam-rl4co/logs/codex_remote/h4_phase_b_missing5_after_pid473670_20260718_0151_20260718-015055.log"
   completed_diagnostics:
     jssp50x20_h4_matched_bopo: "GPU7 PID464339 completed 500 updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/bopo_lr1e5_screen500_20260718_0110; best validation32 was step500 at 3085.312515. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pair_count was 15, and the exact log was error-scan clean."
+    jssp50x20_h4_phase_b_asw_lr2e6_a0: "GPU7 PID473670 completed 300 unique updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/phase_b/asw_lr2e6_a0_screen300_20260718_0148; best validation32 was step100 at 3092.499985, 7.187469 above BOPO. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pairs remained instance-local, and the exact log was error-scan clean."
     ffsp1000_fp32: "PO/BOPO/USW/ASW all OOM at approximately 23.68 GiB in-use memory; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_all_methods_20260717-134252.log"
     ffsp1000_bf16: "All objectives completed finite one-update probes at about 18.04 GiB; BOPO/USW/ASW exposed a cuDNN-SDPA exit-time segfault on GPU4"
     ffsp1000_backend_stability: "BOPO with cuDNN SDPA disabled completed at 17.94 GiB and exited cleanly; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_bf16_bopo_no_cudnn_sdpa_20260717-135441.log"
