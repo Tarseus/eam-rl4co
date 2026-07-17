@@ -1,0 +1,23 @@
+{
+  "id": "f_h7_usw_source_length_norm_100",
+  "ir": {
+    "name": "usw_source_length_normalized_jssp50x20",
+    "intuition": "Preserve the discovered USW loss while expressing its total log-probability difference at the 100-decision JSSP10x10 source trajectory scale.",
+    "pseudocode": "epsilon=1e-6; norm_adv=max(mean(abs(advantage_gap)),epsilon); source_diff=100*(log_prob_w_mean-log_prob_l_mean); return sum(-log(sigmoid(source_diff/norm_adv))*weight)/max(sum(weight),epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "sigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "source_length_calibrated",
+      "source_trajectory_steps": 100
+    },
+    "operators_used": ["sigmoid", "log", "neg", "mul", "div", "sub", "sum", "mean", "abs", "maximum"],
+    "implementation_hint": {
+      "expects": ["log_prob_w_mean", "log_prob_l_mean", "weight", "advantage_gap"],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw_mean = batch['log_prob_w_mean']\n    lpl_mean = batch['log_prob_l_mean']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    source_steps = 100.0\n    abs_adv = ops.abs(advantage_gap)\n    mean_abs_adv = ops.mean(abs_adv)\n    norm_adv = ops.maximum(mean_abs_adv, epsilon)\n    source_diff = ops.mul(ops.sub(lpw_mean, lpl_mean), source_steps)\n    diff = ops.div(source_diff, norm_adv)\n    sigmoid_diff = ops.sigmoid(diff)\n    loss = ops.neg(ops.log(sigmoid_diff))\n    weighted_loss = ops.mul(loss, weight)\n    loss_sum = ops.sum(weighted_loss)\n    weight_sum = ops.sum(weight)\n    return ops.div(loss_sum, ops.maximum(weight_sum, epsilon))"
+  }
+}
