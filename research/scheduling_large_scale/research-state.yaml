@@ -167,6 +167,10 @@ experiments:
       experiment: "H7 source-length-normalized USW smoke and screen300 launch"
       result: "Commit d737e2e87 preregistered one source-length-calibrated sparse-USW variant. Local/remote artifacts matched byte-for-byte. Its exactly-once smoke reproduced step0 3093.375015, produced finite loss 0.706285 and positive gradient 0.418005 with B128/K16, physical batch one, exactly 15 local pairs, 11.574 GiB peak allocation, and clean logs; feasibility-only step1 was 3092.718758. Fresh-root screen PID523429 then launched once and reproduced the same step0/loss/gradient semantics through step2."
       decision: "Continue only authoritative H7 PID523429 through scheduled validation gates. Promote or continue only if validation32 is strictly below 3085.312515; otherwise record H7 negative and move to a bounded advantage-gap/link-shape hypothesis."
+    - cycle: 23
+      experiment: "H7 source-length-normalized USW step50 gate"
+      result: "Validation32 improved from common step0 3093.375015 to 3091.031311 at step50, but remains 5.718796 above matched BOPO. Through step56 the run had unique contiguous finite-loss, finite positive-gradient updates with B128/K16, physical batch one, exactly 15 instance-local pairs, about 11.583 GiB peak allocation, and clean observed logs."
+      decision: "No promotion; continue the sole authoritative H7 PID523429 unchanged through steps100/150/200/250/300. Do not access paired inference, TA/DMU, or final data unless a scheduled validation mean is strictly below 3085.312515."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -197,9 +201,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 22
+  cycle: 23
   last_direction: deepen
-  last_reflection: "H6 disproves update-scale matching by LR alone: despite clean late improvement, its best remains 2.937516 above BOPO and its mean gradient stays 9.36x BOPO. H7 now isolates the matching 10x trajectory-length mismatch by source-calibrating total log-probability while preserving local anchors and expected LR-times-gradient scale; its smoke gradient 0.418005 confirms the intended scale correction."
+  last_reflection: "H6 disproves update-scale matching by LR alone. H7's source-length correction successfully moves gradients into BOPO's range and improves validation by 2.343704 at step50, but still trails BOPO by 5.718796. Continue the locked screen because prior sparse USW improved late; no early-gate promotion is warranted."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
