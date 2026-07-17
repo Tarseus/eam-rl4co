@@ -1,0 +1,31 @@
+{
+  "candidate": "USW epoch13 validation-best",
+  "checkpoint_sha256": "93b79af77a42156753882f5d37c4be1b1e9b814d9890852b666de278be1ac3ff",
+  "protocol": {
+    "n": 100,
+    "B": 128,
+    "greedy": 0,
+    "sampling_seed": 12345678,
+    "primary_test": "two-sided paired Wilcoxon signed-rank",
+    "family": "replacement in the unchanged 52-comparison Holm family"
+  },
+  "usw_vs_bopo": {
+    "usw_mean": 1301.4899938964843,
+    "bopo_mean": 1303.1800158691406,
+    "mean_difference_left_minus_right": -1.69002197265625,
+    "bootstrap_95ci": [-5.300300262451171, 1.9299808044433593],
+    "wins_ties_losses": [51, 2, 47],
+    "wilcoxon_raw_p": 0.3368798198745876,
+    "wilcoxon_holm_p": 1.0,
+    "decision": "fail"
+  },
+  "asw_vs_candidate_usw": {
+    "asw_mean": 1297.3999914550782,
+    "candidate_usw_mean": 1301.4899938964843,
+    "mean_difference_left_minus_right": -4.09000244140625,
+    "bootstrap_95ci": [-7.419991546630859, -0.7800021667480469],
+    "wins_ties_losses": [63, 1, 36],
+    "wilcoxon_raw_p": 0.013864337810937889,
+    "wilcoxon_holm_p": 0.06932168905468944
+  }
+}
