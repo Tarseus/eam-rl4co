@@ -43,8 +43,12 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 0
-  trajectory: []
+  total_runs: 8
+  trajectory:
+    - cycle: 0
+      experiment: "local reduced-scale objective-path smoke"
+      result: "8/8 finite nonzero-gradient updates; identical initialization within each problem"
+      decision: "proceed to target-scale GPU feasibility probes"
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."

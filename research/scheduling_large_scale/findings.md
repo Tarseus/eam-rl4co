@@ -15,6 +15,8 @@ The clean comparison is checkpoint-backed continuation: select one strong common
 - FFSP100 USW loaded into an FFSP1000 environment and encoded a `(1,1000,12)` instance without parameter mismatch.
 - JSSP15x15 USW completed full greedy construction at 50x20 and 100x20 with B=1.
 - RL/PO/BOPO/USW/ASW checkpoint core parameter names and tensor shapes are identical within FFSP and within JSSP.
+- The direct full-graph FFSP path completed one PO, BOPO, USW, and ASW update at a reduced 10-job smoke scale.
+- The direct MGL path completed one PO, BOPO, USW, and ASW update at 5x5 with B=8/K=2 and physical batch one.
 
 ## Patterns and Insights
 
@@ -37,4 +39,11 @@ The clean comparison is checkpoint-backed continuation: select one strong common
 
 ## Optimization Trajectory
 
-No target-scale optimizer update has been run yet. H0 feasibility probes are next.
+No target-scale optimizer update has been run yet. Reduced-scale smoke gradient norms were:
+
+- FFSP: PO 0.5782, BOPO 0.06649, USW 0.3853, ASW 0.3221.
+- JSSP: PO 3.4307, BOPO 1.7471, USW 0.1706, ASW 0.1986.
+
+The four FFSP variants shared state SHA `997238c32efaf8c5336d2beda94da6f13d4616f21982d9326e5fb6c9f2791e96`.
+The four JSSP variants shared state SHA `da29f48d0e904ece1fd2dc66986bd599888a64622f2a906324673c52f81d6c24`.
+Target-scale H0 GPU feasibility probes are next.
