@@ -155,8 +155,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T02:19:15+08:00"
-  last_observation: "Phase-B ASW LR2e-6 alpha0 PID473670 exited naturally after 300 unique finite-loss, finite nonzero-gradient updates with B128/K16, physical batch one, instance-local pairs, and zero exact-log error matches. Its best validation32 was step100 at 3092.499985, 7.187469 above matched BOPO 3085.312515, so it is negative and not promoted. Queue PID475104 handed off once at 2026-07-18T02:13:37+08:00 to USW LR1e-6/WD1e-6 PID480666 in the preflighted fresh Phase-B root. USW step0/50 means were 3093.375015/3092.999977; step50 is 7.687462 above BOPO. Updates through step61 were finite, nonzero-gradient, B128/K16, physical batch one, and instance-local, and its exact log had zero error-pattern matches. No TA/DMU/final data were read."
+  last_check: "2026-07-18T02:27:05+08:00"
+  last_observation: "H4 Phase-B queue PID475104 still owns exactly one trainer, USW LR1e-6/WD1e-6 GPU7 PID480666, with no duplicate JSSP trainer. Validation32 at steps0/50/100/150 was 3093.375015/3092.999977/3093.124878/3100.093704. Its run-best remains step50, 7.687462 above matched BOPO 3085.312515; step150 regressed to 14.781189 above BOPO. A machine audit through step147 and the exact log through step158 found unique finite-loss, finite positive-gradient updates, B128/K16, physical batch one, instance-local pairs, and zero error-pattern matches. Continue unchanged to step300; four preregistered configurations remain behind it. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
