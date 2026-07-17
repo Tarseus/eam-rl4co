@@ -50,6 +50,12 @@ hypotheses:
     motivation: "H3 found lower validation means than the old H1 BOPO result, but the means came from different validation-set sizes; a matched BOPO curve is required before claiming victory."
     parent: H3
     priority: high
+  - id: H5
+    statement: "Preserving the discovered USW/ASW loss and ASW weight formula while replacing dense pair construction with BOPO-matched rank-stratified 15-edge instance-local anchors can beat matched BOPO on validation32."
+    status: active
+    motivation: "All dense LR/WD/alpha calibrations failed, while dense variants use about 8100 pairs per update versus BOPO's 15; H5 isolates pair geometry and gradient density."
+    parent: H4
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
@@ -113,6 +119,10 @@ experiments:
       experiment: "H4 final dense Phase-B ASW LR1e-6/alpha0.25 completion"
       result: "The final configuration completed exactly 300 train events and seven validation32 gates with B128/K16, physical batch one, positive instance-local pair counts, and a zero-match exact-log error scan. Validation means at steps0/50/100/150/200/250/300 were 3093.375015/3091.750084/3096.093674/3091.874977/3090.312454/3092.062462/3093.218842. Its best step200 remained 5.000061 above matched BOPO 3085.312515."
       decision: "Phase B is exhausted: all six dense configurations are negative and must not be promoted or retried. Preregister the bounded H5 rank-stratified 15-edge anchor-geometry variants before any new launch; keep the common checkpoint, validation32 stream, B128/K16, physical batch one, and family-leading calibration fixed."
+    - cycle: 14
+      experiment: "H5 JSSP50x20 rank-stratified anchor-geometry smoke"
+      result: "Protocol commit 221eaafe8 preceded launch. USW and ASW each completed exactly one update with finite loss 0.839946/0.840047, positive gradient 4.732050/4.824728, exactly 15 instance-local rank-stratified pairs, B128/K16, physical batch one, and about 11.574 GiB peak allocation. Both reproduced step0 3093.375015; step1 means were 3095.062469/3094.187477."
+      decision: "Both variants pass the feasibility-only smoke gate. Launch the locked sequential 300-update screens in fresh roots; compare only validation32 gates and promote only a checkpoint strictly below matched BOPO 3085.312515."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -143,9 +153,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 13
+  cycle: 14
   last_direction: deepen
-  last_reflection: "Matched BOPO reached 3085.312515. All six dense Phase-B configurations are now negative; the strongest was ASW LR1e-6/alpha0 step200 at 3086.500031, while final alpha0.25 best was 3090.312454. LR, weight decay, and alpha calibration did not remove non-monotone regression. Dense USW/ASW use about 8100 pairs per update versus BOPO's 15, so the next bounded mechanistic variable is rank-stratified anchor geometry with the discovered loss/weight formula otherwise unchanged."
+  last_reflection: "Dense Phase B is exhausted. H5 successfully isolated pair geometry: both discovered objectives compiled and trained with exactly 15 BOPO-matched rank-stratified within-instance pairs, finite positive gradients, and unchanged B128/K16 rollout semantics. Step1 is not a selection gate; both variants now proceed to the preregistered screen300 comparison against 3085.312515."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -159,8 +169,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T04:17:47+08:00"
-  last_observation: "Phase-B queue PID475104 and final trainer PID497053 exited naturally. The final ASW LR1e-6/alpha0.25 run completed 300 train events and seven validation32 gates; best step200 was 3090.312454, 5.000061 above matched BOPO. Exact-log error scan matched zero patterns. All dense Phase-B configurations are negative and closed; no process was duplicated, retried, killed, or modified, and no paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T04:24:26+08:00"
+  last_observation: "H5 sequential smoke PID505053 exited naturally after one USW and one ASW update. Both histories have exactly three events, finite loss, positive gradient, B128/K16, physical batch one, and exactly 15 instance-local rank-stratified anchor pairs. Step1 means were 3095.062469 and 3094.187477 from common step0 3093.375015. Both pass to screen300; no duplicate, retry, TA/DMU, paired inference, or final-data read occurred."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -183,6 +193,7 @@ remote:
     jssp50x20_h4_phase_b_usw_lr1e6_wd0: "GPU7 PID487015 completed 300 unique updates in logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148/usw_lr1e6_wd0; best validation32 was step50 at 3092.999977, 7.687462 above BOPO. All losses and gradients were finite, every gradient was positive, B128/K16 and physical batch one were preserved, pairs remained instance-local, peak allocation was 11.584 GiB, and the exact log was error-scan clean."
     jssp50x20_h4_phase_b_asw_lr1e6_a0: "GPU7 PID492310 completed 300 unique updates in logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148/asw_lr1e6_a0; best validation32 was step200 at 3086.500031, 1.187515 above BOPO. All losses and gradients were finite, every gradient was positive, B128/K16 and physical batch one were preserved, pairs remained instance-local, peak allocation was 11.584 GiB, and the exact log was error-scan clean."
     jssp50x20_h4_phase_b_asw_lr1e6_a025: "GPU7 PID497053 completed 300 train events in logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148/asw_lr1e6_a025; best validation32 was step200 at 3090.312454, 5.000061 above BOPO. B128/K16 and physical batch one were preserved, pairs remained instance-local, and the exact log had zero error-pattern matches. Queue PID475104 exited naturally after this final configuration."
+    jssp50x20_h5_anchor_smoke: "GPU7 sequential queue PID505053 completed USW/ASW one-update smokes in logs/scheduling_large_scale/h5_anchor_geometry/jssp50x20/smoke_20260718_0422. Each used exactly 15 instance-local rank-stratified pairs, finite loss, positive gradient, B128/K16, physical batch one, and about 11.574 GiB peak allocation."
     ffsp1000_fp32: "PO/BOPO/USW/ASW all OOM at approximately 23.68 GiB in-use memory; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_all_methods_20260717-134252.log"
     ffsp1000_bf16: "All objectives completed finite one-update probes at about 18.04 GiB; BOPO/USW/ASW exposed a cuDNN-SDPA exit-time segfault on GPU4"
     ffsp1000_backend_stability: "BOPO with cuDNN SDPA disabled completed at 17.94 GiB and exited cleanly; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_bf16_bopo_no_cudnn_sdpa_20260717-135441.log"
