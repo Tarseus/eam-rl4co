@@ -80,6 +80,12 @@ hypotheses:
     motivation: "Conditionally preregistered before H8 step450, but its launch condition became false when H8 improved at steps450 and500; it remains preserved and unexecuted."
     parent: H8
     priority: low
+  - id: H10
+    statement: "H7 source normalization combined with H5 ASW's bounded gap-regret weights can convert H8's mean-only win into a more instance-consistent advantage over matched BOPO."
+    status: active
+    motivation: "H8 step500 beats BOPO by 4.687523 on mean but loses on 17/32 instances and fails the locked bootstrap/Wilcoxon/Holm inference gate."
+    parent: H8
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
