@@ -127,6 +127,10 @@ experiments:
       experiment: "H5 sequential screen300 launch reconciliation"
       result: "The authoritative queue PID508416 created the locked screen300_20260718_0426 root first and owns one USW trainer PID508423 on GPU7. A second wrapper PID508750 hit the collision guard and exited before training. USW step0 reproduced 3093.375015 and updates1-15 were finite with positive gradients, exactly 15 instance-local pairs, B128/K16, physical batch one, and about 11.583 GiB peak allocation."
       decision: "Keep PID508416/PID508423 untouched and do not retry the rejected wrapper. Monitor the sequential USW screen through step300 and its single ASW handoff; promotion still requires validation32 below 3085.312515."
+    - cycle: 16
+      experiment: "H5 USW anchor-geometry step50 gate"
+      result: "Validation32 improved from common step0 3093.375015 to 3093.218788 at step50, remaining 7.906273 above matched BOPO. Through step55 all losses and gradients were finite, gradients were positive, pair_count was exactly 15, B128/K16 and physical batch one were preserved, peak allocation was about 11.583 GiB, and the exact log had zero error-pattern matches."
+      decision: "No promotion; continue the authoritative USW run unchanged through steps100/150/200/250/300. Keep the queued ASW handoff untouched and compare only scheduled validation32 means."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -157,9 +161,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 15
+  cycle: 16
   last_direction: deepen
-  last_reflection: "Dense Phase B is exhausted and H5 sparse geometry passed smoke. The authoritative screen queue is now running one USW trainer with exactly 15 rank-stratified within-instance pairs; a concurrent duplicate submission was safely rejected before training. Selection remains locked to the scheduled validation32 gates against 3085.312515."
+  last_reflection: "Dense Phase B is exhausted and H5 sparse geometry passed smoke. USW's first screen gate improved only 0.156 to 3093.218788 and remains 7.906273 above BOPO, so sparse geometry has not yielded an early win. The run remains clean and continues to the preregistered later gates before mechanistic judgment."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -173,8 +177,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T04:29:40+08:00"
-  last_observation: "Authoritative H5 screen queue PID508416 owns one USW GPU7 trainer PID508423 in screen300_20260718_0426. Step0 exactly reproduced 3093.375015; updates1-15 had finite loss, positive gradients, B128/K16, physical batch one, and exactly 15 instance-local rank-stratified pairs. A second wrapper PID508750 collided and exited before training and was not retried. No TA/DMU/final data were read."
+  last_check: "2026-07-18T04:33:21+08:00"
+  last_observation: "Authoritative H5 USW PID508423 reached step50 validation32 3093.218788 from 3093.375015, still 7.906273 above BOPO. Through step55 it remained finite, positive-gradient, B128/K16, physical batch one, exactly 15 instance-local rank-stratified pairs, about 11.583 GiB peak allocation, and exact-log error-scan clean. Queue PID508416 and the later ASW handoff remain untouched; no TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
