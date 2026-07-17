@@ -22,13 +22,13 @@ literature:
 hypotheses:
   - id: H0
     statement: "The existing FFSP100 and JSSP15x15 architectures can execute target-scale forward/backward passes with instance-local candidate pools on available 24 GiB GPUs."
-    status: active
+    status: supported
     motivation: "Feasibility and semantic correctness must be established before optimization comparisons."
     parent: null
     priority: high
   - id: H1
     statement: "At a small fresh-Adam learning rate, original USW and ASW will improve faster than PO and BOPO from the same target-selected common checkpoint."
-    status: pending
+    status: active
     motivation: "TSP1000/CVRP1000 showed that checkpoint-backed low-LR continuation can recover preference-objective gains."
     parent: null
     priority: high
@@ -43,12 +43,24 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 8
+  total_runs: 30
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
       result: "8/8 finite nonzero-gradient updates; identical initialization within each problem"
       decision: "proceed to target-scale GPU feasibility probes"
+    - cycle: 1
+      experiment: "fresh target-validation source-checkpoint selection (8 instances, no final test data)"
+      result: "FFSP1000 selected loss_only/USW at 804.625 mean; JSSP50x20 selected weighting/ASW at 3103.875 mean"
+      decision: "lock one common checkpoint per problem and clone it across PO/BOPO/USW/ASW"
+    - cycle: 2
+      experiment: "JSSP50x20 FP32 one-update H0 probes"
+      result: "4/4 finite nonzero-gradient updates; 4.40-4.47 sec/update; 11.56-11.58 GiB peak allocated"
+      decision: "JSSP50x20 passes H0 at B=128/K=16; FFSP1000 requires the protocol-approved BF16 memory adaptation"
+    - cycle: 3
+      experiment: "FFSP1000 BF16 one-update H0 probes plus locked backend-stability confirmatory rerun"
+      result: "4/4 objectives produced finite nonzero-gradient updates with 24 candidates at about 18.04 GiB; disabling cuDNN SDPA gave BOPO 17.94 GiB and a clean exit"
+      decision: "H0 supported; use BF16 with cuDNN SDPA disabled for FFSP1000, and FP32 for JSSP50x20"
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -59,9 +71,15 @@ protocol:
   common_initialization:
     selection: "Select exactly one source checkpoint per problem using only a fresh locked target-scale validation set, then copy identical policy weights to all four methods."
     optimizer: "Fresh Adam for every method; identical LR, weight decay, data order, effective instance batch, and update budget."
+    locked_checkpoints:
+      ffsp1000: "downloads/ffsp100/loss_only.ckpt (SHA d92e8319b91406c0a80d1844b6fc42c419b8bd71d66a35e0f56d9d1a6d9dca83; validation mean 804.625)"
+      jssp50x20: "downloads/jssp15x15/weighting/checkpoint.ckpt (SHA 5a90dc4027c08ef7bb2192a84a752a638bd4c59c46a24bf2a57c3721baaf8584; validation mean 3103.875061)"
   candidate_pools:
     ffsp: "One physical instance per microbatch, 24 machine-order starts; gradient accumulation may increase effective instance batch."
     jssp: "One physical instance per microbatch initially, B=128 and K=16; all PO/BOPO/USW/ASW pairs remain within the instance."
+  precision_backend:
+    ffsp1000: "BF16 autocast with torch.backends.cuda.enable_cudnn_sdp(False); all 24 starts retained"
+    jssp50x20: "FP32 at B=128/K=16"
   stage_gates:
     probe: "One optimizer update with finite loss/gradient, no OOM, correct instance-local diagnostics."
     screen: [100, 500]
@@ -74,7 +92,7 @@ protocol:
 outer_loop:
   cycle: 0
   last_direction: deepen
-  last_reflection: "Bootstrap: establish target-scale feasibility, then test original-objective low-LR continuation before any variants."
+  last_reflection: "H0 is supported. JSSP50x20 fits FP32; FFSP1000 requires BF16 and cuDNN SDPA disabled for stable exit. Proceed to the locked 100-update validation screen from the common checkpoints and fresh Adam."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -88,3 +106,12 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20"
+  last_check: "2026-07-17T13:45:28+08:00"
+  completed:
+    checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
+    jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
+  active_jobs: []
+  completed_diagnostics:
+    ffsp1000_fp32: "PO/BOPO/USW/ASW all OOM at approximately 23.68 GiB in-use memory; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_all_methods_20260717-134252.log"
+    ffsp1000_bf16: "All objectives completed finite one-update probes at about 18.04 GiB; BOPO/USW/ASW exposed a cuDNN-SDPA exit-time segfault on GPU4"
+    ffsp1000_backend_stability: "BOPO with cuDNN SDPA disabled completed at 17.94 GiB and exited cleanly; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_bf16_bopo_no_cudnn_sdpa_20260717-135441.log"
