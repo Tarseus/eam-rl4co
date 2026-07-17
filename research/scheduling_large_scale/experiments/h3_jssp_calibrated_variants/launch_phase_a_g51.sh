@@ -5,6 +5,7 @@ repo=/data1/gushengda/eam-rl4co
 python_bin=/data1/gushengda/anaconda3/envs/rlco1/bin/python
 checkpoint=downloads/jssp15x15/weighting/checkpoint.ckpt
 tag=20260717_2043
+requested=("$@")
 
 cd "$repo"
 mkdir -p logs/codex_remote
@@ -25,7 +26,7 @@ launch_one() {
   mkdir -p "$output"
 
   setsid -f bash -lc "
-    echo \\\$\\\$ > '$repo/$output/pid'
+    echo \$\$ > '$repo/$output/pid'
     exec env PYTHONPATH='$repo' CUDA_VISIBLE_DEVICES='$gpu' \
       '$python_bin' '$repo/scripts/train_jssp_large_objectives.py' \
       --method '$method' \
@@ -59,9 +60,21 @@ launch_one() {
   echo "variant=$variant gpu=$gpu pid=$pid log=$repo/$log_path output=$repo/$output"
 }
 
-launch_one usw_lr5e6 0 usw 5e-6 1.0
-launch_one usw_lr2e6 1 usw 2e-6 1.0
-launch_one asw_lr5e6_a1 2 asw 5e-6 1.0
-launch_one asw_lr5e6_a0 3 asw 5e-6 0.0
-launch_one asw_lr5e6_a025 4 asw 5e-6 0.25
-launch_one asw_lr5e6_a05 6 asw 5e-6 0.5
+is_requested() {
+  local variant="$1"
+  if [[ ${#requested[@]} -eq 0 ]]; then
+    return 0
+  fi
+  local item
+  for item in "${requested[@]}"; do
+    [[ "$item" == "$variant" ]] && return 0
+  done
+  return 1
+}
+
+is_requested usw_lr5e6 && launch_one usw_lr5e6 0 usw 5e-6 1.0
+is_requested usw_lr2e6 && launch_one usw_lr2e6 1 usw 2e-6 1.0
+is_requested asw_lr5e6_a1 && launch_one asw_lr5e6_a1 2 asw 5e-6 1.0
+is_requested asw_lr5e6_a0 && launch_one asw_lr5e6_a0 3 asw 5e-6 0.0
+is_requested asw_lr5e6_a025 && launch_one asw_lr5e6_a025 4 asw 5e-6 0.25
+is_requested asw_lr5e6_a05 && launch_one asw_lr5e6_a05 6 asw 5e-6 0.5
