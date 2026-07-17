@@ -68,6 +68,12 @@ hypotheses:
     motivation: "H6 matched LR-times-gradient scale without changing the loss curvature and still missed BOPO by 2.937516; H5/H6 gradients were about 9.3x BOPO, matching the 10x source-to-target trajectory-length ratio."
     parent: H6
     priority: high
+  - id: H8
+    statement: "A mean-one pair-relative advantage-gap temperature inside H7's source-normalized sigmoid link can emphasize wider-quality local comparisons and beat matched BOPO without changing mean scale or pair geometry."
+    status: active
+    motivation: "H7 matches BOPO's gradient and initial logit scales but still misses by 3.062500; its 15 first-instance relative gaps span 0.0139 to 0.0637 while one global normalizer treats them equally."
+    parent: H7
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."

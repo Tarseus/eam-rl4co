@@ -1,0 +1,23 @@
+{
+  "id": "f_h8_usw_relative_gap_temperature",
+  "ir": {
+    "name": "usw_source_length_relative_gap_temperature_jssp50x20",
+    "intuition": "Preserve H7's source-length and mean logit scale while emphasizing wider-quality pairs through a mean-one relative-gap temperature inside the sigmoid link.",
+    "pseudocode": "epsilon=1e-6; mean_gap=max(mean(abs(advantage_gap)),epsilon); base=100*(log_prob_w_mean-log_prob_l_mean)/mean_gap; temperature=abs(advantage_gap)/mean_gap; return mean(-log(sigmoid(base*temperature)))",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "relative_advantage_gap_temperature",
+      "link_family": "sigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "source_length_mean_preserving",
+      "source_trajectory_steps": 100
+    },
+    "operators_used": ["sigmoid", "log", "neg", "mul", "div", "sub", "sum", "mean", "abs", "maximum"],
+    "implementation_hint": {
+      "expects": ["log_prob_w_mean", "log_prob_l_mean", "weight", "advantage_gap"],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw_mean = batch['log_prob_w_mean']\n    lpl_mean = batch['log_prob_l_mean']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    source_steps = 100.0\n    abs_adv = ops.abs(advantage_gap)\n    mean_gap = ops.maximum(ops.mean(abs_adv), epsilon)\n    source_diff = ops.mul(ops.sub(lpw_mean, lpl_mean), source_steps)\n    base = ops.div(source_diff, mean_gap)\n    temperature = ops.div(abs_adv, mean_gap)\n    diff = ops.mul(base, temperature)\n    loss = ops.neg(ops.log(ops.sigmoid(diff)))\n    weighted_loss = ops.mul(loss, weight)\n    return ops.div(ops.sum(weighted_loss), ops.maximum(ops.sum(weight), epsilon))"
+  }
+}
