@@ -16,8 +16,8 @@ literature:
   open_problems:
     - "Published large-scale scheduling evidence does not compare discovered USW/ASW objectives from an identical checkpoint against both PO and BOPO."
   evidence_gaps:
-    - "FFSP1000 full-rollout/backward memory and throughput are not yet measured."
-    - "JSSP50x20 B=128 backward memory and throughput are not yet measured."
+    - "FFSP1000 has only reached the 100-update screen; its 500-update stability remains unmeasured."
+    - "PO has no published JSSP50x20 target, and USW/ASW are unpublished objectives; BOPO is the only direct paper control."
 
 hypotheses:
   - id: H0
@@ -38,12 +38,24 @@ hypotheses:
     motivation: "FFSP1000 and JSSP50x20 rollouts are much more expensive than source-scale rollouts."
     parent: H1
     priority: medium
+  - id: H3
+    statement: "Separately labelled low-LR USW and low-LR/alpha-calibrated ASW variants can recover stable JSSP50x20 validation improvement from the same locked checkpoint."
+    status: mixed
+    motivation: "TSP1000/CVRP1000 benefited from checkpoint-backed low-LR continuation; JSSP USW showed transient improvement before regression, while ASW's regret exponent is plausibly scale-saturated."
+    parent: H1
+    priority: high
+  - id: H4
+    statement: "Validation-selected USW or ASW calibration can beat BOPO when all methods use the identical H3 validation32 stream, common checkpoint, training order, rollout semantics, and update gates."
+    status: active
+    motivation: "H3 found lower validation means than the old H1 BOPO result, but the means came from different validation-set sizes; a matched BOPO curve is required before claiming victory."
+    parent: H3
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 37
+  total_runs: 65
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -65,6 +77,38 @@ experiments:
       experiment: "exact FFSP forced-replay equivalence and FFSP1000 PO probe"
       result: "zero replay error, exact small-scale full-graph gradient match, and finite FFSP1000 PO update at 0.215 GiB/89.4 sec"
       decision: "retain exact FP32 replay as audit/fallback; use the faster locked BF16 backend for the clean 100-update comparison"
+    - cycle: 5
+      experiment: "clean 100-update FFSP1000 and JSSP50x20 objective screens"
+      result: "FFSP: USW=ASW=800.625 beat PO=801.125 and BOPO=803.625; JSSP: BOPO=3128.250 was best while USW=3140.500 and ASW=3132.125 failed the ranking criterion"
+      decision: "continue JSSP to the pre-registered 500-update gate to distinguish delayed improvement from objective instability"
+    - cycle: 6
+      experiment: "matched JSSP50x20 continuation to step 500 plus official TA50x20 paper-alignment evaluation"
+      result: "BOPO remained stable and reached validation 3121.875; USW was transiently best at step 300 (3124.875) then regressed, ASW never improved on step 0. The PO artifact contains two duplicate continuations and is excluded from promotion, though both deteriorated. On TA50x20, selected BOPO gaps were 9.372% at B'=128 and 8.895% at B'=512, within +2 pp of the paper's 8.0% and 7.4%."
+      decision: "stop extending the current JSSP USW/ASW objectives; the H1 JSSP branch is negative, while BOPO passes the paper-alignment guard"
+    - cycle: 7
+      experiment: "H3 JSSP50x20 calibrated-variant smoke launch audit"
+      result: "All six variants produced finite nonzero gradients with B=128, physical batch 1, and 8117 instance-local pairs, but each output history contains two appended executions because a timed-out submission was retried. All twelve executions are provenance-invalid and excluded."
+      decision: "do not promote or screen from these artifacts; preserve every output and retry only once in fresh collision-free directories after a no-active-process preflight"
+    - cycle: 8
+      experiment: "clean sequential H3 JSSP50x20 calibrated-variant smoke retry"
+      result: "6/6 histories contain exactly one step-0 validation, one finite nonzero-gradient update, and one step-1 validation. Every run used B=128, physical batch 1, and 8117 instance-local pairs. Step-1 means were USW 3092.563/3092.969 and ASW alpha 1/0/0.25/0.5 = 3091.469/3091.250/3091.469/3091.469 versus common step0 3093.375."
+      decision: "the H3 smoke gate passes; run the locked 100-update screen with validation-only selection at steps 0/50/100, without interpreting step-1 rankings as promotion evidence"
+    - cycle: 9
+      experiment: "locked H3 JSSP50x20 six-variant 100-update screen"
+      result: "All six runs completed exactly 100 finite-loss, finite nonzero-gradient updates with B=128, physical batch one, and instance-local diagnostics; the six exact logs had no runtime/OOM/non-finite/traceback/segfault/kill match. Step-50/100 validation32 means from common step0 3093.375 were USW LR 5e-6 3092.000/3096.906, USW LR 2e-6 3094.375/3091.594, ASW alpha 1 3089.000/3096.531, alpha 0 3088.625/3092.406, alpha 0.25 3093.969/3091.344, and alpha 0.5 3092.406/3096.875."
+      decision: "promote only USW LR=2e-6 step100 and ASW LR=5e-6 alpha=0 step50; preserve all labels and continue each in a new checkpoint chain to absolute step 500 without final-test access"
+    - cycle: 10
+      experiment: "H3 validation-selected USW/ASW continuation to absolute step 500"
+      result: "Both continuations exited cleanly at absolute step500. USW completed 400 unique steps (101-500) with validation32 means 3096.656/3090.437/3091.344/3096.656 at steps200/300/400/500; ASW completed 450 unique steps (51-500) with means 3092.406/3087.688/3098.156/3089.281/3100.125 at steps100/200/300/400/500. Every continuation loss and gradient was finite, every gradient was nonzero, B=128/K=16 and physical batch one were preserved, pair scope remained within instance, and the exact logs had no matched runtime/OOM/non-finite/traceback/segfault/kill error."
+      decision: "lock USW LR=2e-6 step300 (3090.437) and ASW LR=5e-6 alpha=0 step200 (3087.688) using validation only. Both beat common step0 3093.375, but both regress at step500, so H3 recovers better checkpoints without establishing terminal stability. Do not run TA/DMU/final evaluation in this monitor cycle."
+    - cycle: 11
+      experiment: "H4 matched validation32 BOPO reference"
+      result: "Protocol commit 5172e656e locked the fair-comparison gate. BOPO LR1e-5 launched once on idle GPU7 as PID464339. Its step0 validation32 mean exactly reproduced H3 at 3093.375015; steps1-3 had finite losses, finite nonzero gradients, B128/K16, physical batch one, 15 instance-local anchored pairs, and about 11.57 GiB peak allocation."
+      decision: "continue the untouched BOPO run to step500 and compare its minimum validation32 mean against the pre-existing H3 USW step300 and ASW step200 locks. Launch conditional Phase B only if neither candidate wins."
+    - cycle: 12
+      experiment: "H4 matched BOPO completion and conditional Phase-B ASW launch"
+      result: "Matched BOPO completed 500/500 finite-loss, finite nonzero-gradient updates with B128/K16, physical batch one, 15 instance-local anchored pairs, about 11.57 GiB peak allocation, and a clean error scan. Validation32 means at steps0/50/100/150/200/250/300/350/400/450/500 were 3093.375/3095.594/3094.531/3094.406/3093.531/3093.250/3093.313/3094.594/3088.313/3087.625/3085.313. The minimum is BOPO step500 at 3085.312515, which beats both existing H3 locks. Conditional ASW LR2e-6 alpha0 launched once on GPU7 as PID473670; step0 reproduced 3093.375015 and step50 was 3095.187462, while all observed updates remained finite, nonzero-gradient, and instance-local."
+      decision: "continue ASW LR2e-6 alpha0 unchanged to step300 and require a validation32 mean below 3085.312515. Queue PID475104 waits for authoritative PID473670 to exit, then runs only the five missing preregistered Phase-B configurations sequentially on GPU7; it explicitly excludes the active ASW LR2e-6 alpha0 configuration."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -95,9 +139,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 4
+  cycle: 12
   last_direction: deepen
-  last_reflection: "H0 is supported by both the locked BF16 backend and an exact FP32 replay fallback. Clean FFSP and JSSP 100-update screens are active; promote only from their fixed validation results."
+  last_reflection: "Matched BOPO reached 3085.312515 and beat both H3 locks, so H4 advanced to its preregistered bounded Phase-B search. One ASW configuration is authoritative on GPU7 and the remaining five are collision-safely queued behind it; only a candidate below BOPO proceeds to paired validation inference."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -110,39 +154,33 @@ workspace:
 remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
-  automation_id: "autoresearch-ffsp1000-and-jssp50x20 (paused)"
-  last_check: "2026-07-17T14:08:45+08:00"
-  last_observation: "Exact FP32 FFSP1000 replay passed at 0.215 GiB and 89.4 sec/update. Clean BF16 FFSP PO/BOPO/USW screens are active on GPUs 0/1/6, with ASW queued after PO. JSSP PO completed its 100-update screen without improving step 0; BOPO is active."
+  automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
+  last_check: "2026-07-18T01:54:05+08:00"
+  last_observation: "Matched BOPO PID464339 exited naturally after 500 finite-loss, finite nonzero-gradient updates; its validation32 minimum was step500 at 3085.312515 and the exact log had no matched runtime/OOM/non-finite/traceback/segfault/kill error. This beat both existing H3 locks. Conditional Phase-B ASW LR2e-6 alpha0 is authoritative on GPU7 as PID473670; step50 validation32 was 3095.187462 versus step0 3093.375015 and BOPO 3085.312515. Updates through at least step59 were finite, nonzero-gradient, B128/K16, physical batch one, and instance-local. Queue PID475104 waits for PID473670 and then runs only the other five locked Phase-B configurations in fresh roots on GPU7. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
+    jssp50x20_h1_screen100_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen100_all_20260717-135951.log"
+    ffsp1000_h1_screen100_po_asw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_po_then_asw_20260717-140845.log"
+    ffsp1000_h1_screen100_bopo_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_bopo_20260717-140817.log"
+    ffsp1000_h1_screen100_usw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_usw_20260717-140817.log"
+    jssp50x20_h1_screen500_po_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_po_20260717_20260717-184611.log"
+    jssp50x20_h1_screen500_bopo_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_bopo_20260717-104743.log"
+    jssp50x20_h1_screen500_usw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_usw_20260717-104744.log"
+    jssp50x20_h1_screen500_asw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_asw_retry1_20260717-104851.log"
+    jssp50x20_paper_control_step100_b128: "logs/scheduling_large_scale/paper_alignment/jssp50x20_bopo_step100_B128_v2/summary.json (gap 9.6488%; paper delta +1.6488 pp)"
+    jssp50x20_selected_official_eval: "logs/scheduling_large_scale/paper_alignment/jssp50x20_selected_step500screen/ (BOPO gaps 9.3718% at B'=128 and 8.8951% at B'=512)"
   active_jobs:
-    - host: g51
-      pid: 3918803
-      gpu: 0
-      purpose: "Clean FFSP1000 PO then ASW H1 screens; BF16 with cuDNN SDPA disabled"
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_po_then_asw_20260717-140845.log"
-      output: "logs/scheduling_large_scale/h1_screen100_bf16_clean/ffsp1000/{po,asw}"
-    - host: g51
-      pid: 3917615
-      gpu: 1
-      purpose: "Clean FFSP1000 BOPO H1 screen; BF16 with cuDNN SDPA disabled"
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_bopo_20260717-140817.log"
-      output: "logs/scheduling_large_scale/h1_screen100_bf16_clean/ffsp1000/bopo"
-    - host: g51
-      pid: 3917593
-      gpu: 6
-      purpose: "Clean FFSP1000 USW H1 screen; BF16 with cuDNN SDPA disabled"
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h1_clean_usw_20260717-140817.log"
-      output: "logs/scheduling_large_scale/h1_screen100_bf16_clean/ffsp1000/usw"
-    - host: g51
-      pid: 3903972
-      gpu: 4
-      purpose: "JSSP50x20 PO then BOPO/USW/ASW H1 100-update screens in locked order"
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen100_all_20260717-135951.log"
-      output: "logs/scheduling_large_scale/h1_screen100/jssp50x20"
+    - "H4 Phase-B ASW LR2e-6 alpha0 GPU7 PID473670; output logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/phase_b/asw_lr2e6_a0_screen300_20260718_0148; log /data1/gushengda/eam-rl4co/logs/codex_remote/h4_asw_lr2e6_a0_screen300_20260718_0148_20260718-014829.log; target step300; beat threshold 3085.312515"
+    - "H4 Phase-B missing-five queue PID475104; waits for PID473670, then sequentially runs USW LR1e-6/WD1e-6, USW LR5e-7/WD1e-6, USW LR1e-6/WD0, ASW LR1e-6/alpha0, and ASW LR1e-6/alpha0.25 on GPU7; root logs/scheduling_large_scale/h4_calibrated/jssp50x20/phase_b_screen300_20260718_0148; log /data1/gushengda/eam-rl4co/logs/codex_remote/h4_phase_b_missing5_after_pid473670_20260718_0151_20260718-015055.log"
   completed_diagnostics:
+    jssp50x20_h4_matched_bopo: "GPU7 PID464339 completed 500 updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/bopo_lr1e5_screen500_20260718_0110; best validation32 was step500 at 3085.312515. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pair_count was 15, and the exact log was error-scan clean."
     ffsp1000_fp32: "PO/BOPO/USW/ASW all OOM at approximately 23.68 GiB in-use memory; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_all_methods_20260717-134252.log"
     ffsp1000_bf16: "All objectives completed finite one-update probes at about 18.04 GiB; BOPO/USW/ASW exposed a cuDNN-SDPA exit-time segfault on GPU4"
     ffsp1000_backend_stability: "BOPO with cuDNN SDPA disabled completed at 17.94 GiB and exited cleanly; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_bf16_bopo_no_cudnn_sdpa_20260717-135441.log"
     ffsp1000_exact_replay: "PO completed in FP32 with zero replay error, gradient norm 151.2350, 0.215 GiB peak, and 89.4 sec/update; log /data1/gushengda/eam-rl4co/logs/codex_remote/ffsp1000_h0_replay_po_20260717-140424.log"
+    jssp50x20_excluded_asw_launch: "The first ASW continuation used a malformed CUDA_VISIBLE_DEVICES value containing CR, failed before training, and is preserved but excluded. The valid retry started from the untouched step-100 checkpoint."
+    jssp50x20_excluded_po_duplicate: "The registered PO log contains two appended step-101-to-500 executions sharing one output root. Both are excluded from promotion; their terminal validation means were 3314.875061 and 3295.124969, both worse than the untouched step-0 control 3129.374939."
+    jssp50x20_h3_excluded_duplicate_smokes: "Each of the six 20260717_2036 smoke histories contains two appended step-0/1 executions after timed-out submissions were retried. All twelve are excluded despite finite losses/gradients and correct instance-local diagnostics; preserve the roots and never screen from them."
+    jssp50x20_h3_clean_smoke_retry1: "logs/scheduling_large_scale/h3_calibrated/jssp50x20/smoke_retry1_20260717_2042/; six histories, exactly three events each, finite nonzero gradients, B=128, physical batch one, 8117 instance-local pairs."
+    jssp50x20_h3_screen500: "USW PID258700 completed steps101-500 in logs/scheduling_large_scale/h3_calibrated/jssp50x20/screen500/usw_lr2e6_from_step100_20260717_2104; selected step300 mean 3090.437. ASW PID258703 completed steps51-500 in logs/scheduling_large_scale/h3_calibrated/jssp50x20/screen500/asw_lr5e6_a0_from_step50_20260717_2104; selected step200 mean 3087.688. Both exact logs were error-scan clean."
