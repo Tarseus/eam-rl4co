@@ -185,6 +185,10 @@ experiments:
       experiment: "H8 relative-gap-temperature USW smoke and screen300 launch"
       result: "Protocol commit 936737c2a preceded execution and all six local/remote H8 files matched SHA256. The exactly-once smoke contained step0 3093.375015, one finite loss 0.705810 with positive gradient 0.431275, exactly 15 instance-local pairs, B128/K16, physical batch one, 11.574 GiB peak allocation, and step1 3091.906235; the exact log was error-scan clean. After confirming GPU7 idle and both screen targets absent, wrapper PID530609 launched the sole screen300; trainer PID530617 reproduced step0 and remained finite, positive-gradient, exact-15-pair, and semantically clean through step12. A later wrapper PID530947 hit the root/log collision guard and exited before training, so it is excluded and must not be retried."
       decision: "Continue only authoritative H8 PID530609/PID530617 through scheduled validation32 gates. Promote or continue only a checkpoint strictly below 3085.312515; otherwise mark H8 negative and advance to link curvature or separately labelled source-normalized ASW weighting interaction."
+    - cycle: 26
+      experiment: "H8 relative-gap-temperature USW step50 gate"
+      result: "The authoritative H8 screen improved validation32 from common step0 3093.375015 to 3092.812584 at step50, but remains 7.500069 above matched BOPO 3085.312515. Through step77, all observed losses and gradients were finite, every gradient was positive, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was about 11.583 GiB, and the exact log had zero error-pattern matches."
+      decision: "No promotion; continue only PID530609/PID530617 unchanged through steps100/150/200/250/300 because H5-H7 improved late. Do not access paired inference, TA/DMU, or final data unless a scheduled validation mean is strictly below 3085.312515."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -215,9 +219,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 25
+  cycle: 26
   last_direction: deepen
-  last_reflection: "H7 proves that source-length normalization can align mean gradient and initial logit scales with BOPO, but its best validation32 checkpoint still trails by 3.062500. H8 now tests only pair-relative advantage emphasis inside the link; its smoke gradient 0.431275 preserves the intended scale and the locked screen is active."
+  last_reflection: "H8 preserves the intended H7/BOPO gradient scale but its step50 validation32 mean 3092.812584 remains 7.500069 above matched BOPO. The sole screen continues because prior sparse-USW variants improved late; no checkpoint is promotion-eligible yet."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -231,8 +235,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T06:24:40+08:00"
-  last_observation: "H8 smoke passed exactly once with finite loss 0.705810, positive gradient 0.431275, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.574 GiB peak allocation, clean logs, and step0/1 validation32 3093.375015/3091.906235. The sole screen300 wrapper PID530609 / trainer PID530617 is healthy through step12. Later wrapper PID530947 collision-exited before training and is excluded. No paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T06:28:04+08:00"
+  last_observation: "H8 step50 validation32 was 3092.812584, 7.500069 above matched BOPO. The sole screen300 wrapper PID530609 / trainer PID530617 remained healthy through step77 with finite positive gradients, B128/K16, physical batch one, exactly 15 instance-local pairs, about 11.583 GiB peak allocation, and a clean exact log. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
