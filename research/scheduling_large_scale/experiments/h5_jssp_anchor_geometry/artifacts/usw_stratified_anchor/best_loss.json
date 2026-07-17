@@ -1,0 +1,22 @@
+{
+  "id": "f003_004_4bb86b21",
+  "ir": {
+    "name": "refined_hyperparameter_tuning_M2_v3_unique",
+    "intuition": "Original USW loss, unchanged from the locked JSSP artifact.",
+    "pseudocode": "epsilon=1e-6; norm_adv=max(mean(abs(advantage_gap)),epsilon); diff=(log_prob_w-log_prob_l)/norm_adv; return sum(-log(sigmoid(diff))*weight)/max(sum(weight),epsilon)",
+    "hyperparams": {
+      "paradigm_family": "pairwise_margin",
+      "signal_family": "advantage_gap",
+      "link_family": "sigmoid",
+      "agg_family": "weighted_sum_normalized",
+      "constraint_family": "symmetric_smooth"
+    },
+    "operators_used": ["sigmoid", "log", "neg", "mul", "div", "sub", "sum", "mean", "abs", "maximum"],
+    "implementation_hint": {
+      "expects": ["log_prob_w", "log_prob_l", "weight", "advantage_gap"],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    advantage_gap = batch['advantage_gap']\n    epsilon = 1e-6\n    abs_adv = ops.abs(advantage_gap)\n    mean_abs_adv = ops.mean(abs_adv)\n    norm_adv = ops.maximum(mean_abs_adv, epsilon)\n    diff = ops.div(ops.sub(lpw, lpl), norm_adv)\n    sigmoid_diff = ops.sigmoid(diff)\n    loss = ops.neg(ops.log(sigmoid_diff))\n    weighted_loss = ops.mul(loss, weight)\n    loss_sum = ops.sum(weighted_loss)\n    weight_sum = ops.sum(weight)\n    return ops.div(loss_sum, ops.maximum(weight_sum, epsilon))"
+  }
+}
