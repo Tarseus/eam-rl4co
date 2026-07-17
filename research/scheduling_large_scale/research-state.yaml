@@ -1,0 +1,86 @@
+project:
+  title: "Large-scale FFSP/JSSP common-checkpoint preference continuation"
+  question: "Can original USW and ASW, from an identical strong checkpoint and fresh optimizer, outperform matched PO and BOPO at FFSP1000 and JSSP50x20 without materially degrading solution quality?"
+  status: active
+  started: "2026-07-17"
+  domain: "neural combinatorial optimization / scheduling"
+
+literature:
+  key_papers:
+    - id: kwon2021matnet
+      title: "Matrix Encoding Networks for Neural Combinatorial Optimization"
+      relevance: "Trains FFSP20/50/100 and reports zero-shot FFSP1000 evaluation."
+    - id: liao2025bopo
+      title: "BOPO: Neural Combinatorial Optimization via Best-anchored and Objective-guided Preference Optimization"
+      relevance: "Uses MGL, B=256, K=16, 20 epochs, and evaluates JSSP through 100x20."
+  open_problems:
+    - "Published large-scale scheduling evidence does not compare discovered USW/ASW objectives from an identical checkpoint against both PO and BOPO."
+  evidence_gaps:
+    - "FFSP1000 full-rollout/backward memory and throughput are not yet measured."
+    - "JSSP50x20 B=128 backward memory and throughput are not yet measured."
+
+hypotheses:
+  - id: H0
+    statement: "The existing FFSP100 and JSSP15x15 architectures can execute target-scale forward/backward passes with instance-local candidate pools on available 24 GiB GPUs."
+    status: active
+    motivation: "Feasibility and semantic correctness must be established before optimization comparisons."
+    parent: null
+    priority: high
+  - id: H1
+    statement: "At a small fresh-Adam learning rate, original USW and ASW will improve faster than PO and BOPO from the same target-selected common checkpoint."
+    status: pending
+    motivation: "TSP1000/CVRP1000 showed that checkpoint-backed low-LR continuation can recover preference-objective gains."
+    parent: null
+    priority: high
+  - id: H2
+    statement: "Stage-gated continuation up to the source-scale optimizer-update envelope is sufficient; a full from-scratch instance budget is unnecessary."
+    status: pending
+    motivation: "FFSP1000 and JSSP50x20 rollouts are much more expensive than source-scale rollouts."
+    parent: H1
+    priority: medium
+
+experiments:
+  proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
+  baseline_value: null
+  best_value: null
+  total_runs: 0
+  trajectory: []
+  final_success:
+    ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
+    inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
+    ffsp1000_noninferiority: "Each promoted method must be within 1% of the common checkpoint zero-shot mean unless it improves it."
+    jssp50x20_noninferiority: "Each promoted method must be within 2% of the common checkpoint zero-shot mean unless it improves it."
+
+protocol:
+  common_initialization:
+    selection: "Select exactly one source checkpoint per problem using only a fresh locked target-scale validation set, then copy identical policy weights to all four methods."
+    optimizer: "Fresh Adam for every method; identical LR, weight decay, data order, effective instance batch, and update budget."
+  candidate_pools:
+    ffsp: "One physical instance per microbatch, 24 machine-order starts; gradient accumulation may increase effective instance batch."
+    jssp: "One physical instance per microbatch initially, B=128 and K=16; all PO/BOPO/USW/ASW pairs remain within the instance."
+  stage_gates:
+    probe: "One optimizer update with finite loss/gradient, no OOM, correct instance-local diagnostics."
+    screen: [100, 500]
+    promotion: [2000, 5000]
+    maximum_updates:
+      ffsp1000: 6250
+      jssp50x20: 25000
+  test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
+
+outer_loop:
+  cycle: 0
+  last_direction: deepen
+  last_reflection: "Bootstrap: establish target-scale feasibility, then test original-objective low-LR continuation before any variants."
+
+workspace:
+  findings: "research/scheduling_large_scale/findings.md"
+  log: "research/scheduling_large_scale/research-log.md"
+  literature_dir: "research/scheduling_large_scale/literature/"
+  experiments_dir: "research/scheduling_large_scale/experiments/"
+  to_human_dir: "research/scheduling_large_scale/to_human/"
+  paper_dir: "research/scheduling_large_scale/paper/"
+
+remote:
+  preferred_host: g51
+  initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
+  automation_id: "autoresearch-ffsp1000-and-jssp50x20"
