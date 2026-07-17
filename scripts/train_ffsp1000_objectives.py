@@ -95,6 +95,9 @@ def _dynamic_batch(
 def _build_model(args: argparse.Namespace, checkpoint: Path):
     hparams = checkpoint_hparams(checkpoint)
     payload = hparams.pop("_checkpoint_payload")
+    # Keep the entry point compatible with remote revisions that predate the
+    # optional routing-only forced-replay flags. FFSP always uses full graph.
+    hparams.pop("memory_efficient_preference", None)
     hparams["policy"] = _patch_legacy_policy_object(hparams.get("policy"))
     env = FFSPEnv(
         generator_params={
@@ -126,7 +129,6 @@ def _build_model(args: argparse.Namespace, checkpoint: Path):
             "free_loss_ir_json_path": None,
             "pref_builder_ir_json_path": None,
             "pref_pair_json_path": None,
-            "memory_efficient_preference": False,
             "generate_default_data": True,
             "batch_size": 1,
             "train_data_size": 1,
