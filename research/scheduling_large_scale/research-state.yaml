@@ -131,6 +131,10 @@ experiments:
       experiment: "H5 USW anchor-geometry step50 gate"
       result: "Validation32 improved from common step0 3093.375015 to 3093.218788 at step50, remaining 7.906273 above matched BOPO. Through step55 all losses and gradients were finite, gradients were positive, pair_count was exactly 15, B128/K16 and physical batch one were preserved, peak allocation was about 11.583 GiB, and the exact log had zero error-pattern matches."
       decision: "No promotion; continue the authoritative USW run unchanged through steps100/150/200/250/300. Keep the queued ASW handoff untouched and compare only scheduled validation32 means."
+    - cycle: 17
+      experiment: "H5 USW anchor-geometry step100/150 gates"
+      result: "Validation32 regressed to 3093.625031 at step100, then improved to a new run-best 3091.281303 at step150. The step150 checkpoint is 2.093712 below common step0 but remains 5.968788 above matched BOPO 3085.312515. A full audit through 164 unique contiguous updates found finite losses, finite positive gradients, exactly 15 rank-stratified instance-local pairs, B128/K16, physical batch one, about 11.583 GiB peak allocation, and zero exact-log error matches."
+      decision: "No promotion; continue the single authoritative USW process unchanged to steps200/250/300, then allow the queued ASW handoff. Do not access paired inference, TA/DMU, or final data unless a validation checkpoint strictly beats BOPO."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -161,9 +165,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 16
+  cycle: 17
   last_direction: deepen
-  last_reflection: "Dense Phase B is exhausted and H5 sparse geometry passed smoke. USW's first screen gate improved only 0.156 to 3093.218788 and remains 7.906273 above BOPO, so sparse geometry has not yielded an early win. The run remains clean and continues to the preregistered later gates before mechanistic judgment."
+  last_reflection: "H5 sparse geometry produced a larger delayed USW gain at step150 (3091.281303) after a step100 regression, but it remains 5.968788 above matched BOPO. Sparse pairing therefore changes the trajectory without yet closing the control gap; the clean preregistered run continues to its remaining gates before the queued ASW test."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -177,8 +181,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T04:33:21+08:00"
-  last_observation: "Authoritative H5 USW PID508423 reached step50 validation32 3093.218788 from 3093.375015, still 7.906273 above BOPO. Through step55 it remained finite, positive-gradient, B128/K16, physical batch one, exactly 15 instance-local rank-stratified pairs, about 11.583 GiB peak allocation, and exact-log error-scan clean. Queue PID508416 and the later ASW handoff remain untouched; no TA/DMU/final data were read."
+  last_check: "2026-07-18T04:42:22+08:00"
+  last_observation: "Authoritative H5 USW PID508423 reached validation32 3093.625031 at step100 and a new run-best 3091.281303 at step150, still 5.968788 above matched BOPO. Through 164 unique contiguous updates it retained finite losses, finite positive gradients, B128/K16, physical batch one, exactly 15 instance-local rank-stratified pairs, about 11.583 GiB peak allocation, and a zero-match exact-log error scan. Queue PID508416 and the later ASW handoff remain untouched; no paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
