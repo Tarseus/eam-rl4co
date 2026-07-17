@@ -58,16 +58,22 @@ hypotheses:
     priority: high
   - id: H6
     statement: "Matching the sparse USW LR-times-gradient update scale to matched BOPO by raising LR from 5e-7 to 1e-6 can close the remaining validation32 gap while preserving the H5 loss and 15-edge instance-local geometry."
-    status: active
+    status: not_supported
     motivation: "H5 USW improved at every gate from step150 through step300 but remained 3.093720 above BOPO; its observed mean LR-times-gradient scale was about half BOPO's."
     parent: H5
+    priority: high
+  - id: H7
+    statement: "Source-length-calibrating USW log-probability differences from 1000 JSSP50x20 decisions back to the 100-decision JSSP10x10 discovery scale can match BOPO's gradient and update scales while preserving the sparse 15-edge local geometry."
+    status: active
+    motivation: "H6 matched LR-times-gradient scale without changing the loss curvature and still missed BOPO by 2.937516; H5/H6 gradients were about 9.3x BOPO, matching the 10x source-to-target trajectory-length ratio."
+    parent: H6
     priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 68
+  total_runs: 70
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -153,6 +159,14 @@ experiments:
       experiment: "H6 sparse-USW LR1e-6 step50 gate"
       result: "Validation32 at step50 was 3094.781334 from common step0 3093.375015, remaining 9.468819 above matched BOPO. Through step61, all observed losses and gradients were finite, every gradient was positive, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, and the exact log had zero error-pattern matches."
       decision: "No promotion; continue the single authoritative PID518156 unchanged through steps100/150/200/250/300. Do not access paired inference, TA/DMU, or final data unless a scheduled validation gate strictly beats 3085.312515."
+    - cycle: 21
+      experiment: "H6 sparse-USW LR1e-6 completion"
+      result: "H6 completed 300 unique contiguous finite-loss, finite positive-gradient updates with B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and zero exact-log error matches. Validation32 at steps0/50/100/150/200/250/300 was 3093.375015/3094.781334/3094.531288/3094.625076/3089.781181/3088.250031/3090.874969; best step250 remained 2.937516 above matched BOPO. Mean gradient was 5.326418."
+      decision: "H6 is negative and is not promoted, continued, or retried. Advance to the preregistered trajectory-scale normalization failure class without paired inference, TA/DMU, or final-data access."
+    - cycle: 22
+      experiment: "H7 source-length-normalized USW smoke and screen300 launch"
+      result: "Commit d737e2e87 preregistered one source-length-calibrated sparse-USW variant. Local/remote artifacts matched byte-for-byte. Its exactly-once smoke reproduced step0 3093.375015, produced finite loss 0.706285 and positive gradient 0.418005 with B128/K16, physical batch one, exactly 15 local pairs, 11.574 GiB peak allocation, and clean logs; feasibility-only step1 was 3092.718758. Fresh-root screen PID523429 then launched once and reproduced the same step0/loss/gradient semantics through step2."
+      decision: "Continue only authoritative H7 PID523429 through scheduled validation gates. Promote or continue only if validation32 is strictly below 3085.312515; otherwise record H7 negative and move to a bounded advantage-gap/link-shape hypothesis."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -183,9 +197,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 20
+  cycle: 22
   last_direction: deepen
-  last_reflection: "The update-scale hypothesis has a negative first H6 gate: LR1e-6 regressed at step50, unlike H5 LR5e-7's small early gain. The clean preregistered run continues to its remaining gates because both H5 and dense ASW showed delayed improvements, but H6 has no leader yet."
+  last_reflection: "H6 disproves update-scale matching by LR alone: despite clean late improvement, its best remains 2.937516 above BOPO and its mean gradient stays 9.36x BOPO. H7 now isolates the matching 10x trajectory-length mismatch by source-calibrating total log-probability while preserving local anchors and expected LR-times-gradient scale; its smoke gradient 0.418005 confirms the intended scale correction."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
