@@ -52,13 +52,13 @@ hypotheses:
     priority: high
   - id: H5
     statement: "Preserving the discovered USW/ASW loss and ASW weight formula while replacing dense pair construction with BOPO-matched rank-stratified 15-edge instance-local anchors can beat matched BOPO on validation32."
-    status: active
+    status: not_supported
     motivation: "All dense LR/WD/alpha calibrations failed, while dense variants use about 8100 pairs per update versus BOPO's 15; H5 isolates pair geometry and gradient density."
     parent: H4
     priority: high
   - id: H6
     statement: "Matching the sparse USW LR-times-gradient update scale to matched BOPO by raising LR from 5e-7 to 1e-6 can close the remaining validation32 gap while preserving the H5 loss and 15-edge instance-local geometry."
-    status: pending
+    status: active
     motivation: "H5 USW improved at every gate from step150 through step300 but remained 3.093720 above BOPO; its observed mean LR-times-gradient scale was about half BOPO's."
     parent: H5
     priority: high
@@ -67,7 +67,7 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 66
+  total_runs: 68
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -143,8 +143,12 @@ experiments:
       decision: "No promotion; continue the single authoritative USW process unchanged to steps200/250/300, then allow the queued ASW handoff. Do not access paired inference, TA/DMU, or final data unless a validation checkpoint strictly beats BOPO."
     - cycle: 18
       experiment: "H5 USW completion and ASW handoff; conditional H6 update-scale preregistration"
-      result: "H5 USW completed 300 unique contiguous finite-loss, finite positive-gradient updates with exactly 15 rank-stratified instance-local pairs, B128/K16, physical batch one, about 11.583 GiB peak allocation, and a clean exact-log scan. Its validation32 curve was 3093.375015/3093.218788/3093.625031/3091.281303/3090.812531/3088.875000/3088.406235 at steps0/50/100/150/200/250/300; terminal best remained 3.093720 above matched BOPO. Queue PID508416 handed off exactly once to ASW PID513148. ASW step50/100 means were 3093.968788/3095.500061, both negative. Mean gradient norms were 5.285728 for H5 USW and 0.569430 for matched BOPO, making mean LR-times-gradient scales about 2.64e-6 and 5.69e-6."
-      decision: "H5 USW is negative and is not continued. Keep the authoritative ASW run untouched through step300. Commit 211477c85 conditionally preregisters one H6 sparse-USW LR1e-6 smoke and screen after H5 exits; do not launch it while H5 is active."
+      result: "Both H5 variants completed 300 unique contiguous finite-loss, finite positive-gradient updates with exactly 15 rank-stratified instance-local pairs, B128/K16, physical batch one, about 11.583 GiB peak allocation, and clean exact-log scans. USW validation32 was 3093.375015/3093.218788/3093.625031/3091.281303/3090.812531/3088.875000/3088.406235; terminal best remained 3.093720 above BOPO. ASW validation32 was 3093.375015/3093.968788/3095.500061/3093.343735/3091.937462/3095.468727/3096.781166; best step200 remained 6.624947 above BOPO. Mean gradient norms were 5.285728 for H5 USW and 0.569430 for matched BOPO, making mean LR-times-gradient scales about 2.64e-6 and 5.69e-6."
+      decision: "H5 is exhausted; neither variant is promoted, continued, or retried. Commit 211477c85 preregistered one H6 sparse-USW LR1e-6 calibration. Its one-update smoke passed every gate, and a fresh-root screen300 launched once as PID518156 after GPU/process/root preflight."
+    - cycle: 19
+      experiment: "H6 sparse-USW LR1e-6 smoke and screen300 launch"
+      result: "The H6 smoke contained exactly three events: validation step0 3093.375015, one finite loss 0.839946 with positive gradient 4.732051, and validation step1 3094.906212. It preserved B128/K16, physical batch one, exactly 15 instance-local pairs, 11.574 GiB peak allocation, and a zero-match error scan. After confirming GPU7 idle, no trainer, and both exact screen targets absent, screen PID518156 started once; step0 reproduced 3093.375015 and steps1-4 were finite with positive gradients and unchanged semantics."
+      decision: "Continue the authoritative H6 screen unchanged through scheduled validation gates. Promote or continue only if a validation32 mean is strictly below 3085.312515; otherwise record H6 negative and move to the preregistered failure class of trajectory-scale loss normalization."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -175,9 +179,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 18
+  cycle: 19
   last_direction: deepen
-  last_reflection: "H5 sparse geometry improved USW monotonically from step150 through its terminal step300 best, but still missed BOPO by 3.093720. Its observed LR-times-gradient scale was about half BOPO's, motivating exactly one conditionally preregistered H6 sparse-USW LR1e-6 calibration after the still-active H5 ASW run exits."
+  last_reflection: "H5 sparse geometry was directionally useful for USW but insufficient for both USW and ASW. The observed H5-to-BOPO update-scale mismatch motivates the now-active, single-variant H6 sparse-USW LR1e-6 screen; no other LR, WD, alpha, or geometry setting is being swept."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -191,8 +195,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T05:05:45+08:00"
-  last_observation: "H5 USW completed naturally at step300 with a clean 300-update audit and terminal validation32 best 3088.406235, still 3.093720 above matched BOPO, so it was not continued. Queue PID508416 handed off once to ASW PID513148; ASW step50/100 means were 3093.968788/3095.500061 and its first 146 updates were finite with positive gradients. H6 commit 211477c85 is preregistered and hash-verified on g51 but remains unlaunched while H5 is active. No paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T05:22:08+08:00"
+  last_observation: "H5 ASW completed naturally and cleanly; its best validation32 was step200 3091.937462, still 6.624947 above BOPO, so H5 is exhausted. H6 smoke PID516910 passed exactly once with finite positive-gradient 15-pair B128/K16 semantics and a clean log. After collision/GPU/process preflight, H6 screen PID518156 launched once; step0 reproduced 3093.375015 and steps1-4 were healthy. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
