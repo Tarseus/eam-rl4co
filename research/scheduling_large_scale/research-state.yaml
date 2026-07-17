@@ -201,6 +201,10 @@ experiments:
       experiment: "H8 step250 paired validation32 inference"
       result: "The collision-free paired evaluation reproduced BOPO 3085.312515, H8 USW 3083.937515, and locked ASW 3086.500031 on the fixed validation32 stream. USW minus BOPO was -1.375000 with 17 wins, one tie, 14 losses, bootstrap 95% CI [-9.749956, 7.218765], raw Wilcoxon p=0.746418, and Holm p=0.966267; ASW minus BOPO was +1.187515 with CI [-6.031190, 7.906250] and Holm p=0.966267. Neither comparison passed the locked inference gate."
       decision: "Treat H8 step250 as a mean-gate leader but not a final statistical win. Preserve the parameterization and optimizer state, preregister continuation from the locked step250 checkpoint to absolute step500, and repeat paired inference only if a later scheduled validation gate improves the locked mean. Do not read TA/DMU/final data."
+    - cycle: 30
+      experiment: "H8 fixed-leader continuation launch and absolute step300 gate"
+      result: "Commit 77e152800 preregistered an optimizer-state-preserving continuation from the locked H8 step250 checkpoint to absolute step500. After an idle-GPU7/no-trainer/absent-root preflight, PID537167 launched once in a fresh root. Updates251-300 had finite losses and finite positive gradients with B128/K16, physical batch one, exactly 15 instance-local pairs, and about 11.591 GiB peak allocation. Absolute step300 validation32 was 3085.000008, 0.312507 below matched BOPO but 1.062492 above locked H8 step250."
+      decision: "Keep the H8 step250 lock unchanged and continue only PID537167 through steps350/400/450/500. Repeat paired inference only if a scheduled continuation mean is strictly below 3083.937515. Do not read TA/DMU/final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -231,9 +235,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 29
+  cycle: 30
   last_direction: deepen
-  last_reflection: "H8 step250 passes the matched mean gate but its paired validation effect is uncertain: mean -1.375000, bootstrap CI [-9.749956, 7.218765], Holm p=0.966267. Continue only this fixed leader to the matched absolute step500 gate; a new checkpoint must improve the locked validation mean before paired inference is repeated."
+  last_reflection: "The fixed H8 continuation reproduced a second mean below BOPO at absolute step300 (3085.000008) but did not improve the locked step250 value 3083.937515. Continue unchanged to the matched 500-update budget; the lock and paired-inference decision remain unchanged."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -247,8 +251,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T06:53:34+08:00"
-  last_observation: "Paired validation-only PID535810 exited naturally and reproduced H8 step250's -1.375000 mean versus BOPO, but the bootstrap CI [-9.749956, 7.218765] crossed zero and Holm p was 0.966267, so the locked inference gate failed. The result explicitly records ta_dmu_final_data_read=false. H8 remains the only mean-gate leader and is eligible for fixed-parameter continuation to absolute step500; no TA/DMU/final data were read."
+  last_check: "2026-07-18T07:00:37+08:00"
+  last_observation: "H8 continuation PID537167 is the sole active JSSP trainer on GPU7. It resumed the locked step250 checkpoint with optimizer state after a collision-free preflight. Absolute step300 validation32 was 3085.000008, below BOPO 3085.312515 but above the locked H8 best 3083.937515. Updates251-301 remained finite-loss, finite positive-gradient, B128/K16, physical batch one, and exact-15-pair instance-local. Continue unchanged to steps350/400/450/500; no TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
