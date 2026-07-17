@@ -155,23 +155,36 @@ def _evaluate(
     seed: int,
     starts: int,
     augment: int,
+    batch_size: int,
     device: torch.device,
     precision: str,
 ) -> dict[str, Any]:
     model.eval()
     costs: list[float] = []
     started = time.perf_counter()
-    for index in range(int(count)):
-        raw = _dynamic_batch(
-            jobs=env.num_job,
-            stages=env.num_stage,
-            machines=env.num_machine,
-            seed=seed,
-            instance_index=index,
+    for offset in range(0, int(count), int(batch_size)):
+        indices = list(range(offset, min(offset + int(batch_size), int(count))))
+        raw = TensorDict(
+            {
+                "run_time": torch.cat(
+                    [
+                        _dynamic_batch(
+                            jobs=env.num_job,
+                            stages=env.num_stage,
+                            machines=env.num_machine,
+                            seed=seed,
+                            instance_index=index,
+                        )["run_time"]
+                        for index in indices
+                    ],
+                    dim=0,
+                )
+            },
+            batch_size=[len(indices)],
         ).to(device)
-        best = float("inf")
+        best = torch.full((len(indices),), float("inf"), device=device)
         for aug_index in range(int(augment)):
-            _seed(seed + index * 1_000_003 + aug_index, device)
+            _seed(seed + offset * 1_000_003 + aug_index, device)
             td = env.reset(raw.clone()).to(device)
             with torch.inference_mode(), _autocast(device, precision):
                 out = model.policy(
@@ -182,8 +195,8 @@ def _evaluate(
                     return_actions=False,
                 )
             reward = unbatchify(out["reward"], (0, starts))
-            best = min(best, float((-reward.max()).detach().cpu()))
-        costs.append(best)
+            best = torch.minimum(best, -reward.max(dim=-1).values)
+        costs.extend(float(value) for value in best.detach().cpu())
     elapsed = time.perf_counter() - started
     return {
         "count": len(costs),
@@ -244,9 +257,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--validation-count", type=int, default=8)
     parser.add_argument("--validation-every", type=int, default=100)
     parser.add_argument("--validation-augment", type=int, default=1)
+    parser.add_argument("--validation-batch-size", type=int, default=8)
     parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--evaluation-count", type=int, default=16)
     parser.add_argument("--evaluation-augment", type=int, default=1)
+    parser.add_argument("--evaluation-batch-size", type=int, default=8)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--usw-pair", type=Path, default=DEFAULT_PAIR_PATHS["usw"])
     parser.add_argument("--asw-pair", type=Path, default=DEFAULT_PAIR_PATHS["asw"])
@@ -275,6 +290,7 @@ def main() -> None:
             seed=args.seed + 90_000_001,
             starts=args.num_starts,
             augment=args.evaluation_augment,
+            batch_size=args.evaluation_batch_size,
             device=device,
             precision=args.precision,
         )
@@ -325,6 +341,7 @@ def main() -> None:
             seed=args.seed + 80_000_003,
             starts=args.num_starts,
             augment=args.validation_augment,
+            batch_size=args.validation_batch_size,
             device=device,
             precision=args.precision,
         )

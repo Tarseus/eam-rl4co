@@ -141,29 +141,35 @@ def _evaluate(
     machines: int,
     count: int,
     rollouts: int,
+    batch_size: int,
     seed: int,
     device: torch.device,
 ) -> dict[str, Any]:
     model.eval()
     costs: list[float] = []
     started = time.perf_counter()
-    for index in range(int(count)):
-        instance = _dynamic_instance(
-            jobs=jobs,
-            machines=machines,
-            seed=seed,
-            instance_index=index,
-        )
-        _seed(seed + index * 1_000_003, device)
+    for offset in range(0, int(count), int(batch_size)):
+        indices = list(range(offset, min(offset + int(batch_size), int(count))))
+        instances = [
+            _dynamic_instance(
+                jobs=jobs,
+                machines=machines,
+                seed=seed,
+                instance_index=index,
+            )
+            for index in indices
+        ]
+        _seed(seed + offset * 1_000_003, device)
         makespans, _, _ = sampling(
-            instance,
+            instances,
             model.encoder,
             model.decoder,
             bs=rollouts,
             use_greedy=model.use_greedy,
             device=str(device),
         )
-        costs.append(float(makespans.min().detach().cpu()))
+        best = makespans.view(len(instances), rollouts).min(dim=1).values
+        costs.extend(float(value) for value in best.detach().cpu())
     elapsed = time.perf_counter() - started
     return {
         "count": len(costs),
@@ -221,9 +227,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--data-start-index", type=int, default=0)
     parser.add_argument("--eval-rollouts", type=int, default=128)
     parser.add_argument("--validation-count", type=int, default=8)
+    parser.add_argument("--validation-batch-size", type=int, default=8)
     parser.add_argument("--validation-every", type=int, default=100)
     parser.add_argument("--evaluate-only", action="store_true")
     parser.add_argument("--evaluation-count", type=int, default=16)
+    parser.add_argument("--evaluation-batch-size", type=int, default=8)
     parser.add_argument("--output-dir", type=Path)
     parser.add_argument("--usw-pair", type=Path, default=DEFAULT_PAIR_PATHS["usw"])
     parser.add_argument("--asw-pair", type=Path, default=DEFAULT_PAIR_PATHS["asw"])
@@ -251,6 +259,7 @@ def main() -> None:
             machines=args.num_machines,
             count=args.evaluation_count,
             rollouts=args.eval_rollouts,
+            batch_size=args.evaluation_batch_size,
             seed=args.seed + 90_000_001,
             device=device,
         )
@@ -301,6 +310,7 @@ def main() -> None:
             machines=args.num_machines,
             count=args.validation_count,
             rollouts=args.eval_rollouts,
+            batch_size=args.validation_batch_size,
             seed=args.seed + 80_000_003,
             device=device,
         )
