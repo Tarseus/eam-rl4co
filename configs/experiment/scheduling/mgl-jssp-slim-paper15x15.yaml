@@ -26,7 +26,10 @@ tags: [mgl-jssp-slim, jssp]
 model:
   _target_: rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel
   baseline: slim
-  train_data_dir: ${paths.root_dir}/data/jssp_bopo/train
+  # g51's shared jssp_bopo/train currently contains only 10x10 files. Use the
+  # existing shape-isolated 15x15 training split (96 instances) instead of
+  # generating data implicitly or mixing shapes.
+  train_data_dir: ${paths.root_dir}/data/jssp_scale_probe/15x15/train
   val_data_dir: ${paths.root_dir}/data/jssp_bopo/validation
   test_data_dir: null
   use_cached: true

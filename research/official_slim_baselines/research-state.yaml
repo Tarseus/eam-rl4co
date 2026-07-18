@@ -4,9 +4,23 @@ started_at: "2026-07-18T16:14:40+08:00"
 objective: "Replace mislabeled custom-listwise SLL artifacts with true instance-local best-pseudo-label SLIM baselines across all paper problems."
 primary_problems: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, jssp15x15]
 large_scale_extension: [tsp1000, cvrp1000, ffsp1000, jssp50x20]
-stage: smoke_completion_and_full_launch
+stage: full_primary_training
 remote:
   host: g51
   allowed_gpus: [5, 7]
   forbidden_busy_gpus: [0, 1, 2, 3, 4, 6]
+  full_primary_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650"
+  queues:
+    gpu5:
+      wrapper_pid: 943637
+      order: [jssp10x10, ffsp50, tsp50, cvrp50]
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/official_slim_full_gpu5_20260718_1650_20260718-164435.log"
+    gpu7:
+      wrapper_pid: 944139
+      order: [jssp15x15, ffsp100, tsp100, cvrp100]
+      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/official_slim_full_gpu7_20260718_1650_20260718-164452.log"
+smoke_status:
+  passed: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, jssp15x15]
+  test_access: "disabled for every full run"
+  jssp15_train_split: "data/jssp_scale_probe/15x15/train (96 existing shape-isolated instances)"
 automation: "remains paused; this user-authorized run is executed directly"
