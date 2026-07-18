@@ -92,6 +92,12 @@ hypotheses:
     motivation: "H8's linear temperature beats BOPO on mean but fails paired inference; H10 shows that removing gap temperature and substituting ASW weights loses the mean advantage."
     parent: H8
     priority: high
+  - id: H12
+    statement: "Clipping each physical-batch-one H8 update to gradient norm 1.0 can preserve its matched-mean advantage while limiting atypical instance-driven policy shifts."
+    status: active
+    motivation: "H8 beats BOPO on mean but is heterogeneous across instances; H8/H11 pre-clip gradients contain rare excursions up to 3.209301/6.609443 despite medians near 0.46."
+    parent: H8
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
@@ -275,6 +281,10 @@ experiments:
       experiment: "H11 concave-temperature USW screen300 completion"
       result: "The sole H11 screen exited naturally after 300 unique contiguous updates. Validation32 at steps0/50/100/150/200/250/300 was 3093.375015/3094.343819/3095.187431/3088.999969/3086.156250/3085.437469/3089.531273. Best step250 remained 0.124954 above matched BOPO 3085.312515. All losses and gradients were finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match exact-log error scan were preserved."
       decision: "H11 is negative under the strict matched-mean gate and is not promoted, continued, paired-tested, or retried. Its rare large training-gradient excursions (maximum 6.609443 despite median 0.458942) motivate one preregistered instance-robust H8 variant that clips per-instance update norms without changing the loss, pair geometry, data stream, or validation gate. No TA/DMU/final data were read."
+    - cycle: 44
+      experiment: "H12 H8 instance-gradient-clipping preregistration"
+      result: "H12 reuses H8's byte-identical linear relative-gap-temperature loss and H5's exact 15-edge local builder. The sole new intervention is per-physical-instance gradient clipping at norm 1.0 after finite/nonzero pre-clip audit and before Adam.step; pre/post norms are logged. Common checkpoint/stream, B128/K16, batch one, LR1e-5, WD1e-6, and the BOPO threshold remain fixed."
+      decision: "Commit the protocol and opt-in trainer support before execution. Then run exactly one collision-free smoke; launch one screen300 only if the smoke has finite positive pre/post gradients, post-clip norm <=1.000001, correct B/K/batch/pair semantics, and a clean error scan."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -305,9 +315,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 43
+  cycle: 44
   last_direction: deepen
-  last_reflection: "H11 finished 0.124954 above matched BOPO at its best gate and is negative. H8/H11 gradient histories contain rare large per-instance excursions, so the next bounded family should test explicit per-instance update robustness while preserving the H8 loss and every matched data/pair semantic."
+  last_reflection: "H11 is a clean boundary-close negative, ruling out square-root curvature as sufficient. H12 now targets explicit instance-level robustness by clipping each physical-batch-one H8 update at norm 1.0 while preserving all objective and pair semantics."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -321,8 +331,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T12:31:32+08:00"
-  last_observation: "H11 exited naturally after 300 clean unique updates. Its best validation32 mean was step250 at 3085.437469, 0.124954 above matched BOPO; step300 regressed to 3089.531273. No JSSP trainer remains active and no paired inference, continuation, TA/DMU, or final data were read."
+  last_check: "2026-07-18T12:30:59+08:00"
+  last_observation: "H11 completed 300 clean unique updates and remains negative by 0.124954 at its step250 best. No JSSP trainer is active. H12 gradient-cap robustness is preregistered but not yet launched; no paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"

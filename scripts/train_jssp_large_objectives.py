@@ -229,6 +229,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--accumulate", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=1e-5)
     parser.add_argument("--weight-decay", type=float, default=1e-6)
+    parser.add_argument(
+        "--max-grad-norm",
+        type=float,
+        default=None,
+        help="Optional per-update gradient-norm cap; disabled by default.",
+    )
     parser.add_argument("--device", default="cuda:0")
     parser.add_argument("--seed", type=int, default=12345678)
     parser.add_argument("--data-start-index", type=int, default=0)
@@ -251,6 +257,8 @@ def main() -> None:
         raise ValueError("JSSP requires rollouts > 1 and rollouts % select_k == 0")
     if args.accumulate < 1 or args.steps < 0:
         raise ValueError("steps must be nonnegative and accumulate must be positive")
+    if args.max_grad_norm is not None and args.max_grad_norm <= 0:
+        raise ValueError("max_grad_norm must be positive when provided")
     checkpoint = _resolve(args.checkpoint)
     device = torch.device(args.device)
     if device.type == "cuda" and not torch.cuda.is_available():
@@ -303,6 +311,7 @@ def main() -> None:
         "alpha": args.alpha,
         "learning_rate": args.learning_rate,
         "weight_decay": args.weight_decay,
+        "max_grad_norm": args.max_grad_norm,
         "accumulate": args.accumulate,
         "seed": args.seed,
         "pair_scope": "strictly within instance",
@@ -364,6 +373,14 @@ def main() -> None:
         grad_norm = _gradient_norm(model.parameters())
         if not math.isfinite(grad_norm) or grad_norm == 0.0:
             raise FloatingPointError(f"Invalid gradient norm: {grad_norm}")
+        grad_norm_after_clip = grad_norm
+        if args.max_grad_norm is not None:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+            grad_norm_after_clip = _gradient_norm(model.parameters())
+            if not math.isfinite(grad_norm_after_clip) or grad_norm_after_clip == 0.0:
+                raise FloatingPointError(
+                    f"Invalid gradient norm after clipping: {grad_norm_after_clip}"
+                )
         optimizer.step()
         step += 1
         if device.type == "cuda":
@@ -373,6 +390,8 @@ def main() -> None:
             "optimizer_step": step,
             "loss": sum(losses) / len(losses),
             "grad_norm": grad_norm,
+            "grad_norm_after_clip": grad_norm_after_clip,
+            "max_grad_norm": args.max_grad_norm,
             "elapsed_sec": time.perf_counter() - started,
             "candidate_count_per_instance": args.rollouts,
             "select_k_per_instance": args.select_k,
