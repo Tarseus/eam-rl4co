@@ -229,6 +229,10 @@ experiments:
       experiment: "H10 source-normalized ASW smoke and screen300 launch"
       result: "Protocol commit 8750016c1 preceded execution and the local/remote launcher, pair artifact, and trainer SHA256 values matched. The existing exactly-once smoke root contained step0 3093.375015, one finite loss 0.706202 with positive gradient 0.426431, exactly 15 instance-local pairs, B128/K16, physical batch one, 11.574 GiB peak allocation, feasibility-only step1 3092.187469, and a zero-match exact-log error scan. After confirming the screen root/log absent and GPU7 idle, the sole screen300 launched as wrapper PID562432; step0 reproduced 3093.375015 and the first 28 observed train events were semantically matched, with early updates through step7 explicitly finite and positive-gradient."
       decision: "Continue only authoritative H10 PID562432 unchanged through validation32 gates50/100/150/200/250/300. Promote, continue, or run paired inference only for a checkpoint strictly below matched BOPO 3085.312515; otherwise mark H10 negative and move to a preregistered link-curvature or instance-robustness hypothesis. Do not read TA/DMU/final data."
+    - cycle: 34
+      experiment: "H10 source-normalized ASW step50 gate"
+      result: "Validation32 regressed from common step0 3093.375015 to 3096.312454 at step50, 11.000000 above matched BOPO 3085.312515. Through step58, every observed loss and gradient was finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, and about 11.583 GiB peak allocation were preserved."
+      decision: "No promotion and no competing launch. Continue only PID562432 unchanged through steps100/150/200/250/300 because H5-H8 produced their strongest gates late. Do not run paired inference or read TA/DMU/final data unless a scheduled checkpoint strictly beats BOPO."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -259,7 +263,7 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 33
+  cycle: 34
   last_direction: deepen
   last_reflection: "H8 improved the matched validation32 mean to 3080.624992 at step500 but failed the instance-level inference gate. H10 is the locked bounded ASW-weighting test of that heterogeneity and has passed its one-update smoke; only its scheduled validation32 gates may determine promotion."
 
@@ -275,8 +279,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T11:31:00+08:00"
-  last_observation: "H10's exactly-once smoke passed every locked numerical and semantic gate. The sole screen300 wrapper PID562432 is active on GPU7 in the collision-free screen300_20260718_0722 root; step0 reproduced 3093.375015 and early updates are finite, positive-gradient, B128/K16, physical batch one, and exact-15-pair instance-local. No TA/DMU/final data were read."
+  last_check: "2026-07-18T11:34:37+08:00"
+  last_observation: "H10 screen300 wrapper PID562432 reached validation32 3096.312454 at step50, 11.000000 above matched BOPO and worse than common step0. It remains numerically and semantically healthy through step58 with finite positive gradients, B128/K16, physical batch one, and exactly 15 instance-local pairs. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
