@@ -247,6 +247,10 @@ experiments:
       experiment: "H11 mean-one concave relative-gap-temperature preregistration"
       result: "H11 changes only H8's relative-gap temperature curvature from linear to square root and renormalizes it to mean one. The byte-identical H8 builder, source factor100, global mean-gap normalization, sigmoid link, uniform weights, common checkpoint/stream, B128/K16, physical batch one, 15 local pairs, fresh Adam LR1e-5/WD1e-6, and matched BOPO threshold remain fixed."
       decision: "After the protocol commit, run exactly one collision-free smoke. Launch one screen300 only if the smoke has finite loss, finite positive gradient, correct B/K/batch/pair semantics, and a clean error scan. Continue to step500 or paired inference only for a validation checkpoint below 3085.312515."
+    - cycle: 37
+      experiment: "H11 concave-temperature smoke and screen300 launch reconciliation"
+      result: "Protocol commit 1b044ebe7 preceded execution and all six local/remote H11 files matched SHA256. The exactly-once smoke reproduced step0 3093.375015, produced finite loss 0.706051 and positive gradient 0.423499 with B128/K16, physical batch one, exactly 15 instance-local pairs, 11.574 GiB peak allocation, clean logs, and feasibility-only step1 3092.343758. After a no-trainer/idle-GPU7/absent-target preflight, an authoritative screen wrapper PID577042 launched first and trainer PID577052 reproduced step0 and remained finite, positive-gradient, exact-15-pair, and clean through step14. A later wrapper PID577793 hit the existing root/log collision guard and exited before training."
+      decision: "Continue only authoritative PID577042/PID577052 through scheduled validation32 gates. Exclude and never retry collision-rejected PID577793. Promote or continue only a checkpoint strictly below matched BOPO 3085.312515; do not read TA/DMU/final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -277,9 +281,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 36
+  cycle: 37
   last_direction: deepen
-  last_reflection: "H10 completed cleanly but missed BOPO by 3.375076. H11 is the bounded curvature test: it retains H8's winning source-normalized gap emphasis while replacing the linear mean-one temperature with a mean-one square-root temperature to reduce extreme-pair pressure."
+  last_reflection: "H11 passed its one-update feasibility gate and its sole authoritative screen300 is active. Only scheduled validation32 means below matched BOPO may trigger continuation or paired inference."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -293,8 +297,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T11:54:11+08:00"
-  last_observation: "H10 completed naturally after 300 unique finite-loss, finite positive-gradient updates. Its best validation32 mean was step250 at 3088.687592, 3.375076 above matched BOPO, and step300 regressed to 3093.031265. B128/K16, physical batch one, exactly 15 instance-local pairs, and a clean exact-log scan were preserved. No TA/DMU/final data were read."
+  last_check: "2026-07-18T12:03:42+08:00"
+  last_observation: "H11 smoke passed exactly once with finite loss 0.706051, positive gradient 0.423499, B128/K16, physical batch one, exactly 15 local pairs, and clean logs. Authoritative screen wrapper PID577042 / trainer PID577052 is healthy through step14; later wrapper PID577793 collision-rejected before training. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -308,8 +312,10 @@ remote:
     jssp50x20_h1_screen500_asw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_asw_retry1_20260717-104851.log"
     jssp50x20_paper_control_step100_b128: "logs/scheduling_large_scale/paper_alignment/jssp50x20_bopo_step100_B128_v2/summary.json (gap 9.6488%; paper delta +1.6488 pp)"
     jssp50x20_selected_official_eval: "logs/scheduling_large_scale/paper_alignment/jssp50x20_selected_step500screen/ (BOPO gaps 9.3718% at B'=128 and 8.8951% at B'=512)"
-  active_jobs: []
+  active_jobs:
+    - "H11 concave relative-gap-temperature USW screen300: GPU7 wrapper PID577042 / trainer PID577052, root logs/scheduling_large_scale/h11_concave_gap_temperature/jssp50x20/screen300_20260718_1155, log /data1/gushengda/eam-rl4co/logs/codex_remote/h11_screen300_usw_concave_gap_temperature_20260718_1155.log"
   completed_diagnostics:
+    jssp50x20_h11_concave_temperature_smoke: "GPU7 wrapper PID573148 completed one update in logs/scheduling_large_scale/h11_concave_gap_temperature/jssp50x20/smoke_20260718_1155/usw_concave_gap_temperature. Step0/1 validation32 was 3093.375015/3092.343758, loss was 0.706051, gradient was 0.423499, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was 11.574 GiB, and the exact log was error-scan clean."
     jssp50x20_h10_source_normalized_asw: "GPU7 wrapper PID562432 completed 300 unique updates in logs/scheduling_large_scale/h10_source_normalized_asw/jssp50x20/screen300_20260718_0722/asw_source_normalized; best validation32 was step250 at 3088.687592, 3.375076 above matched BOPO. All losses and gradients were finite, every gradient was positive, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was 11.583 GiB, and the exact log was error-scan clean."
     jssp50x20_h4_matched_bopo: "GPU7 PID464339 completed 500 updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/bopo_lr1e5_screen500_20260718_0110; best validation32 was step500 at 3085.312515. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pair_count was 15, and the exact log was error-scan clean."
     jssp50x20_h4_phase_b_asw_lr2e6_a0: "GPU7 PID473670 completed 300 unique updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/phase_b/asw_lr2e6_a0_screen300_20260718_0148; best validation32 was step100 at 3092.499985, 7.187469 above BOPO. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pairs remained instance-local, and the exact log was error-scan clean."
