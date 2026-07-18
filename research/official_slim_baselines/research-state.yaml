@@ -9,11 +9,11 @@ remote:
   code_revision: ac5d7e4c1
   runtime_archive_sha256: c9a92e13a0f879ddc1122ea385a23b7a2e68edae9184a777babbd40a21b1f0b6
   g51:
-    active:
-      jssp10x10: {gpu: 5, pid: 943644, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu5/jssp10x10"}
-      jssp15x15: {gpu: 7, pid: 944146, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu7/jssp15x15"}
-    stopped_queue_wrappers: [943637, 944139]
-    note: "Wrappers are SIGSTOPed, so no queued successor can launch; the two JSSP children remain running."
+    completed:
+      jssp10x10: {best_epoch: 19, best_val_makespan: 866.0484008789062, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu5/jssp10x10/checkpoints/epoch_019.ckpt", sha256: "32626eb06a8d85b4c889226d9e67f9d890779d8982ebf95820d0fa628bb6f024"}
+      jssp15x15: {best_epoch: 14, best_val_makespan: 1332.0699462890625, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu7/jssp15x15/checkpoints/epoch_014.ckpt", sha256: "5dab2f89dc370626f741b4b8f2e374e31120b913b51f20337b9b8f49e68cec32"}
+    retired_pids: [943637, 944139, 943644, 944146]
+    note: "Both trainers reached max_epochs=20 naturally. Their stopped wrappers were then terminated and all four PIDs were reaped, so no queued successor can launch."
   g52:
     runtime: "/data1/gushengda/eam-rl4co-slim-ac5d7e4c1-r2"
     active:
@@ -33,15 +33,17 @@ smoke_status:
   test_access: "disabled for every full run"
   jssp15_train_split: "data/jssp_scale_probe/15x15/train (96 existing shape-isolated instances)"
 latest_full_gate:
-  jssp10x10: {epoch: 1, train_loss: 1.361628532409668, train_reward: -902.7916870117188, val_makespan: 887.274169921875, next_step_observed: 199}
-  jssp15x15: {epoch: 0, train_loss: 2.3673741817474365, train_reward: -1698.1666259765625, val_makespan: 1434.1099853515625, next_step_observed: 99}
-  tsp50: {step: 799, train_slim_loss: 0.1485338807106018, train_reward: -6.485879898071289, train_max_reward: -5.886597156524658}
-  cvrp50: {step: 549, train_slim_loss: 0.2040378451347351, train_reward: -13.118391036987305, train_max_reward: -11.72303581237793}
-  tsp100: {step: 349, train_slim_loss: 0.27542996406555176, train_reward: -10.43416690826416, train_max_reward: -8.544764518737793}
-  cvrp100: {step: 249, train_slim_loss: 0.4045434594154358, train_reward: -20.20962142944336, train_max_reward: -18.32461166381836}
+  jssp10x10: {status: completed, epoch: 19, train_loss: 0.7851434350013733, train_reward: -880.5, val_makespan: 866.0484008789062}
+  jssp15x15: {status: completed, epoch: 19, train_loss: 0.7080063223838806, train_reward: -1350.2708740234375, last_val_makespan: 1336.719970703125, best_epoch: 14, best_val_makespan: 1332.0699462890625}
+  tsp50: {step: 21599, train_slim_loss: 0.031969040632247925, train_reward: -6.126670837402344, train_max_reward: -5.727330207824707}
+  cvrp50: {step: 16349, train_slim_loss: 0.0869237631559372, train_reward: -11.882756233215332, train_max_reward: -11.064814567565918}
+  tsp100: {step: 10249, train_slim_loss: 0.05904803425073624, train_reward: -13.816556930541992, train_max_reward: -8.121350288391113}
+  cvrp100: {step: 7799, train_slim_loss: 0.12208963930606842, train_reward: -17.68389320373535, train_max_reward: -16.601566314697266}
   exact_error_scan_matches: 0
 distributed_launch_gate:
-  active_problem_count: 8
+  active_problem_count: 6
+  completed_problem_count: 2
+  failed_problem_count: 0
   queued_problem_count: 0
   new_job_error_scan_matches: 0
   test_access: false
