@@ -255,6 +255,10 @@ experiments:
       experiment: "H11 concave-temperature USW step50 gate"
       result: "The authoritative H11 screen reached validation32 3094.343819 at step50 from common step0 3093.375015, remaining 9.031303 above matched BOPO. Through step54 every observed loss and gradient was finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match exact-log error scan were preserved."
       decision: "No promotion; continue only PID577042/PID577052 unchanged through steps100/150/200/250/300 because H8's first matched-BOPO win appeared at step250. Do not run paired inference or read TA/DMU/final data unless a scheduled checkpoint strictly beats BOPO."
+    - cycle: 39
+      experiment: "H11 concave-temperature USW step100 gate"
+      result: "Validation32 regressed further to 3095.187431 at step100, which is 1.812416 above common step0 and 9.874916 above matched BOPO 3085.312515. Through step103, every observed loss and gradient was finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, and about 11.583 GiB peak allocation were preserved."
+      decision: "No promotion; continue only PID577042/PID577052 unchanged through steps150/200/250/300 because H8's family-leading gains emerged at late gates. Do not run paired inference or read TA/DMU/final data unless a scheduled checkpoint strictly beats BOPO."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -285,9 +289,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 38
+  cycle: 39
   last_direction: deepen
-  last_reflection: "H11's clean step50 gate is negative at 3094.343819. The sole authoritative screen continues because H8's linear-temperature leader improved only at late gates; no competing hypothesis launches while it is active."
+  last_reflection: "H11 is clean but negative through step100, with both scheduled means worse than initialization. Continue the sole preregistered screen to late gates because H8 improved only at steps250-500; launch no competing hypothesis while it is active."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -301,8 +305,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T12:07:35+08:00"
-  last_observation: "H11 screen wrapper PID577042 / trainer PID577052 reached validation32 3094.343819 at step50, 9.031303 above matched BOPO. It remains finite, positive-gradient, B128/K16, physical batch one, exact-15-pair, and error-scan clean through step54. No TA/DMU/final data were read."
+  last_check: "2026-07-18T12:11:47+08:00"
+  last_observation: "H11 validation32 regressed to 3095.187431 at step100, 9.874916 above matched BOPO and 1.812416 worse than step0. Authoritative wrapper PID577042 / trainer PID577052 remains finite, positive-gradient, B128/K16, physical batch one, exact-15-pair, and clean through step103. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
