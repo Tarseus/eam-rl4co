@@ -86,6 +86,12 @@ hypotheses:
     motivation: "H8 step500 beats BOPO by 4.687523 on mean but loses on 17/32 instances and fails the locked bootstrap/Wilcoxon/Holm inference gate."
     parent: H8
     priority: high
+  - id: H11
+    statement: "A mean-one square-root relative-gap temperature can retain H8's source-normalized matched-mean advantage while reducing extreme-pair pressure and cross-instance heterogeneity."
+    status: active
+    motivation: "H8's linear temperature beats BOPO on mean but fails paired inference; H10 shows that removing gap temperature and substituting ASW weights loses the mean advantage."
+    parent: H8
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
@@ -237,6 +243,10 @@ experiments:
       experiment: "H10 source-normalized ASW screen300 completion"
       result: "The sole H10 screen completed 300 unique updates. Validation32 at steps0/50/100/150/200/250/300 was 3093.375015/3096.312454/3092.031265/3098.250046/3095.281212/3088.687592/3093.031265. Best step250 remained 3.375076 above matched BOPO. Every loss and gradient was finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match exact-log error scan were preserved."
       decision: "H10 is negative and is not promoted, continued, or retried. Removing H8's relative-gap temperature while adding ASW weights loses H8's matched-mean advantage, so the next bounded hypothesis must retain H8's source-normalized gap emphasis while compressing its link curvature to target cross-instance heterogeneity. No paired inference, TA/DMU, or final data were read."
+    - cycle: 36
+      experiment: "H11 mean-one concave relative-gap-temperature preregistration"
+      result: "H11 changes only H8's relative-gap temperature curvature from linear to square root and renormalizes it to mean one. The byte-identical H8 builder, source factor100, global mean-gap normalization, sigmoid link, uniform weights, common checkpoint/stream, B128/K16, physical batch one, 15 local pairs, fresh Adam LR1e-5/WD1e-6, and matched BOPO threshold remain fixed."
+      decision: "After the protocol commit, run exactly one collision-free smoke. Launch one screen300 only if the smoke has finite loss, finite positive gradient, correct B/K/batch/pair semantics, and a clean error scan. Continue to step500 or paired inference only for a validation checkpoint below 3085.312515."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -267,9 +277,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 35
+  cycle: 36
   last_direction: deepen
-  last_reflection: "H10 completed cleanly but missed BOPO by 3.375076 at its best step250 gate. ASW weighting without H8's relative-gap temperature removes the matched-mean win, so the next bounded family should retain H8's mechanism and compress its gap-temperature curvature rather than repeat weighting, LR, WD, or geometry settings."
+  last_reflection: "H10 completed cleanly but missed BOPO by 3.375076. H11 is the bounded curvature test: it retains H8's winning source-normalized gap emphasis while replacing the linear mean-one temperature with a mean-one square-root temperature to reduce extreme-pair pressure."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
