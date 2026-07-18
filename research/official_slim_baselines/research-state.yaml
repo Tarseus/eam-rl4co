@@ -63,6 +63,24 @@ jssp_locked_test_analysis:
   error_scan_matches: 0
   complete_csv_count: 14
   artifact: "artifacts/slim_matched_significance_20260718/slim_significance.json"
+jssp_bopo_paper_table1_comparison:
+  status: completed
+  evaluated_at: "2026-07-18T21:43:00+08:00"
+  paper: "Liao et al., ICML 2025, Table 1"
+  protocol: {benchmarks: [TA, LA], direct_same_shape_rows_only: true, B_prime: [128, 512], hybrid_greedy: true, augmentation_factor: 1, sampling_seed_base: 12345678}
+  jssp10x10_LA:
+    b128: {ours: 4.432423, paper_slim_mgl: 3.5, paper_slim: 3.1, delta_to_slim_mgl: 0.932423}
+    b512: {ours: 3.484998, paper_slim_mgl: 2.4, paper_slim: 2.5, delta_to_slim_mgl: 1.084998}
+  jssp15x15_TA:
+    b128: {ours: 12.852209, paper_slim_mgl: 8.8, paper_slim: 7.2, delta_to_slim_mgl: 4.052209}
+    b512: {ours: 11.666536, paper_slim_mgl: 7.2, paper_slim: 6.5, delta_to_slim_mgl: 4.466536}
+  jssp15x15_LA:
+    b128: {ours: 10.709674, paper_slim_mgl: 7.1, paper_slim: 6.8, delta_to_slim_mgl: 3.609674}
+    b512: {ours: 9.668443, paper_slim_mgl: 6.7, paper_slim: 5.6, delta_to_slim_mgl: 2.968443}
+  conclusion: "JSSP10 is within about one gap point; JSSP15 is materially worse by 3.0-4.5 points versus the same-backbone paper SLIM_MGL rows."
+  protocol_mismatch: "Current models used 96 instances per single shape; the paper used 30000 instances across six shapes (5000 each). Current checkpoints are not paper-protocol reproductions."
+  statistical_limit: "Paper per-instance predictions are unavailable, so paired significance against paper aggregates cannot be computed."
+  artifact: "artifacts/slim_paper_comparison_20260718/comparison.json"
 distributed_launch_gate:
   active_problem_count: 6
   completed_problem_count: 2

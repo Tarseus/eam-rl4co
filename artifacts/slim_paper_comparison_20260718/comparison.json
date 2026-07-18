@@ -1,0 +1,89 @@
+{
+  "source": {
+    "paper": "BOPO: Neural Combinatorial Optimization via Best-anchored and Objective-guided Preference Optimization",
+    "venue": "ICML 2025",
+    "table": 1,
+    "url": "https://proceedings.mlr.press/v267/liao25a.html"
+  },
+  "evaluation": {
+    "checkpoint_selection": "validation only",
+    "sampling_seed_base": 12345678,
+    "augmentation_factor": 1,
+    "hybrid_greedy": 1,
+    "budgets": [128, 512],
+    "evaluator_sha256": "7df77a1a3ade918a1caf9e283815df9e3ac604c01f60def73c55cbd5177cea61",
+    "error_scan_matches": 0
+  },
+  "comparisons": [
+    {
+      "benchmark": "LA",
+      "shape": "10x10",
+      "B_prime": 128,
+      "our_gap_pct": 4.432423114776611,
+      "paper_slim_mgl_gap_pct": 3.5,
+      "paper_slim_gap_pct": 3.1,
+      "our_minus_slim_mgl_points": 0.9324231147766113,
+      "our_minus_slim_points": 1.3324231147766112
+    },
+    {
+      "benchmark": "LA",
+      "shape": "10x10",
+      "B_prime": 512,
+      "our_gap_pct": 3.4849977493286133,
+      "paper_slim_mgl_gap_pct": 2.4,
+      "paper_slim_gap_pct": 2.5,
+      "our_minus_slim_mgl_points": 1.0849977493286134,
+      "our_minus_slim_points": 0.9849977493286133
+    },
+    {
+      "benchmark": "TA",
+      "shape": "15x15",
+      "B_prime": 128,
+      "our_gap_pct": 12.85220947265625,
+      "paper_slim_mgl_gap_pct": 8.8,
+      "paper_slim_gap_pct": 7.2,
+      "our_minus_slim_mgl_points": 4.052209472656249,
+      "our_minus_slim_points": 5.652209472656249
+    },
+    {
+      "benchmark": "TA",
+      "shape": "15x15",
+      "B_prime": 512,
+      "our_gap_pct": 11.666536235809327,
+      "paper_slim_mgl_gap_pct": 7.2,
+      "paper_slim_gap_pct": 6.5,
+      "our_minus_slim_mgl_points": 4.466536235809326,
+      "our_minus_slim_points": 5.166536235809327
+    },
+    {
+      "benchmark": "LA",
+      "shape": "15x15",
+      "B_prime": 128,
+      "our_gap_pct": 10.709674453735351,
+      "paper_slim_mgl_gap_pct": 7.1,
+      "paper_slim_gap_pct": 6.8,
+      "our_minus_slim_mgl_points": 3.609674453735352,
+      "our_minus_slim_points": 3.9096744537353517
+    },
+    {
+      "benchmark": "LA",
+      "shape": "15x15",
+      "B_prime": 512,
+      "our_gap_pct": 9.668443393707275,
+      "paper_slim_mgl_gap_pct": 6.7,
+      "paper_slim_gap_pct": 5.6,
+      "our_minus_slim_mgl_points": 2.968443393707275,
+      "our_minus_slim_points": 4.0684433937072755
+    }
+  ],
+  "training_protocol_mismatch": {
+    "our_jssp10_train_instances": 96,
+    "our_jssp15_train_instances": 96,
+    "our_training_scope": "separate single-shape models",
+    "paper_training_instances": 30000,
+    "paper_training_shapes": ["10x10", "15x10", "15x15", "20x10", "20x15", "20x20"],
+    "paper_instances_per_shape": 5000,
+    "interpretation": "The current checkpoints are small-data matched-backbone supplements, not paper-protocol SLIM_MGL reproductions."
+  },
+  "statistical_limit": "The paper reports only aggregate gaps for these rows; without its per-instance outputs, a paired significance test against the paper values is not identifiable."
+}
