@@ -251,6 +251,10 @@ experiments:
       experiment: "H11 concave-temperature smoke and screen300 launch reconciliation"
       result: "Protocol commit 1b044ebe7 preceded execution and all six local/remote H11 files matched SHA256. The exactly-once smoke reproduced step0 3093.375015, produced finite loss 0.706051 and positive gradient 0.423499 with B128/K16, physical batch one, exactly 15 instance-local pairs, 11.574 GiB peak allocation, clean logs, and feasibility-only step1 3092.343758. After a no-trainer/idle-GPU7/absent-target preflight, an authoritative screen wrapper PID577042 launched first and trainer PID577052 reproduced step0 and remained finite, positive-gradient, exact-15-pair, and clean through step14. A later wrapper PID577793 hit the existing root/log collision guard and exited before training."
       decision: "Continue only authoritative PID577042/PID577052 through scheduled validation32 gates. Exclude and never retry collision-rejected PID577793. Promote or continue only a checkpoint strictly below matched BOPO 3085.312515; do not read TA/DMU/final data."
+    - cycle: 38
+      experiment: "H11 concave-temperature USW step50 gate"
+      result: "The authoritative H11 screen reached validation32 3094.343819 at step50 from common step0 3093.375015, remaining 9.031303 above matched BOPO. Through step54 every observed loss and gradient was finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match exact-log error scan were preserved."
+      decision: "No promotion; continue only PID577042/PID577052 unchanged through steps100/150/200/250/300 because H8's first matched-BOPO win appeared at step250. Do not run paired inference or read TA/DMU/final data unless a scheduled checkpoint strictly beats BOPO."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -281,9 +285,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 37
+  cycle: 38
   last_direction: deepen
-  last_reflection: "H11 passed its one-update feasibility gate and its sole authoritative screen300 is active. Only scheduled validation32 means below matched BOPO may trigger continuation or paired inference."
+  last_reflection: "H11's clean step50 gate is negative at 3094.343819. The sole authoritative screen continues because H8's linear-temperature leader improved only at late gates; no competing hypothesis launches while it is active."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -297,8 +301,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T12:03:42+08:00"
-  last_observation: "H11 smoke passed exactly once with finite loss 0.706051, positive gradient 0.423499, B128/K16, physical batch one, exactly 15 local pairs, and clean logs. Authoritative screen wrapper PID577042 / trainer PID577052 is healthy through step14; later wrapper PID577793 collision-rejected before training. No TA/DMU/final data were read."
+  last_check: "2026-07-18T12:07:35+08:00"
+  last_observation: "H11 screen wrapper PID577042 / trainer PID577052 reached validation32 3094.343819 at step50, 9.031303 above matched BOPO. It remains finite, positive-gradient, B128/K16, physical batch one, exact-15-pair, and error-scan clean through step54. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
