@@ -293,6 +293,10 @@ experiments:
       experiment: "H12 instance-gradient-clipping screen300 launch reconciliation"
       result: "A concurrent continuity tick created the exact preregistered screen root first, so trainer PID627889 with parent wrapper PID627879 is authoritative and no duplicate launch was submitted. Step0 reproduced 3093.375015. Updates1-5 had finite losses and positive pre/post gradients with B128/K16, physical batch one, exactly 15 instance-local pairs, and about 11.583 GiB peak allocation. Step5 exercised the cap: pre-clip 3.209285 became post-clip 1.000000."
       decision: "Continue only PID627879/PID627889 through scheduled validation32 gates. Do not retry or duplicate the root. Promote or continue only a checkpoint strictly below matched BOPO 3085.312515; do not read TA/DMU/final data."
+    - cycle: 47
+      experiment: "H12 instance-gradient-clipping step50 gate"
+      result: "Step50 validation32 was 3094.093811, 0.718796 worse than common step0 and 8.781296 above matched BOPO. An exact-log audit through step55 found finite positive pre/post gradients, max pre/post norms 3.209285/1.000000, exactly one clipped update at step5, B128/K16, physical batch one, exactly 15 instance-local pairs, and zero error-pattern matches."
+      decision: "No promotion; continue only PID627879/PID627889 unchanged through steps100/150/200/250/300 because H8/H11 improved late. Do not run paired inference or read TA/DMU/final data unless a scheduled mean is strictly below 3085.312515."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -323,9 +327,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 46
+  cycle: 47
   last_direction: deepen
-  last_reflection: "H12's sole screen300 is active and has already exercised the norm-1.0 cap on an H8-style step5 gradient spike while preserving all rollout and local-pair semantics. Continue only the authoritative process through fixed gates."
+  last_reflection: "H12's step50 gate is negative, and clipping has activated exactly once through step55. Continue only the authoritative process through late gates because the parent H8/H11 trajectories improved after step100."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -339,8 +343,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T12:40:31+08:00"
-  last_observation: "H12 screen trainer PID627889 / parent wrapper PID627879 is authoritative in the exact preregistered root. Step0 is 3093.375015; updates1-5 are finite, positive-gradient, B128/K16, batch one, exact-15-local-pair, and clean. Step5 clipped pre-norm 3.209285 to 1.000000. No paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T12:45:17+08:00"
+  last_observation: "H12 step50 validation32 was 3094.093811, 8.781296 above matched BOPO. Through step55, all pre/post gradients are finite and positive, one step was clipped, max pre/post norms are 3.209285/1.000000, and B128/K16/batch1/exact-15-local-pair semantics remain clean. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
