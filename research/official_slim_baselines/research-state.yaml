@@ -6,19 +6,28 @@ primary_problems: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, j
 large_scale_extension: [tsp1000, cvrp1000, ffsp1000, jssp50x20]
 stage: full_primary_training
 remote:
-  host: g51
-  allowed_gpus: [5, 7]
-  forbidden_busy_gpus: [0, 1, 2, 3, 4, 6]
-  full_primary_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650"
-  queues:
-    gpu5:
-      wrapper_pid: 943637
-      order: [jssp10x10, ffsp50, tsp50, cvrp50]
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/official_slim_full_gpu5_20260718_1650_20260718-164435.log"
-    gpu7:
-      wrapper_pid: 944139
-      order: [jssp15x15, ffsp100, tsp100, cvrp100]
-      log: "/data1/gushengda/eam-rl4co/logs/codex_remote/official_slim_full_gpu7_20260718_1650_20260718-164452.log"
+  code_revision: ac5d7e4c1
+  runtime_archive_sha256: c9a92e13a0f879ddc1122ea385a23b7a2e68edae9184a777babbd40a21b1f0b6
+  g51:
+    active:
+      jssp10x10: {gpu: 5, pid: 943644, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu5/jssp10x10"}
+      jssp15x15: {gpu: 7, pid: 944146, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu7/jssp15x15"}
+    stopped_queue_wrappers: [943637, 944139]
+    note: "Wrappers are SIGSTOPed, so no queued successor can launch; the two JSSP children remain running."
+  g52:
+    runtime: "/data1/gushengda/eam-rl4co-slim-ac5d7e4c1-r2"
+    active:
+      ffsp50: {gpu: 3, pid: 3000760}
+      tsp50: {gpu: 4, pid: 3000762}
+      cvrp50: {gpu: 5, pid: 3000777}
+  g53:
+    runtime: "/data1/gushengda/eam-rl4co-slim-ac5d7e4c1-r2"
+    active:
+      ffsp100: {gpu: 0, pid: 178311}
+      tsp100: {gpu: 3, pid: 178321}
+      cvrp100: {gpu: 4, pid: 178331}
+  distributed_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703"
+  excluded_setup_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_20260718_1658"
 smoke_status:
   passed: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, jssp15x15]
   test_access: "disabled for every full run"
@@ -27,4 +36,9 @@ latest_full_gate:
   jssp10x10: {epoch: 1, train_loss: 1.361628532409668, train_reward: -902.7916870117188, val_makespan: 887.274169921875, next_step_observed: 199}
   jssp15x15: {epoch: 0, train_loss: 2.3673741817474365, train_reward: -1698.1666259765625, val_makespan: 1434.1099853515625, next_step_observed: 99}
   exact_error_scan_matches: 0
+distributed_launch_gate:
+  active_problem_count: 8
+  queued_problem_count: 0
+  new_job_error_scan_matches: 0
+  test_access: false
 automation: "remains paused; this user-authorized run is executed directly"
