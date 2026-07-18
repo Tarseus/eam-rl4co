@@ -112,8 +112,8 @@ hypotheses:
     priority: high
   - id: H15
     statement: "Frozen H8 and H13 improve over BOPO with conservative familywise significance on an independent 256-instance generated JSSP50x20 test."
-    status: active
-    motivation: "H14 preserved a roughly 0.33 percentage-point official mean advantage but n=20 intervals crossed zero; one independent fixed-seed replication can distinguish low power from non-generalization without modifying models."
+    status: not_supported
+    motivation: "The generated256 replication found near-balanced per-instance wins and wide intervals: H8 mean was slightly worse than BOPO, while H13's -2.394558 mean advantage still had CI crossing zero and Holm p=0.253797."
     parent: H14
     priority: high
 
@@ -121,7 +121,7 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 79
+  total_runs: 82
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -339,6 +339,10 @@ experiments:
       experiment: "H15 independent generated256 replication preregistration"
       result: "H15 preserves the exact H14 checkpoint hashes and B'=128+greedy inference, but fixes a disjoint generated JSSP50x20 population: generator seed314159265, indices0-255, common sampling seeds271828182+i, physical instance batch one, and per-instance content hashes."
       decision: "Commit before generation/evaluation. Run each checkpoint once and analyze exactly two paired comparisons. Require negative mean, a wholly negative 97.5% bootstrap CI, and Holm p<0.025. Report H15 only as generated-distribution replication; never replace H14 official non-significance or tune from either test."
+    - cycle: 54
+      experiment: "H15 independent generated256 replication completion"
+      result: "All three checkpoints completed 256 aligned generated instances once with verified hashes/seeds, finite costs, physical batch one, and clean logs. BOPO/H8/H13 means were 3089.570364/3089.671901/3087.175806. H8 minus BOPO was +0.101537 with 131 wins, five ties, 120 losses, 97.5% CI [-3.039079,3.195318], Holm p=0.963631. H13 minus BOPO was -2.394558 with 132 wins, three ties, 121 losses, CI [-5.472797,0.695227], Holm p=0.253797."
+      decision: "Neither candidate passes the conservative replication gate. Stop test-set evaluation: increasing n or changing the analysis after observing H14/H15 would be significance chasing. Preserve FFSP100 as significant, report JSSP mean-only/non-significant, and return any future method work to validation-only cross-instance consistency before using a genuinely new untouched test."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -369,9 +373,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 53
+  cycle: 54
   last_direction: deepen
-  last_reflection: "H15 is the single higher-powered replication permitted by H14's low-power diagnosis. Its population, seeds, n=256, checkpoints, and conservative p/CI gates are frozen before execution, and its conclusion will remain separate from the official benchmark."
+  last_reflection: "H14 and H15 agree on the failure mode: average gains are not instance-consistent enough for significance. H13 retains a directional mean advantage, but wins only 132/256 generated instances. More test sampling is not a legitimate remedy; the next research mechanism must optimize consistency using validation data only."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -386,7 +390,7 @@ remote:
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
   last_check: "2026-07-18T13:18:00+08:00"
-  last_observation: "H13 completed 50 clean updates and locked step30 validation32 3078.749924, 1.875069 below H8 and 6.562592 below matched BOPO. H12 remains authoritative on GPU7 and was not modified. No paired inference, TA/DMU, or final data were read."
+  last_observation: "H14 official20 and H15 generated256 final-test inference are complete and frozen. Both candidates improved the H14 official mean but were non-significant; H15 also failed, with H8 +0.101537 and H13 -2.394558 versus BOPO, both intervals crossing zero. FFSP100 fixed1000 remains globally Holm-significant for USW and ASW."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -403,6 +407,8 @@ remote:
   active_jobs:
     - "H12 H8 instance-gradient-clipping USW screen300: GPU7 parent wrapper PID627879 / trainer PID627889, root logs/scheduling_large_scale/h12_instance_gradient_clipping/jssp50x20/screen300_20260718_1230, log /data1/gushengda/eam-rl4co/logs/codex_remote/h12_screen300_usw_h8_gradclip1_20260718_1230.log"
   completed_diagnostics:
+    jssp50x20_h15_generated256_test: "BOPO/H8/H13 each completed 256 aligned generated instances with checkpoint/content hashes, common seeds, B'=128+greedy, physical batch one, finite costs, and clean logs. H8/H13 Holm p-values were 0.963631/0.253797 and neither 97.5% bootstrap interval was wholly below zero."
+    jssp50x20_h14_official20_test: "BOPO/H8/H13 each completed 10 TA50x20 plus 10 DMU50x20 instances with verified official data commit and common seeds. H8/H13 improved pooled mean gap by 0.333167/0.328906 pp but Holm p-values were 0.348810/0.285812 and both bootstrap intervals crossed zero."
     jssp50x20_h13_h8_to_asw_micro: "GPU5 wrapper PID659931 completed exactly 50 updates in logs/scheduling_large_scale/h13_h8_to_asw_micro/jssp50x20/screen50_20260718_1254/asw_micro_lr1e6. Validation32 at steps0/10/20/30/40/50 was 3080.624992/3085.218689/3085.906265/3078.749924/3079.593697/3082.562546; best.ckpt locks step30. All losses and gradients were finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match exact-log scan were preserved."
     jssp50x20_h12_instance_gradient_clipping_smoke: "GPU7 trainer PID623959 completed exactly one update in logs/scheduling_large_scale/h12_instance_gradient_clipping/jssp50x20/smoke_20260718_1230/usw_h8_gradclip1. Step0/1 validation32 was 3093.375015/3091.906235, loss was 0.705810, pre/post gradient was 0.431275/0.431275 with max norm 1.0, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was 11.574 GiB, and the exact log was error-scan clean."
     jssp50x20_h11_concave_temperature_screen: "GPU7 wrapper PID577042 / trainer PID577052 completed 300 unique updates in logs/scheduling_large_scale/h11_concave_gap_temperature/jssp50x20/screen300_20260718_1155/usw_concave_gap_temperature. Best validation32 was step250 at 3085.437469, 0.124954 above matched BOPO; step300 was 3089.531273. All losses and gradients were finite and positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a clean exact-log scan were preserved."

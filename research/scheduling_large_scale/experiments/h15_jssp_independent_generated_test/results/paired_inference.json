@@ -1,0 +1,55 @@
+{
+  "protocol": "jssp50x20_locked_generated256_inference_v1",
+  "test_only_no_selection": true,
+  "official_h14_replaced": false,
+  "statistical_unit": "independently generated JSSP50x20 instance",
+  "n": 256,
+  "primary_test": "two-sided paired Wilcoxon signed-rank",
+  "holm_family": [
+    "h8_usw_vs_bopo",
+    "h13_asw_vs_bopo"
+  ],
+  "alpha": 0.025,
+  "bootstrap_interval": "97.5% percentile",
+  "bootstrap_samples": 20000,
+  "comparisons": [
+    {
+      "candidate": "h8_usw",
+      "baseline": "bopo",
+      "n": 256,
+      "candidate_mean_cost": 3089.6719007492065,
+      "baseline_mean_cost": 3089.570363998413,
+      "candidate_minus_bopo_mean_cost": 0.10153675079345703,
+      "bootstrap_97p5ci_mean_difference": [
+        -3.0390789270401,
+        3.1953183889389067
+      ],
+      "wins": 131,
+      "ties": 5,
+      "losses": 120,
+      "wilcoxon_statistic": 15760.5,
+      "wilcoxon_raw_p": 0.9636305388264262,
+      "wilcoxon_holm_p": 0.9636305388264262,
+      "passes_locked_replication": false
+    },
+    {
+      "candidate": "h13_asw",
+      "baseline": "bopo",
+      "n": 256,
+      "candidate_mean_cost": 3087.175806045532,
+      "baseline_mean_cost": 3089.570363998413,
+      "candidate_minus_bopo_mean_cost": -2.3945579528808594,
+      "bootstrap_97p5ci_mean_difference": [
+        -5.472796678543091,
+        0.6952274322509766
+      ],
+      "wins": 132,
+      "ties": 3,
+      "losses": 121,
+      "wilcoxon_statistic": 14287.0,
+      "wilcoxon_raw_p": 0.12689854412273413,
+      "wilcoxon_holm_p": 0.25379708824546826,
+      "passes_locked_replication": false
+    }
+  ]
+}
