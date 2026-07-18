@@ -91,7 +91,7 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 72
+  total_runs: 74
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -225,6 +225,10 @@ experiments:
       experiment: "H8 step500 paired validation32 inference"
       result: "The paired validation-only run reproduced BOPO 3085.312515 and H8 3080.624992. H8 minus BOPO was -4.687523, but only 15/32 instances favored H8; bootstrap 95% CI was [-13.374925, 3.187508], raw Wilcoxon p=0.568454, and Holm p=0.966267. The locked inference gate failed. The artifact records selection_data_only=true and ta_dmu_final_data_read=false."
       decision: "Treat H8 as a strong matched-mean leader but not a statistically supported win. Preserve H9 unexecuted because its precondition was false. Preregister a fresh bounded successor targeting the observed cross-instance inconsistency before any new launch."
+    - cycle: 33
+      experiment: "H10 source-normalized ASW smoke and screen300 launch"
+      result: "Protocol commit 8750016c1 preceded execution and the local/remote launcher, pair artifact, and trainer SHA256 values matched. The existing exactly-once smoke root contained step0 3093.375015, one finite loss 0.706202 with positive gradient 0.426431, exactly 15 instance-local pairs, B128/K16, physical batch one, 11.574 GiB peak allocation, feasibility-only step1 3092.187469, and a zero-match exact-log error scan. After confirming the screen root/log absent and GPU7 idle, the sole screen300 launched as wrapper PID562432; step0 reproduced 3093.375015 and the first 28 observed train events were semantically matched, with early updates through step7 explicitly finite and positive-gradient."
+      decision: "Continue only authoritative H10 PID562432 unchanged through validation32 gates50/100/150/200/250/300. Promote, continue, or run paired inference only for a checkpoint strictly below matched BOPO 3085.312515; otherwise mark H10 negative and move to a preregistered link-curvature or instance-robustness hypothesis. Do not read TA/DMU/final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -255,9 +259,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 32
+  cycle: 33
   last_direction: deepen
-  last_reflection: "H8 improved the matched validation32 mean to 3080.624992 at step500, 4.687523 below BOPO, but the gain is not instance-consistent: bootstrap CI crosses zero and Holm p is 0.966267. The next bounded hypothesis must target cross-instance weighting rather than extend or retune H8."
+  last_reflection: "H8 improved the matched validation32 mean to 3080.624992 at step500 but failed the instance-level inference gate. H10 is the locked bounded ASW-weighting test of that heterogeneity and has passed its one-update smoke; only its scheduled validation32 gates may determine promotion."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -271,8 +275,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T07:19:57+08:00"
-  last_observation: "H8 continuation PID537167 completed naturally with step500 validation32 3080.624992, 4.687523 below matched BOPO. Paired validation-only PID543523 also exited naturally, but H8's bootstrap CI [-13.374925, 3.187508] crossed zero and Holm p was 0.966267. No JSSP trainer/evaluator remains active on GPU7; no TA/DMU/final data were read."
+  last_check: "2026-07-18T11:31:00+08:00"
+  last_observation: "H10's exactly-once smoke passed every locked numerical and semantic gate. The sole screen300 wrapper PID562432 is active on GPU7 in the collision-free screen300_20260718_0722 root; step0 reproduced 3093.375015 and early updates are finite, positive-gradient, B128/K16, physical batch one, and exact-15-pair instance-local. No TA/DMU/final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -286,7 +290,8 @@ remote:
     jssp50x20_h1_screen500_asw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_asw_retry1_20260717-104851.log"
     jssp50x20_paper_control_step100_b128: "logs/scheduling_large_scale/paper_alignment/jssp50x20_bopo_step100_B128_v2/summary.json (gap 9.6488%; paper delta +1.6488 pp)"
     jssp50x20_selected_official_eval: "logs/scheduling_large_scale/paper_alignment/jssp50x20_selected_step500screen/ (BOPO gaps 9.3718% at B'=128 and 8.8951% at B'=512)"
-  active_jobs: []
+  active_jobs:
+    - "H10 source-normalized ASW screen300: GPU7 wrapper PID562432, root logs/scheduling_large_scale/h10_source_normalized_asw/jssp50x20/screen300_20260718_0722, wrapper log /data1/gushengda/eam-rl4co/logs/codex_remote/h10_source_normalized_asw_screen300_20260718_0722_20260718-112904.log"
   completed_diagnostics:
     jssp50x20_h4_matched_bopo: "GPU7 PID464339 completed 500 updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/bopo_lr1e5_screen500_20260718_0110; best validation32 was step500 at 3085.312515. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pair_count was 15, and the exact log was error-scan clean."
     jssp50x20_h4_phase_b_asw_lr2e6_a0: "GPU7 PID473670 completed 300 unique updates in logs/scheduling_large_scale/h4_matched_bopo/jssp50x20/phase_b/asw_lr2e6_a0_screen300_20260718_0148; best validation32 was step100 at 3092.499985, 7.187469 above BOPO. All losses/gradients were finite and nonzero, B128/K16 and physical batch one were preserved, pairs remained instance-local, and the exact log was error-scan clean."
