@@ -100,8 +100,8 @@ hypotheses:
     priority: high
   - id: H13
     statement: "A 50-update low-LR ASW micro-adaptation from H8 step500 can retain or improve H8's matched-mean advantage without replaying its first 500 training instances."
-    status: active
-    motivation: "H8 already beats BOPO on mean; a tenfold-lower-LR ASW adapter may preserve the strong policy while using bounded instance-local ASW weights to make a small correction."
+    status: mixed
+    motivation: "The locked step30 hybrid improved H8 by 1.875069 and matched BOPO by 6.562592 on validation mean, but it inherits 500 USW updates and has not passed paired inference, so it supports a sequential ASW contribution rather than an original-ASW claim."
     parent: H8
     priority: high
 
@@ -109,7 +109,7 @@ experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
   baseline_value: null
   best_value: null
-  total_runs: 74
+  total_runs: 76
   trajectory:
     - cycle: 0
       experiment: "local reduced-scale objective-path smoke"
@@ -307,6 +307,14 @@ experiments:
       experiment: "H13 H8-to-ASW micro-adaptation preregistration"
       result: "H13 initializes from H8 step500 validation leader 3080.624992, then applies H10's byte-identical source-normalized ASW artifact for exactly 50 fresh-Adam updates at LR1e-6/WD1e-6, alpha0, starting dynamic data at index500. Validation is locked to micro-steps0/10/20/30/40/50 with B128/K16, physical batch one, and 15 instance-local pairs."
       decision: "Commit before execution. Run one smoke on idle GPU5, requiring exact H8 step0 reproduction and clean finite semantics. Only then run one screen50. Report retention below BOPO separately from a genuine ASW contribution below the H8 initialization; do not read TA/DMU/final data."
+    - cycle: 49
+      experiment: "H13 exactly-once smoke and screen50 launch"
+      result: "The H13 smoke exactly reproduced H8 at step0 3080.624992, then reached feasibility-only step1 3079.468697 with finite loss 0.709508 and positive gradient 0.486581. B128/K16, physical batch one, exactly 15 instance-local pairs, 11.574 GiB peak allocation, and a zero-match error scan were preserved. After an initial SSH banner timeout, a read-only check proved that no process, root, or log existed, so one authoritative retry launched wrapper PID659931 in a fresh root."
+      decision: "The smoke gate passes. Continue only authoritative PID659931 through the preregistered steps10/20/30/40/50; do not retry, duplicate, run paired inference early, or read TA/DMU/final data."
+    - cycle: 50
+      experiment: "H13 H8-to-ASW micro-adaptation screen50 completion and lock"
+      result: "The sole H13 screen exited naturally after 50 unique contiguous updates. Validation32 at steps0/10/20/30/40/50 was 3080.624992/3085.218689/3085.906265/3078.749924/3079.593697/3082.562546. The locked step30 best is 1.875069 below H8 and 6.562592 below matched BOPO. All losses and gradients were finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match error scan were preserved."
+      decision: "Lock H13 step30 as the validation-mean ASW-after-USW leader. Report it only as a sequential hybrid: H8 independently establishes the USW mean win, while the additional 30 ASW updates establish a small direct mean improvement from that H8 policy. No paired inference, TA/DMU, or final data were read."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -337,9 +345,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 48
+  cycle: 50
   last_direction: deepen
-  last_reflection: "H12 continues independently. The user requested a bounded ASW micro-adaptation from H8, so H13 separates inherited retention below BOPO from a genuine ASW contribution below H8 and permits exactly one 50-update low-LR run."
+  last_reflection: "H13 supports the user's bounded hybrid idea on the locked validation mean: step30 improves H8 by 1.875069 and BOPO by 6.562592. This does not rehabilitate original ASW or establish paired significance; it establishes that a short ASW adapter can improve an already strong USW policy. H12 continues independently."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -353,8 +361,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T12:45:17+08:00"
-  last_observation: "H12 step50 validation32 was 3094.093811, 8.781296 above matched BOPO. Through step55, all pre/post gradients are finite and positive, one step was clipped, max pre/post norms are 3.209285/1.000000, and B128/K16/batch1/exact-15-local-pair semantics remain clean. No paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T13:18:00+08:00"
+  last_observation: "H13 completed 50 clean updates and locked step30 validation32 3078.749924, 1.875069 below H8 and 6.562592 below matched BOPO. H12 remains authoritative on GPU7 and was not modified. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -371,6 +379,7 @@ remote:
   active_jobs:
     - "H12 H8 instance-gradient-clipping USW screen300: GPU7 parent wrapper PID627879 / trainer PID627889, root logs/scheduling_large_scale/h12_instance_gradient_clipping/jssp50x20/screen300_20260718_1230, log /data1/gushengda/eam-rl4co/logs/codex_remote/h12_screen300_usw_h8_gradclip1_20260718_1230.log"
   completed_diagnostics:
+    jssp50x20_h13_h8_to_asw_micro: "GPU5 wrapper PID659931 completed exactly 50 updates in logs/scheduling_large_scale/h13_h8_to_asw_micro/jssp50x20/screen50_20260718_1254/asw_micro_lr1e6. Validation32 at steps0/10/20/30/40/50 was 3080.624992/3085.218689/3085.906265/3078.749924/3079.593697/3082.562546; best.ckpt locks step30. All losses and gradients were finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match exact-log scan were preserved."
     jssp50x20_h12_instance_gradient_clipping_smoke: "GPU7 trainer PID623959 completed exactly one update in logs/scheduling_large_scale/h12_instance_gradient_clipping/jssp50x20/smoke_20260718_1230/usw_h8_gradclip1. Step0/1 validation32 was 3093.375015/3091.906235, loss was 0.705810, pre/post gradient was 0.431275/0.431275 with max norm 1.0, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was 11.574 GiB, and the exact log was error-scan clean."
     jssp50x20_h11_concave_temperature_screen: "GPU7 wrapper PID577042 / trainer PID577052 completed 300 unique updates in logs/scheduling_large_scale/h11_concave_gap_temperature/jssp50x20/screen300_20260718_1155/usw_concave_gap_temperature. Best validation32 was step250 at 3085.437469, 0.124954 above matched BOPO; step300 was 3089.531273. All losses and gradients were finite and positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a clean exact-log scan were preserved."
     jssp50x20_h11_concave_temperature_smoke: "GPU7 wrapper PID573148 completed one update in logs/scheduling_large_scale/h11_concave_gap_temperature/jssp50x20/smoke_20260718_1155/usw_concave_gap_temperature. Step0/1 validation32 was 3093.375015/3092.343758, loss was 0.706051, gradient was 0.423499, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was 11.574 GiB, and the exact log was error-scan clean."
