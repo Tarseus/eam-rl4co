@@ -40,6 +40,29 @@ latest_full_gate:
   tsp100: {step: 10249, train_slim_loss: 0.05904803425073624, train_reward: -13.816556930541992, train_max_reward: -8.121350288391113}
   cvrp100: {step: 7799, train_slim_loss: 0.12208963930606842, train_reward: -17.68389320373535, train_max_reward: -16.601566314697266}
   exact_error_scan_matches: 0
+jssp_locked_test_analysis:
+  status: completed
+  evaluated_at: "2026-07-18T18:26:00+08:00"
+  protocol: {instances_per_shape: 100, B: 128, greedy: 0, augmentation_factor: 1, sampling_seed_base: 12345678, common_random_numbers: true}
+  evaluator_sha256: "7df77a1a3ade918a1caf9e283815df9e3ac604c01f60def73c55cbd5177cea61"
+  methods: [slim, rl, po, historical_custom_sll, bopo, loss_only, weighting_asw]
+  jssp10x10:
+    ranking_mean_makespan: {weighting_asw: 851.559995, loss_only: 853.130002, bopo: 854.469998, slim: 872.289996, rl: 890.800001, po: 1074.929998, historical_custom_sll: 1094.980008}
+    slim_mean_gap_pct: 6.055210
+    significant_losses_holm12: [bopo, loss_only, weighting_asw]
+    significant_wins_holm12: [rl, po, historical_custom_sll]
+  jssp15x15:
+    ranking_mean_makespan: {weighting_asw: 1297.539994, bopo: 1303.170006, loss_only: 1308.499993, slim: 1346.899988, rl: 1350.870001, po: 1642.670007, historical_custom_sll: 1865.049995}
+    slim_mean_gap_pct: 11.704688
+    significant_losses_holm12: [bopo, loss_only, weighting_asw]
+    significant_wins_holm12: [po, historical_custom_sll]
+    nonsignificant: {rl: {slim_minus_rl: -3.970013, wilcoxon_p_holm12: 0.368582}}
+  primary_test: "two-sided paired Wilcoxon signed-rank"
+  multiplicity: "Holm over 12 SLIM-vs-comparator tests"
+  bootstrap: {draws: 20000, unit: instance, seed_base: 20260718}
+  error_scan_matches: 0
+  complete_csv_count: 14
+  artifact: "artifacts/slim_matched_significance_20260718/slim_significance.json"
 distributed_launch_gate:
   active_problem_count: 6
   completed_problem_count: 2
