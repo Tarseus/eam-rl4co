@@ -98,6 +98,12 @@ hypotheses:
     motivation: "H8 beats BOPO on mean but is heterogeneous across instances; H8/H11 pre-clip gradients contain rare excursions up to 3.209301/6.609443 despite medians near 0.46."
     parent: H8
     priority: high
+  - id: H13
+    statement: "A 50-update low-LR ASW micro-adaptation from H8 step500 can retain or improve H8's matched-mean advantage without replaying its first 500 training instances."
+    status: active
+    motivation: "H8 already beats BOPO on mean; a tenfold-lower-LR ASW adapter may preserve the strong policy while using bounded instance-local ASW weights to make a small correction."
+    parent: H8
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
@@ -297,6 +303,10 @@ experiments:
       experiment: "H12 instance-gradient-clipping step50 gate"
       result: "Step50 validation32 was 3094.093811, 0.718796 worse than common step0 and 8.781296 above matched BOPO. An exact-log audit through step55 found finite positive pre/post gradients, max pre/post norms 3.209285/1.000000, exactly one clipped update at step5, B128/K16, physical batch one, exactly 15 instance-local pairs, and zero error-pattern matches."
       decision: "No promotion; continue only PID627879/PID627889 unchanged through steps100/150/200/250/300 because H8/H11 improved late. Do not run paired inference or read TA/DMU/final data unless a scheduled mean is strictly below 3085.312515."
+    - cycle: 48
+      experiment: "H13 H8-to-ASW micro-adaptation preregistration"
+      result: "H13 initializes from H8 step500 validation leader 3080.624992, then applies H10's byte-identical source-normalized ASW artifact for exactly 50 fresh-Adam updates at LR1e-6/WD1e-6, alpha0, starting dynamic data at index500. Validation is locked to micro-steps0/10/20/30/40/50 with B128/K16, physical batch one, and 15 instance-local pairs."
+      decision: "Commit before execution. Run one smoke on idle GPU5, requiring exact H8 step0 reproduction and clean finite semantics. Only then run one screen50. Report retention below BOPO separately from a genuine ASW contribution below the H8 initialization; do not read TA/DMU/final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -327,9 +337,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 47
+  cycle: 48
   last_direction: deepen
-  last_reflection: "H12's step50 gate is negative, and clipping has activated exactly once through step55. Continue only the authoritative process through late gates because the parent H8/H11 trajectories improved after step100."
+  last_reflection: "H12 continues independently. The user requested a bounded ASW micro-adaptation from H8, so H13 separates inherited retention below BOPO from a genuine ASW contribution below H8 and permits exactly one 50-update low-LR run."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
