@@ -104,6 +104,12 @@ hypotheses:
     motivation: "The locked step30 hybrid improved H8 by 1.875069 and matched BOPO by 6.562592 on validation mean, but it inherits 500 USW updates and has not passed paired inference, so it supports a sequential ASW contribution rather than an original-ASW claim."
     parent: H8
     priority: high
+  - id: H14
+    statement: "The validation-locked H8 USW and H13 H8-to-ASW hybrid improve paired official TA+DMU JSSP50x20 gaps over matched BOPO with familywise statistical significance."
+    status: active
+    motivation: "H8 and H13 beat BOPO on validation mean, but H8 failed validation32 paired inference; official test inference is now authorized only after both checkpoints are frozen."
+    parent: H13
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
@@ -315,6 +321,10 @@ experiments:
       experiment: "H13 H8-to-ASW micro-adaptation screen50 completion and lock"
       result: "The sole H13 screen exited naturally after 50 unique contiguous updates. Validation32 at steps0/10/20/30/40/50 was 3080.624992/3085.218689/3085.906265/3078.749924/3079.593697/3082.562546. The locked step30 best is 1.875069 below H8 and 6.562592 below matched BOPO. All losses and gradients were finite, every gradient was positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a zero-match error scan were preserved."
       decision: "Lock H13 step30 as the validation-mean ASW-after-USW leader. Report it only as a sequential hybrid: H8 independently establishes the USW mean win, while the additional 30 ASW updates establish a small direct mean improvement from that H8 policy. No paired inference, TA/DMU, or final data were read."
+    - cycle: 51
+      experiment: "H14 locked official-test inference preregistration"
+      result: "The user authorized final-test evaluation after H8 step500 and H13 micro-step30 were locked on validation. H14 fixes BOPO/H8/H13 checkpoint hashes, official BOPO data commit 2739fbfe39a478755173c892b80c4b06f9f59b05, TA ta61-ta70 plus DMU dmu36-dmu40/dmu76-dmu80, B'=128 with greedy injection, common per-instance seeds, and n=20 official instances."
+      decision: "Commit before reading new H8/H13 TA/DMU outputs. Run each checkpoint once, then test exactly H8-versus-BOPO and H13-versus-BOPO with two-sided paired Wilcoxon, one two-test Holm family, and 20,000-sample bootstrap CIs. Never tune or rerun from test results. Reuse the already-complete FFSP100 fixed1000 global-Holm evidence instead of rerunning it."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -345,9 +355,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 50
+  cycle: 51
   last_direction: deepen
-  last_reflection: "H13 supports the user's bounded hybrid idea on the locked validation mean: step30 improves H8 by 1.875069 and BOPO by 6.562592. This does not rehabilitate original ASW or establish paired significance; it establishes that a short ASW adapter can improve an already strong USW policy. H12 continues independently."
+  last_reflection: "H13 supports a sequential mean improvement, so the next legitimate step is one frozen official-test inference rather than further calibration. H14 combines the 10 TA50x20 and 10 DMU50x20 instances as the preregistered statistical unit family and keeps FFSP100's existing fixed1000 evidence sealed from reruns."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
