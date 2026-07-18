@@ -110,6 +110,12 @@ hypotheses:
     motivation: "Both candidates improved the pooled official-test mean, but n=20 was heterogeneous: H8/H13 bootstrap intervals crossed zero and Holm p-values were 0.348810/0.285812."
     parent: H13
     priority: high
+  - id: H15
+    statement: "Frozen H8 and H13 improve over BOPO with conservative familywise significance on an independent 256-instance generated JSSP50x20 test."
+    status: active
+    motivation: "H14 preserved a roughly 0.33 percentage-point official mean advantage but n=20 intervals crossed zero; one independent fixed-seed replication can distinguish low power from non-generalization without modifying models."
+    parent: H14
+    priority: high
 
 experiments:
   proxy_metric: "Held-out fixed validation mean cost; primary score is max(USW-min(PO,BOPO), ASW-min(PO,BOPO)); lower is better."
@@ -329,6 +335,10 @@ experiments:
       experiment: "H14 official TA+DMU JSSP50x20 test completion"
       result: "All three locked checkpoints completed exactly 20 aligned official instances at B'=128 with greedy injection, common seeds, verified checkpoint/data hashes, finite costs, and clean logs. BOPO/H8/H13 pooled mean gaps were 15.775736%/15.442569%/15.446830%. H8 minus BOPO was -0.333167 pp with 11/20 wins, bootstrap CI [-0.859073,0.083928], Holm p=0.348810. H13 minus BOPO was -0.328906 pp with 12/20 wins, CI [-0.729150,0.035417], Holm p=0.285812."
       decision: "H14 is a mean improvement but not a statistically supported official-test win. Freeze and report the negative inference without rerunning, changing B/seeds, or selecting subsets. A separately preregistered independent generated replication may estimate the effect with higher power but cannot erase or replace this official result. FFSP100 already passes its fixed1000 global-Holm tests and is not rerun."
+    - cycle: 53
+      experiment: "H15 independent generated256 replication preregistration"
+      result: "H15 preserves the exact H14 checkpoint hashes and B'=128+greedy inference, but fixes a disjoint generated JSSP50x20 population: generator seed314159265, indices0-255, common sampling seeds271828182+i, physical instance batch one, and per-instance content hashes."
+      decision: "Commit before generation/evaluation. Run each checkpoint once and analyze exactly two paired comparisons. Require negative mean, a wholly negative 97.5% bootstrap CI, and Holm p<0.025. Report H15 only as generated-distribution replication; never replace H14 official non-significance or tune from either test."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -359,9 +369,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 52
+  cycle: 53
   last_direction: deepen
-  last_reflection: "H14 preserves the candidate mean advantage on official TA+DMU but cannot establish significance with 20 heterogeneous instances. The next legitimate evidence is one independent, fixed-seed, higher-powered generated test with no model changes and stricter sequential alpha; the official negative remains part of the final conclusion."
+  last_reflection: "H15 is the single higher-powered replication permitted by H14's low-power diagnosis. Its population, seeds, n=256, checkpoints, and conservative p/CI gates are frozen before execution, and its conclusion will remain separate from the official benchmark."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
