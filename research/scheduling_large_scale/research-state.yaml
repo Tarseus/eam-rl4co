@@ -289,6 +289,10 @@ experiments:
       experiment: "H12 instance-gradient-clipping exactly-once smoke"
       result: "The authoritative H12 smoke completed exactly one update after protocol commit 84ace95f8. Step0/1 validation32 was 3093.375015/3091.906235, loss was finite at 0.705810, pre/post-clip gradients were finite and positive at 0.431275/0.431275, max_grad_norm was 1.0, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.574 GiB peak allocation, and a zero-match exact-log error scan were preserved."
       decision: "The feasibility gate passes. Launch exactly one collision-free 300-update H12 screen in the preregistered fresh root, then compare only scheduled validation32 gates to matched BOPO 3085.312515."
+    - cycle: 46
+      experiment: "H12 instance-gradient-clipping screen300 launch reconciliation"
+      result: "A concurrent continuity tick created the exact preregistered screen root first, so trainer PID627889 with parent wrapper PID627879 is authoritative and no duplicate launch was submitted. Step0 reproduced 3093.375015. Updates1-5 had finite losses and positive pre/post gradients with B128/K16, physical batch one, exactly 15 instance-local pairs, and about 11.583 GiB peak allocation. Step5 exercised the cap: pre-clip 3.209285 became post-clip 1.000000."
+      decision: "Continue only PID627879/PID627889 through scheduled validation32 gates. Do not retry or duplicate the root. Promote or continue only a checkpoint strictly below matched BOPO 3085.312515; do not read TA/DMU/final data."
   final_success:
     ranking: "USW and ASW must each have lower paired mean cost than both PO and BOPO."
     inference: "Candidate-minus-baseline paired bootstrap 95% CIs must be wholly below zero; paired Wilcoxon tests use one locked Holm family per problem."
@@ -319,9 +323,9 @@ protocol:
   test_discipline: "Do not read the final fixed paired test set until one validation-selected checkpoint per method is locked."
 
 outer_loop:
-  cycle: 45
+  cycle: 46
   last_direction: deepen
-  last_reflection: "H12 passed its exactly-once smoke with finite positive pre/post-clip gradients and unchanged B128/K16/batch1/exact-15-local-pair semantics. Proceed to one collision-free screen300."
+  last_reflection: "H12's sole screen300 is active and has already exercised the norm-1.0 cap on an H8-style step5 gradient spike while preserving all rollout and local-pair semantics. Continue only the authoritative process through fixed gates."
 
 workspace:
   findings: "research/scheduling_large_scale/findings.md"
@@ -335,8 +339,8 @@ remote:
   preferred_host: g51
   initial_observation: "GPU1 was idle on 2026-07-17; the remote worktree is dirty and must not be reset or overwritten."
   automation_id: "autoresearch-ffsp1000-and-jssp50x20 (active calibrated-variant loop)"
-  last_check: "2026-07-18T12:38:06+08:00"
-  last_observation: "H12 smoke completed exactly once with step0/1 3093.375015/3091.906235, finite loss 0.705810, positive pre/post gradient 0.431275/0.431275, max norm 1.0, B128/K16, batch one, exactly 15 local pairs, 11.574 GiB peak, and clean logs. No JSSP trainer is active and no paired inference, TA/DMU, or final data were read."
+  last_check: "2026-07-18T12:40:31+08:00"
+  last_observation: "H12 screen trainer PID627889 / parent wrapper PID627879 is authoritative in the exact preregistered root. Step0 is 3093.375015; updates1-5 are finite, positive-gradient, B128/K16, batch one, exact-15-local-pair, and clean. Step5 clipped pre-norm 3.209285 to 1.000000. No paired inference, TA/DMU, or final data were read."
   completed:
     checkpoint_selection: "logs/scheduling_large_scale/checkpoint_selection/"
     jssp50x20_h0_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h0_all_methods_20260717-134316.log"
@@ -350,7 +354,8 @@ remote:
     jssp50x20_h1_screen500_asw_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/jssp50x20_h1_screen500_asw_retry1_20260717-104851.log"
     jssp50x20_paper_control_step100_b128: "logs/scheduling_large_scale/paper_alignment/jssp50x20_bopo_step100_B128_v2/summary.json (gap 9.6488%; paper delta +1.6488 pp)"
     jssp50x20_selected_official_eval: "logs/scheduling_large_scale/paper_alignment/jssp50x20_selected_step500screen/ (BOPO gaps 9.3718% at B'=128 and 8.8951% at B'=512)"
-  active_jobs: []
+  active_jobs:
+    - "H12 H8 instance-gradient-clipping USW screen300: GPU7 parent wrapper PID627879 / trainer PID627889, root logs/scheduling_large_scale/h12_instance_gradient_clipping/jssp50x20/screen300_20260718_1230, log /data1/gushengda/eam-rl4co/logs/codex_remote/h12_screen300_usw_h8_gradclip1_20260718_1230.log"
   completed_diagnostics:
     jssp50x20_h12_instance_gradient_clipping_smoke: "GPU7 trainer PID623959 completed exactly one update in logs/scheduling_large_scale/h12_instance_gradient_clipping/jssp50x20/smoke_20260718_1230/usw_h8_gradclip1. Step0/1 validation32 was 3093.375015/3091.906235, loss was 0.705810, pre/post gradient was 0.431275/0.431275 with max norm 1.0, B128/K16 and physical batch one were preserved, pair_count was exactly 15 and instance-local, peak allocation was 11.574 GiB, and the exact log was error-scan clean."
     jssp50x20_h11_concave_temperature_screen: "GPU7 wrapper PID577042 / trainer PID577052 completed 300 unique updates in logs/scheduling_large_scale/h11_concave_gap_temperature/jssp50x20/screen300_20260718_1155/usw_concave_gap_temperature. Best validation32 was step250 at 3085.437469, 0.124954 above matched BOPO; step300 was 3089.531273. All losses and gradients were finite and positive, B128/K16, physical batch one, exactly 15 instance-local pairs, 11.583 GiB peak allocation, and a clean exact-log scan were preserved."
