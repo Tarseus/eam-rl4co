@@ -10,7 +10,13 @@ import torch.nn as nn
 from rl4co.data.transforms import StateAugmentation
 from rl4co.envs.common.base import RL4COEnvBase
 from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
-from rl4co.models.rl.reinforce.preference_losses import pl_loss, po_loss, bopo_loss, sll_loss
+from rl4co.models.rl.reinforce.preference_losses import (
+    bopo_loss,
+    pl_loss,
+    po_loss,
+    slim_loss,
+    sll_loss,
+)
 from rl4co.models.rl.reinforce.reinforce import REINFORCE
 from rl4co.models.zoo.am import AttentionModelPolicy
 from rl4co.models.zoo.pomo.po4cops_cvrp_policy import PO4COPsCVRPPolicy
@@ -60,7 +66,7 @@ class POMO(REINFORCE):
         first_aug_identity: Whether to include the identity augmentation in the first position
         feats: List of features to augment
         num_starts: Number of starts for multi-start. If None, use the number of available actions
-        loss_type: Loss type to use. One of {"rl_loss", "po_loss", "pl_loss", "bopo_loss", "sll_loss", "free_loss"}.
+        loss_type: Loss type to use. One of {"rl_loss", "po_loss", "pl_loss", "bopo_loss", "slim_loss", "sll_loss", "free_loss"}.
         alpha: Scaling factor for log-likelihood in preference losses.
         po_impl: Implementation choice for pairwise preference loss, {"bt", "exponential"}.
         loss_kwargs: Optional keyword args reserved for preference losses.
@@ -337,9 +343,9 @@ class POMO(REINFORCE):
             raise TypeError(
                 "memory_efficient_preference requires a PO4COPs TSP or CVRP policy"
             )
-        if self.loss_type not in {"po_loss", "bopo_loss", "free_loss"}:
+        if self.loss_type not in {"po_loss", "bopo_loss", "slim_loss", "free_loss"}:
             raise ValueError(
-                "memory_efficient_preference supports po_loss, bopo_loss, and free_loss; "
+                "memory_efficient_preference supports po_loss, bopo_loss, slim_loss, and free_loss; "
                 f"got {self.loss_type}"
             )
         if n_start is None or n_start <= 1:
@@ -521,6 +527,18 @@ class POMO(REINFORCE):
                     "bopo_pair_count": pair_count.detach() if isinstance(pair_count, torch.Tensor) else pair_count,
                 }
             )
+            return policy_out
+        if self.loss_type == "slim_loss":
+            actions = policy_out.get("actions")
+            sequence_length = None
+            if isinstance(actions, torch.Tensor):
+                sequence_length = float(actions.shape[-1])
+            loss = slim_loss(
+                reward,
+                log_likelihood,
+                sequence_length=sequence_length,
+            )
+            policy_out.update({"loss": loss, "slim_loss": loss.detach()})
             return policy_out
         if self.loss_type == "sll_loss":
             loss = sll_loss(

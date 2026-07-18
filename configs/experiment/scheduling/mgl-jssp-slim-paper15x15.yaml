@@ -1,0 +1,55 @@
+# @package _global_
+# Official SLIM objective on the matched MGL JSSP15x15 backbone.
+defaults:
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  - override /logger: csv.yaml
+  - override /env: jssp/15j-15m.yaml
+
+hydra:
+  run:
+    dir: ${paths.log_dir}/${mode}/runs/mgl-jssp-slim-paper15x15_${now:%Y%m%d-%H%M%S}
+
+trainer:
+  max_epochs: 20
+  precision: 32-true
+  gradient_clip_val: null
+  enable_progress_bar: false
+
+callbacks:
+  model_checkpoint: {monitor: val/gap, mode: min, save_top_k: 1, save_last: true}
+
+seed: 69
+test: false
+tags: [mgl-jssp-slim, jssp]
+
+model:
+  _target_: rl4co.models.zoo.mgl_jssp.model.MGLJSSPModel
+  baseline: slim
+  train_data_dir: ${paths.root_dir}/data/jssp_bopo/train
+  val_data_dir: ${paths.root_dir}/data/jssp_bopo/validation
+  test_data_dir: null
+  use_cached: true
+  batch_size: 1
+  val_batch_size: 1
+  test_batch_size: 1
+  optimizer: Adam
+  optimizer_kwargs: {lr: 2e-4}
+  enc_hidden: 64
+  enc_out: 128
+  mem_hidden: 64
+  mem_out: 128
+  clf_hidden: 128
+  B: 128
+  K: 16
+  D: 1
+  val_B: 128
+  test_B: 128
+  greedy: 0
+  allowed_shapes: [[15, 15]]
+  required_allowed_shapes: [[15, 15]]
+  log_on_step: false
+  metrics:
+    train: [loss, reward, quality]
+    val: [reward, gap, makespan]
+    test: ${model.metrics.val}

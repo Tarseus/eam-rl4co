@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from rl4co.models.rl.reinforce.free_loss import compile_free_loss, ir_from_json
-from rl4co.models.rl.reinforce.preference_losses import sll_loss
+from rl4co.models.rl.reinforce.preference_losses import slim_loss, sll_loss
 from rl4co.models.zoo.mgl_jssp.data import (
     JSSPInstanceDataset,
     JSSPShapeBucketSampler,
@@ -177,7 +177,7 @@ class MGLJSSPModel(L.LightningModule):
         if unused_kwargs:
             log.warning("Ignoring unused MGLJSSPModel kwargs: %s", sorted(unused_kwargs.keys()))
 
-        if self.baseline not in {"bopo", "rl", "po", "sll"}:
+        if self.baseline not in {"bopo", "rl", "po", "slim", "sll"}:
             raise ValueError(f"Unsupported MGL JSSP baseline: {self.baseline!r}")
         self._resolve_pref_pair_artifacts()
         self._free_loss_enabled = bool(self.free_loss_ir_json_path)
@@ -753,7 +753,7 @@ class MGLJSSPModel(L.LightningModule):
             aux_metric = torch.tensor(float(quality), dtype=torch.float32, device=self.device)
             return loss, reward, aux_metric, None
 
-        if self.baseline == "sll":
+        if self.baseline in {"slim", "sll"}:
             trajs, logits, makespans, _ = solve_jsp(
                 instances,
                 batch_size_per_instance=self.B,
@@ -776,13 +776,20 @@ class MGLJSSPModel(L.LightningModule):
             for i in range(num_instances):
                 log_probs_i = trajectory_log_probs(logits_reshaped[i], trajs_reshaped[i]).unsqueeze(0)
                 reward_i = (-makespans_reshaped[i]).unsqueeze(0)
-                loss_i = sll_loss(
-                    reward_i,
-                    log_probs_i,
-                    alpha=self.alpha,
-                    impl=self.sll_impl,
-                    temperature=self.sll_temperature,
-                )
+                if self.baseline == "slim":
+                    loss_i = slim_loss(
+                        reward_i,
+                        log_probs_i,
+                        sequence_length=float(num_steps),
+                    )
+                else:
+                    loss_i = sll_loss(
+                        reward_i,
+                        log_probs_i,
+                        alpha=self.alpha,
+                        impl=self.sll_impl,
+                        temperature=self.sll_temperature,
+                    )
                 total_loss = total_loss + loss_i
                 total_quality = total_quality + solution_ratio(makespans_reshaped[i])
                 best_makespan_list.append(makespans_reshaped[i].min())

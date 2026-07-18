@@ -220,6 +220,65 @@ def sll_loss(
     return loss
 
 
+def slim_loss(
+    reward: torch.Tensor,
+    log_likelihood: torch.Tensor,
+    sequence_length: torch.Tensor | float | int | None = None,
+) -> torch.Tensor:
+    """Official SLIM self-labeling objective (Corsini et al., NeurIPS 2024).
+
+    For each physical instance, select the sampled solution with the best
+    objective value and use only that trajectory as a pseudo-label.  The loss
+    is the mean token/action cross-entropy of the selected trajectories,
+    averaged over physical instances.  Selection never crosses the leading
+    instance dimension.
+
+    Args:
+        reward: Higher-is-better objective values with shape [instances, rollouts].
+        log_likelihood: Summed trajectory log-likelihoods with the same shape.
+        sequence_length: Optional scalar or tensor used to convert summed
+            trajectory log-likelihoods to per-action means.
+    """
+    if reward.ndim != 2 or log_likelihood.ndim != 2:
+        raise ValueError(
+            "SLIM expects [instances, rollouts] reward and log_likelihood tensors, "
+            f"got {tuple(reward.shape)} and {tuple(log_likelihood.shape)}."
+        )
+    if reward.shape != log_likelihood.shape:
+        raise ValueError(
+            "SLIM reward and log_likelihood shapes must match, "
+            f"got {tuple(reward.shape)} and {tuple(log_likelihood.shape)}."
+        )
+    if reward.shape[0] == 0 or reward.shape[1] == 0:
+        raise ValueError("SLIM requires at least one instance and one rollout.")
+
+    best_index = reward.detach().argmax(dim=-1, keepdim=True)
+    selected_log_likelihood = log_likelihood.gather(-1, best_index).squeeze(-1)
+
+    if sequence_length is not None:
+        length = torch.as_tensor(
+            sequence_length,
+            dtype=selected_log_likelihood.dtype,
+            device=selected_log_likelihood.device,
+        )
+        if length.ndim == 0:
+            selected_length = length.expand_as(selected_log_likelihood)
+        else:
+            try:
+                length = torch.broadcast_to(length, log_likelihood.shape)
+            except RuntimeError as exc:
+                raise ValueError(
+                    "SLIM sequence_length must be scalar or broadcastable to "
+                    f"{tuple(log_likelihood.shape)}, got {tuple(length.shape)}."
+                ) from exc
+            selected_length = length.gather(-1, best_index).squeeze(-1)
+        if not torch.all(selected_length > 0):
+            raise ValueError("SLIM sequence_length must be strictly positive.")
+        selected_log_likelihood = selected_log_likelihood / selected_length
+
+    return -selected_log_likelihood.mean()
+
+
 def po_loss(
     reward: torch.Tensor,
     log_likelihood: torch.Tensor,
