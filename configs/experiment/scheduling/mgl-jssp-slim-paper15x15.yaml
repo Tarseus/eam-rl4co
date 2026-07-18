@@ -17,7 +17,7 @@ trainer:
   enable_progress_bar: true
 
 callbacks:
-  model_checkpoint: {monitor: val/gap, mode: min, save_top_k: 1, save_last: true}
+  model_checkpoint: {monitor: val/reward, mode: max, save_top_k: 1, save_last: true}
 
 seed: 69
 test: false
@@ -51,5 +51,5 @@ model:
   log_on_step: false
   metrics:
     train: [loss, reward, quality]
-    val: [reward, gap, makespan]
+    val: [reward, makespan]
     test: ${model.metrics.val}
