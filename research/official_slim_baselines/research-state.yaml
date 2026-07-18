@@ -23,4 +23,8 @@ smoke_status:
   passed: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, jssp15x15]
   test_access: "disabled for every full run"
   jssp15_train_split: "data/jssp_scale_probe/15x15/train (96 existing shape-isolated instances)"
+latest_full_gate:
+  jssp10x10: {epoch: 1, train_loss: 1.361628532409668, train_reward: -902.7916870117188, val_makespan: 887.274169921875, next_step_observed: 199}
+  jssp15x15: {epoch: 0, train_loss: 2.3673741817474365, train_reward: -1698.1666259765625, val_makespan: 1434.1099853515625, next_step_observed: 99}
+  exact_error_scan_matches: 0
 automation: "remains paused; this user-authorized run is executed directly"
