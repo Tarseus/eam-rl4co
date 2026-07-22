@@ -1,0 +1,43 @@
+# @package _global_
+# JSSP bucketed batching with RL loss
+# Supports multiple shapes: 10x10, 15x15, 20x20
+
+defaults:
+  - override /env: jssp/multi-bucket.yaml
+  - override /model: am.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+  - override /logger: none.yaml
+
+logger:
+  wandb:
+    project: "rl4co-jssp"
+    log_model: "all"
+    group: "jssp-bucketed-rl"
+
+trainer:
+  max_epochs: 10
+  precision: 32-true
+
+seed: 12345678
+
+scaling_factor: ${env.generator_params.max_processing_time}
+
+model:
+  _target_: rl4co.models.AttentionModel
+  baseline: "rollout"
+  loss_mode: "rl"  # Options: rl, po, bopo
+  batch_size: 32    # This is dataloader batch size (D: num instances per batch)
+  train_data_size: 1000
+  val_data_size: 500
+  test_data_size: 100
+  optimizer_kwargs:
+    lr: 2e-4
+    weight_decay: 1e-6
+  lr_scheduler: "ExponentialLR"
+  lr_scheduler_kwargs:
+    gamma: 0.95
+  reward_scale: scale
+  max_grad_norm: 1
+  policy_kwargs:
+    num_starts: 1  # RL typically uses num_starts=1, but can use more
