@@ -3137,6 +3137,7 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
     ]
     allow_uniform_none = bool(cfg.get("allow_uniform_none", False))
     allow_freeform_weight_family = bool(cfg.get("allow_freeform_weight_family", False))
+    allow_zero_weights = bool(cfg.get("allow_zero_weights", False))
     require_instance_stats = bool(cfg.get("require_instance_stats", False))
     require_instance_conditioning = bool(cfg.get("require_instance_conditioning", False))
     instance_stat_keys = _normalize_instance_stat_keys(cfg.get("instance_stat_keys"))
@@ -3166,6 +3167,7 @@ def _normalize_builder_search_space_cfg(raw: Any) -> Dict[str, Any]:
         "seed_weight_families": list(seed_families),
         "allow_uniform_none": bool(allow_uniform_none),
         "allow_freeform_weight_family": bool(allow_freeform_weight_family),
+        "allow_zero_weights": bool(allow_zero_weights),
         "require_instance_stats": bool(require_instance_stats),
         "require_instance_conditioning": bool(require_instance_conditioning),
         "instance_stat_keys": list(instance_stat_keys),
@@ -5777,8 +5779,9 @@ def _make_builtin_builder_irs(rng: random.Random, n: int) -> List[PreferenceBuil
             if require_instance_stats
             else "regret_span"
         )
+        clamp_lo = 0.0 if bool(search_space_cfg.get("allow_zero_weights", False)) else 0.25
         helper_lines = [
-            "    clamp_lo = 0.25",
+            f"    clamp_lo = {clamp_lo:.2f}",
             "    clamp_hi = 4.0",
             "    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)",
         ]

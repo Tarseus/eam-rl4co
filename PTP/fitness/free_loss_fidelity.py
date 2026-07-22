@@ -695,6 +695,9 @@ class PrefBatch:
             weight = torch.ones_like(logp_w_tensor)
 
         batch = {
+            # Keep source-instance identity after pair flattening so losses can
+            # reduce within each instance before averaging across instances.
+            "pair_instance_idx": b_idx,
             "cost_a": cost_a_tensor,
             "cost_b": cost_b_tensor,
             "cost_gap": cost_b_tensor - cost_a_tensor,

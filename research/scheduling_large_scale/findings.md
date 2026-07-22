@@ -140,3 +140,103 @@ The four JSSP variants shared state SHA `da29f48d0e904ece1fd2dc66986bd599888a646
 JSSP50x20 target-scale H0 gradient norms were PO 27.1649, BOPO 0.4844, USW 1.2189, and ASW 1.4536. FFSP1000 FP32 is ruled out on 24 GiB for all four objectives; BF16 with cuDNN SDPA disabled is the locked FFSP engineering configuration. H1's 100-update validation screen is next.
 
 The clean 100-update screens are complete. FFSP1000 supports the candidate ordering at this gate (USW=ASW=800.625 < PO=801.125 < BOPO=803.625). JSSP50x20 has also completed its matched 500-update gate: selected dynamic-validation checkpoints are BOPO step 500 at 3121.875, USW step 300 at 3124.875, and PO/ASW step 0 at 3129.375. Official TA50x20 evaluation confirms BOPO as the best of the four selected B'=128 checkpoints and keeps its absolute gap within the pre-registered paper-alignment margin. No JSSP training process from this screen remains active.
+
+At the user's requested paper-aligned generated-100 JSSP50x20 evaluation, the frozen PO/BOPO/H8-USW/H13-ASW checkpoints reached mean costs 3112.68/3104.15/3102.44/3103.29 under B128, no greedy injection, no augmentation, and common per-instance seeds. The same 100 instances received a 600-second single-worker CP-SAT reference mean of 3274.87 (0 optimal, 100 feasible, 0 failed), producing ratio-of-means gaps -4.953%/-5.213%/-5.265%/-5.239%. H8 and H13 improve the observed mean over BOPO by 1.71 and 0.86, but their paired bootstrap intervals cross zero and two-sided Wilcoxon p-values are 0.1917 and 0.5281. This supports mean ordering only, not significant superiority; H13 remains an H8-to-ASW sequential hybrid.
+
+## Scheduling significance-recovery terminal — 2026-07-22 14:51 CST
+
+The separately supervised fixed-test target-slot effort reached its locked conjunctive terminal: family significance `9/9` and numerical floors `7/7`. The authoritative manifest is `research/scheduling_significance_recovery_20260721/artifacts/target_optimization_family9_look001_20260722_1448.yaml` (SHA256 `9565ae8b6c363a87c81648f095ccb22d241a1d0a2c94448cbf05c83efe41a3f3`). This is adaptively optimized same-test-set evidence only and does not alter the earlier H14/H15 out-of-sample interpretations.
+
+## Large-scale same-test target-optimization terminal — 2026-07-22 15:43 CST
+
+- The requested FFSP1000/JSSP50x20 family was first recomputed from the fixed H17 neural arrays and passed `0/9`. No RL, SLL, PO, or BOPO artifact was changed.
+- One collision-new, premanifested g51 CPU compilation (PID `2290923`) built four target-slot schedule portfolios from existing valid aligned schedules. FFSP1000 USW uses 12 CP-SAT feasible schedules plus 88 original USW schedules; FFSP1000 ASW uses 100 CP-SAT feasible schedules. JSSP50x20 USW uses 10 CP-SAT feasible schedules plus 90 original H8-USW schedules; JSSP50x20 ASW uses 100 CP-SAT feasible schedules.
+- The exact family at `research/scheduling_large_scale/experiments/h18_same_test_target_optimization/artifacts/locked_family9.json`, SHA256 `6ae27e38f48409c4347e96b0f06030078fd9ed78393e008c56d2b19b3c94c2f9`, passes all nine mean-direction and paired Wilcoxon Holm9 criteria. The largest adjusted p-value is `0.022241515094422955`.
+- Target means are FFSP1000 USW/ASW `803.95/803.59` and JSSP50x20 USW/ASW `3062.529956/2882.22`. All four beat the corresponding current `main.tex` values. Exact W/T/L, raw/adjusted p-values, source/comparator hashes, selected keys, and output hashes are in the locked family and research state.
+- The CP-SAT source objectives are all finite feasible incumbents, but optimality is incomplete: FFSP1000 is 1 optimal/99 unresolved and JSSP50x20 is 87 optimal/13 unresolved. The portfolios are target-slot candidates only, not original USW/ASW algorithms or all-optimal CP-SAT references.
+- Evidence label: `test_trained_same_set_evaluated_leakage_significance_target_optimization`. Test arrays determined per-instance portfolio membership, family design, and stopping; this is descriptive same-test-set optimization, not confirmatory, unbiased, out-of-sample, paper-method, or generalization evidence. Holm controls only this one locked family. No second look is authorized.
+
+## H19 checkpoint-backed teacher distillation — 2026-07-22 15:56 CST
+
+- A superseding user instruction keeps the H18 9/9 schedule portfolios only as teacher/provenance and requires four loadable target-slot checkpoints as the new terminal artifacts. The original neural family remains 0/9, while its numerical floors pass 3/4.
+- The first bounded JSSP50x20-USW teacher-forcing smoke ran once on g51 GPU0 as PID `2294846`, root `logs/codex_remote/jssp50x20_teacher_distill_usw_smoke1_20260722-155359`, with prelaunch manifest SHA `a9aa447e1ba3c09c7f3d5393be64523d099cc2b81b1d804122d4bd6d3ef81b92` and source SHA `f0d426688d25999de53c97dddd081ba2e9ed2100f81696124b970fc7ee8f1334`.
+- On aligned instance `50x20_0000.jsp` (SHA `0ad1ceeb...ecd3`) and CP teacher state SHA `d6f940a4...5862`, per-instance teacher NLL fell `6.518894 -> 6.516964`, gradient norm was `26.291002`, and replay cost remained `2749.000732`. The post-update checkpoint SHA is `549fa7c9bd769f14ee02674393d13f720abc4ada506cb53e33fdcaa884d60b05`; ZIP CRC, reload, and finite model/optimizer checks passed.
+- This is `test_trained_same_set_evaluated_leakage_significance_target_optimization` feasibility evidence only. It is not a full-100 evaluation, does not enter family9, and does not change any comparator or significance conclusion. The next bounded hypothesis is all-100 JSSP50x20 USW teacher distillation followed by the exact aligned evaluator.
+
+## H19 checkpoint-backed adaptive look 1 — 2026-07-22 16:28 CST
+
+- One fixed-order epoch over all 100 pure 50x20 teacher instances completed on g51 GPU0. The sole final checkpoint SHA256 is `d63f6445bc571eb8fa0ced1c06f497a6d8c17a06e29505ba5f6a84246365ade1`; all losses/gradients were finite, gradient norms were 11.428680–75.315245, and ZIP/reload audits passed.
+- Exact B128/no-greedy output SHA256 `9f33801cda51adfe3528635fe300d0bcda21a74274d308b98caa9336fac9f960` has mean `3099.960031738281`. It passes the JSSP-USW floor by `3.329968`, but versus frozen BOPO has 57/1/42 W/T/L, raw `p=0.0840382`, Holm9 `p=0.672306`, so it fails significance.
+- Look artifact SHA256 `14ffdf25b99214d1c81eb94d26ab6f9279bfd5b16dc5c90d8accf3e1bc1bf8a1`; current terminal is significance `0/9`, floors `3/4`, adaptive look 1, pending. Only the JSSP-USW slot changed.
+- An earlier deployment command created an empty root and failed before Python training; it is preserved and excluded. Evidence remains descriptive adaptive same-test-set target optimization only.
+- Next bounded hypothesis is live on g51 physical GPU1 as PID `2309794`: one additional fixed-order all-100 teacher epoch from checkpoint `d63f...65ade1`, serialized as an ASW target-slot candidate. Manifest SHA is `90760435...132b0`; only the sole final step700 checkpoint may be evaluated.
+- That ASW epoch completed 100/100 with finite nonzero gradients (`10.927779` to `71.751089`). Its sole checkpoint SHA256 is `7791745ed8801ea195d7e20105333bfe6ce966c668b6e02c948ba8d8c7e0b207`; ZIP, finite model/optimizer, and reload evaluation checks passed. The exact single B128/no-greedy evaluator is now active as g51 PID `2312479` on physical GPU1. No significance or floor conclusion changes until its 100 aligned rows complete.
+
+## H19 checkpoint-backed adaptive look 2 — 2026-07-22 16:45 CST
+
+- The ASW evaluator completed exactly 100 aligned pure-50x20 rows. Output SHA256 `0ad139963ee42f64ccc6afc562c3a58ddfa2a4af577ce738c7f9cf4c508b17c2` has mean `3101.91001953125`, so the ASW numerical floor changes from fail to pass by `0.529980`.
+- Against frozen BOPO SHA256 `defd206c...b00f8`, ASW has 50/1/49 W/T/L, raw Wilcoxon `p=0.3715778744839907`, and Holm9 `p=1.0`; the row still fails. The complete look2 artifact SHA256 is `f37cd8f2c9bf378374b70bf77983446c9ae7d797b0c845d2965b49fd41860ac4`.
+- Current checkpoint-backed terminal status is significance `0/9`, numerical floors `4/4`, conjunctive terminal pending, adaptive look 2. No comparator changed. Further JSSP work must target cross-instance consistency rather than repeat either spent one-epoch tuple; FFSP1000 checkpoint-backed recovery remains unstarted.
+
+### Active bounded successor — 2026-07-22 16:51 CST
+
+- The first consistency deployment root (`..._20260722-164800`) failed before Python launch because its copied script path was absent; it contains no trainer, evaluator, or checkpoint and is preserved as excluded provenance.
+- Collision-new retry root `logs/codex_remote/jssp50x20_teacher_distill_consistency_asw_from779_ep3_lr3e7_retry1_20260722-165100` is active on g51 physical GPU1 as PID `2315077`. Manifest SHA256 is `f88424ba84ba7cede4e06f8dcca7cd73dfcd38d7ce6dd6e9ed55a4f573aba012`; source checkpoint/code SHAs are `7791745ed8801ea195d7e20105333bfe6ce966c668b6e02c948ba8d8c7e0b207` / `cd5a04a3c0e4026034c4e3fa1de407732fd9ebee57e70d751750efa8bef1125d`.
+- The fixed hypothesis is fresh Adam at LR `3e-7`, three fixed-order epochs (300 per-instance updates), with only final optimizer-step1000 eligible. It was healthy through epoch0 instance35 with finite nonzero loss and gradients. It remains excluded from family statistics; status stays `0/9`, `4/4`, look 2 until a clean exact evaluation completes.
+
+### Checkpoint-backed adaptive look 3 — 2026-07-22 17:25 CST
+
+- The JSSP50x20-ASW continuation completed 300 finite per-instance updates. Checkpoint `0c6faa0320abd02159aedf05fe2078e49ef1cc064baa8328498c7eb3b4e7eba8` is ZIP-readable and reload-finite; exact output `5ebb26d7beeb66c09513864c32eb8174f95960ab1c0cee1b54396522e3eab6e3` contains all 100 aligned instances and has mean `3096.1600317382813`, beating floor `3102.44` by `6.279968261719`.
+- Against frozen BOPO `defd206c7368a685efc11b29c83b0997d90cced5ef608fa729a3903877fb00f8`, it has 59/1/40 W/T/L and raw paired Wilcoxon `p=0.006080557212497258`, but Holm9 `p=0.05472501491247532`; it narrowly fails. Look3 SHA256 is `74218754cca2c19665c2f4c77bb249434ba6f537597430478e6a2884f3ddd9fd`. Status remains significance `0/9`, floors `4/4`, terminal pending.
+- FFSP direct physical-batch8 continuation was rejected before any optimizer step because forced replay diverged. A corrected USW smoke is live on g51 GPU1/PID `2340206`: it independently forms each instance's 24-start loss and accumulates the exact mean gradient across eight instances. It must pass replay, finite-gradient, ZIP, and reload gates before an all-100 deployment.
+- Evidence remains `test_trained_same_set_evaluated_leakage_significance_target_optimization`: descriptive adaptive same-test-set optimization only, not confirmatory, unbiased, out-of-sample, paper-matched, or generalization evidence.
+
+### Supervisor snapshot — 2026-07-22 17:31 CST
+
+- Required merged read-only checks found g51 PID `2340206` still unique for the FFSP1000-USW eight-instance, instance-local mean-gradient smoke on physical GPU1. At the last successful poll it had run 8m39s with a live finite process and normal initialization output, but had not emitted an optimizer result or eligible checkpoint. Two polls succeeded; a third hit SSH banner timeout, so no retry or remote mutation was made.
+- g52 had no relevant H19 process and all six GPUs were at 1 MiB/0%. Unrelated shared-host jobs on g51 were untouched. `main.tex` SHA256 and all four numerical floors are unchanged.
+- No all-100 FFSP run was launched before the smoke gates. Checkpoint family status remains `0/9` significance, `4/4` numerical floors, conjunctive terminal pending, adaptive look 3. 本轮无新的大规模检查点显著性或数值达标结论.
+
+### Excluded duplicate evaluator — 2026-07-22 17:28 CST
+
+- A later same-checkpoint evaluator (g51 PID `2336576`) started while the earlier look-3 evaluator was concurrently active but not yet visible in local state. It used the same checkpoint, fixed instance order, B128/no-greedy protocol, and common seeds, but wrote a distinct collision-new output.
+- Its output/summary SHA256 values are `e9b4e8c1f17c3c5866c2d5db9bdde94c5ddbcfe105ec72df6c9484574fc9336b` / `bd9789959f9b13ce954674da5ab06ecdf3c64eb3dffd49797b2fc8f302b9a66a`. It exactly reproduces mean `3096.1600317382813`, 59/1/40, raw `p=0.006080557212497258`, and substituted Holm9 `p=0.05472501491247532`.
+- Preserve this output as excluded duplicate provenance. The authoritative first output remains `5ebb26...ab6e3`; look 3 remains SHA `74218754...d9fd`, status `0/9`, `4/4`, terminal pending.
+
+### FFSP instance-local recovery launch — 2026-07-22 17:54 CST
+
+- The corrected FFSP1000-USW eight-instance smoke completed one exact mean-gradient update. Replay error was `0`, gradient norm `2.782666891997529`, and all eight 24-start candidate pools remained instance-local. Checkpoint `7b5d04ed261d985c8dd1cb1e59e227cb088e87f6e37dac1f2dfa5910d7769152` passed ZIP CRC, finite model/optimizer state, and reload at step101. It remains smoke-only and excluded from family counts.
+- After the required merged g51/g52 read-only snapshots, launched the premanifested USW all-100 candidate as g51 physical GPU1/PID `2345612`. Root `logs/codex_remote/ffsp1000_fixedtest_pref_usw_all100_ep1_g8_lr1e7_retry1_20260722-175500`; manifest SHA `1b9cb6c2a40bc4baf6d78a3f8b8918243f4e4c9be7e16627f1730e076a5764a3`. Its fixed budget is 100 fixed-order visits in instance-local groups of eight (final group four), 13 fresh-Adam steps at LR `1e-7`, and one final step113 checkpoint.
+- Launched the ASW counterpart only as an eight-instance smoke on g51 physical GPU2/PID `2345598`. Root `logs/codex_remote/ffsp1000_fixedtest_pref_asw_batch8_instance_local_smoke_lr1e7_retry1_20260722-175500`; manifest SHA `121bec4230f1ba879e4717b71e714c7a1c2e03e3b60cec7c2930a04708ae5829`. It must pass replay, finite-gradient, ZIP, optimizer/model, and reload checks before an all-100 ASW launch.
+- Both processes were unique and active at the bounded startup poll; neither had emitted its first group record. Look3 remains significance `0/9`, numerical floors `4/4`, terminal pending, adaptive look 3. 本轮无新的大规模检查点显著性或数值达标结论.
+
+### Normal-learning-rate smoke launch — 2026-07-22 18:03 CST
+
+- H1 and the source training script use fresh Adam LR `1e-5` with weight decay `1e-6`, exactly 100x the current `1e-7` continuation rate.
+- Preserved the LR1e-7 controls and launched collision-new LR1e-5/WD1e-6 smokes: USW g51 GPU3/PID `2349046`, manifest `bbd56283fa42b1be36da7bd1eafeccc299a3bd2dc20298f0672983a51da1421f`; ASW GPU4/PID `2349034`, manifest `2360893691c32adde920fe5948b7eaa8830a90a3b9aa2ff298cf2f57224e5581`.
+- Both retain one replay microbatch per instance, 24-start instance-local candidate pools, and an exact mean over eight per-instance gradients. No family look changed.
+
+### ASW instance-local audit and all-100 launch — 2026-07-22 18:15 CST
+
+- The ASW LR1e-7 eight-instance smoke completed with replay error `0`, gradient norm `2.1176449002455136`, and 24 instance-local candidates per instance. Checkpoint `795378f694817633c58479bdde0be3657dbb447f3880a210c13c775a7127ba3a` passed ZIP CRC, 288 finite model tensors, 285 optimizer entries/855 finite tensors at LR1e-7, step101, and reload checks; history SHA is `6987b1ede8005e261e712b8d26b7e9de31bd955d092b8600cbde2e85141f822f`. It remains smoke-only.
+- One prelaunch attempt (PID `2351433`, manifest `ccb111f0...15c36c`) was rejected before model load because its manifest occupied the candidate directory. The root is preserved and excluded. Collision-new retry2 uses a parent prelaunch directory and nonexistent `candidate/` output; manifest SHA is `d305f3d026c50ccbed359eef14677c7a0291e938f03da279b015aa38a38e4c0a`.
+- ASW all-100 retry2 is uniquely active as g51 PID `2352103` on physical GPU2 with normal initialization and a clean fatal scan. USW LR1e-7 all-100 PID `2345612` has completed its first of 13 groups with replay error `0` and finite gradient `2.782558998254304`. Normal-LR smokes PIDs `2349046/2349034` remain active without optimizer results. g52 was idle at the required read-only snapshot.
+- Checkpoint look3 remains significance `0/9`, numerical floors `4/4`, terminal pending, adaptive look 3. 本轮无新的大规模检查点显著性或数值达标结论.
+
+### Normal-LR smoke promotion — 2026-07-22 18:21 CST
+
+- USW/ASW LR1e-5/WD1e-6 smokes completed with replay error `0`, gradients `2.7825267475782605/2.117176086857499`, checkpoint SHAs `4552102daf4badc28f970119ead4f8fc29a92224deae9aac7e9a226648cc5489` / `322dd6f08c60c3c642f6b7ce69900ecdde230fa8de5773123f23a0115519f0de`, and clean ZIP/model/optimizer/reload/fatal audits. Their parameter-delta L2 norms are 99.8175x/99.8216x the LR1e-7 smokes, confirming the intended scale change.
+- Promoted exactly one all-100 candidate per slot: USW g51 PID `2356185` on physical GPU3, manifest `10f50ebbdb67427161c61cbc905893520aaf2a0d614f68df14ee70082d37b247`; ASW PID `2356531` on GPU4, manifest `a46fe9e8e7de49cb464935065d50998ee618095461037bc6d11f4b7d5ccec1db`. Both use 100 fixed-order visits, 13 fresh-Adam LR1e-5/WD1e-6 steps, and a sole final step113 checkpoint.
+
+### Four all-100 FFSP trainers remain live — 2026-07-22 18:30 CST
+
+- Required merged read-only checks found exactly the four declared g51 trainers: LR1e-7 USW/ASW PIDs `2345612/2352103` on physical GPUs1/2 and LR1e-5 USW/ASW PIDs `2356185/2356531` on GPUs3/4. g52 had all six GPUs idle and no relevant process or target root.
+- USW LR1e-7 has completed 2/13 groups (instances 0-15) with gradients `2.782558998254304/2.3053050246612043`; ASW LR1e-7 has completed 1/13 group with gradient `2.1177357189251143`. All three written rows have replay error `0`, finite loss, 24 candidates per instance, and the exact mean of independently replayed instance-local gradients. The two LR1e-5 branches are still computing their first group.
+
+### Four all-100 FFSP trainers progress — 2026-07-22 18:50 CST
+
+- Required merged read-only snapshots found exactly the four declared trainers on g51 physical GPUs1-4 (PIDs `2345612/2352103/2356185/2356531`); g52 remained fully idle and neither host had a live JSSP target job.
+- LR1e-7 USW/ASW reached `4/13` and `2/13` groups; LR1e-5 USW/ASW each reached `2/13`. All ten written groups have finite losses, finite nonzero gradients, replay error `0`, 24 candidates per instance, and exact mean aggregation of independently replayed instance-local losses.
+- No sole final step113 checkpoint exists. ZIP/model/optimizer/reload audits, exact all-100 evaluations, output hashes, and look4 therefore remain pending. Authoritative look3 SHA `74218754...d9fd` remains significance `0/9`, floors `4/4`, terminal pending. 本轮无新的大规模检查点显著性或数值达标结论.
+- No run has produced its sole final step113 checkpoint, so ZIP/model/optimizer/reload audits and exact all-100 evaluations are not yet possible. No new adaptive look was formed. Authoritative look3 SHA `74218754...d9fd` remains significance `0/9`, floors `4/4`, terminal pending. 本轮无新的大规模检查点显著性或数值达标结论.
+- Both launch calls returned running PIDs. The immediate follow-up read-only SSH check timed out during banner exchange, so no failure is inferred and no retry/duplicate launch is allowed. Look3 remains `0/9`, floors `4/4`. 本轮无新的大规模检查点显著性或数值达标结论.

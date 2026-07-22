@@ -16,51 +16,224 @@ success:
   dataset_sha256: "fc544f59443a9352f4f3317603d39fae8123cba8502864cae8355e595555f865"
   requirement: "USW-variant and ASW-variant must each have mean below25.57453468322754 and paired candidate-minus-PO bootstrap95% CI wholly below zero."
 
-active_stage: "initial_po_anchor_screen"
+active_stage: "usw_rerun2_locked_canonical_fixed100_running_58_of_100_asw_canonical_passed"
 active_runs:
-  - name: "usw_poanchor_w090_k64_a001_screen200"
+  - name: "usw_poanchor_w090_k64_a001_recovery_resume800_to1000"
     host: g53
     gpu: 4
-    pid: 1713672
-    target_continuation_step: 200
+    status: "completed_with_same_directory_collision; exact-definition rerun2 candidate locked"
+    resume_optimizer_step: 200
+    additional_steps: 800
+    target_optimizer_step: 1000
     source_optimizer_step: 5075
-    optimizer_state: "fresh Adam; source weights loaded with --checkpoint"
-    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/usw_poanchor_w090_k64_a001_screen200"
-    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_usw_poanchor_w090_20260715-182842.log"
-  - name: "asw_poanchor_w090_k40_a001_detach_screen200"
+    optimizer_state: "restored from recovery screen last.ckpt at optimizer step200 with96 Adam state entries"
+    data_start_index: 150025600
+    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/usw_poanchor_w090_k64_a001_recovery_resume800_to1000"
+    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_usw_poanchor_resume800_to1000_20260715-212714.log"
+    locked_rerun2_checkpoint: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/locked_candidates/usw_poanchor_w090_k64_a001_step1000_rerun2_20260716T091543/candidate_best.ckpt"
+    locked_rerun2_checkpoint_sha256: "c242d3deff2aeb2fc12eef5b0f502e4c769c96716043f702787d0510819379b2"
+  - name: "usw_poanchor_w090_k64_a001_step1000_rerun2_canonical_fixed100"
+    host: g53
+    gpu: 4
+    pid: 1784616
+    status: "running; completed exact indices0..57 at merged snapshot"
+    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/canonical_fixed100/usw_poanchor_w090_k64_a001_step1000_rerun2_20260716T091543"
+    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_usw_poanchor_rerun2_step1000_fixed100_20260716-091930.log"
+  - name: "asw_poanchor_w090_k40_a001_detach_step1000_canonical_fixed100"
     host: g53
     gpu: 5
-    pid: 1713669
-    target_continuation_step: 200
-    source_optimizer_step: 5075
-    optimizer_state: "fresh Adam; source weights loaded with --checkpoint"
-    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/asw_poanchor_w090_k40_a001_detach_screen200"
-    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_asw_poanchor_w090_20260715-182842.log"
+    completed_pid: 1759236
+    duplicate_evaluator_pid_stopped: 1760177
+    status: "completed_success"
+    candidate_optimizer_step: 1000
+    candidate_checkpoint_sha256: "5ccbe61ed60d59bb8a5880637d2b2002e59bf956f2c023d4b4ad6985aadd2e9e"
+    dataset_sha256: "fc544f59443a9352f4f3317603d39fae8123cba8502864cae8355e595555f865"
+    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/canonical_fixed100/asw_poanchor_w090_k40_a001_detach_step1000"
+    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_asw_poanchor_step1000_fixed100_retry_20260716-013023.log"
 last_observation:
-  time: "2026-07-15T18:32:02+08:00"
-  usw:
-    continuation_step: 6
-    step_time_sec: 21.27
-    instances_per_sec: 6.02
-    trajectories_per_sec: 385.1
-    loss: -0.179245263338089
-    grad_norm: 0.7822331130799519
-    coefficient_abs_mean: 0.000002849854581654654
-    replay_error: 0.0
-    peak_memory_allocated_gib: 18.8133
-    peak_memory_reserved_gib: 19.6758
-    eta_minutes: 68.8
-  asw:
-    continuation_step: 8
-    step_time_sec: 16.25
-    instances_per_sec: 7.88
-    trajectories_per_sec: 315.1
-    loss: -0.20734214782714844
-    grad_norm: 0.938217492647452
-    coefficient_abs_mean: 0.000004578560492518591
-    replay_error: 0.0
-    peak_memory_allocated_gib: 15.7874
-    peak_memory_reserved_gib: 23.2148
-    eta_minutes: 52.0
+  time: "2026-07-16T09:25:09+08:00"
+  completed_screen_results:
+    usw:
+      validation32_step0_mean: 25.83826607465744
+      validation32_step100_mean: 25.82025855779648
+      validation32_step200_mean: 25.767160296440125
+      step200_delta_from_step0: -0.07110577821731567
+      completed_steps: 200
+    asw:
+      validation32_step0_mean: 25.83826607465744
+      validation32_step100_mean: 25.81508207321167
+      validation32_step200_mean: 25.769293248653412
+      step200_delta_from_step0: -0.06897282600402832
+      completed_steps: 200
+  duplicate_relaunch_incident:
+    usw_pid: 1720513
+    usw_duplicate_step_seen: 17
+    asw_pid: 1719178
+    asw_duplicate_step_seen: 83
+    cause_status: "external/concurrent relaunch cause not proven; both commands were exact fresh screen repeats writing the original output directories"
+    action: "saved duplicate text artifacts and terminated both duplicate processes"
+    checkpoint_impact: "duplicate step0 validation overwrote original best.ckpt and last.ckpt; original step200 optimizer state is no longer recoverable from those paths"
+  recovery_rescreen_boundary:
+    completed: true
+    usw_validation32_step200_mean: 25.760594308376312
+    usw_validation32_best: 25.760594308376312
+    usw_validation32_best_step: 200
+    asw_validation32_step200_mean: 25.773821592330933
+    asw_validation32_best: 25.760852694511414
+    asw_validation32_best_step: 100
+    checkpoint_verification: "both last.ckpt payloads have optimizer/global step200 and96 Adam state entries"
+  promoted_resume:
+    launched_at: "2026-07-15T21:27:14+08:00"
+    config: "LR1e-5, batch128, anchor0.90, alpha0.01; USW K64 non-detach, ASW K40 detach; validation32 every100; forced replay"
+    resume_optimizer_step: 200
+    additional_steps: 800
+    target_optimizer_step: 1000
+    data_start_index: 150025600
+    expected_eta: "at the effective merged snapshot USW had about0.48h remaining; ASW training and canonical evaluation are complete"
+    live_metrics:
+      usw:
+        optimizer_step: 1000
+        continuation_step: 800
+        elapsed_sec_per_step: 21.234826587024145
+        instances_per_sec: 6.027833543892291
+        trajectories_per_sec: 385.78134680910665
+        loss: -0.1857234239578247
+        grad_norm: 0.773491162746875
+        coefficient_abs_mean: 2.8488248062785715e-06
+        replay_error: 0.0
+        peak_memory_allocated_gib: 18.812394618988037
+        peak_memory_reserved_gib: 19.66015625
+        validation32_step300_mean: 25.72208458185196
+        validation32_step400_mean: 25.685820281505585
+        validation32_step500_mean: 25.679167330265045
+        validation32_step600_mean: 25.620820939540863
+        validation32_step700_mean: 25.609035313129425
+        validation32_step800_mean: 25.591332852840424
+        validation32_step900_mean: 25.57020515203476
+        validation32_first_completion_step1000_mean: 25.559906721115112
+        validation32_rerun2_step1000_mean: 25.56944364309311
+        validation32_rerun2_best: 25.56944364309311
+        validation32_rerun2_best_step: 1000
+      asw:
+        pid: 1731133
+        optimizer_step: 1000
+        continuation_step: 800
+        elapsed_sec_per_step: 16.28205415600678
+        instances_per_sec: 7.861416989729719
+        trajectories_per_sec: 314.4566795891888
+        loss: -0.19631779193878174
+        grad_norm: 0.9626547696553605
+        coefficient_abs_mean: 4.580750101013109e-06
+        replay_error: 0.0
+        peak_memory_allocated_gib: 15.787039279937744
+        peak_memory_reserved_gib: 23.18359375
+        validation32_step300_mean: 25.744063675403595
+        validation32_step400_mean: 25.73120129108429
+        validation32_step500_mean: 25.70744436979294
+        validation32_step600_mean: 25.715956211090088
+        validation32_step700_mean: 25.67646461725235
+        validation32_step800_mean: 25.650070130825043
+        validation32_step900_mean: 25.653588593006134
+        validation32_step1000_mean: 25.635581612586975
+        validation32_best: 25.635581612586975
+        validation32_best_step: 1000
+        summary_elapsed_sec: 13377.43630775396
+        instances_processed_this_run: 102400
+  asw_completion_and_lock:
+    completed: true
+    checkpoint: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/asw_poanchor_w090_k40_a001_detach_recovery_resume800_to1000/best.ckpt"
+    checkpoint_sha256: "5ccbe61ed60d59bb8a5880637d2b2002e59bf956f2c023d4b4ad6985aadd2e9e"
+    optimizer_step: 1000
+    global_step: 1000
+    exact_resumed_train_rows: 800
+    history_records_after_repair: 809
+    heldout_validation32_mean: 25.635581612586975
+    heldout_best_step: 1000
+  asw_duplicate_relaunch_incident:
+    pid: 1754953
+    duplicate_step_seen: 254
+    command_match: "exact ASW resume800 command writing the completed output directory"
+    action: "backed up history/config/summary/remote log, SIGTERM stopped the duplicate, and truncated the primary history at the first sealed step1000 validation boundary"
+    checkpoint_impact: "none; best.ckpt and last.ckpt SHA256 values were unchanged before and after repair"
+    preserved_backup_suffix: ".duplicate_pid1754953_detected_20260716T012354+0800"
+  asw_canonical_evaluation:
+    status: completed_success
+    completed_pid: 1759236
+    protocol: "explicit data/tsp/tsp1000_test_seed1234.npz, fixed100,1000 starts,8 augment,FP32, exact full forward, instance batch1"
+    dataset_sha256: "fc544f59443a9352f4f3317603d39fae8123cba8502864cae8355e595555f865"
+    num_instances: 100
+    indices_exactly_0_through_99: true
+    mean_tour_length: 25.35803249359131
+    po_mean_tour_length: 25.57453468322754
+    mean_candidate_minus_po: -0.21650218963623047
+    paired_bootstrap_samples: 100000
+    paired_bootstrap_seed: 1234
+    paired_bootstrap_95ci_candidate_minus_po: [-0.2342840909957886, -0.19845524597167968]
+    candidate_better_instances: 98
+    candidate_equal_instances: 0
+    candidate_worse_instances: 2
+    mean_elapsed_sec_per_instance: 4.971398461500066
+    peak_memory_allocated_gib: 0.9920849800109863
+    sealed_summary: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/canonical_fixed100/asw_poanchor_w090_k40_a001_detach_step1000/summary.json.sealed_before_duplicate_pid1760177_20260716T014605+0800"
+    sealed_summary_sha256: "af7896532b689ece59aa4d9aee78a3f36da0f06b6a53a87c2824c25fb791c312"
+    success: true
+    first_launch_error: "driver copied under logs inferred the wrong repo root and exited before instance0 with ModuleNotFoundError; relaunched from scripts/ with a new log"
+  asw_canonical_duplicate_relaunch_incident:
+    pid: 1760177
+    command_match: "exact canonical evaluator command writing the completed ASW output directory"
+    action: "sealed the completed summary before overwrite risk and stopped the duplicate evaluator by SIGTERM"
+    process_alive_after_sigterm: false
+    checkpoint_impact: "none; evaluation-only process"
+  usw_completion_collision_and_lock:
+    status: "contained_without_mutating_polluted_source"
+    original_training_pid: 1731136
+    process_matches_at_merged_snapshot: 0
+    polluted_history_records: 1617
+    polluted_history_train_rows: 1600
+    optimizer_step_reset: "record807 step1000 to record809 step201"
+    first_completion_validation32_step1000_mean: 25.559906721115112
+    first_completion_checkpoint_status: "lost/overwritten by the same-directory exact-definition rerun"
+    rerun2_train_rows: 800
+    rerun2_validation_steps: [300, 400, 500, 600, 700, 800, 900, 1000]
+    rerun2_validation32_step1000_mean: 25.56944364309311
+    rerun2_summary_completed_steps: 1000
+    rerun2_summary_elapsed_sec: 17300.648500879994
+    locked_candidate: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/locked_candidates/usw_poanchor_w090_k64_a001_step1000_rerun2_20260716T091543/candidate_best.ckpt"
+    locked_candidate_sha256: "c242d3deff2aeb2fc12eef5b0f502e4c769c96716043f702787d0510819379b2"
+    checkpoint_optimizer_step: 1000
+    checkpoint_global_step: 1000
+    checkpoint_adam_state_entries: 96
+    collision_report: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/locked_candidates/usw_poanchor_w090_k64_a001_step1000_rerun2_20260716T091543/collision_report.json"
+    classification: "USW-PO-anchor exact-definition rerun2 recovery candidate; it does not impersonate the overwritten first completion"
+  usw_canonical_evaluation:
+    status: running
+    pid: 1784616
+    gpu: 4
+    protocol: "explicit data/tsp/tsp1000_test_seed1234.npz, fixed100,1000 starts,8 augment,FP32, exact full forward, instance batch1"
+    dataset_sha256: "fc544f59443a9352f4f3317603d39fae8123cba8502864cae8355e595555f865"
+    output_dir: "/data1/gushengda/eam-rl4co/logs/tsp1000_po_anchor_20260715/canonical_fixed100/usw_poanchor_w090_k64_a001_step1000_rerun2_20260716T091543"
+    remote_log: "/data1/gushengda/eam-rl4co/logs/codex_remote/tsp1000_usw_poanchor_rerun2_step1000_fixed100_20260716-091930.log"
+    completed_instances_at_snapshot: 58
+    completed_indices_at_snapshot: "exactly0..57"
+    latest_instance_index: 57
+    approximate_elapsed_sec_per_instance: 5.6
+    approximate_remaining_eta_minutes: 4
+    process_status: "exactly one Python evaluator PID1784616; launch-wrapper parent PID1784600 remains waiting"
+    snapshot_gpu4: "0% utilization and3MiB at the instantaneous nvidia-smi sample; evaluator process itself was Rl and log continued through index57"
+    summary_present: false
+    per_instance_csv_size_bytes: 6103
+    peak_memory_allocated_gib_so_far: 0.9920849800109863
+    integrity: "checkpoint and dataset SHA256 values match the locks; command is fixed100/1000-start/8-augment/FP32; no OOM, NaN, traceback, replay error, or duplicate Python evaluator"
   validation32_mean_at_step0: 25.83826607465744
-  status: "both healthy; no OOM, NaN, traceback, or replay mismatch; wait for next tick"
+  validation32_best_at_step0: 25.83826607465744
+  config_verified: "both restored optimizer step200 with target step1000, additional_steps800, LR1e-5, batch128, PO anchor weight0.90; USW K64 non-detach, ASW K40 detach"
+  summary_present_for_original_screen: true
+  summary_present_for_recovery_screen:
+    usw: true
+    asw: true
+  summary_present_for_promoted_resume:
+    usw: true
+    asw: true
+  remote_read_note: "The sole merged g53 snapshot at09:25:09 used the remote-server-run encoded-stdin path and found one Python evaluator. It read process/GPU state, hashes, output files, manifest and the full log once; no same-round progress poll followed."
+  process_status: "The recovered locked USW rerun2 canonical evaluator remains running as the unique Python evaluator PID1784616 on GPU4; it completed exact indices0..57 at the merged snapshot."
+  status: "ASW-detach PO-anchor already passes canonical fixed100. The locked USW rerun2 recovery candidate remains under canonical evaluation and has completed58/100 aligned instances without an error or integrity mismatch. The100-row boundary is not reached: wait for the next tick."

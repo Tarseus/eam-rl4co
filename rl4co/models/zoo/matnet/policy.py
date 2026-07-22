@@ -172,6 +172,7 @@ class MultiStageFFSPPolicy(nn.Module):
         phase="train",
         num_starts=1,
         return_actions: bool = True,
+        return_schedule: bool = False,
         return_entropy: bool = False,
         return_sum_log_likelihood: bool = True,
         forced_actions: torch.Tensor | None = None,
@@ -281,6 +282,9 @@ class MultiStageFFSPPolicy(nn.Module):
 
             if return_actions:
                 out["actions"] = torch.stack(action_list, 1)
+
+            if return_schedule:
+                out["schedule"] = td["schedule"]
 
             if return_entropy:
                 # Entropy is not currently tracked in the multistage FFSP decoder path.

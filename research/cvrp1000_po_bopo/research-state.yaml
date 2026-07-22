@@ -64,11 +64,32 @@ experiments:
     gpu: 1
     pid: 1696569
     remote_dir: "logs/cvrp1000_agfn_capacity50/bopo_1000steps"
+  usw_short100:
+    status: running_exploratory
+    host: g53
+    gpu: 2
+    pid: 1706804
+    watcher_pid: 1708448
+    source_checkpoint: "downloads/cvrp100/loss_only/checkpoint.ckpt"
+    resume_optimizer_step: 156300
+    target_optimizer_step: 156400
+    remote_dir: "logs/cvrp1000_agfn_capacity50/usw_from_cvrp100_100steps"
+  asw_short100:
+    status: running_exploratory
+    host: g53
+    gpu: 3
+    pid: 1706814
+    watcher_pid: 1708438
+    source_checkpoint: "downloads/cvrp100/weighting/checkpoint.ckpt"
+    resume_optimizer_step: 156300
+    target_optimizer_step: 156400
+    remote_dir: "logs/cvrp1000_agfn_capacity50/asw_from_cvrp100_100steps"
 
 next:
   - "Download and convert the exact AGFN official CVRP1000 tensor; verify SHA, row order, demands, coordinates, and distances."
   - "Monitor matched 1000-step capacity50 PO and BOPO jobs for health and validation trend."
   - "At completion, evaluate both checkpoints on the exact official fixed128 and compare with 192.78563."
+  - "Collect the automatically launched official128 results for the exploratory CVRP100-derived USW/ASW short100 runs."
 
 follow_on:
   ffsp: "After the CVRP1000 PO/BOPO baselines are launched and stable, define a larger-than-FFSP100 matched baseline."

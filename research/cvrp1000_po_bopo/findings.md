@@ -16,6 +16,14 @@ The calibration completed on g53 at a mean cost of **59.875156478881834** over t
 - AGFN reports CVRP1000 POMO cost 233.093524 without augmentation and 192.78563 with eightfold augmentation, but its CVRP1000 capacity is 50, so these costs are not directly comparable to this repository's capacity-150 setting: https://proceedings.iclr.cc/paper_files/paper/2025/file/b210c387381713a14a4f5a607aff3520-Paper-Conference.pdf
 - Recent large-scale studies use other capacity schedules such as 250 for CVRP1000 and document severe degradation of the original POMO light decoder under cross-size transfer. This supports measuring the actual checkpoint rather than importing a headline number.
 
+### Cross-check of the surprisingly weak AGFN POMO number
+
+- HBG (NeurIPS 2025 Spotlight), a follow-up in the same author/code lineage and the same capacity50/128-instance protocol, again reports POMO x8 near **192.18** (and 231.88 without augmentation). This makes a simple AGFN table typo unlikely, but it is not an independent implementation replication.
+- ReLD (ICLR 2025), an independent study under the different CVRP1000 capacity250 schedule, reports POMO x8 at a **110.632% gap** while large-scale-specific solvers are much stronger. Its absolute costs cannot be mixed with capacity50, but it independently confirms that vanilla POMO can fail badly under 100-to-1000 scale transfer.
+- The local audited PO result **129.3376865386963** proves that 192.78563 is not an architecture-family ceiling. The local policy is POMO-related but not necessarily implementation-identical to vanilla POMO, and it is already preference-optimized.
+- Consequently, retain 192.78563 only as the published reproduction floor. The meaningful primary interpretation is no degradation from the local zero-shot 129.3376865386963; AGFN-1000 129.624237 and HBG-AGFN 131.78 are contextual method references, while LKH3(1000) 124.575469 and GFACS+LS 124.15 are stretch references.
+- Detailed source/protocol notes are saved in `literature/cvrp1000_pomo_crosscheck_20260715.md`.
+
 ## Constraints
 
 - PO and BOPO start from the same CVRP100 PO checkpoint.
@@ -39,3 +47,5 @@ The existing common PO checkpoint achieved **129.3376865386963** on the exact of
 Both one-step capacity50 probes completed with finite gradients and about 2 GiB reserved memory. The formal matched 1000-step PO and BOPO runs are active on g53 GPUs0/1. Final success still requires evaluating the trained 1000-step PO checkpoint; zero-shot superiority alone does not replace the requested training experiment.
 
 At continuation step100, PO validation32 improved from 130.022788 to **129.641788**, while BOPO improved to **129.768673**. Both processes remain healthy; PO is currently ahead by 0.126885 on this proxy boundary. These proxy results do not replace the official fixed128 final evaluation.
+
+The user identified existing CVRP100-specific USW/ASW checkpoints that should be tested directly. The loss-only checkpoint is treated as USW and the weighting checkpoint as ASW; both store their free-loss pair definitions, global step156300, and one Adam state at LR3e-4. One-step capacity50 CVRP1000 probes restored the optimizer and completed with finite gradients for both objectives. Exploratory matched 100-step continuations are now running on g53 GPUs2/3 with K50, alpha0.03, batch1, and identical fresh data indices. Watchers will immediately run official fixed128/100-start/x8/FP32 evaluation after completion.

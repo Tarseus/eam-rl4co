@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 if [[ $# -lt 3 ]]; then
-  echo "Usage: bash scripts/launch_pref_full_train_on_success.sh <tsp50|cvrp50|ffsp50> <best_pair.json> <cuda_visible_devices> [resume_ckpt_path] [hydra_overrides...]" >&2
+  echo "Usage: bash scripts/launch_pref_full_train_on_success.sh <tsp50|tsp100|cvrp50|ffsp50> <best_pair.json> <cuda_visible_devices> [resume_ckpt_path] [hydra_overrides...]" >&2
   exit 2
 fi
 
@@ -31,6 +31,10 @@ case "$problem" in
     experiment="routing/pomo-po4cops-tsp50-po"
     label="tsp50_weighting_pref_target"
     ;;
+  tsp100)
+    experiment="routing/pomo-po4cops-tsp100-po"
+    label="tsp100_fitness_correlation"
+    ;;
   cvrp50)
     experiment="routing/pomo-po4cops-cvrp50-po"
     label="cvrp50_weighting_pref_target"
@@ -47,6 +51,15 @@ case "$problem" in
     exit 2
     ;;
 esac
+
+if [[ -n "${RUN_LABEL_SUFFIX:-}" ]]; then
+  safe_suffix="$(printf '%s' "$RUN_LABEL_SUFFIX" | tr -cd 'A-Za-z0-9_.-')"
+  if [[ -z "$safe_suffix" ]]; then
+    echo "ERROR: RUN_LABEL_SUFFIX contains no safe filename characters" >&2
+    exit 2
+  fi
+  label="${label}_${safe_suffix}"
+fi
 
 : "${trainer_devices_override:=trainer.devices=[0]}"
 : "${progress_bar_override:=trainer.enable_progress_bar=false}"

@@ -265,14 +265,11 @@ def _build_pair_records(
         "delta_p": [],
         "normalized_gap": [],
         "normalized_margin": [],
+        "pool_log_prob_std": [],
         "pool_regret": [],
         "omega": [],
-        "gradient_uniform": [],
-        "gradient_usw": [],
-        "gradient_asw": [],
     }
 
-    base_scale = loss_parameters.alpha
     for pool_index in range(num_instances):
         better, worse = np.nonzero(objective[pool_index, :, None] < objective[pool_index, None, :])
         delta_o = objective[pool_index, worse] - objective[pool_index, better]
@@ -282,43 +279,89 @@ def _build_pair_records(
         raw_weight = normalized_gap * normalized_margin * pool_regret[pool_index]
         omega = np.clip(raw_weight, builder_parameters.clamp_lo, builder_parameters.clamp_hi)
 
-        bounded_gap = delta_o / (1.0 + np.abs(delta_o))
-        discovered_scale = (
-            loss_parameters.alpha
-            * loss_parameters.scale
-            * (1.0 - loss_parameters.beta * bounded_gap)
-        )
-        score = np.clip(
-            discovered_scale * delta_p,
-            -loss_parameters.clamp_abs,
-            loss_parameters.clamp_abs,
-        )
-        base_score = base_scale * delta_p
-
-        gradient_uniform = base_scale * _sigmoid(-base_score)
-        gradient_usw = discovered_scale * _sigmoid(-score)
-        gradient_asw = omega * gradient_usw
-
-        gradient_uniform /= max(float(gradient_uniform.size), 1.0)
-        gradient_usw /= max(float(gradient_usw.size), 1.0)
-        gradient_asw /= max(float(np.sum(omega)), eps)
-        gradient_uniform /= num_instances
-        gradient_usw /= num_instances
-        gradient_asw /= num_instances
-
         pair_count = delta_o.size
         records["pool"].append(np.full(pair_count, pool_index, dtype=np.int32))
         records["delta_o"].append(delta_o)
         records["delta_p"].append(delta_p)
         records["normalized_gap"].append(normalized_gap)
         records["normalized_margin"].append(normalized_margin)
+        records["pool_log_prob_std"].append(np.full(pair_count, log_prob_std[pool_index]))
         records["pool_regret"].append(np.full(pair_count, pool_regret[pool_index]))
         records["omega"].append(omega)
-        records["gradient_uniform"].append(gradient_uniform)
-        records["gradient_usw"].append(gradient_usw)
-        records["gradient_asw"].append(gradient_asw)
 
-    return {key: np.concatenate(value) for key, value in records.items()}
+    pair_records = {key: np.concatenate(value) for key, value in records.items()}
+    pair_records.update(
+        _complete_objective_autograd_gradients(
+            pair_records,
+            loss_parameters=loss_parameters,
+            builder_parameters=builder_parameters,
+        )
+    )
+    return pair_records
+
+
+def _complete_objective_autograd_gradients(
+    records: dict[str, np.ndarray],
+    *,
+    loss_parameters: LossParameters,
+    builder_parameters: BuilderParameters,
+) -> dict[str, np.ndarray]:
+    dtype = torch.float64
+    delta_o = torch.as_tensor(records["delta_o"], dtype=dtype)
+    normalized_gap = torch.as_tensor(records["normalized_gap"], dtype=dtype)
+    log_prob_std = torch.as_tensor(records["pool_log_prob_std"], dtype=dtype)
+    pool_regret = torch.as_tensor(records["pool_regret"], dtype=dtype)
+    eps = 1e-8
+
+    bounded_gap = delta_o / (1.0 + delta_o.abs())
+    discovered_scale = (
+        loss_parameters.alpha
+        * loss_parameters.scale
+        * (1.0 - loss_parameters.beta * bounded_gap)
+    )
+
+    def semantic_loss(delta_p: torch.Tensor) -> torch.Tensor:
+        score = (discovered_scale * delta_p).clamp(
+            min=-loss_parameters.clamp_abs,
+            max=loss_parameters.clamp_abs,
+        )
+        return torch.nn.functional.softplus(-score)
+
+    def gradient_of(loss_fn) -> np.ndarray:
+        delta_p = torch.tensor(records["delta_p"], dtype=dtype, requires_grad=True)
+        loss = loss_fn(delta_p)
+        gradient = torch.autograd.grad(loss, delta_p, create_graph=False, retain_graph=False)[0]
+        if not torch.isfinite(gradient).all():
+            raise ValueError("Autograd produced non-finite pair-margin gradients")
+        return gradient.detach().abs().cpu().numpy()
+
+    gradient_uniform = gradient_of(
+        lambda delta_p: torch.nn.functional.softplus(-loss_parameters.alpha * delta_p).mean()
+    )
+    gradient_usw = gradient_of(lambda delta_p: semantic_loss(delta_p).mean())
+
+    def asw_loss(delta_p: torch.Tensor, *, detach_weight: bool) -> torch.Tensor:
+        raw_weight = normalized_gap * (delta_p.abs() / log_prob_std.clamp_min(eps)) * pool_regret
+        weight = raw_weight.clamp(builder_parameters.clamp_lo, builder_parameters.clamp_hi)
+        weight = torch.nan_to_num(
+            weight,
+            nan=builder_parameters.clamp_lo,
+            posinf=builder_parameters.clamp_hi,
+            neginf=builder_parameters.clamp_lo,
+        ).clamp(builder_parameters.clamp_lo, builder_parameters.clamp_hi)
+        if detach_weight:
+            weight = weight.detach()
+        losses = semantic_loss(delta_p)
+        return (losses * weight).sum() / (weight.sum() + eps)
+
+    gradient_asw = gradient_of(lambda delta_p: asw_loss(delta_p, detach_weight=False))
+    gradient_asw_detached_weight = gradient_of(lambda delta_p: asw_loss(delta_p, detach_weight=True))
+    return {
+        "gradient_uniform": gradient_uniform,
+        "gradient_usw": gradient_usw,
+        "gradient_asw": gradient_asw,
+        "gradient_asw_detached_weight": gradient_asw_detached_weight,
+    }
 
 
 def _write_pair_records(path: Path, records: dict[str, np.ndarray]) -> None:
@@ -354,6 +397,10 @@ def _pool_weight_statistics(
         )
 
     omega = records["omega"]
+    full_gradient_mass = records["gradient_asw"] / np.sum(records["gradient_asw"])
+    detached_gradient_mass = records["gradient_asw_detached_weight"] / np.sum(
+        records["gradient_asw_detached_weight"]
+    )
     top_count = max(1, int(math.ceil(0.1 * omega.size)))
     ess = float(np.sum(omega) ** 2 / np.sum(omega**2))
     ess_ratios = [row["ess_ratio"] for row in pool_rows]
@@ -368,6 +415,12 @@ def _pool_weight_statistics(
         "rho_normalized_gap": _spearman(omega, records["normalized_gap"]),
         "rho_normalized_margin": _spearman(omega, records["normalized_margin"]),
         "rho_pool_regret": _spearman(omega, records["pool_regret"]),
+        "asw_full_vs_detached_gradient_tv": float(
+            0.5 * np.sum(np.abs(full_gradient_mass - detached_gradient_mass))
+        ),
+        "asw_full_vs_detached_gradient_spearman": _spearman(
+            records["gradient_asw"], records["gradient_asw_detached_weight"]
+        ),
         "pool_top10_weight_mass_mean": float(np.mean([row["top10_weight_mass"] for row in pool_rows])),
         "pool_ess_ratio_mean": float(np.mean(ess_ratios)),
         "pool_ess_ratio_std": float(np.std(ess_ratios, ddof=1)) if len(ess_ratios) > 1 else 0.0,
@@ -468,6 +521,110 @@ def _response_curves(
         derivative[np.abs(raw_score) >= parameters.clamp_abs] = 0.0
         curves[label] = (semantic_loss, np.abs(derivative))
     return grid, curves
+
+
+def _semantic_gap_response_curves(
+    delta_o: np.ndarray,
+    margin_values: list[tuple[str, float]],
+    parameters: LossParameters,
+) -> tuple[np.ndarray, dict[str, tuple[np.ndarray, np.ndarray]]]:
+    gap_limit = max(1e-8, float(np.max(delta_o)))
+    grid = np.linspace(0.0, gap_limit, 500)
+    bounded_gap = grid / (1.0 + grid)
+    curves: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    for label, margin in margin_values:
+        slope = parameters.alpha * parameters.scale * (1.0 - parameters.beta * bounded_gap)
+        raw_score = slope * margin
+        clipped_score = np.clip(raw_score, -parameters.clamp_abs, parameters.clamp_abs)
+        semantic_loss = np.logaddexp(0.0, -clipped_score)
+        curves[label] = (semantic_loss, semantic_loss - semantic_loss[0])
+    return grid, curves
+
+
+def _plot_semantic_gap_figure(
+    output_path: Path,
+    records: dict[str, np.ndarray],
+    loss_parameters: LossParameters,
+) -> None:
+    plt.rcParams.update(
+        {
+            "font.family": "serif",
+            "font.serif": ["Times New Roman", "DejaVu Serif"],
+            "font.size": 9.2,
+            "axes.titlesize": 10.2,
+            "axes.titleweight": "bold",
+            "axes.labelsize": 9.2,
+            "legend.fontsize": 7.6,
+            "axes.spines.top": False,
+            "axes.spines.right": False,
+            "figure.dpi": 180,
+            "savefig.dpi": 300,
+            "savefig.bbox": "tight",
+        }
+    )
+    colors = ["#0072B2", "#7A7A7A", "#009E73", "#D55E00"]
+    margin_values = [
+        ("P10", float(np.quantile(records["delta_p"], 0.10))),
+        ("zero", 0.0),
+        ("median", float(np.median(records["delta_p"]))),
+        ("P90", float(np.quantile(records["delta_p"], 0.90))),
+    ]
+    grid, curves = _semantic_gap_response_curves(
+        records["delta_o"], margin_values, loss_parameters
+    )
+    gap_markers = [
+        ("median", float(np.median(records["delta_o"]))),
+        ("P90", float(np.quantile(records["delta_o"], 0.90))),
+        ("P99", float(np.quantile(records["delta_o"], 0.99))),
+    ]
+
+    fig, axes = plt.subplots(1, 2, figsize=(7.15, 2.75), sharex=True)
+    fig.subplots_adjust(wspace=0.34)
+    for ax in axes:
+        for _, gap in gap_markers:
+            ax.axvline(gap, color="#C7C7C7", lw=0.7, ls=":", zorder=0)
+        ax.set_xlabel(r"Objective gap $\Delta o$")
+        ax.grid(axis="y", alpha=0.18)
+
+    for color, (label, margin) in zip(colors, margin_values):
+        display_label = rf"{label}: $\Delta p={margin:.3g}$"
+        axes[0].plot(grid, curves[label][0], color=color)
+        axes[1].plot(grid, curves[label][1], color=color, label=display_label)
+        axes[0].annotate(
+            display_label,
+            xy=(grid[-1], curves[label][0][-1]),
+            xytext=(-4, 4 if label != "P90" else 6),
+            textcoords="offset points",
+            ha="right",
+            va="bottom",
+            fontsize=7.1,
+            color=color,
+        )
+
+    axes[0].set_ylabel(r"Semantic loss $s_{\mathrm{T}}$")
+    axes[0].set_title("(a) Semantic loss versus objective gap")
+    axes[1].axhline(0.0, color="#999999", lw=0.8, ls="--")
+    axes[1].set_ylabel(r"$s_{\mathrm{T}}(\Delta o)-s_{\mathrm{T}}(0)$")
+    axes[1].set_title("(b) Gap-dependent semantic change")
+    axes[1].text(
+        0.03,
+        0.97,
+        "vertical lines: observed\nmedian / P90 / P99",
+        transform=axes[1].transAxes,
+        ha="left",
+        va="top",
+        fontsize=6.8,
+        color="#555555",
+    )
+
+    fig.suptitle(
+        r"TSP100: semantic loss response to objective gap $\Delta o$",
+        y=1.03,
+        fontsize=11.2,
+    )
+    fig.savefig(output_path.with_suffix(".pdf"))
+    fig.savefig(output_path.with_suffix(".png"))
+    plt.close(fig)
 
 
 def _plot_figure(
@@ -610,16 +767,6 @@ def _plot_figure(
     ax.set_title("(f) Final performance bridge")
     ax.set_ylim(0.0, max(usw_gap, asw_gap) * 1.28)
     ax.grid(axis="y", alpha=0.18)
-    ax.text(
-        0.5,
-        0.02,
-        "empirical association; not a causal estimate",
-        transform=ax.transAxes,
-        ha="center",
-        va="bottom",
-        fontsize=6.4,
-        color="#555555",
-    )
 
     fig.suptitle("TSP100: actual loss landscape and pool-aware gradient allocation", y=1.02, fontsize=11.4)
     fig.savefig(output_path.with_suffix(".pdf"))
@@ -650,6 +797,28 @@ def _write_latex_table(path: Path, stats: dict[str, float]) -> None:
         ]
     )
     path.write_text(text, encoding="utf-8")
+
+
+def _write_figure_caption(path: Path, stats: dict[str, float], usw_gap: float, asw_gap: float) -> None:
+    caption = (
+        "TSP100 loss and gradient analysis on real 100-start candidate pools. "
+        "(a) The actual discovered semantic loss $s_{\\mathrm T}=-\\log\\sigma(z)$ and "
+        "(b) its policy-margin gradient for four observed objective-gap levels. "
+        "(c) Real pairs projected into $(\\Delta p,\\Delta o/m_o)$ space; contours show pair density "
+        "and color shows the fraction of total ASW weight in each bin. "
+        "(d--e) Gradient-mass allocation by normalized objective gap and policy margin. "
+        "$G_i=|\\partial\\mathcal L_{\\mathrm T}/\\partial\\Delta p_i|$ is computed with PyTorch "
+        "autograd from the complete normalized objective, including the direct $|\\Delta p_i|$ dependence "
+        "of $g_{\\mathrm T}$, clipping, and the weight-normalization denominator; the training path does not "
+        "detach pair weights. Pool-level conditioning statistics are held fixed when taking the partial "
+        "derivative with respect to an individual pair margin. "
+        f"(f) The reported TSP100 gaps are {usw_gap:.3f}\\% for USW and {asw_gap:.3f}\\% for ASW. "
+        "The empirical redistribution of pairwise gradient mass is consistent with this improvement, "
+        "but the post-hoc association is not a causal estimate. "
+        f"The total-variation distance between full-gradient and detached-weight ASW mass is "
+        f"{stats['asw_full_vs_detached_gradient_tv']:.3f}."
+    )
+    path.write_text(caption + "\n", encoding="utf-8")
 
 
 def _write_report(
@@ -685,6 +854,15 @@ def _write_report(
         "",
         r"`omega_i = clip((Delta o_i / MAD_o) * (|Delta p_i| / sigma_p) * mean_pool_regret, 0.2, 2.5)`.",
         "",
+        "The training path does not detach `weight`: `PrefBatch.weight` is passed directly to the generated loss. "
+        "Accordingly, panels (d-e) use PyTorch autograd on the complete normalized objective:",
+        "",
+        r"`L_T = sum_i omega_i s_i / (sum_i omega_i + eps)`.",
+        "",
+        r"Thus the full pair derivative contains both the weighted semantic term and the weight derivative, including "
+        r"the normalization contribution: `dL_T/dDelta p_i = [omega_i s'_i + omega'_i (s_i - L_T)] / sum_j omega_j` "
+        "away from clipping boundaries. Pool statistics are held fixed for this pair-coordinate partial derivative.",
+        "",
         "## Main observations",
         "",
         "- The actual semantic loss decreases monotonically with the winner-minus-loser policy margin for every observed cost gap.",
@@ -697,7 +875,10 @@ def _write_report(
         f"{100 * stats['clip_lower_rate']:.1f}%/{100 * stats['clip_upper_rate']:.1f}%.",
         f"- Spearman correlations of weight with normalized gap, normalized margin, and pool regret are "
         f"{stats['rho_normalized_gap']:.3f}, {stats['rho_normalized_margin']:.3f}, and {stats['rho_pool_regret']:.3f}.",
-        "- The gradient panels normalize each method to its own total gradient mass, so they show redistribution rather than global-norm inflation.",
+        "- The gradient panels normalize each method's complete autograd gradients to its own total mass, so they show redistribution rather than global-norm inflation.",
+        f"- Detaching ASW weights would change the normalized gradient allocation by total-variation distance "
+        f"{stats['asw_full_vs_detached_gradient_tv']:.3f} "
+        f"(full-vs-detached Spearman {stats['asw_full_vs_detached_gradient_spearman']:.3f}).",
         f"- The supplied final TSP100 gaps are USW {usw_gap:.3f}% and ASW {asw_gap:.3f}% "
         f"({relative_gain:.1f}% relative reduction). The empirical redistribution of pairwise gradient mass is consistent "
         "with this improvement, but the post-hoc analysis alone does not establish causality.",
@@ -709,9 +890,11 @@ def _write_report(
         "## Artifacts",
         "",
         "- `tsp100_asw_analysis.pdf` and `.png`: six-panel paper figure.",
+        "- `tsp100_semantic_gap_response.pdf` and `.png`: semantic loss versus objective gap at fixed observed policy-margin slices; the centered panel is the same loss relative to `Delta o = 0`, not a gradient.",
+        "- `tsp100_asw_analysis_caption.txt`: paper-ready caption with the autograd and non-causal interpretation.",
         "- `tsp100_weight_statistics.csv` and `.tex`: compact concentration table.",
         "- `tsp100_gradient_allocation.csv`: gradient-mass fractions by normalized-gap and normalized-margin quantiles.",
-        "- `tsp100_pair_records.csv.gz`: pair-level normalized gaps, margins, pool regret, weights, and gradients.",
+        "- `tsp100_pair_records.csv.gz`: pair-level features, weights, complete autograd gradients, and detached-weight diagnostics.",
         "- `tsp100_candidate_pools.npz`: cached objective and log-probability pools.",
         "",
         "The checkpoint is a fixed Stage-2 starting-policy snapshot, not a time average over training. The analysis therefore identifies where ASW allocates mass on representative real pools without requiring retraining.",
@@ -810,6 +993,11 @@ def main() -> None:
         args.usw_gap,
         args.asw_gap,
     )
+    _plot_semantic_gap_figure(
+        output_dir / "tsp100_semantic_gap_response",
+        records,
+        loss_parameters,
+    )
     summary = {
         "protocol": {
             "checkpoint": str(checkpoint),
@@ -820,6 +1008,18 @@ def main() -> None:
         "loss_parameters": loss_parameters.__dict__,
         "builder_parameters": builder_parameters.__dict__,
         "weight_statistics": pooled_stats,
+        "gradient_analysis": {
+            "backend": "torch.autograd",
+            "objective": "sum(weight * semantic_loss) / (sum(weight) + eps)",
+            "weight_detached_in_training": False,
+            "pool_conditioning_statistics_held_fixed_for_pair_partial": True,
+            "full_vs_detached_gradient_mass_tv": pooled_stats[
+                "asw_full_vs_detached_gradient_tv"
+            ],
+            "full_vs_detached_gradient_spearman": pooled_stats[
+                "asw_full_vs_detached_gradient_spearman"
+            ],
+        },
         "performance": {
             "usw_tsp100_gap_percent": args.usw_gap,
             "asw_tsp100_gap_percent": args.asw_gap,
@@ -832,6 +1032,12 @@ def main() -> None:
     }
     (output_dir / "tsp100_analysis_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    _write_figure_caption(
+        output_dir / "tsp100_asw_analysis_caption.txt",
+        pooled_stats,
+        args.usw_gap,
+        args.asw_gap,
     )
     _write_report(
         output_dir / "README.md",

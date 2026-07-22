@@ -120,6 +120,7 @@ def _build_model(
     seed: int,
     usw_pair_path: Path,
     asw_pair_path: Path,
+    require_po4cops_policy: bool = True,
 ) -> tuple[POMO, Any, dict[str, Any]]:
     hparams = checkpoint_hparams(checkpoint_path)
     payload = hparams.pop("_checkpoint_payload")
@@ -168,7 +169,7 @@ def _build_model(
     missing, unexpected = model.load_state_dict(payload["state_dict"], strict=False)
     if missing or unexpected:
         raise RuntimeError(f"Checkpoint mismatch: missing={missing}, unexpected={unexpected}")
-    if not isinstance(model.policy, PO4COPsCVRPPolicy):
+    if require_po4cops_policy and not isinstance(model.policy, PO4COPsCVRPPolicy):
         raise TypeError(f"Expected PO4COPsCVRPPolicy, got {type(model.policy).__name__}")
     return model, env, payload
 
@@ -555,19 +556,39 @@ def main() -> None:
                 instance_index=instance_index,
                 batch_size=args.train_batch_size,
             ).to(device)
-            td = env.reset(batch).to(device)
             action_seed = args.seed + instance_index * 1_000_003
             torch.manual_seed(action_seed)
             if device.type == "cuda":
                 torch.cuda.manual_seed_all(action_seed)
             with _autocast(device, args.precision):
-                out = model._memory_efficient_preference_step(
-                    td=td,
-                    batch=batch,
-                    n_start=args.num_starts,
-                    dataloader_idx=None,
-                    log_metrics=False,
-                )
+                # The replay-based helper is currently implemented only for
+                # PO4COPsTSPPolicy. CVRP uses the ordinary POMO preference
+                # forward, which is still small enough for the short
+                # continuation protocol used here.
+                if model.policy.__class__.__name__ == "PO4COPsTSPPolicy":
+                    td = env.reset(batch).to(device)
+                    out = model._memory_efficient_preference_step(
+                        td=td,
+                        batch=batch,
+                        n_start=args.num_starts,
+                        dataloader_idx=None,
+                        log_metrics=False,
+                    )
+                else:
+                    previous_memory_efficient = model.memory_efficient_preference
+                    model.memory_efficient_preference = False
+                    try:
+                        out = model.shared_step(
+                            batch=batch,
+                            batch_idx=0,
+                            phase="train",
+                            dataloader_idx=None,
+                        )
+                    finally:
+                        model.memory_efficient_preference = previous_memory_efficient
+                    zero = out["loss"].detach().new_zeros(())
+                    out["memory_efficient_replay_error"] = zero
+                    out["memory_efficient_coefficient_abs_mean"] = zero
                 scaled_loss = out["loss"] / float(args.accumulate)
             scaled_loss.backward()
             micro_losses.append(float(out["loss"].detach().cpu()))

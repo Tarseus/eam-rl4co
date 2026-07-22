@@ -60,8 +60,8 @@ builder_search_space:
   mode: reweight_only
   fixed_pair_builder: all_pairs
   pair_weight_normalization: none
-  require_instance_stats: true
-  require_instance_conditioning: true
+  require_instance_stats: false
+  require_instance_conditioning: false
   instance_stat_keys:
     - instance_obj_mean
     - instance_obj_std
@@ -77,7 +77,8 @@ builder_search_space:
     - instance_regret_std
     - instance_regret_max
   seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
-  allow_freeform_weight_family: false
+  allow_freeform_weight_family: true
+  allow_zero_weights: true
   allow_uniform_none: false
 
 devices: ["cuda:0", "cuda:1", "cuda:2", "cuda:3"]
@@ -126,7 +127,7 @@ train_batch_size: 1
 num_validation_episodes: 100
 validation_batch_size: 1
 pomo_size: 128
-loss_observables: [advantage]
+loss_observables: [log_prob_mean, advantage]
 ref_policy_source: none
 scratch_init_seed: 69
 backend: rl4co
@@ -232,8 +233,8 @@ builder_llm:
     mode: reweight_only
     fixed_pair_builder: all_pairs
     pair_weight_normalization: none
-    require_instance_stats: true
-    require_instance_conditioning: true
+    require_instance_stats: false
+    require_instance_conditioning: false
     instance_stat_keys:
       - instance_obj_mean
       - instance_obj_std
@@ -249,7 +250,8 @@ builder_llm:
       - instance_regret_std
       - instance_regret_max
     seed_weight_families: [gap_linear, gap_rank_blend, gap_regret_blend, margin_rank_blend, margin_regret_blend, gap_bandpass]
-    allow_freeform_weight_family: false
+    allow_freeform_weight_family: true
+    allow_zero_weights: true
     allow_uniform_none: false
   operator_bank:
     init:

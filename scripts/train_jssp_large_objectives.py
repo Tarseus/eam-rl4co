@@ -26,7 +26,7 @@ from rl4co.models.zoo.mgl_jssp.sampling import sampling
 from scripts.eval_downloaded_routing_checkpoints import checkpoint_hparams
 
 
-METHODS = ("po", "bopo", "usw", "asw")
+METHODS = ("rl", "po", "sll", "bopo", "usw", "asw")
 DEFAULT_PAIR_PATHS = {
     "usw": REPO_ROOT
     / "runs/pref_loss_jssp10x10_from_ffsp100_elite/20260416-113409/best_pair.json",
@@ -99,7 +99,9 @@ def _build_model(args: argparse.Namespace, checkpoint: Path):
     hparams.update(
         {
             "env": env,
-            "baseline": "po" if args.method == "po" else "bopo",
+            "baseline": (
+                args.method if args.method in {"rl", "po", "sll", "bopo"} else "bopo"
+            ),
             "B": args.rollouts,
             "K": args.select_k,
             "D": 1,
@@ -208,7 +210,7 @@ def _save_payload(model, optimizer, step: int, best: float, config: dict[str, An
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Common-checkpoint continuation for large JSSP PO/BOPO/USW/ASW."
+        description="Common-checkpoint continuation for large JSSP RL/PO/SLL/BOPO/USW/ASW."
     )
     parser.add_argument("--method", choices=METHODS, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)

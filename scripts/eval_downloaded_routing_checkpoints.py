@@ -377,6 +377,10 @@ def build_model(
     raw_hparams = checkpoint_hparams(entry.checkpoint_path)
     payload = raw_hparams.pop("_checkpoint_payload")
     raw_hparams["policy"] = _patch_legacy_policy_object(raw_hparams.get("policy"))
+    # Continuation checkpoints persist these runtime attributes for exact
+    # provenance, but they are not POMO constructor arguments.
+    po_anchor_weight = float(raw_hparams.pop("preference_po_anchor_weight", 0.0))
+    po_anchor_alpha = float(raw_hparams.pop("preference_po_anchor_alpha", 0.05))
 
     if env_name in ROUTING_PREFIXES:
         env, resolved_test_file = build_routing_env(
@@ -388,6 +392,8 @@ def build_model(
         raw_hparams["env"] = env
         raw_hparams["num_starts"] = size
         model = POMO(**raw_hparams)
+        model.preference_po_anchor_weight = po_anchor_weight
+        model.preference_po_anchor_alpha = po_anchor_alpha
         model = _finalize_model_from_payload(
             model=model,
             payload=payload,

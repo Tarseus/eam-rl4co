@@ -15,10 +15,11 @@ The user requires 2000 additional training steps on TSP1000. PO has already comp
 
 ## ASW
 
-- Resume the TSP1000 ASW K40/detached optimizer-step1000 endpoint.
-- Add exactly 2000 optimizer updates on the same fresh-data index schedule.
+- Resume the preserved TSP1000 ASW K40/detached optimizer-step400 best checkpoint (validation32 26.856803596019745, SHA256 `b9917a1d3e39bf549e395ba132ae2fe5efa01f3ca32a4b13a97c1966de743e13`) as directed by the user; the earlier endpoint-based attempt was stopped and must not be resumed.
+- Add exactly 2000 optimizer updates on a fresh, non-overlapping data schedule.
 - Reduce alpha from 0.01 to 0.001 to address the observed late saturation and drift; keep K40, detached weights, batch128, LR1e-5, BF16, and seed1234.
-- Use validation32/1000-start/augmentation1 every 100 updates and preserve prior checkpoints.
+- Use `data_start_index=50000000`, validation32/1000-start/augmentation1 every 100 updates, and train to absolute optimizer step2400.
+- Treat this as best-checkpoint optimization, not an equal-endpoint-budget comparison.
 
 ## Final decision
 
@@ -26,4 +27,3 @@ The user requires 2000 additional training steps on TSP1000. PO has already comp
 - Record dataset SHA and exact indices 0..99.
 - Each method is compared to the matched PO `from1000_add2000` per-instance results.
 - ASW is complete only if its mean is below PO and the paired candidate-minus-PO bootstrap 95% CI lies wholly below zero.
-

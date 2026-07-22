@@ -62,6 +62,7 @@ class ScenarioConfig:
     pyvrp_time_limit_s: float | None = None
     lkh_time_limit_s: float | None = None
     lkh_runs: int = 10
+    lkh_max_trials: int | None = None
     solvers: tuple[str, ...] = ()
 
 
@@ -86,6 +87,16 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         lkh_runs=20,
         solvers=("lkh", "concorde"),
     ),
+    "tsp1000": ScenarioConfig(
+        name="tsp1000",
+        problem="tsp",
+        size=1000,
+        test_file=REPO_ROOT / "data" / "tsp" / "tsp1000_test_seed1234.npz",
+        generated_count=100,
+        lkh_time_limit_s=600.0,
+        lkh_runs=20,
+        solvers=("lkh",),
+    ),
     "cvrp50": ScenarioConfig(
         name="cvrp50",
         problem="cvrp",
@@ -103,6 +114,17 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         generated_count=10000,
         pyvrp_time_limit_s=180.0,
         solvers=("pyvrp",),
+    ),
+    "cvrp1000": ScenarioConfig(
+        name="cvrp1000",
+        problem="cvrp",
+        size=1000,
+        test_file=REPO_ROOT / "data" / "vrp" / "agfn_vrp1000_capacity50_test128.npz",
+        generated_count=128,
+        lkh_time_limit_s=600.0,
+        lkh_runs=1,
+        lkh_max_trials=1000,
+        solvers=("lkh",),
     ),
     "ffsp50": ScenarioConfig(
         name="ffsp50",
@@ -126,6 +148,18 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         cp_sat_time_limit_s=600.0,
         solvers=("ortools_cp_sat", "sjf", "neh"),
     ),
+    "ffsp1000": ScenarioConfig(
+        name="ffsp1000",
+        problem="ffsp",
+        size=1000,
+        test_file=REPO_ROOT
+        / "data/ffsp_generated_eval/seed12345678_n100_paper_aligned/ffsp1000_test_seed12345678_torch.npz",
+        generated_count=100,
+        ffsp_stages=3,
+        ffsp_machines=4,
+        cp_sat_time_limit_s=1200.0,
+        solvers=("ortools_cp_sat", "sjf", "neh"),
+    ),
     "jssp10x10": ScenarioConfig(
         name="jssp10x10",
         problem="jssp",
@@ -143,6 +177,16 @@ SCENARIOS: dict[str, ScenarioConfig] = {
         test_file=None,
         generated_count=100,
         jssp_shape="15x15",
+        cp_sat_time_limit_s=600.0,
+        solvers=("ortools_cp_sat", "spt", "mor", "mwr"),
+    ),
+    "jssp50x20": ScenarioConfig(
+        name="jssp50x20",
+        problem="jssp",
+        size=50,
+        test_file=None,
+        generated_count=100,
+        jssp_shape="50x20",
         cp_sat_time_limit_s=600.0,
         solvers=("ortools_cp_sat", "spt", "mor", "mwr"),
     ),
@@ -207,6 +251,31 @@ def parse_args() -> argparse.Namespace:
         default=None,
         choices=["lkh", "concorde"],
         help="Override TSP solver list.",
+    )
+    parser.add_argument(
+        "--cvrp-solvers",
+        nargs="+",
+        default=None,
+        choices=["lkh", "pyvrp"],
+        help="Override CVRP solver list.",
+    )
+    parser.add_argument(
+        "--lkh-time-limit",
+        type=float,
+        default=None,
+        help="Override the configured LKH time limit per instance, in seconds.",
+    )
+    parser.add_argument(
+        "--lkh-runs",
+        type=int,
+        default=None,
+        help="Override the configured number of LKH runs per instance.",
+    )
+    parser.add_argument(
+        "--lkh-max-trials",
+        type=int,
+        default=None,
+        help="Override LKH MAX_TRIALS per run (the LKH3(100/1000/10000) paper setting).",
     )
     parser.add_argument(
         "--scheduling-solvers",
@@ -288,8 +357,45 @@ def _parse_lkh_tour(tour_path: Path) -> list[int]:
     return nodes
 
 
+def _parse_concorde_solution(solution_path: Path, dimension: int) -> list[int]:
+    tokens = [int(token) for token in solution_path.read_text(encoding="utf-8").split()]
+    if not tokens or tokens[0] != dimension:
+        raise ValueError(f"Invalid Concorde solution dimension in {solution_path}")
+    tour = tokens[1:]
+    if len(tour) != dimension or set(tour) != set(range(dimension)):
+        raise ValueError(f"Invalid Concorde Hamiltonian tour in {solution_path}")
+    return tour
+
+
+def _parse_lkh_mtsp_solution(solution_path: Path, depot_id: int = 1) -> list[list[int]]:
+    routes: list[list[int]] = []
+    for raw_line in solution_path.read_text(encoding="utf-8").splitlines():
+        if "(#" not in raw_line:
+            continue
+        route_text = raw_line.split("(#", 1)[0].strip()
+        nodes = [int(token) for token in route_text.split()]
+        if not nodes or nodes[0] != depot_id:
+            raise ValueError(f"Malformed LKH route line: {raw_line!r}")
+        if nodes[-1] == depot_id:
+            nodes = nodes[:-1]
+        customers = nodes[1:]
+        if customers:
+            routes.append(customers)
+    if not routes:
+        raise ValueError(f"Failed to parse routes from {solution_path}")
+    return routes
+
+
+def _parse_lkh_mtsp_cost(solution_path: Path) -> tuple[int, int]:
+    first_line = solution_path.read_text(encoding="utf-8").splitlines()[0]
+    match = re.search(r"Cost:\s*(-?\d+)_(-?\d+)", first_line)
+    if match is None:
+        raise ValueError(f"Failed to parse LKH penalty and cost from {solution_path}")
+    return int(match.group(1)), int(match.group(2))
+
+
 def _routing_workdir(output_dir: Path, scenario_name: str, solver: str) -> Path:
-    work_dir = output_dir / "artifacts" / scenario_name / solver
+    work_dir = (output_dir / "artifacts" / scenario_name / solver).resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
     return work_dir
 
@@ -488,6 +594,7 @@ def run_tsp_lkh(
     time_limit_sec: float,
     runs: int,
     output_dir: Path,
+    max_trials: int | None = None,
 ) -> PerInstanceResult:
     lkh_path = REPO_ROOT / "tools" / "LKH-3.0.13" / "LKH"
     if not lkh_path.is_file():
@@ -519,7 +626,10 @@ def run_tsp_lkh(
         f"RUNS = {runs}",
         "TRACE_LEVEL = 0",
     ]
+    if max_trials is not None:
+        par_lines.append(f"MAX_TRIALS = {max_trials}")
     par_path.write_text("\n".join(par_lines) + "\n", encoding="utf-8")
+    tour_path.unlink(missing_ok=True)
 
     t0 = time.perf_counter()
     completed = subprocess.run(
@@ -527,9 +637,19 @@ def run_tsp_lkh(
         cwd=work_dir,
         capture_output=True,
         text=True,
-        check=True,
+        check=False,
     )
     elapsed = time.perf_counter() - t0
+    if completed.returncode != 0 or not tour_path.is_file():
+        return PerInstanceResult(
+            scenario_name,
+            "lkh",
+            instance_id,
+            f"error_{completed.returncode}",
+            None,
+            elapsed,
+            notes=((completed.stderr or completed.stdout).strip()[:500]),
+        )
     objective = float(_cycle_length(scaled, _parse_lkh_tour(tour_path)))
     notes = completed.stdout.strip().splitlines()[-1] if completed.stdout.strip() else ""
     return PerInstanceResult(scenario_name, "lkh", instance_id, "ok", objective, elapsed, notes=notes[:300])
@@ -540,12 +660,18 @@ def run_tsp_concorde(
     instance_id: str,
     scenario_name: str,
     output_dir: Path,
+    seed: int = 1234,
+    max_attempts: int = 3,
 ) -> PerInstanceResult:
     concorde_path = REPO_ROOT / "tools" / "concorde" / "TSP" / "concorde"
     if not concorde_path.is_file():
         return PerInstanceResult(scenario_name, "concorde", instance_id, "missing", None, 0.0, notes="Concorde missing")
 
-    work_dir = _routing_workdir(output_dir, scenario_name, "concorde")
+    # Concorde creates temporary files from a short problem-name prefix. A shared
+    # directory therefore corrupts parallel runs whose long instance names have
+    # the same prefix (for example every ``tsp100_*`` row). Isolate every solve.
+    work_dir = _routing_workdir(output_dir, scenario_name, "concorde") / instance_id
+    work_dir.mkdir(parents=True, exist_ok=True)
     tsp_path = work_dir / f"{instance_id}.tsp"
     sol_path = work_dir / f"{instance_id}.sol"
     scaled = np.rint(coords * 100_000).astype(int)
@@ -561,29 +687,191 @@ def run_tsp_concorde(
     lines.append("EOF")
     tsp_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be >= 1")
+    t0 = time.perf_counter()
+    last_status = "error"
+    last_notes = "Concorde produced no validated certificate"
+    for attempt in range(max_attempts):
+        sol_path.unlink(missing_ok=True)
+        completed = subprocess.run(
+            [
+                str(concorde_path),
+                "-x",
+                "-s",
+                str(seed + attempt),
+                "-o",
+                str(sol_path),
+                str(tsp_path),
+            ],
+            cwd=work_dir,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        match = re.search(r"Optimal Solution:\s*([0-9]+(?:\.[0-9]+)?)", completed.stdout)
+        exact_bound = re.search(r"Exact lower bound:\s*([0-9]+(?:\.[0-9]+)?)", completed.stdout)
+        zero_diff = re.search(r"DIFF:\s*0(?:\.0+)?(?:\s|$)", completed.stdout) is not None
+        valid_exit = completed.returncode in {0, 255}
+        if not valid_exit or match is None or exact_bound is None or not zero_diff or not sol_path.is_file():
+            last_status = f"error_{completed.returncode}"
+            last_notes = (completed.stderr or completed.stdout).strip()[:500]
+            continue
+        objective = float(match.group(1))
+        try:
+            tour = _parse_concorde_solution(sol_path, len(scaled))
+        except ValueError as exc:
+            last_status = "invalid_certificate"
+            last_notes = str(exc)
+            continue
+        recomputed = float(_cycle_length(scaled, tour))
+        if not math.isclose(objective, float(exact_bound.group(1))) or not math.isclose(objective, recomputed):
+            last_status = "invalid_certificate"
+            last_notes = (
+                f"returncode={completed.returncode}; optimal={objective}; "
+                f"lower_bound={exact_bound.group(1)}; recomputed={recomputed}"
+            )
+            continue
+        elapsed = time.perf_counter() - t0
+        notes = (
+            f"returncode={completed.returncode}; certificate=validated; "
+            f"attempts={attempt + 1}"
+        )
+        return PerInstanceResult(
+            scenario_name, "concorde", instance_id, "optimal", objective, elapsed, notes=notes
+        )
+    elapsed = time.perf_counter() - t0
+    return PerInstanceResult(
+        scenario_name,
+        "concorde",
+        instance_id,
+        last_status,
+        None,
+        elapsed,
+        notes=last_notes,
+    )
+
+
+def run_cvrp_lkh(
+    instance: dict[str, np.ndarray],
+    seed: int,
+    instance_id: str,
+    scenario_name: str,
+    time_limit_sec: float,
+    runs: int,
+    output_dir: Path,
+    max_trials: int | None = None,
+) -> PerInstanceResult:
+    lkh_path = REPO_ROOT / "tools" / "LKH-3.0.13" / "LKH"
+    if not lkh_path.is_file():
+        return PerInstanceResult(scenario_name, "lkh", instance_id, "missing", None, 0.0, notes="LKH missing")
+
+    depot = np.asarray(instance["depot"], dtype=np.float64)
+    locs = np.asarray(instance["locs"], dtype=np.float64)
+    demand = np.asarray(instance["demand"], dtype=np.float64)
+    capacity = int(round(float(instance["capacity"])))
+    rounded_demand = np.rint(demand).astype(np.int64)
+    if depot.shape != (2,) or locs.ndim != 2 or locs.shape[1] != 2:
+        raise ValueError(f"Invalid CVRP coordinate shapes: depot={depot.shape}, locs={locs.shape}")
+    if demand.shape != (len(locs),) or not np.allclose(demand, rounded_demand):
+        raise ValueError("LKH CVRP requires one integral demand per customer")
+    if capacity <= 0 or np.any(rounded_demand <= 0) or np.any(rounded_demand > capacity):
+        raise ValueError("CVRP capacity and customer demands must be positive and feasible")
+
+    work_dir = _routing_workdir(output_dir, scenario_name, "lkh")
+    problem_path = work_dir / f"{instance_id}.vrp"
+    par_path = work_dir / f"{instance_id}.par"
+    tour_path = work_dir / f"{instance_id}.tour"
+    solution_path = work_dir / f"{instance_id}.solution"
+    scaled = np.rint(np.concatenate([depot[None, :], locs], axis=0) * 100_000).astype(np.int64)
+
+    lines = [
+        f"NAME : {instance_id}",
+        "TYPE : CVRP",
+        f"DIMENSION : {len(scaled)}",
+        f"CAPACITY : {capacity}",
+        "EDGE_WEIGHT_TYPE : EUC_2D",
+        "NODE_COORD_SECTION",
+    ]
+    for idx, (x_coord, y_coord) in enumerate(scaled, start=1):
+        lines.append(f"{idx} {int(x_coord)} {int(y_coord)}")
+    lines.append("DEMAND_SECTION")
+    lines.append("1 0")
+    for idx, value in enumerate(rounded_demand, start=2):
+        lines.append(f"{idx} {int(value)}")
+    lines.extend(["DEPOT_SECTION", "1", "-1", "EOF"])
+    problem_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    par_lines = [
+        f"PROBLEM_FILE = {problem_path}",
+        f"TOUR_FILE = {tour_path}",
+        f"MTSP_SOLUTION_FILE = {solution_path}",
+        f"TIME_LIMIT = {max(1, int(math.ceil(time_limit_sec)))}",
+        f"SEED = {seed}",
+        f"RUNS = {runs}",
+        "SPECIAL",
+        "SUBGRADIENT = NO",
+        "TRACE_LEVEL = 0",
+    ]
+    if max_trials is not None:
+        par_lines.append(f"MAX_TRIALS = {max_trials}")
+    par_path.write_text("\n".join(par_lines) + "\n", encoding="utf-8")
+
+    solution_path.unlink(missing_ok=True)
+    tour_path.unlink(missing_ok=True)
     t0 = time.perf_counter()
     completed = subprocess.run(
-        [str(concorde_path), "-x", "-o", str(sol_path), str(tsp_path)],
+        [str(lkh_path), str(par_path)],
         cwd=work_dir,
         capture_output=True,
         text=True,
         check=False,
     )
     elapsed = time.perf_counter() - t0
-    match = re.search(r"Optimal Solution:\s*([0-9]+(?:\.[0-9]+)?)", completed.stdout)
-    if match is None:
+    if completed.returncode != 0 or not solution_path.is_file():
+        notes = (completed.stderr or completed.stdout).strip()[-500:]
         return PerInstanceResult(
             scenario_name,
-            "concorde",
+            "lkh",
             instance_id,
             f"error_{completed.returncode}",
             None,
             elapsed,
-            notes=((completed.stderr or completed.stdout).strip()[:500]),
+            notes=notes,
         )
-    objective = float(match.group(1))
-    notes = f"returncode={completed.returncode}"
-    return PerInstanceResult(scenario_name, "concorde", instance_id, "ok", objective, elapsed, notes=notes)
+
+    penalty, reported_cost = _parse_lkh_mtsp_cost(solution_path)
+    if penalty != 0:
+        return PerInstanceResult(
+            scenario_name,
+            "lkh",
+            instance_id,
+            "infeasible",
+            None,
+            elapsed,
+            notes=f"penalty={penalty} reported_cost={reported_cost}",
+        )
+    routes = _parse_lkh_mtsp_solution(solution_path)
+    customers = [node for route in routes for node in route]
+    expected = list(range(2, len(scaled) + 1))
+    if sorted(customers) != expected:
+        raise RuntimeError("LKH CVRP solution does not visit every customer exactly once")
+    route_loads = [sum(int(rounded_demand[node - 2]) for node in route) for route in routes]
+    if max(route_loads, default=0) > capacity:
+        raise RuntimeError("LKH CVRP solution exceeds vehicle capacity")
+    objective = 0
+    for route in routes:
+        zero_based = [0, *[node - 1 for node in route], 0]
+        objective += sum(
+            _tsplib_euc_2d_distance(scaled[src], scaled[dst])
+            for src, dst in zip(zero_based, zero_based[1:])
+        )
+    if objective != reported_cost:
+        raise RuntimeError(
+            f"LKH CVRP objective mismatch: reported={reported_cost}, recomputed={objective}"
+        )
+    notes = f"routes={len(routes)} max_route_load={max(route_loads, default=0)}"
+    return PerInstanceResult(scenario_name, "lkh", instance_id, "ok", float(objective), elapsed, notes=notes)
 
 
 def _build_pyvrp_problem(instance: dict[str, np.ndarray]) -> ProblemData:
@@ -995,6 +1283,9 @@ def _run_single_tsp_task(
     idx: int,
     seed: int,
     output_dir: Path,
+    lkh_time_limit_s: float | None,
+    lkh_runs: int | None,
+    lkh_max_trials: int | None,
 ) -> PerInstanceResult:
     instance_id = f"{cfg.name}_{idx:05d}"
     if solver == "lkh":
@@ -1003,26 +1294,53 @@ def _run_single_tsp_task(
             seed=seed + idx,
             instance_id=instance_id,
             scenario_name=cfg.name,
-            time_limit_sec=float(cfg.lkh_time_limit_s or 30.0),
-            runs=int(cfg.lkh_runs),
+            time_limit_sec=float(lkh_time_limit_s if lkh_time_limit_s is not None else (cfg.lkh_time_limit_s or 30.0)),
+            runs=int(lkh_runs if lkh_runs is not None else cfg.lkh_runs),
             output_dir=output_dir,
+            max_trials=(lkh_max_trials if lkh_max_trials is not None else cfg.lkh_max_trials),
         )
     if solver == "concorde":
-        return run_tsp_concorde(coords, instance_id, cfg.name, output_dir)
+        return run_tsp_concorde(
+            coords,
+            instance_id,
+            cfg.name,
+            output_dir,
+            seed=seed + idx,
+        )
     raise ValueError(f"Unsupported TSP solver: {solver}")
 
 
 def _run_single_cvrp_task(
+    solver: str,
     cfg: ScenarioConfig,
     instance: dict[str, np.ndarray],
     idx: int,
+    seed: int,
+    output_dir: Path,
+    lkh_time_limit_s: float | None,
+    lkh_runs: int | None,
+    lkh_max_trials: int | None,
 ) -> PerInstanceResult:
-    return run_cvrp_pyvrp(
-        instance,
-        f"{cfg.name}_{idx:05d}",
-        cfg.name,
-        time_limit_sec=float(cfg.pyvrp_time_limit_s or 30.0),
-    )
+    instance_id = f"{cfg.name}_{idx:05d}"
+    if solver == "pyvrp":
+        return run_cvrp_pyvrp(
+            instance,
+            instance_id,
+            cfg.name,
+            time_limit_sec=float(cfg.pyvrp_time_limit_s or 30.0),
+        )
+    if solver == "lkh":
+        return run_cvrp_lkh(
+            instance,
+            seed=seed + idx,
+            instance_id=instance_id,
+            scenario_name=cfg.name,
+            time_limit_sec=float(lkh_time_limit_s if lkh_time_limit_s is not None else (cfg.lkh_time_limit_s or 30.0)),
+            runs=int(lkh_runs if lkh_runs is not None else cfg.lkh_runs),
+            output_dir=output_dir,
+            max_trials=(lkh_max_trials if lkh_max_trials is not None else cfg.lkh_max_trials),
+        )
+    raise ValueError(f"Unsupported CVRP solver: {solver}")
 
 
 def _run_single_ffsp_task(
@@ -1132,7 +1450,20 @@ def benchmark_scenario(
         solvers = tuple(args.tsp_solvers) if args.tsp_solvers is not None else cfg.solvers
         instances = _load_tsp_instances(cfg, args.seed, args.max_instances, args.require_test_data)
         for solver in solvers:
-            tasks = [(solver, cfg, coords, idx, args.seed, args.output_dir) for idx, coords in enumerate(instances)]
+            tasks = [
+                (
+                    solver,
+                    cfg,
+                    coords,
+                    idx,
+                    args.seed,
+                    args.output_dir,
+                    args.lkh_time_limit,
+                    args.lkh_runs,
+                    args.lkh_max_trials,
+                )
+                for idx, coords in enumerate(instances)
+            ]
             print(f"[{cfg.name}/{solver}] launching {len(tasks)} instances", flush=True)
             rows, summary = _execute_parallel(solver, tasks, _run_single_tsp_task, args)
             scenario_rows.extend(rows)
@@ -1141,11 +1472,26 @@ def benchmark_scenario(
 
     if cfg.problem == "cvrp":
         instances = _load_cvrp_instances(cfg, args.seed, args.max_instances, args.require_test_data)
-        tasks = [(cfg, instance, idx) for idx, instance in enumerate(instances)]
-        print(f"[{cfg.name}/pyvrp] launching {len(tasks)} instances", flush=True)
-        rows, summary = _execute_parallel("pyvrp", tasks, _run_single_cvrp_task, args)
-        scenario_rows.extend(rows)
-        summaries.append(summary)
+        solvers = tuple(args.cvrp_solvers) if args.cvrp_solvers is not None else cfg.solvers
+        for solver in solvers:
+            tasks = [
+                (
+                    solver,
+                    cfg,
+                    instance,
+                    idx,
+                    args.seed,
+                    args.output_dir,
+                    args.lkh_time_limit,
+                    args.lkh_runs,
+                    args.lkh_max_trials,
+                )
+                for idx, instance in enumerate(instances)
+            ]
+            print(f"[{cfg.name}/{solver}] launching {len(tasks)} instances", flush=True)
+            rows, summary = _execute_parallel(solver, tasks, _run_single_cvrp_task, args)
+            scenario_rows.extend(rows)
+            summaries.append(summary)
         return scenario_rows, summaries
 
     if cfg.problem == "ffsp":

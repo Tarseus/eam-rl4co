@@ -356,6 +356,7 @@ def build_runtime_prompt_context(
 
     if mode_norm == "pairwise":
         base_keys = {
+            "pair_instance_idx",
             "log_prob_w",
             "log_prob_l",
             "weight",
@@ -389,6 +390,18 @@ def build_runtime_prompt_context(
     blocked_sorted = sorted(k for k in blocked if k in supported and k not in available)
     unavailable_sorted = sorted(k for k in supported if k not in available)
 
+    notes = [
+        "implementation_hint.expects and any required batch[...] access must stay within available_keys",
+        "optional signals should be accessed with batch.get(..., fallback)",
+        "prefer preferred_cheap_keys when multiple designs are plausible",
+        "pair_instance_idx enables instance-local reduction before the final mean across instances",
+        "stable scale-free transforms may be formed from oriented cost_a and cost_b",
+    ]
+    if "log_prob_mean" in observable_set:
+        notes.append(
+            "mean-step log-probability margins may use log_prob_w_mean and log_prob_l_mean directly"
+        )
+
     return {
         "mode": mode_norm,
         "configured_loss_observables": observable_names,
@@ -396,11 +409,7 @@ def build_runtime_prompt_context(
         "preferred_cheap_keys": preferred_sorted,
         "blocked_optional_keys": blocked_sorted,
         "unavailable_supported_keys": unavailable_sorted,
-        "notes": [
-            "implementation_hint.expects and any required batch[...] access must stay within available_keys",
-            "optional signals should be accessed with batch.get(..., fallback)",
-            "prefer preferred_cheap_keys when multiple designs are plausible",
-        ],
+        "notes": notes,
     }
 
 

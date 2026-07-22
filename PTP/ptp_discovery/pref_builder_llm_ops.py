@@ -192,6 +192,7 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
             if not isinstance(seed_weight_families, (list, tuple)):
                 seed_weight_families = []
             allow_freeform_weight_family = bool(search_space.get("allow_freeform_weight_family", False))
+            allow_zero_weights = bool(search_space.get("allow_zero_weights", False))
             require_instance_stats = bool(search_space.get("require_instance_stats", False))
             require_instance_conditioning = bool(search_space.get("require_instance_conditioning", False))
             instance_stat_keys = search_space.get("instance_stat_keys", [])
@@ -209,6 +210,13 @@ def _append_global_feedback(prompt: str, global_feedback: Mapping[str, Any] | No
                 "- This is not redundant with loss-only search: the downstream loss batch is flattened and does not carry `b_idx`, so it cannot reconstruct instance-local pair distributions or per-instance pool statistics.\n"
                 "- Prefer configurable scalars via `extra` such as weight_tau or weight_beta.\n"
             )
+            if allow_zero_weights:
+                out += (
+                    "- Exact zero weights are allowed: they suppress selected comparisons while preserving the fixed pair_idx topology.\n"
+                    "- Clamping must preserve exact zeros; do not impose a positive lower bound.\n"
+                    "- You may use instance-local ranks, candidate indices, pool size, and boolean masks to express sparse contribution patterns.\n"
+                    "- Every instance must retain at least one positive-weight comparison.\n"
+                )
             if require_instance_stats:
                 stat_keys = [str(x) for x in instance_stat_keys if str(x).strip()]
                 out += (

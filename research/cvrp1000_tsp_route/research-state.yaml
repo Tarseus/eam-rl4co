@@ -1,6 +1,6 @@
 project:
   title: "Replicate the successful TSP1000 PO-anchored USW/ASW route on CVRP1000"
-  status: active
+  status: "stopped early by user decision after positive step800 interim official-protocol evaluation"
   started: "2026-07-16"
   authorization: "User explicitly requested direct replication of the final route where both USW and ASW significantly beat PO."
 
@@ -27,6 +27,7 @@ locked_route:
   po_anchor_alpha: 0.05
   screen_steps: 200
   promoted_total_steps: 1000
+  execution_batching: "physical batch 64 x gradient accumulation 2 = effective batch 128"
   usw: "K64, alpha0.01, non-detach"
   asw: "K40, alpha0.01, detach"
 
@@ -38,39 +39,260 @@ evaluation:
   official_protocol: "fixed128, 100 starts, 8 augmentations, FP32"
   success: "Both variants independently beat source PO with candidate-minus-PO paired-bootstrap 95% CI wholly below zero."
 
-active_stage: "physical_batch128 VRAM/integrity probes running from locked strong PO source"
+active_stage: "interim step800 evaluation plus joint TSP1000/CVRP1000 Wilcoxon-Holm significance analysis completed; training remains intentionally stopped without completing step1000"
 active_runs:
-  - name: "usw_poanchor_pb128_probe_from_po1000"
+  - name: "usw_poanchor_w090_k64_a001_screen200"
     host: g53
     gpu: 4
-    pid: 1791829
-    status: running
-    output_dir: "logs/cvrp1000_tsp_route/probe_pb128_usw_from_po1000_20260716T1038"
-    probe_data_start_index: 299980000
-  - name: "asw_poanchor_pb128_probe_from_po1000"
+    pid: 1793436
+    status: "completed cleanly at optimizer step200 before 2026-07-16T12:23:10+08:00; held-out mean124.83132672309875 beats shared step0 mean128.03516244888306; eligible for promotion"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/usw_poanchor_w090_k64_a001_b64a2_screen200_1045"
+  - name: "asw_poanchor_w090_k40_a001_detach_screen200"
     host: g53
     gpu: 5
-    pid: 1791832
-    status: running
-    output_dir: "logs/cvrp1000_tsp_route/probe_pb128_asw_from_po1000_20260716T1038"
-    probe_data_start_index: 299980000
+    pid: 1793644
+    status: "completed cleanly at optimizer step200 before 2026-07-16T12:02:00+08:00; held-out mean124.98531675338745 beats shared step0 mean128.035162; eligible for deferred promotion once no screen/evaluator is active"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/asw_poanchor_w090_k40_a001_detach_b64a2_screen200_1045"
+  - name: "source_po_official128_evaluator"
+    host: g53
+    pid: 1793978
+    status: "not running at 2026-07-16T12:23:10+08:00; no equivalent Python evaluator active"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/official_fixed128; source-only eval artifact exists and was not touched"
+  - name: "usw_poanchor_w090_k64_a001_resume800_from200"
+    host: g53
+    gpu: 4
+    pid: 1796820
+    status: "not running at 2026-07-16T19:10:41+08:00; history ends at absolute step619 with replay_error0, last safe validation/checkpoint step600, no summary.json"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/usw_poanchor_w090_k64_a001_b64a2_resume800_from200_1225"
+  - name: "asw_poanchor_w090_k40_a001_detach_resume800_from200"
+    host: g53
+    gpu: 5
+    pid: 1796817
+    status: "not running at 2026-07-16T19:10:41+08:00; history ends at absolute step720 with replay_error0, last safe validation/checkpoint step700, no summary.json"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/asw_poanchor_w090_k40_a001_detach_b64a2_resume800_from200_1225"
+  - name: "usw_poanchor_w090_k64_a001_recover400_from600"
+    host: g53
+    gpu: 4
+    pid: 30498
+    status: "not running at 2026-07-16T22:42:38+08:00; history still ends at absolute step831 with replay_error0, presumed last safe validation/checkpoint step800, no summary.json"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/usw_poanchor_w090_k64_a001_b64a2_recover400_from600_1915"
+  - name: "asw_poanchor_w090_k40_a001_detach_recover300_from700"
+    host: g53
+    gpu: 5
+    pid: 30501
+    status: "not running at 2026-07-16T22:42:38+08:00; history tail directly confirms absolute step994 with replay_error0, presumed last safe validation/checkpoint step900, no summary.json"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/asw_poanchor_w090_k40_a001_detach_b64a2_recover300_from700_1915"
+  - name: "interim_usw_best_step800_official128_evaluator"
+    host: g53
+    gpu: 4
+    pid: 11407
+    status: "completed cleanly before 2026-07-17T11:06:57+08:00; mean123.18584531545639, paired difference vs PO -4.241838991641998, bootstrap95% CI[-4.290012957155705,-4.192430754005909]"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/official_fixed128/interim_usw_best_pre1000_2250.json"
+  - name: "interim_asw_best_step800_official128_evaluator"
+    host: g53
+    gpu: 5
+    pid: 11408
+    status: "completed cleanly before 2026-07-17T11:06:57+08:00; mean123.61039865016937, paired difference vs PO -3.817285656929016, bootstrap95% CI[-3.8714518934488296,-3.7635308116674424]"
+    output_dir: "logs/cvrp1000_tsp_route_20260716/official_fixed128/interim_asw_best_pre1000_2250.json"
 
 last_observation:
-  time: "2026-07-16T10:34:40+08:00"
-  local_tests:
-    cvrp_forced_replay: passed
-    cvrp_memory_efficient_instance_batch: passed
-    replay_error: 0.0
-    usw_asw_common_initialization_exact: true
+  time: "2026-07-17T11:06:57+08:00"
   remote:
     host: g53
-    probe_pids: [1791829, 1791832]
-    probe_gpus: [4, 5]
-    physical_batch: 128
-    accumulation: 1
-    result_boundary_present: false
-    source_and_artifact_hashes_match_local: true
-    note: "The sole idempotent post-launch check found exactly one Python process per target variant and only config.json; no same-round result poll follows."
+    snapshot_attempts_this_tick: 1
+    snapshot_status: "successful merged process/GPU/output/log/result snapshot; both interim evaluations completed and paired bootstrap100000 seed1234 was computed"
+    matching_target_python_processes: []
+    source_po_evaluator_pid_1793978_running: false
+    equivalent_cvrp_evaluator_running: false
+    matching_output_roots:
+      - "logs/codex_remote/cvrp1000_tsp_route_preflight_20260716T1029+0800"
+      - "logs/cvrp1000_agfn_capacity50"
+      - "logs/cvrp1000_baselines"
+      - "logs/cvrp1000_tsp_route"
+      - "logs/cvrp1000_tsp_route_20260716"
+    recovery_output_directories_observed:
+      - "logs/cvrp1000_tsp_route_20260716/usw_poanchor_w090_k64_a001_b64a2_recover400_from600_1915"
+      - "logs/cvrp1000_tsp_route_20260716/asw_poanchor_w090_k40_a001_detach_b64a2_recover300_from700_1915"
+    proposed_recovery_output_directories_absent:
+      - "logs/cvrp1000_tsp_route_20260716/usw_poanchor_w090_k64_a001_b64a2_recover200_from800_2158"
+      - "logs/cvrp1000_tsp_route_20260716/asw_poanchor_w090_k40_a001_detach_b64a2_recover100_from900_2158"
+    interim_evaluation:
+      purpose: "user-authorized performance-based early-stop decision; not a clean step1000 confirmatory result"
+      dataset_sha256: "58982b9168fb21c5defe36d6e1d366f973830d4c7d3c06533d6a4ae52a4f295d"
+      protocol: "fixed128, 100 starts, 8 augmentations, FP32"
+      source_po:
+        output: "logs/cvrp1000_tsp_route_20260716/official_fixed128/po_source_step1000_eval.json"
+        mean_cost: 127.42768430709839
+        per_instance_count: 128
+      usw:
+        checkpoint: "logs/cvrp1000_tsp_route_20260716/usw_poanchor_w090_k64_a001_b64a2_recover400_from600_1915/best.ckpt"
+        checkpoint_sha256: "7f3dffb1408209bc3d08000d60e48cceae574d2da7fee436a3c3c65061150f62"
+        optimizer_step: 800
+        best_step: 800
+        heldout_mean: 123.60691046714783
+        pid: 11407
+        output: "logs/cvrp1000_tsp_route_20260716/official_fixed128/interim_usw_best_pre1000_2250.json"
+        log: "logs/codex_remote/cvrp1000_interim_usw_best_eval_2250.log"
+        evaluation_mean: 123.18584531545639
+        mean_diff_candidate_minus_po: -4.241838991641998
+        relative_improvement_percent: 3.328820589267905
+        paired_bootstrap_ci95: [-4.290012957155705, -4.192430754005909]
+        paired_wins_ties_losses: [128, 0, 0]
+        bootstrap_probability_diff_ge_zero: 0.0
+        output_sha256: "052fa1e920ec2ec73c88f18dfa2fc33dda3af6f3c8580bc93eb154d3f60eb136"
+      asw:
+        checkpoint: "logs/cvrp1000_tsp_route_20260716/asw_poanchor_w090_k40_a001_detach_b64a2_recover300_from700_1915/best.ckpt"
+        checkpoint_sha256: "fef4833f26e3d18525ade801f3c53971d7e81ca0711e71c9b91e614db584b247"
+        optimizer_step: 800
+        best_step: 800
+        heldout_mean: 124.0563611984253
+        pid: 11408
+        output: "logs/cvrp1000_tsp_route_20260716/official_fixed128/interim_asw_best_pre1000_2250.json"
+        log: "logs/codex_remote/cvrp1000_interim_asw_best_eval_2250.log"
+        evaluation_mean: 123.61039865016937
+        mean_diff_candidate_minus_po: -3.817285656929016
+        relative_improvement_percent: 2.995648612533386
+        paired_bootstrap_ci95: [-3.8714518934488296, -3.7635308116674424]
+        paired_wins_ties_losses: [128, 0, 0]
+        bootstrap_probability_diff_ge_zero: 0.0
+        output_sha256: "4c69855c3c47edcf7ababfb07fc41664a47738ee801b4ae512f9195bfc09c667"
+      bootstrap:
+        samples: 100000
+        seed: 1234
+        output: "logs/cvrp1000_tsp_route_20260716/official_fixed128/interim_step800_bootstrap100000_seed1234.json"
+    usw:
+      pid: 30498
+      process_state: "not running"
+      gpu: 4
+      gpu_total_used_mib: 1
+      process_gpu_memory_mib: 0
+      gpu_utilization_percent: 0
+      optimizer_step_observed: 831
+      continuation_step_observed: 231
+      target_optimizer_step: 1000
+      latest_replay_error_observed: 0.0
+      latest_step_elapsed_seconds: 32.26478571900225
+      last_safe_checkpoint_step: 800
+      last_safe_validation_mean: 123.60691046714783
+      last_safe_best_step: 800
+      summary_present: false
+      recovery_config:
+        resume_optimizer_step: 600
+        continuation_steps: 400
+        data_start_index: 300076800
+        effective_batch_size: 128
+        detach_candidate_ll: false
+        fresh_optimizer: false
+      validation_means:
+        step200: 124.83132672309875
+        step300: 124.38268375396729
+        step400: 124.04316687583923
+        step500: 123.85949325561523
+        step600: 123.79728174209595
+      best_heldout_mean: 123.79728174209595
+      best_heldout_step: 600
+      improvement_vs_shared_step0: 4.23788070678711
+      improvement_vs_step200: 1.0340449810028
+      recovery_last_checkpoint_sha256: "53c3f0a0e37be8f4056aed3c0ac78fcf49fd8fc40260914e32bd471a4b3f5c33"
+      recovery_best_checkpoint_sha256: "7f3dffb1408209bc3d08000d60e48cceae574d2da7fee436a3c3c65061150f62"
+      unsafe_uncheckpointed_steps_lost: 31
+      safe_remaining_steps: 200
+    asw:
+      pid: 30501
+      process_state: "not running"
+      gpu: 5
+      gpu_total_used_mib: 1
+      process_gpu_memory_mib: 0
+      gpu_utilization_percent: 0
+      optimizer_step_observed: 994
+      optimizer_step_inference: "tail -n160 began at train step836; with one step900 validation record and no summary/final validation, the final train record is exactly step994"
+      continuation_step_observed: 294
+      target_optimizer_step: 1000
+      latest_replay_error_observed: 0.0
+      last_safe_checkpoint_step: 900
+      summary_present: false
+      recovery_config:
+        resume_optimizer_step: 700
+        continuation_steps: 300
+        data_start_index: 300089600
+        effective_batch_size: 128
+        detach_candidate_ll: true
+        fresh_optimizer: false
+      validation_means:
+        step200: 124.98531675338745
+        step300: 124.56701016426086
+        step400: 124.32253623008728
+        step500: 124.15655493736267
+        step600: 124.11634731292725
+        step700: 124.11116337776184
+      best_heldout_mean: 124.11116337776184
+      best_heldout_step: 700
+      improvement_vs_shared_step0: 3.92399907112122
+      improvement_vs_step200: 0.87415337562561
+      unsafe_uncheckpointed_steps_lost: 94
+      safe_remaining_steps: 100
+      recovery_last_checkpoint_sha256: "67243939488003618dd5f1f391344ed4776b9dc99c04971f3ce67ba813a9d32f"
+      recovery_best_checkpoint_sha256: "fef4833f26e3d18525ade801f3c53971d7e81ca0711e71c9b91e614db584b247"
+    host_boot_time_utc: "2026-07-16T13:30:22+00:00"
+    host_boot_time_local: "2026-07-16T21:30:22+08:00"
+    boot_id: "affb1c09-84a5-401c-8df3-dfba04349525"
+    old_guard_pids_running: []
+    all_gpu_utilization_percent: 0
+    checkpoint_metadata_inspection: "base64-encoded inspector succeeded; both held-out-selected best.ckpt files are optimizer step800 and best step800"
+    error_scan: "both evaluator logs contain no OOM, out-of-memory, Traceback, nonfinite, or NaN evidence"
+    formal_result_boundary_observed: "This is a complete and highly significant step800 interim early-stop result, not a clean step1000 confirmatory result."
+    actions_taken: "computed paired bootstrap100000 seed1234 from the three aligned fixed128 outputs; did not resume training, launch an evaluator, stop a process, or reuse an output"
+    note: "Both variants beat PO on all128 aligned instances with wholly negative tight CIs. Per the user's early-stop instruction, no further training is planned."
+
+last_successful_observation:
+  time: "2026-07-17T11:06:57+08:00"
+  remote:
+    host: g53
+    snapshot_attempts_this_tick: 1
+    snapshot_status: "successful completed interim-evaluation and bootstrap snapshot"
+    matching_target_python_processes: []
+    source_po_evaluator_pid_1793978_running: false
+    usw:
+      pid: 30498
+      process_state: "not running"
+      optimizer_step: 831
+      continuation_step: 231
+      last_safe_checkpoint_step: 800
+      latest_replay_error: 0.0
+      best_heldout_mean: 123.60691046714783
+      summary_present: false
+    asw:
+      pid: 30501
+      process_state: "not running"
+      optimizer_step: 994
+      continuation_step: 294
+      last_safe_checkpoint_step: 900
+      latest_replay_error: 0.0
+      summary_present: false
+    formal_output_root: "logs/cvrp1000_tsp_route_20260716"
+    formal_result_boundary_observed: "step800 interim early-stop evidence complete; original step1000 confirmatory boundary remains unfilled"
+    actions_taken: "computed paired bootstrap and stopped the research path early by user criterion"
+    note: "USW mean123.185845 and ASW mean123.610399 versus PO127.427684; both 128/128 wins and wholly negative95% CIs."
+
+last_significance_observation:
+  time: "2026-07-17T11:17:09+08:00"
+  remote:
+    host: g53
+    snapshot_attempts_this_tick: 1
+    snapshot_status: "successful read-only collision-guard and paired significance snapshot"
+    boot_id: "affb1c09-84a5-401c-8df3-dfba04349525"
+    matching_target_python_processes: []
+    locked_pids_running: []
+    actions_taken: "enumerated all Python processes, locked PIDs, GPUs, matching output directories, and official artifacts; computed read-only CVRP paired statistics; launched no trainer, probe, screen, or evaluator"
+  analysis:
+    artifact: "research/tsp1000_cvrp1000_significance/paired_significance.json"
+    primary_test: "paired two-sided Wilcoxon signed-rank"
+    correction: "Holm across all six TSP1000/CVRP1000 comparisons"
+    bootstrap: "100000 paired resamples, seed1234"
+    cvrp_usw_vs_po: "raw p=9.513002484100111e-23, Holm p=5.707801490460067e-22, matched rank-biserial=-1.0"
+    cvrp_asw_vs_po: "raw p=9.513002484100111e-23, Holm p=5.707801490460067e-22, matched rank-biserial=-1.0"
+    cvrp_asw_vs_usw: "ASW-USW=0.4245533347129822, CI[0.3908560276031494,0.45815358608961104], ASW W/T/L=3/0/125, raw p=1.354186544589032e-22, Holm p=5.707801490460067e-22"
+    note: "All CVRP comparisons are significant, but remain interim step800 evidence rather than clean step1000 confirmation."
 
 prior_evidence:
   legacy_po_step1000_validation32: 128.06427645683289
@@ -80,6 +302,6 @@ prior_evidence:
   note: "Legacy USW/ASW used different checkpoints, restored Adam at LR3e-4, K50 and alpha0.03; they are negative context only and do not satisfy this protocol."
 
 next:
-  - "Collect both physical-batch128 probes once on the next tick and verify exact step0 equality, finite gradients, replay error and peak memory."
-  - "If either probe OOMs, preserve evidence and test the next common physical batch with accumulation to effective128."
-  - "Launch the paired 200-step screen only after both variants pass at one common batch configuration."
+  - "No further training or evaluation is planned under the user's early-stop decision."
+  - "Preserve the step800 checkpoints, aligned fixed128 outputs, and interim bootstrap artifact as the decision evidence."
+  - "Only if the user explicitly reopens the clean-step1000 confirmatory objective should new-directory recovery be reconsidered."

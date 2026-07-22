@@ -290,6 +290,38 @@ def run_preference_builder_gates(
             max_pairs_per_instance=max_pairs,
             trace={"failed_gate": "PreferenceBuilder", "failure_kind": "weight_negative"},
         )
+    if not (weight > 0.0).any().item():
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="all_zero_weights",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            weight_min=float(weight.min().item()) if weight.numel() else None,
+            weight_max=float(weight.max().item()) if weight.numel() else None,
+            trace={"failed_gate": "PreferenceBuilder", "failure_kind": "all_zero_weights"},
+        )
+    positive_counts = torch.bincount(
+        b_idx[weight > 0.0].to(dtype=torch.int64),
+        minlength=B,
+    )
+    inactive_covered = (counts > 0) & (positive_counts == 0)
+    if inactive_covered.any().item():
+        missing_instances = inactive_covered.nonzero(as_tuple=False).flatten().tolist()
+        return PreferenceBuilderGateResult(
+            ok=False,
+            reason="instance_without_positive_weight",
+            pair_count=pair_count,
+            coverage=coverage,
+            max_pairs_per_instance=max_pairs,
+            weight_min=float(weight.min().item()) if weight.numel() else None,
+            weight_max=float(weight.max().item()) if weight.numel() else None,
+            trace={
+                "failed_gate": "PreferenceBuilder",
+                "failure_kind": "instance_without_positive_weight",
+                "instance_indices": missing_instances,
+            },
+        )
 
     obj_w = objective[b_idx, winner_idx]
     obj_l = objective[b_idx, loser_idx]
@@ -483,8 +515,16 @@ def run_joint_preference_gates(
     expects = [str(x) for x in (compiled.ir.implementation_hint.expects or [])]
     batch = prepare_pairwise_loss_batch(full_batch, expects)
 
-    log_prob_w0 = batch.get("log_prob_w")
-    log_prob_l0 = batch.get("log_prob_l")
+    uses_mean_step_log_prob = (
+        "log_prob_w_mean" in expects
+        and "log_prob_l_mean" in expects
+        and isinstance(batch.get("log_prob_w_mean"), torch.Tensor)
+        and isinstance(batch.get("log_prob_l_mean"), torch.Tensor)
+    )
+    score_w_key = "log_prob_w_mean" if uses_mean_step_log_prob else "log_prob_w"
+    score_l_key = "log_prob_l_mean" if uses_mean_step_log_prob else "log_prob_l"
+    log_prob_w0 = batch.get(score_w_key)
+    log_prob_l0 = batch.get(score_l_key)
     if not isinstance(log_prob_w0, torch.Tensor) or not isinstance(log_prob_l0, torch.Tensor):
         return JointPreferenceGateResult(
             ok=False,
@@ -500,11 +540,11 @@ def run_joint_preference_gates(
     log_prob_w = log_prob_w0.detach().clone().requires_grad_(True)
     log_prob_l = log_prob_l0.detach().clone().requires_grad_(True)
     batch = dict(batch)
-    batch["log_prob_w"] = log_prob_w
-    batch["log_prob_l"] = log_prob_l
+    batch[score_w_key] = log_prob_w
+    batch[score_l_key] = log_prob_l
 
     try:
-        loss = compiled.loss_fn(batch=batch, model_output={}, extra={"alpha": 1.0})
+        loss = compiled.loss_fn(batch=batch, model_output=feature_cache, extra={"alpha": 1.0})
     except Exception as exc:  # noqa: BLE001
         return JointPreferenceGateResult(
             ok=False,
@@ -591,14 +631,14 @@ def run_joint_preference_gates(
 
     if stress_enabled:
         stress_batch = dict(batch)
-        lpw_ref = batch["log_prob_w"].detach()
-        lpl_ref = batch["log_prob_l"].detach()
+        lpw_ref = batch[score_w_key].detach()
+        lpl_ref = batch[score_l_key].detach()
         mid = 0.5 * (lpw_ref + lpl_ref)
         half_margin = float(stress_margin) * 0.5
         stress_lpw = (mid - half_margin).detach().clone().requires_grad_(True)
         stress_lpl = (mid + half_margin).detach().clone().requires_grad_(True)
-        stress_batch["log_prob_w"] = stress_lpw
-        stress_batch["log_prob_l"] = stress_lpl
+        stress_batch[score_w_key] = stress_lpw
+        stress_batch[score_l_key] = stress_lpl
 
         for key in (
             "weight",
@@ -614,7 +654,7 @@ def run_joint_preference_gates(
                 stress_batch[key] = value.detach() * float(stress_aux_scale)
 
         try:
-            stress_loss = compiled.loss_fn(batch=stress_batch, model_output={}, extra={"alpha": 1.0})
+            stress_loss = compiled.loss_fn(batch=stress_batch, model_output=feature_cache, extra={"alpha": 1.0})
         except Exception as exc:  # noqa: BLE001
             tr = _joint_gate_error_trace(
                 compiled=compiled,
@@ -738,22 +778,36 @@ def run_joint_preference_gates(
                 },
             )
 
-    w_pass = float((grad_w < 0.0).to(dtype=torch.float32).mean().item())
-    l_pass = float((grad_l > 0.0).to(dtype=torch.float32).mean().item())
-    effective = (grad_w.abs() > float(grad_eps)) | (grad_l.abs() > float(grad_eps))
+    active_mask = torch.ones_like(grad_w, dtype=torch.bool)
+    weight = batch.get("weight")
+    if isinstance(weight, torch.Tensor):
+        active_mask = weight > 0
+    if not active_mask.any().item():
+        return JointPreferenceGateResult(
+            ok=False,
+            reason="no_positive_weight_pairs",
+            trace={
+                "failed_gate": "JointPreference",
+                "failure_kind": "no_positive_weight_pairs",
+                "variant": variant,
+            },
+        )
+    grad_w_checked = grad_w[active_mask]
+    grad_l_checked = grad_l[active_mask]
+    w_pass = float((grad_w_checked < 0.0).to(dtype=torch.float32).mean().item())
+    l_pass = float((grad_l_checked > 0.0).to(dtype=torch.float32).mean().item())
+    effective = (grad_w_checked.abs() > float(grad_eps)) | (grad_l_checked.abs() > float(grad_eps))
     effective_ratio = float(effective.to(dtype=torch.float32).mean().item())
 
     def _swap_signals(in_batch: Mapping[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         out = dict(in_batch)
-        out["log_prob_w"], out["log_prob_l"] = (
-            out["log_prob_l"].detach(),
-            out["log_prob_w"].detach(),
+        out[score_w_key], out[score_l_key] = (
+            out[score_l_key].detach(),
+            out[score_w_key].detach(),
         )
-        if "cost_a" in out and "cost_b" in out:
-            out["cost_a"], out["cost_b"] = out["cost_b"], out["cost_a"]
-        for key in list(out.keys()):
-            if key.startswith("delta_") and isinstance(out[key], torch.Tensor):
-                out[key] = -out[key]
+        # Preference metadata remains winner/loser oriented.  This check flips
+        # only the policy scores and asks whether contradicting the fixed
+        # preference increases the loss.
         return out
 
     swap_ref_loss: float | None = None
@@ -763,18 +817,18 @@ def run_joint_preference_gates(
         if swap_check_mode == "none":
             swap_ok = None
         elif swap_check_mode == "synthetic":
-            lpw_ref = batch["log_prob_w"].detach()
-            lpl_ref = batch["log_prob_l"].detach()
+            lpw_ref = batch[score_w_key].detach()
+            lpl_ref = batch[score_l_key].detach()
             mid = 0.5 * (lpw_ref + lpl_ref)
             mag = (lpw_ref - lpl_ref).abs() + float(swap_test_margin)
             swap_test_batch = dict(batch)
-            swap_test_batch["log_prob_w"] = (mid + 0.5 * mag).detach()
-            swap_test_batch["log_prob_l"] = (mid - 0.5 * mag).detach()
-            loss_test = compiled.loss_fn(batch=swap_test_batch, model_output={}, extra={"alpha": 1.0})
+            swap_test_batch[score_w_key] = (mid + 0.5 * mag).detach()
+            swap_test_batch[score_l_key] = (mid - 0.5 * mag).detach()
+            loss_test = compiled.loss_fn(batch=swap_test_batch, model_output=feature_cache, extra={"alpha": 1.0})
             if isinstance(loss_test, torch.Tensor) and loss_test.numel() == 1 and torch.isfinite(loss_test).all().item():
                 swap_ref_loss = float(loss_test.item())
                 swap_batch = _swap_signals(swap_test_batch)
-                loss_swap = compiled.loss_fn(batch=swap_batch, model_output={}, extra={"alpha": 1.0})
+                loss_swap = compiled.loss_fn(batch=swap_batch, model_output=feature_cache, extra={"alpha": 1.0})
                 if (
                     isinstance(loss_swap, torch.Tensor)
                     and loss_swap.numel() == 1
@@ -785,7 +839,7 @@ def run_joint_preference_gates(
         else:
             swap_ref_loss = float(loss.item())
             swap_batch = _swap_signals(batch)
-            loss_swap = compiled.loss_fn(batch=swap_batch, model_output={}, extra={"alpha": 1.0})
+            loss_swap = compiled.loss_fn(batch=swap_batch, model_output=feature_cache, extra={"alpha": 1.0})
             if isinstance(loss_swap, torch.Tensor) and loss_swap.numel() == 1 and torch.isfinite(loss_swap).all().item():
                 loss_swap_val = float(loss_swap.item())
                 swap_ok = loss_swap_val >= float(swap_ref_loss) + float(swap_tolerance)
@@ -842,6 +896,7 @@ def run_joint_preference_gates(
 
 
 _PAIRWISE_SUPPORTED_KEYS: Set[str] = {
+    "pair_instance_idx",
     "log_prob_w",
     "log_prob_l",
     "cost_a",
@@ -1335,6 +1390,7 @@ def run_preference_semantic_gates(
         delta_regret = gap / (gap.median() + 1e-6)
 
         full_batch: Dict[str, torch.Tensor] = {
+            "pair_instance_idx": torch.zeros(batch_size, dtype=torch.long),
             "log_prob_w": log_prob_w,
             "log_prob_l": log_prob_l,
             "cost_a": cost_a,
@@ -1344,6 +1400,18 @@ def run_preference_semantic_gates(
             "delta_regret": delta_regret,
             "weight": torch.ones(batch_size),
         }
+        seq_len_w = torch.full_like(log_prob_w, 10.0)
+        seq_len_l = torch.full_like(log_prob_l, 10.0)
+        full_batch.update(
+            {
+                "seq_len_w": seq_len_w,
+                "seq_len_l": seq_len_l,
+                "seq_len_gap": seq_len_l - seq_len_w,
+                "log_prob_w_mean": log_prob_w / seq_len_w,
+                "log_prob_l_mean": log_prob_l / seq_len_l,
+                "log_prob_mean_gap": (log_prob_l / seq_len_l) - (log_prob_w / seq_len_w),
+            }
+        )
         batch = {k: full_batch[k] for k in expects if k in full_batch}
 
         try:
@@ -1433,34 +1501,71 @@ def run_preference_semantic_gates(
                 if "delta_regret" in expects_set:
                     mono_counterexample["delta_regret"] = float(delta_regret.detach()[bad_idx].item())
 
-        # Swap winner/loser inputs and compare mean loss.
-        full_swap: Dict[str, torch.Tensor] = {
-            "log_prob_w": log_prob_l.detach(),
-            "log_prob_l": log_prob_w.detach(),
-            "cost_a": cost_b,
-            "cost_b": cost_a,
-            "delta_z": -delta_z,
-            "delta_rank": -delta_rank,
-            "delta_regret": -delta_regret,
+        # Compare a controlled preference-consistent score assignment with the
+        # same oriented preference metadata but reversed policy scores.  This
+        # works for both raw and mean-step log-probability formulations.
+        lpw_ref = log_prob_w.detach()
+        lpl_ref = log_prob_l.detach()
+        mid = 0.5 * (lpw_ref + lpl_ref)
+        mag = (lpw_ref - lpl_ref).abs() + 1.0
+        ref_w = mid + 0.5 * mag
+        ref_l = mid - 0.5 * mag
+        full_ref: Dict[str, torch.Tensor] = {
+            "pair_instance_idx": torch.zeros(batch_size, dtype=torch.long),
+            "log_prob_w": ref_w,
+            "log_prob_l": ref_l,
+            "log_prob_w_mean": ref_w / 10.0,
+            "log_prob_l_mean": ref_l / 10.0,
+            "log_prob_mean_gap": (ref_l - ref_w) / 10.0,
+            "seq_len_w": torch.full_like(ref_w, 10.0),
+            "seq_len_l": torch.full_like(ref_l, 10.0),
+            "seq_len_gap": torch.zeros_like(ref_w),
+            "cost_a": cost_a,
+            "cost_b": cost_b,
+            "delta_z": delta_z,
+            "delta_rank": delta_rank,
+            "delta_regret": delta_regret,
             "weight": torch.ones(batch_size),
         }
+        full_swap: Dict[str, torch.Tensor] = {
+            "pair_instance_idx": torch.zeros(batch_size, dtype=torch.long),
+            "log_prob_w": ref_l,
+            "log_prob_l": ref_w,
+            "log_prob_w_mean": ref_l / 10.0,
+            "log_prob_l_mean": ref_w / 10.0,
+            "log_prob_mean_gap": (ref_w - ref_l) / 10.0,
+            "seq_len_w": torch.full_like(ref_l, 10.0),
+            "seq_len_l": torch.full_like(ref_w, 10.0),
+            "seq_len_gap": torch.zeros_like(ref_w),
+            "cost_a": cost_a,
+            "cost_b": cost_b,
+            "delta_z": delta_z,
+            "delta_rank": delta_rank,
+            "delta_regret": delta_regret,
+            "weight": torch.ones(batch_size),
+        }
+        ref_batch = {k: full_ref[k] for k in expects if k in full_ref}
         swap_batch = {k: full_swap[k] for k in expects if k in full_swap}
         try:
+            ref_loss = compiled.loss_fn(batch=ref_batch, model_output={}, extra={})
             swap_loss = compiled.loss_fn(batch=swap_batch, model_output={}, extra={})
-            if not isinstance(swap_loss, torch.Tensor):
+            if not isinstance(ref_loss, torch.Tensor) or not isinstance(swap_loss, torch.Tensor):
                 return PreferenceSemanticGateResult(
                     ok=False,
-                    reason=f"pref_loss_not_tensor: {type(swap_loss)}",
+                    reason=f"pref_loss_not_tensor: ref={type(ref_loss)} swap={type(swap_loss)}",
                     trace={
                         "failed_gate": "PreferenceSemantics",
                         "failure_kind": "swap_loss_not_tensor",
                         "variant": variant,
                     },
                 )
-            if swap_loss.numel() != 1:
+            if ref_loss.numel() != 1 or swap_loss.numel() != 1:
                 return PreferenceSemanticGateResult(
                     ok=False,
-                    reason=f"pref_loss_not_scalar: shape={tuple(swap_loss.shape)}",
+                    reason=(
+                        f"pref_loss_not_scalar: ref_shape={tuple(ref_loss.shape)} "
+                        f"swap_shape={tuple(swap_loss.shape)}"
+                    ),
                     trace={
                         "failed_gate": "PreferenceSemantics",
                         "failure_kind": "swap_loss_not_scalar",
@@ -1480,11 +1585,15 @@ def run_preference_semantic_gates(
                 },
             )
         swap_total += 1
-        if torch.isfinite(swap_loss).all().item() and (swap_loss.item() + swap_tolerance >= loss.item()):
+        if (
+            torch.isfinite(ref_loss).all().item()
+            and torch.isfinite(swap_loss).all().item()
+            and (swap_loss.item() + swap_tolerance >= ref_loss.item())
+        ):
             swap_ok += 1
         elif swap_counterexample is None:
             swap_counterexample = {
-                "loss": float(loss.detach().item()),
+                "loss": float(ref_loss.detach().item()),
                 "swap_loss": float(swap_loss.detach().item()) if isinstance(swap_loss, torch.Tensor) else None,
                 "swap_tolerance": float(swap_tolerance),
             }
@@ -1506,8 +1615,15 @@ def run_preference_semantic_gates(
         cost_b_large = cost_a + large_gap
 
         full_small: Dict[str, torch.Tensor] = {
+            "pair_instance_idx": torch.zeros(batch_size, dtype=torch.long),
             "log_prob_w": log_prob_w2,
             "log_prob_l": log_prob_l2,
+            "log_prob_w_mean": log_prob_w2 / 10.0,
+            "log_prob_l_mean": log_prob_l2 / 10.0,
+            "log_prob_mean_gap": (log_prob_l2 - log_prob_w2) / 10.0,
+            "seq_len_w": torch.full_like(log_prob_w2, 10.0),
+            "seq_len_l": torch.full_like(log_prob_l2, 10.0),
+            "seq_len_gap": torch.zeros_like(log_prob_w2),
             "cost_a": cost_a,
             "cost_b": cost_b_small,
             "delta_z": small_gap * 2.0,
@@ -1516,8 +1632,15 @@ def run_preference_semantic_gates(
             "weight": torch.ones(batch_size),
         }
         full_large: Dict[str, torch.Tensor] = {
+            "pair_instance_idx": torch.zeros(batch_size, dtype=torch.long),
             "log_prob_w": log_prob_w2,
             "log_prob_l": log_prob_l2,
+            "log_prob_w_mean": log_prob_w2 / 10.0,
+            "log_prob_l_mean": log_prob_l2 / 10.0,
+            "log_prob_mean_gap": (log_prob_l2 - log_prob_w2) / 10.0,
+            "seq_len_w": torch.full_like(log_prob_w2, 10.0),
+            "seq_len_l": torch.full_like(log_prob_l2, 10.0),
+            "seq_len_gap": torch.zeros_like(log_prob_w2),
             "cost_a": cost_a,
             "cost_b": cost_b_large,
             "delta_z": large_gap * 2.0,

@@ -157,6 +157,7 @@ def compile_preference_builder(
             "enumerate": enumerate,
             "zip": zip,
             "isinstance": isinstance,
+            "ValueError": ValueError,
         },
         "torch": torch,
         "F": F,
@@ -180,6 +181,7 @@ def compile_preference_builder(
         extra: Mapping[str, Any] | None,
     ) -> PrefBatch:
         merged_extra: Dict[str, Any] = {
+            "hyperparams": dict(ir.hyperparams),
             "ops": ops_accessor,
             "operators": ops_accessor,
             "torch": torch,

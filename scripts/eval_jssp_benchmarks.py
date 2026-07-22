@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import random
 import sys
 import time
 from collections import defaultdict
@@ -13,6 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+import numpy as np
 import torch
 
 from rl4co.models.zoo.mgl_jssp.data import cluster_edges, extract_features, load_instance
@@ -69,6 +71,15 @@ def _parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Override whether to inject one greedy rollout (0/1). Defaults to the checkpoint setting.",
+    )
+    parser.add_argument(
+        "--sampling-seed",
+        type=int,
+        default=12345678,
+        help=(
+            "Base rollout-sampling seed. Instance i uses base_seed + i so "
+            "paired checkpoint evaluations share common random numbers."
+        ),
     )
     parser.add_argument(
         "--sets",
@@ -193,7 +204,14 @@ def _evaluate_file(
     aug_factor: int,
     aug_batch_size: int,
     aug_seed: int,
+    sampling_seed: int,
 ) -> dict[str, object]:
+    random.seed(int(sampling_seed))
+    np.random.seed(int(sampling_seed) % (2**32))
+    torch.manual_seed(int(sampling_seed))
+    if device.type == "cuda":
+        torch.cuda.manual_seed_all(int(sampling_seed))
+
     instance = load_instance(file_path.as_posix(), device="cpu")
     if int(aug_batch_size) < 1:
         raise ValueError(f"aug_batch_size must be >= 1, got {aug_batch_size}")
@@ -303,6 +321,7 @@ def main() -> int:
         "device": str(device),
         "B": int(args.B),
         "greedy": int(use_greedy),
+        "sampling_seed": int(args.sampling_seed),
         "aug_factor": int(args.aug_factor),
         "aug_batch_size": int(args.aug_batch_size),
         "aug_seed": int(args.aug_seed),
@@ -325,6 +344,7 @@ def main() -> int:
                 aug_factor=int(args.aug_factor),
                 aug_batch_size=int(args.aug_batch_size),
                 aug_seed=int(args.aug_seed) + file_idx,
+                sampling_seed=int(args.sampling_seed) + file_idx,
             )
             row["set"] = set_name
             rows.append(row)

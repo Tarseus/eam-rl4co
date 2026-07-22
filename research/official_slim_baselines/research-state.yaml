@@ -1,10 +1,32 @@
 project: official_slim_baseline_recovery
-status: active
+status: completed_with_two_checkpoint_lock_blockers
 started_at: "2026-07-18T16:14:40+08:00"
 objective: "Replace mislabeled custom-listwise SLL artifacts with true instance-local best-pseudo-label SLIM baselines across all paper problems."
 primary_problems: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, jssp15x15]
 large_scale_extension: [tsp1000, cvrp1000, ffsp1000, jssp50x20]
-stage: full_primary_training
+stage: supervision_stopped_six_locked_tests_complete_two_checkpoint_missing
+full_neural_significance_report:
+  status: completed
+  generated_at: "2026-07-21T12:21:48+08:00"
+  local_markdown: "E:/CAS/perfer/pre-finder/research/official_slim_baselines/full_neural_method_significance_report_20260721.md"
+  markdown_sha256: "6b798e79276a17e68cb53d9bfcec8f20a80b94aee8f9c2e8ff422420e649853f"
+  remote_json: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_neural_significance_20260721/analysis/full_neural_significance.json"
+  json_sha256: "cc49d9b5b85d49f6dc1deb9025f8820d81f8920728a2f409dffd6aabcf2c2602"
+  scope: "Twelve paper problem blocks: the eight main problems plus TSP1000, CVRP1000, FFSP1000, and JSSP50x20; all listed neural methods are included descriptively, with paired inference wherever aligned per-instance artifacts exist."
+  multiplicity: "One global Holm family over 114 USW/ASW-led paired comparisons."
+  usw: {comparisons: 63, significant_wins: 45, significant_losses: 5, not_significant: 13}
+  asw: {comparisons: 51, significant_wins: 39, significant_losses: 2, not_significant: 10}
+  large_scale_evidence:
+    tsp1000: {n: 100, status: "PO-anchor variants after 1000 preference updates", usw_mean: 25.285841312408447, asw_mean: 25.35803249359131, result: "both significantly beat POMO/PO/SLL/BOPO; USW significantly beats ASW"}
+    cvrp1000: {n: 128, status: "USW/ASW interim step800; PO/BOPO step1000; POMO/SLL zero-shot", usw_mean: 123.18584531545639, asw_mean: 123.61039865016937, result: "both significantly beat POMO/PO/SLL/BOPO; USW significantly beats ASW"}
+    ffsp1000: {n: 100, status: "common step100 generated100 evaluation", usw_mean: 804.38, asw_mean: 804.16, result: "both significantly beat BOPO; other comparisons are not significant"}
+  available_checkpoint_override:
+    authorized_by_user: true
+    tsp50: {epoch: 302, test_mean: 5.699073296, sha256: "1dbd49bf1078621f85e22ac1fd7822c43e22baf60435e1d96c433199d93d20e6", note: "outside the former 200-epoch cap; analysis-only override"}
+    cvrp50: {epoch: 228, test_mean: 10.540425583, sha256: "8783ab02efb163387032fad125a4424814719d6a85e11faca908131119e063bd", note: "outside the former 200-epoch cap; analysis-only override"}
+  ffsp_rl_backbone_recheck:
+    ffsp50: {n: 1000, seed: 1234, mean: 49.765, checkpoint_sha256: "9ad3f02ec7c29cec88b18c7200bd281ad9cd823ec13912c25f50b016f6bcc02c"}
+    ffsp100: {n: 1000, seed: 1234, mean: 89.856, checkpoint_sha256: "cc5f02451405261aa6a3359a18d7834e7fab401c76a6a16a0ab87bd47fefe3bf"}
 remote:
   code_revision: ac5d7e4c1
   runtime_archive_sha256: c9a92e13a0f879ddc1122ea385a23b7a2e68edae9184a777babbd40a21b1f0b6
@@ -16,30 +38,170 @@ remote:
     note: "Both trainers reached max_epochs=20 naturally. Their stopped wrappers were then terminated and all four PIDs were reaped, so no queued successor can launch."
   g52:
     runtime: "/data1/gushengda/eam-rl4co-slim-ac5d7e4c1-r2"
-    active:
-      ffsp50: {gpu: 3, pid: 3000760}
-      tsp50: {gpu: 4, pid: 3000762}
-      cvrp50: {gpu: 5, pid: 3000777}
+    active: {}
+    completed:
+      ffsp50: {gpu: 3, former_pid: 8686, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp50", terminal_epoch: 199, terminal_val_reward: -55.27050018310547, terminal_train_slim_loss: 0.4035663604736328, terminal_train_reward: -55.5802116394043, completion: "Trainer.fit stopped: max_epochs=200 reached", validation_locked_epoch: 173, validation_locked_reward: -55.14970779418945, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp50/checkpoints/epoch_173.ckpt", sha256: "1e649611d04b736e65f4b8cf28a09cef416a0cb74f7ba5b3cfb21e5b36a8a774", matched_test_significance_completed: true}
+      ffsp100: {gpu: 5, former_pid: 8827, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp100", terminal_epoch: 199, terminal_val_reward: -95.12450408935547, terminal_train_slim_loss: 0.6981870532035828, terminal_train_reward: -95.75000762939453, completion: "Trainer.fit stopped: max_epochs=200 reached", validation_locked_epoch: 194, validation_locked_reward: -95.07874298095703, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp100/checkpoints/epoch_194.ckpt", sha256: "04d19414f3d7ba32c6960e393b192ca18dcc9aebd6ac2909ec9949622435ea00", matched_test_significance_completed: true}
+      tsp100: {gpu: 1, former_pid: 9371, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100", terminal_epoch: 199, terminal_val_max_reward: -7.913115501403809, terminal_val_reward_auxiliary: -8.962624549865723, completion: "Trainer.fit stopped: max_epochs=200 reached", validation_locked_epoch: 199, validation_locked_metric: "val/max_reward", validation_locked_value: -7.913115501403809, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100/checkpoints/epoch_199_terminal.ckpt", sha256: "cb271c1a33be11c92e763339445c41a8412fe12e45825e0ec955f42ecd680373", matched_test_significance_completed: true}
+      cvrp100: {gpu: 2, former_pid: 9088, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100", terminal_epoch: 199, terminal_val_reward: -16.82201385498047, terminal_train_slim_loss: 0.06717821210622787, terminal_train_reward: -16.822904586791992, completion: "terminal epoch199 last.ckpt/global_step312600 and final validation row present; trainer exited without error", validation_locked_epoch: 195, validation_locked_reward: -16.79256820678711, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100/checkpoints/epoch_195.ckpt", sha256: "8e72c6ce05df5cb181c121d96a9ea32709a67e7352e19f0c1bca0ae13147cc40", matched_test_significance_completed: true}
+    interrupted_no_recovery:
+      ffsp50: {gpu: 3, pid: 3050208, interrupted_at: "2026-07-19T21:02:00+08:00", root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_batch64_20260719_1705/g52/ffsp50", last_complete_val_epoch: 81, last_val_reward: -55.85658645629883, best_val_epoch: 69, best_val_reward: -55.58024597167969, best_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_batch64_20260719_1705/g52/ffsp50/checkpoints/epoch_069.ckpt", best_sha256: "6c1d9dc21ebd3d11eb54f9bdfee4eac5dc12759d91b973240cfcf9ae1a615820", classification: "g52 host reboot; checkpoint load-verified but run incomplete and no recovery authorized"}
+      ffsp100: {gpu: 5, pid: 3050220, interrupted_at: "2026-07-19T21:02:00+08:00", root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_batch64_20260719_1705/g52/ffsp100", last_complete_val_epoch: 50, last_val_reward: -95.94034576416016, best_val_epoch: 49, best_val_reward: -95.79570770263672, best_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_batch64_20260719_1705/g52/ffsp100/checkpoints/epoch_049.ckpt", best_sha256: "dcc856becb12a784a004d4cb3deeb30680316967522c250ba68bcadb36a9051b", classification: "g52 host reboot; checkpoint load-verified but run incomplete and no recovery authorized"}
+      cvrp100: {gpu: 2, pid: 3037021, interrupted_at: "2026-07-19T21:02:00+08:00", root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_infra_recovery1_20260719_1615/g52/cvrp100", last_complete_val_epoch: 22, last_val_reward: -17.46403694152832, recovery_best_val_epoch: 17, recovery_best_val_reward: -17.33077049255371, recovery_best_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_infra_recovery1_20260719_1615/g52/cvrp100/checkpoints/epoch_017.ckpt", recovery_best_sha256: "5453f35de86856756144014f0b23de534fbff4c7455be5f7baf728d201d47306", classification: "g52 host reboot after prior one-time recovery; checkpoint load-verified but run incomplete and no further recovery authorized"}
+      tsp100: {gpu: 1, pid: 3054781, interrupted_at: "2026-07-19T21:02:00+08:00", root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_tsp100_user_authorized_20260719_1948/g52/tsp100", last_complete_val_epoch: 6, last_val_reward: -13.308998107910156, best_val_epoch: 1, best_val_reward: -9.431241035461426, best_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_tsp100_user_authorized_20260719_1948/g52/tsp100/checkpoints/epoch_001.ckpt", best_sha256: "d9e5f11319be9c02eecf4bbc16429b3eaa7d3c8b0a3b000a5495942c4adb8a68", classification: "g52 host reboot; checkpoint load-verified but user-authorized fresh run incomplete and no further recovery authorized"}
+    reboot_observed: {boot_times: ["2026-07-19T21:02:00+08:00", "2026-07-19T21:18:00+08:00"], observed_at: "2026-07-19T21:29:46+08:00", current_boot_stable_minutes_at_gate: 10, cause: "not visible with available journal permissions; interrupted-job metrics and logs show no algorithmic error"}
+    autoresume_authorization:
+      authorized_at: "2026-07-19T21:20:00+08:00"
+      policy: "After an infrastructure interruption, automatically rediscover current PIDs/GPUs and resume each unfinished authoritative problem from its latest load-verified last.ckpt in a new isolated timestamped root. Preserve all protocol hyperparameters, keep test=false, never use permanently excluded roots, and prevent duplicate live processes/root collisions."
+      current_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52"
+      setup_attempt: "The first four launchers exited before model construction because the new per-problem output directories did not yet exist; directories were created and the same commands were relaunched successfully. No GPU training or result artifact came from the setup-only attempts."
+    stopped:
+      tsp50: {gpu: 4, pid: 3000762, stopped_at: "2026-07-19T16:37:49+08:00", signal: "SIGTERM 15", reason: "user set TSP horizon to 200 epochs after the run had already reached epoch308", last_complete_val_epoch: 307, cap_best_val_epoch: 198, cap_best_val_reward: -5.9261250495910645, cap_checkpoint_available: false, available_best_epoch: 302, available_best_val_reward: -5.9049482345581055, available_best_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703/g52/tsp50/checkpoints/epoch_302.ckpt", available_best_sha256: "1dbd49bf1078621f85e22ac1fd7822c43e22baf60435e1d96c433199d93d20e6", classification: "user-cap stop; validation lock blocked because the epoch198 checkpoint was deleted by top-1 replacement"}
+      cvrp50: {gpu: 5, pid: 3000777, stopped_at: "2026-07-19T16:48:50+08:00", signal: "SIGTERM 15", reason: "user set CVRP horizon to 200 epochs after the run had already reached epoch239", last_complete_val_epoch: 238, cap_best_val_epoch: 197, cap_best_val_reward: -11.204472541809082, cap_checkpoint_available: false, available_best_epoch: 228, available_best_val_reward: -11.19089412689209, available_best_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703/g52/cvrp50/checkpoints/epoch_228.ckpt", available_best_sha256: "8783ab02efb163387032fad125a4424814719d6a85e11faca908131119e063bd", classification: "user-cap stop; validation lock blocked because the epoch197 checkpoint was deleted by top-1 replacement"}
+    failed_attempts:
+      tsp100: {gpu: 1, pid: 3036953, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_infra_recovery1_20260719_1615/g52/tsp100", terminated_at: "2026-07-19T16:21:40+08:00", signal: "SIGTERM 15", last_finite_step: 1549, validation_progress: "29/157 in epoch0", checkpoint_count: 0, classification: "external termination; no OOM, host reboot, traceback, nonfinite metric, or algorithmic error evidence", retry_allowed: false}
+    excluded_duplicate:
+      ffsp100: {gpu: 0, pid: 3037016, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_infra_recovery1_20260719_1615/g52/ffsp100", terminated_at: "2026-07-19T16:15:03+08:00", reason: "later duplicate of the already-active g53 FFSP100 recovery; preserved and excluded"}
+    excluded_misconfigured:
+      ffsp50: {gpu: 3, pid: 3000760, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703/g52/ffsp50", terminated_at: "2026-07-19T17:00:20+08:00", reason: "batch_size=1 with gradient accumulation was an invalidly slow protocol; stopped and permanently excluded after batch64 smoke validation"}
   g53:
     runtime: "/data1/gushengda/eam-rl4co-slim-ac5d7e4c1-r2"
-    active:
-      ffsp100: {gpu: 0, pid: 178311}
-      tsp100: {gpu: 3, pid: 178321}
-      cvrp100: {gpu: 4, pid: 178331}
+    active: {}
+    excluded_misconfigured:
+      ffsp100: {gpu: 5, pid: 51132, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry2_20260719_1610/g53/ffsp100", terminated_at: "2026-07-19T17:00:31+08:00", reason: "batch_size=1 checkpoint-restored run inherited the invalidly slow protocol; stopped and permanently excluded, with no checkpoint reuse"}
+    interrupted_pids: [178311, 178321, 178331]
+    interrupted_checkpoint_audit:
+      tsp100: {checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703/g53/tsp100/checkpoints/last.ckpt", epoch: 33, global_step: 53142, sha256: "a49296a3a68e00ae3c9f2fedd4e05643aff0beb0e47dd99e04fb34a2f6525c25", torch_load_ok: true, recovery_source_only: true}
+    interruption: "All three retry1 processes ended abruptly with finite metrics and zero logged errors before g53 rebooted twice on 2026-07-18; this is classified as host infrastructure failure, not algorithmic failure. FFSP100 resumed once on g53; TSP100 and CVRP100 restarted once in fresh roots on idle g52 GPUs."
   distributed_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703"
+  recovery_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry2_20260719_1610"
+  routing100_recovery_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_infra_recovery1_20260719_1615"
+  ffsp_batch64_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_batch64_20260719_1705/g52"
+  tsp100_authorized_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_tsp100_user_authorized_20260719_1948/g52/tsp100"
+  recovery_attempts_used: {ffsp100: 1, tsp100: 1, cvrp100: 1}
+  excluded_collision_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_infra_recovery1_20260719_1615/g52/ffsp100"
   excluded_setup_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_20260718_1658"
 smoke_status:
   passed: [tsp50, tsp100, cvrp50, cvrp100, ffsp50, ffsp100, jssp10x10, jssp15x15]
   test_access: "disabled for every full run"
   jssp15_train_split: "data/jssp_scale_probe/15x15/train (96 existing shape-isolated instances)"
+training_epoch_policy:
+  tsp_max_epochs: 200
+  ffsp_max_epochs: 200
+  cvrp_max_epochs: 200
+  ffsp_batch_size: 64
+  ffsp_num_starts: 24
+  ffsp_accumulate_grad_batches: 1
+  ffsp_precision: "16-mixed"
+  applied_at: "2026-07-19T16:37:49+08:00"
+  amended_at: "2026-07-19T16:48:50+08:00"
+  note: "FFSP50/100 use 200 epochs and were relaunched from scratch at batch64 after the batch1 protocol error was identified. TSP50 and CVRP50 were misconfigured for 2010 and had reached epochs308/239 before the user caps were supplied. The current autoresumed TSP100/CVRP100 trainers explicitly use max_epochs=200, so no external cap stop is needed for those active runs."
 latest_full_gate:
   jssp10x10: {status: completed, epoch: 19, train_loss: 0.7851434350013733, train_reward: -880.5, val_makespan: 866.0484008789062}
   jssp15x15: {status: completed, epoch: 19, train_loss: 0.7080063223838806, train_reward: -1350.2708740234375, last_val_makespan: 1336.719970703125, best_epoch: 14, best_val_makespan: 1332.0699462890625}
-  tsp50: {step: 21599, train_slim_loss: 0.031969040632247925, train_reward: -6.126670837402344, train_max_reward: -5.727330207824707}
-  cvrp50: {step: 16349, train_slim_loss: 0.0869237631559372, train_reward: -11.882756233215332, train_max_reward: -11.064814567565918}
-  tsp100: {step: 10249, train_slim_loss: 0.05904803425073624, train_reward: -13.816556930541992, train_max_reward: -8.121350288391113}
-  cvrp100: {step: 7799, train_slim_loss: 0.12208963930606842, train_reward: -17.68389320373535, train_max_reward: -16.601566314697266}
+  ffsp50: {status: completed_validation_locked_test_significance, terminal_epoch: 199, terminal_val_reward: -55.27050018310547, terminal_train_slim_loss: 0.4035663604736328, terminal_train_reward: -55.5802116394043, configured_max_epochs: 200, validation_locked_epoch: 173, validation_locked_reward: -55.14970779418945, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp50/checkpoints/epoch_173.ckpt", sha256: "1e649611d04b736e65f4b8cf28a09cef416a0cb74f7ba5b3cfb21e5b36a8a774", matched_test_mean_cost: 49.716, matched_test_instances: 1000, old_batch1_root_excluded: true}
+  tsp50: {status: stopped_user_cap_lock_blocked, stop_epoch: 308, stop_step: 482799, last_train_slim_loss: 0.018347948789596558, last_train_reward: -5.861006736755371, last_complete_val_epoch: 307, last_val_reward: -5.9232096672058105, cap_best_val_epoch: 198, cap_best_val_reward: -5.9261250495910645, cap_checkpoint_available: false, available_best_val_epoch: 302, available_best_val_reward: -5.9049482345581055}
+  cvrp50: {status: stopped_user_cap_lock_blocked, stop_epoch: 239, stop_step: 374899, last_train_slim_loss: 0.07119184732437134, last_train_reward: -11.609333992004395, last_complete_val_epoch: 238, last_val_reward: -11.21248722076416, cap_best_val_epoch: 197, cap_best_val_reward: -11.204472541809082, cap_checkpoint_available: false, available_best_val_epoch: 228, available_best_val_reward: -11.19089412689209}
+  ffsp100: {status: completed_validation_locked_test_significance, former_pid: 8827, gpu: 5, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp100", terminal_epoch: 199, terminal_val_reward: -95.12450408935547, terminal_train_slim_loss: 0.6981870532035828, terminal_train_reward: -95.75000762939453, configured_max_epochs: 200, validation_locked_epoch: 194, validation_locked_reward: -95.07874298095703, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp100/checkpoints/epoch_194.ckpt", sha256: "04d19414f3d7ba32c6960e393b192ca18dcc9aebd6ac2909ec9949622435ea00", matched_test_mean_cost: 89.387, matched_test_instances: 1000, old_batch1_roots_excluded: true}
+  tsp100: {status: completed_validation_locked_test_significance, former_pid: 9371, gpu: 1, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100", terminal_epoch: 199, terminal_val_max_reward: -7.913115501403809, terminal_val_reward_auxiliary: -8.962624549865723, validation_locked_epoch: 199, validation_locked_metric: "val/max_reward", validation_locked_value: -7.913115501403809, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100/checkpoints/epoch_199_terminal.ckpt", sha256: "cb271c1a33be11c92e763339445c41a8412fe12e45825e0ec955f42ecd680373", terminal_last_source: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100/checkpoints/last.ckpt", terminal_last_epoch: 199, terminal_last_global_step: 312600, test_mean_cost: 7.843853475809097, matched_test_instances: 10000, selection_rule: "val/max_reward only; per-instance max over 100 starts then mean across instances; higher is better; val/reward auxiliary only"}
+  cvrp100: {status: completed_validation_locked_test_significance, former_pid: 9088, gpu: 2, root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100", terminal_epoch: 199, terminal_val_reward: -16.82201385498047, terminal_train_slim_loss: 0.06717821210622787, terminal_train_reward: -16.822904586791992, configured_max_epochs: 200, validation_locked_epoch: 195, validation_locked_reward: -16.79256820678711, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100/checkpoints/epoch_195.ckpt", sha256: "8e72c6ce05df5cb181c121d96a9ea32709a67e7352e19f0c1bca0ae13147cc40", terminal_last_checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100/checkpoints/last.ckpt", terminal_last_epoch: 199, terminal_last_global_step: 312600, terminal_last_sha256: "d41a254808e8c2324b77fcb89455c1a7c35b210718227cad3fc449a9989a2d27", matched_test_mean_cost: 16.013110019397736, matched_test_instances: 10000}
   exact_error_scan_matches: 0
+  external_sigterm_matches: 1
+  historical_interrupted_csv_trailing_nul_bytes: {g53_tsp100_retry1: 166, g53_cvrp100_retry1: 166, interpretation: "trailing bytes after complete CSV rows from the old host interruption; current streams have zero NUL bytes and all eligible validation rows parse finitely"}
+current_strongest_validation:
+  selected_at: "2026-07-21T10:20:00+08:00"
+  selection_basis: "Validation only; merge all authoritative protocol-compliant candidates within the 200-epoch cap across interruption/autoresume chains. TSP100 exclusively uses val/max_reward (per-instance max over 100 starts, then mean across instances; higher is better) and treats val/reward as auxiliary diagnostics. Exclude test results, permanently excluded roots, and out-of-cap epochs."
+  tsp50: {best_epoch: 198, validation_metric: "val/reward", validation_value: -5.9261250495910645, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703/g52/tsp50/checkpoints/epoch_198.ckpt", checkpoint_available: false, sha256: null, status: "metric-best but checkpoint deleted; not lockable"}
+  tsp100: {best_epoch: 199, validation_metric: "val/max_reward", validation_value: -7.913115501403809, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100/checkpoints/epoch_199_terminal.ckpt", checkpoint_available: true, sha256: "cb271c1a33be11c92e763339445c41a8412fe12e45825e0ec955f42ecd680373", auxiliary_at_best_epoch: -8.962624549865723, terminal_last_source: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100/checkpoints/last.ckpt", terminal_last_epoch: 199, terminal_last_global_step: 312600, status: "validation locked by val/max_reward; matched test/significance completed; val/reward auxiliary only"}
+  cvrp50: {best_epoch: 197, validation_metric: "val/reward", validation_value: -11.204472541809082, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_distributed_retry1_20260718_1703/g52/cvrp50/checkpoints/epoch_197.ckpt", checkpoint_available: false, sha256: null, status: "metric-best but checkpoint deleted; not lockable"}
+  cvrp100: {best_epoch: 195, validation_metric: "val/reward", validation_value: -16.79256820678711, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100/checkpoints/epoch_195.ckpt", checkpoint_available: true, sha256: "8e72c6ce05df5cb181c121d96a9ea32709a67e7352e19f0c1bca0ae13147cc40", status: "validation locked; matched test/significance completed"}
+  ffsp50: {best_epoch: 173, validation_metric: "val/reward", validation_value: -55.14970779418945, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp50/checkpoints/epoch_173.ckpt", checkpoint_available: true, sha256: "1e649611d04b736e65f4b8cf28a09cef416a0cb74f7ba5b3cfb21e5b36a8a774", status: "validation locked; matched test/significance completed"}
+  ffsp100: {best_epoch: 194, validation_metric: "val/reward", validation_value: -95.07874298095703, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp100/checkpoints/epoch_194.ckpt", checkpoint_available: true, sha256: "04d19414f3d7ba32c6960e393b192ca18dcc9aebd6ac2909ec9949622435ea00", status: "validation locked; matched test/significance completed"}
+  jssp10x10: {best_epoch: 19, validation_metric: "val/makespan", validation_value: 866.0484008789062, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu5/jssp10x10/checkpoints/epoch_019.ckpt", checkpoint_available: true, sha256: "32626eb06a8d85b4c889226d9e67f9d890779d8982ebf95820d0fa628bb6f024", status: "validation locked; matched test/significance completed"}
+  jssp15x15: {best_epoch: 14, validation_metric: "val/makespan", validation_value: 1332.0699462890625, checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_primary_20260718_1650/gpu7/jssp15x15/checkpoints/epoch_014.ckpt", checkpoint_available: true, sha256: "5dab2f89dc370626f741b4b8f2e374e31120b913b51f20337b9b8f49e68cec32", status: "validation locked; matched test/significance completed"}
+tsp100_locked_test_analysis:
+  status: completed
+  evaluated_at: "2026-07-21T04:11:00+08:00"
+  protocol: {instances: 10000, num_starts: 100, num_augment: 8, seed: 1234, pairing: "exact ordered instance_id equality", primary_test: "two-sided paired Wilcoxon signed-rank", multiplicity: "Holm over 4 SLIM-vs-comparator tests", bootstrap_draws: 20000, bootstrap_seed_base: 20260720}
+  validation_selection: {metric: "val/max_reward", epoch: 199, value: -7.913115501403809, auxiliary_val_reward: -8.962624549865723, semantics: "per-instance max over 100 starts, then mean across instances"}
+  checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/tsp100/checkpoints/epoch_199_terminal.ckpt"
+  checkpoint_sha256: "cb271c1a33be11c92e763339445c41a8412fe12e45825e0ec955f42ecd680373"
+  test_file: "/data1/gushengda/eam-rl4co/data/tsp/tsp100_test_seed1234.npz"
+  test_file_sha256: "f98711a6730397d479ef70dce8bffb1632430b70f86077ff3a4b6788f779ae29"
+  mean_costs: {slim: 7.843853475809097, po4cops: 7.7744011157512665, bopo: 7.849576687812805, usw: 7.770542746210098, asw: 7.767692179822922}
+  slim_comparisons:
+    po4cops: {mean_difference_slim_minus_comparator: 0.06945236005783081, bootstrap_95ci: [0.06871789538860322, 0.07018942758440971], wins: 137, ties: 10, losses: 9853, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly worse"}
+    bopo: {mean_difference_slim_minus_comparator: -0.005723212003707886, bootstrap_95ci: [-0.006437666231393815, -0.005036788403987884], wins: 5636, ties: 48, losses: 4316, wilcoxon_p: 7.864681749865137e-57, holm_p: 7.864681749865137e-57, outcome: "significantly better"}
+    usw: {mean_difference_slim_minus_comparator: 0.07331072959899902, bootstrap_95ci: [0.07257044437408447, 0.07404565705657004], wins: 67, ties: 10, losses: 9923, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly worse"}
+    asw: {mean_difference_slim_minus_comparator: 0.07616129598617553, bootstrap_95ci: [0.07542699950695038, 0.07689700815439225], wins: 31, ties: 7, losses: 9962, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly worse"}
+  raw_per_instance_sha256: "2059d99173a270893cbcd9d1547e0752bc84d6950adb0ea2e6ff933237ab18ee"
+  slim_per_instance_sha256: "f1115a9290687d05b2c4ffab3ee6fd199c07fb029a748f7a533902169549f877"
+  significance_json_sha256: "550c2614cb26fe165beceaa63866a357e525a4ba5779285e64a59451f8a2edd6"
+  significance_csv_sha256: "4de26dd071bb7c9d57eb737d8ccd3f0041cb53ba111d3fb31c54ca0bcd8adabb"
+  artifact_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/eval_locked_tsp100_20260721_0358"
+  successful_eval_error_scan_matches: 0
+  setup_only_failures: ["unsupported optional CLI arguments before model construction", "main-repo/runtime checkpoint compatibility mismatch before evaluation", "temporary-runtime checkpoint-path serialization error before any result file was written"]
+cvrp100_locked_test_analysis:
+  status: completed
+  evaluated_at: "2026-07-21T10:16:00+08:00"
+  protocol: {instances: 10000, num_starts: 100, num_augment: 8, seed: 1234, pairing: "exact ordered instance_id equality", primary_test: "two-sided paired Wilcoxon signed-rank", multiplicity: "Holm over 4 SLIM-vs-comparator tests", bootstrap_draws: 20000, bootstrap_seed_base: 20260720, test_batch_size: 64}
+  validation_selection: {metric: "val/reward", epoch: 195, value: -16.79256820678711}
+  checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/cvrp100/checkpoints/epoch_195.ckpt"
+  checkpoint_sha256: "8e72c6ce05df5cb181c121d96a9ea32709a67e7352e19f0c1bca0ae13147cc40"
+  test_file: "/data1/gushengda/eam-rl4co/data/vrp/vrp100_test_seed1234.npz"
+  test_file_sha256: "a79bbd2d82d676df68872c29ba4388e40a654e4803810ab2e05eec18b4a97efc"
+  mean_costs: {slim: 16.013110019397736, po4cops: 15.81215259180069, bopo: 16.082528405666352, usw: 15.805185287094115, asw: 15.791442690086365}
+  slim_comparisons:
+    po4cops: {mean_difference_slim_minus_comparator: 0.2009574275970459, bootstrap_95ci: [0.19888017308950423, 0.20304505287885666], wins: 256, ties: 0, losses: 9744, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly worse"}
+    bopo: {mean_difference_slim_minus_comparator: -0.06941838626861573, bootstrap_95ci: [-0.0716075018453598, -0.06718446863889695], wins: 7386, ties: 0, losses: 2614, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly better"}
+    usw: {mean_difference_slim_minus_comparator: 0.20792473230361938, bootstrap_95ci: [0.20583894924402235, 0.21003020405769346], wins: 239, ties: 0, losses: 9761, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly worse"}
+    asw: {mean_difference_slim_minus_comparator: 0.22166732931137084, bootstrap_95ci: [0.21954575132608414, 0.22378708065748215], wins: 167, ties: 0, losses: 9833, wilcoxon_p: 0.0, holm_p: 0.0, outcome: "significantly worse"}
+  raw_per_instance_sha256: "24f0a43d2223b5ec1b65bb2e12babdfd27a4f8fcf55c50d8db1f1d67ed011d3b"
+  summary_sha256: "ed598a8143b7e925a5eeccc3094bbed8132bfe21137818927afc00c497c3c460"
+  significance_json_sha256: "99481fc9346dc9024502b6335186f5b69dee547a827fff42f19bd67b6a133250"
+  significance_csv_sha256: "c6f6b72010223dbc4f5f309c4c03e95480280214e63dafbdcf8bb67d5b708fea"
+  artifact_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/eval_locked_cvrp100_20260721_1020"
+  successful_eval_error_scan_matches: 0
+ffsp50_locked_test_analysis:
+  status: completed
+  evaluated_at: "2026-07-20T03:50:00+08:00"
+  protocol: {instances: 1000, num_starts: 24, num_augment: 128, seed: 1234, pairing: "exact ordered instance_id equality", primary_test: "two-sided paired Wilcoxon signed-rank", multiplicity: "Holm over 4 SLIM-vs-comparator tests", bootstrap_draws: 20000, bootstrap_seed_base: 20260720}
+  checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp50/checkpoints/epoch_173.ckpt"
+  checkpoint_sha256: "1e649611d04b736e65f4b8cf28a09cef416a0cb74f7ba5b3cfb21e5b36a8a774"
+  test_file: "/data1/gushengda/eam-rl4co/data/ffsp/ffsp50_test_seed1234_torch.npz"
+  test_file_sha256: "6b1a46fb75fbdb1e23433c0a11ae9e54adb18a3306df7b9e46ccc357f1d4f372"
+  mean_costs: {slim: 49.716, po4cops: 49.642, bopo: 49.655, usw: 49.644, asw: 49.71}
+  slim_comparisons:
+    po4cops: {mean_difference_slim_minus_comparator: 0.074, bootstrap_95ci: [0.032, 0.115], wins: 161, ties: 611, losses: 228, wilcoxon_p: 0.0005700652156846714, holm_p: 0.0017277724613362583, significant: true}
+    bopo: {mean_difference_slim_minus_comparator: 0.061, bootstrap_95ci: [0.022, 0.101], wins: 149, ties: 652, losses: 199, wilcoxon_p: 0.0026525703647545793, holm_p: 0.005305140729509159, significant: true}
+    usw: {mean_difference_slim_minus_comparator: 0.072, bootstrap_95ci: [0.031975000000000024, 0.113], wins: 155, ties: 622, losses: 223, wilcoxon_p: 0.00043194311533406457, holm_p: 0.0017277724613362583, significant: true}
+    asw: {mean_difference_slim_minus_comparator: 0.006, bootstrap_95ci: [-0.034, 0.046], wins: 180, ties: 628, losses: 192, wilcoxon_p: 0.8123789253200736, holm_p: 0.8123789253200736, significant: false}
+  per_instance_sha256: "a2062863fbd26a0a9e67426b35717d554d77299c7a9fef9a8d20ba37f9bfc9c2"
+  significance_json_sha256: "166de6e5b31e89e21503b6d1bd3b4aea72639b3b14c422c38bb55c7a7c8f1c7e"
+  significance_csv_sha256: "933cc5bad3a60058d427629c34ef170a72d5d373b50fc797c826c43bfbd00271"
+  artifact_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/eval_locked_ffsp50_20260720_0342"
+  error_scan_matches: 0
+ffsp100_locked_test_analysis:
+  status: completed
+  evaluated_at: "2026-07-20T09:44:08+08:00"
+  protocol: {instances: 1000, num_starts: 24, num_augment: 128, seed: 1234, pairing: "exact ordered instance_id equality", primary_test: "two-sided paired Wilcoxon signed-rank", multiplicity: "Holm over 4 SLIM-vs-comparator tests", bootstrap_draws: 20000, bootstrap_seed_base: 20260720, test_batch_size: 32}
+  checkpoint: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/full_autoresume_20260719_2128/g52/ffsp100/checkpoints/epoch_194.ckpt"
+  checkpoint_sha256: "04d19414f3d7ba32c6960e393b192ca18dcc9aebd6ac2909ec9949622435ea00"
+  test_file: "/data1/gushengda/eam-rl4co/data/ffsp/ffsp100_test_seed1234_torch.npz"
+  test_file_sha256: "673cf591412242a3e6b197ca8c2c1bc59d5e1b1c50ede55aaef9c6c4a40b6446"
+  mean_costs: {slim: 89.387, po4cops: 89.585, bopo: 89.581, usw: 89.368, asw: 89.428}
+  slim_comparisons:
+    po4cops: {mean_difference_slim_minus_comparator: -0.198, bootstrap_95ci: [-0.241, -0.156], wins: 312, ties: 563, losses: 125, wilcoxon_p: 2.578752739155247e-18, holm_p: 7.988054478788183e-18, significant: true}
+    bopo: {mean_difference_slim_minus_comparator: -0.194, bootstrap_95ci: [-0.235, -0.152], wins: 300, ties: 584, losses: 116, wilcoxon_p: 1.997013619697046e-18, holm_p: 7.988054478788183e-18, significant: true}
+    usw: {mean_difference_slim_minus_comparator: 0.019, bootstrap_95ci: [-0.022, 0.06], wins: 191, ties: 597, losses: 212, wilcoxon_p: 0.37044830349598634, holm_p: 0.37044830349598634, significant: false}
+    asw: {mean_difference_slim_minus_comparator: -0.041, bootstrap_95ci: [-0.083, 0.001], wins: 211, ties: 623, losses: 166, wilcoxon_p: 0.05610012185830546, holm_p: 0.11220024371661091, significant: false}
+  per_instance_sha256: "e5a97d84bf6f9d957e75567f3b6183996fe0a44ddfbdb4cb9ca3d5c6e93a641c"
+  summary_sha256: "bbffa78d8a9025d08f0c9c5a6dd8bdc814e5bee2698b108154e3e5974d47afc9"
+  significance_json_sha256: "028321a6719a0757d6a0a94480c3f3b028a7916a967950c97cc17fc168641322"
+  significance_csv_sha256: "5ccb9739e248f8556c1c7b83fcdda50307faa26c21ba5d88627a1f7f09be109e"
+  artifact_root: "/data1/gushengda/eam-rl4co/logs/official_slim_baselines/eval_locked_ffsp100_20260720_0921"
+  evaluation_attempts: {batch64: "OOM before first output and excluded", batch32: "completed with identical 128-augmentation semantics"}
+  successful_eval_error_scan_matches: 0
 jssp_locked_test_analysis:
   status: completed
   evaluated_at: "2026-07-18T18:26:00+08:00"
@@ -82,10 +244,15 @@ jssp_bopo_paper_table1_comparison:
   statistical_limit: "Paper per-instance predictions are unavailable, so paired significance against paper aggregates cannot be computed."
   artifact: "artifacts/slim_paper_comparison_20260718/comparison.json"
 distributed_launch_gate:
-  active_problem_count: 6
-  completed_problem_count: 2
+  active_problem_count: 0
+  completed_problem_count: 6
   failed_problem_count: 0
+  stopped_problem_count: 2
+  recovery_pending_problem_count: 0
   queued_problem_count: 0
+  excluded_duplicate_attempt_count: 1
+  excluded_misconfigured_run_count: 2
+  last_supervised_at: "2026-07-21T10:20:00+08:00"
   new_job_error_scan_matches: 0
-  test_access: false
-automation: "remains paused; this user-authorized run is executed directly"
+  test_access: "only after validation lock for completed JSSP10/15, FFSP50/100, TSP100, and CVRP100; TSP50/CVRP50 remain unevaluated because their in-cap validation-best checkpoints are missing"
+automation: "continuous supervisor PAUSED by user on 2026-07-21 after CVRP100 completed and its locked matched test/significance finished. No official training process remains active. Six problems have validation-locked matched tests; TSP50/CVRP50 remain stopped and not lockable because their epoch<200 validation-best checkpoints were deleted, and outside-cap artifacts were not substituted."

@@ -98,12 +98,14 @@ if ($Action -eq "start") {
     $safeName = New-SafeJobName -Name $JobName
     $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $remoteLog = "$RemoteWorkdir/$RemoteLogDir/${safeName}_${stamp}.log"
+    $commandBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($Command))
     $script = @"
 set -euo pipefail
 cd $(Quote-BashArg -Text $RemoteWorkdir)
 mkdir -p $(Quote-BashArg -Text $RemoteLogDir)
 echo "remote_log=$remoteLog"
-echo "command=$(($Command -replace '"', '\"'))" > $(Quote-BashArg -Text $remoteLog)
+printf '%s' $(Quote-BashArg -Text $commandBase64) | base64 --decode | sed 's/^/command=/' > $(Quote-BashArg -Text $remoteLog)
+printf '\n' >> $(Quote-BashArg -Text $remoteLog)
 echo "started_at=`$(date -Is)" >> $(Quote-BashArg -Text $remoteLog)
 nohup bash -lc $(Quote-BashArg -Text $Command) >> $(Quote-BashArg -Text $remoteLog) 2>&1 < /dev/null &
 pid=`$!

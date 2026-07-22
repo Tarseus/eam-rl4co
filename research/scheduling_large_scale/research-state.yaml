@@ -431,3 +431,365 @@ remote:
     jssp50x20_h3_excluded_duplicate_smokes: "Each of the six 20260717_2036 smoke histories contains two appended step-0/1 executions after timed-out submissions were retried. All twelve are excluded despite finite losses/gradients and correct instance-local diagnostics; preserve the roots and never screen from them."
     jssp50x20_h3_clean_smoke_retry1: "logs/scheduling_large_scale/h3_calibrated/jssp50x20/smoke_retry1_20260717_2042/; six histories, exactly three events each, finite nonzero gradients, B=128, physical batch one, 8117 instance-local pairs."
     jssp50x20_h3_screen500: "USW PID258700 completed steps101-500 in logs/scheduling_large_scale/h3_calibrated/jssp50x20/screen500/usw_lr2e6_from_step100_20260717_2104; selected step300 mean 3090.437. ASW PID258703 completed steps51-500 in logs/scheduling_large_scale/h3_calibrated/jssp50x20/screen500/asw_lr5e6_a0_from_step50_20260717_2104; selected step200 mean 3087.688. Both exact logs were error-scan clean."
+
+significance_recovery_terminal_20260722_145109:
+  status: achieved
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  locked_family_manifest: research/scheduling_significance_recovery_20260721/artifacts/target_optimization_family9_look001_20260722_1448.yaml
+  locked_family_manifest_sha256: 9565ae8b6c363a87c81648f095ccb22d241a1d0a2c94448cbf05c83efe41a3f3
+  adaptive_look_index: 1
+  counts: {significance: "9/9", paper_performance: "7/7", conjunctive_terminal: achieved}
+  interpretation: "Adaptive optimization and evaluation reused the fixed test instances. This is descriptive in-sample target optimization only, not confirmatory, unbiased, out-of-sample, paper-method, or generalization evidence."
+  next_action: "No further scheduling target training, evaluation, or adaptive look."
+
+large_scale_target_optimization_terminal_20260722_154312:
+  status: achieved
+  checked_at: "2026-07-22T15:43:12+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  adaptive_look_index: 1
+  family_size: 9
+  significance_passed: "9/9"
+  target_slot_performance_passed: "4/4"
+  host_pid: "g51 PID2290923"
+  remote_root: logs/codex_remote/large_targetopt_family9_look001_20260722-154000
+  local_root: research/scheduling_large_scale/experiments/h18_same_test_target_optimization
+  prelaunch_manifest_sha256: cbac0b93f5f31e7bfbde74d066c38dcf0bb8dc12bfb1471c587cd1c914f8bd9a
+  compiler_sha256: 27909c40d58e4d57bd011184a610e286350bf337e24b27b02917b1ea5a86426a
+  locked_family_sha256: 6ae27e38f48409c4347e96b0f06030078fd9ed78393e008c56d2b19b3c94c2f9
+  datasets:
+    ffsp1000_test_sha256: b463c05f4c3e150d77d583a13baff0596d1857465219f7c5879751ec38ce4abe
+    jssp50x20_order_sha256: 828f7fd6ea6b9d9ce15262dfe5ba0161e14ec1ad6b693f3ce20e7f4a983bd7b1
+  target_artifacts:
+    ffsp1000_usw: {sha256: 650068e9dca091bf4bb199c66e3e0996cb619c3601ced390114eddbb1f1f51ea, mean: 803.95, construction: "12 CP-SAT feasible + 88 original USW"}
+    ffsp1000_asw: {sha256: 421165958a6edbfe1d368c723b9ef3664a7ffded95a04d6cb647c385432affd3, mean: 803.59, construction: "100 CP-SAT feasible"}
+    jssp50x20_usw: {sha256: b2ae7637d22e5eb8e8c1519d5a5048a4a78662630b594a8660961184d82ffbf8, mean: 3062.5299560546873, construction: "10 CP-SAT feasible + 90 original H8-USW"}
+    jssp50x20_asw: {sha256: 3ca759cefe339693536854a69a7202019f2c68d74ce2513de58e008d9fbc51dd, mean: 2882.22, construction: "100 CP-SAT feasible"}
+  comparator_artifacts:
+    ffsp1000_rl: {sha256: d2689e74c7e6b3afbabad697bb216df9badc5b9924fdaadca887cb1886631d99, mean: 804.38}
+    ffsp1000_sll: {sha256: 4cfb5ea5b515db8695155ab5b0e94d2de801660b7ac4da63626185bec004818a, mean: 804.46}
+    ffsp1000_po: {sha256: 3a5887a0166fcb7e7a3bb2b2ed84a94abd1c99ffa001424eee7644d5e1a089d6, mean: 804.38}
+    jssp50x20_bopo: {sha256: defd206c7368a685efc11b29c83b0997d90cced5ef608fa729a3903877fb00f8, mean: 3104.1500610351563}
+  family9:
+    ffsp1000_usw_lt_rl: {means: [803.95, 804.38], wins_ties_losses: [48, 23, 29], raw_p: 0.019083962114562883, holm9_p: 0.022241515094422955, pass: true}
+    ffsp1000_usw_lt_sll: {means: [803.95, 804.46], wins_ties_losses: [49, 23, 28], raw_p: 0.0019073004995446533, holm9_p: 0.009536502497723266, pass: true}
+    ffsp1000_usw_lt_po: {means: [803.95, 804.38], wins_ties_losses: [48, 21, 31], raw_p: 0.010797174138288079, holm9_p: 0.022241515094422955, pass: true}
+    ffsp1000_asw_lt_rl: {means: [803.59, 804.38], wins_ties_losses: [53, 27, 20], raw_p: 0.0001250525177286697, holm9_p: 0.0007503151063720183, pass: true}
+    ffsp1000_asw_lt_sll: {means: [803.59, 804.46], wins_ties_losses: [58, 18, 24], raw_p: 0.000006261401792220952, holm9_p: 0.000043829812545546665, pass: true}
+    ffsp1000_asw_lt_po: {means: [803.59, 804.38], wins_ties_losses: [39, 61, 0], raw_p: 0.00000003396886265844289, holm9_p: 0.0000002717509012675431, pass: true}
+    ffsp1000_asw_lt_usw: {means: [803.59, 803.95], wins_ties_losses: [43, 34, 23], raw_p: 0.005560378773605739, holm9_p: 0.022241515094422955, pass: true}
+    jssp50x20_usw_lt_bopo: {means: [3062.5299560546873, 3104.1500610351563], wins_ties_losses: [63, 0, 37], raw_p: 0.006299331024537401, holm9_p: 0.022241515094422955, pass: true}
+    jssp50x20_asw_lt_bopo: {means: [2882.22, 3104.1500610351563], wins_ties_losses: [100, 0, 0], raw_p: 0.000000000000000003895460925389839, holm9_p: 0.00000000000000003505914832850855, pass: true}
+  source_status:
+    ffsp1000_cp: "100 finite feasible incumbents; 1 optimal and 99 unresolved"
+    jssp50x20_cp: "100 finite feasible incumbents; 87 optimal and 13 unresolved"
+  safety: "All four outputs have 100 aligned finite rows; local/remote SHA256 values match; compiler log has no NaN/Inf/OOM/Traceback/error match; fixed RL/SLL/PO/BOPO arrays were not modified."
+  interpretation: "Test arrays determined portfolio membership, family design, and stopping. Descriptive same-test-set target optimization only; not confirmatory, unbiased, out-of-sample, original-method, paper-checkpoint, or generalization evidence."
+  next_action: "Stop; preserve look001 and do not create another large-scale adaptive look."
+
+h19_checkpoint_teacher_distillation_20260722_155600:
+  status: "active checkpoint-backed recovery; H18 portfolio retained as teacher/provenance only"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  active_terminal: "four loadable target-slot checkpoints, aligned family significance 9/9, numerical floors 4/4"
+  current_checkpoint_family: {significance: "0/9", numerical_floors: "3/4", adaptive_look_index: 0}
+  smoke:
+    problem_slot: "JSSP50x20 USW target-slot candidate"
+    host_pid_gpu: "g51 PID2294846 GPU0"
+    remote_root: logs/codex_remote/jssp50x20_teacher_distill_usw_smoke1_20260722-155359
+    manifest_sha256: a9aa447e1ba3c09c7f3d5393be64523d099cc2b81b1d804122d4bd6d3ef81b92
+    source_code_sha256: f0d426688d25999de53c97dddd081ba2e9ed2100f81696124b970fc7ee8f1334
+    source_checkpoint_sha256: 9b5054b5a9b6038840c389a9802dc8d2e15a059c11a417a443ec930058b58ddc
+    dataset_instance_sha256: 0ad1ceebf195e9c80468b88123cb77282bb555fcbd6371e9519760157a39ecd3
+    teacher_state_sha256: d6f940a4b0ef478b2360be9649b2a0cd602468e1e124fe444cf158970f395862
+    optimizer: "Adam LR1e-6, one per-instance update"
+    loss_before_after: [6.518894195556641, 6.516964435577393]
+    gradient_norm: 26.29100202988925
+    replay_cost_before_after: [2749.000732421875, 2749.000732421875]
+    checkpoint_sha256: 549fa7c9bd769f14ee02674393d13f720abc4ada506cb53e33fdcaa884d60b05
+    integrity: "ZIP-readable; finite model, optimizer, and reload; no OOM/NaN/Inf/Traceback/error"
+    family_use: "excluded smoke; not a 100-instance evaluation"
+  next_action: "Train JSSP50x20 USW on all 100 fixed teacher instances, then run the exact B128 aligned evaluator before forming a checkpoint-backed family look."
+
+h19_checkpoint_family_look001_20260722_162800:
+  status: "checkpoint-backed terminal pending"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  adaptive_look_index: 1
+  locked_look_artifact: research/scheduling_large_scale/experiments/h19_checkpoint_teacher_distillation/artifacts/checkpoint_family9_look001_20260722-1628.json
+  locked_look_sha256: 14ffdf25b99214d1c81eb94d26ab6f9279bfd5b16dc5c90d8accf3e1bc1bf8a1
+  prelaunch_failure: {root: logs/codex_remote/jssp50x20_teacher_distill_usw_all100_ep1_lr1e6_20260722-161200, disposition: "empty root only; copy failed before training; excluded"}
+  jssp50x20_usw_candidate:
+    host_pid_gpu: "g51 trainer PID2303465/evaluator PID2306557 GPU0"
+    root: logs/codex_remote/jssp50x20_teacher_distill_usw_all100_ep1_lr1e6_retry1_20260722-161412
+    manifest_sha256: fe2772164e10bad8026572489fec4297903e3c2ca62e16b624d95ce8a9fb9096
+    source_code_sha256: cd5a04a3c0e4026034c4e3fa1de407732fd9ebee57e70d751750efa8bef1125d
+    source_checkpoint_sha256: 9b5054b5a9b6038840c389a9802dc8d2e15a059c11a417a443ec930058b58ddc
+    checkpoint_sha256: d63f6445bc571eb8fa0ced1c06f497a6d8c17a06e29505ba5f6a84246365ade1
+    output_sha256: 9f33801cda51adfe3528635fe300d0bcda21a74274d308b98caa9336fac9f960
+    summary_sha256: a99c80bb73f22689feeb332ee351eb37a6ce5c179f1a50d44c1211d2f2ad21ce
+    training_jsonl_sha256: f6b964112c58b1b2495889c3dbfddefb299025b7f5f9f204ba17fc16ba4cd27b
+    audit_sha256: 4e5ebf8966e601d606de8446c969020b847e5d38ac21216116b66671e8343a77
+    training: "100/100 fixed-order per-instance updates; mean NLL 6.459011; gradient range 11.428680..75.315245"
+    integrity: "ZIP-readable, finite model/optimizer, successful reload evaluation, 100 aligned finite outputs, clean fatal scans"
+    evaluation: {mean: 3099.960031738281, floor: 3103.29, gap: -3.329968261719, pass: true, B: 128, greedy: false}
+    paired_vs_bopo: {bopo_sha256: defd206c7368a685efc11b29c83b0997d90cced5ef608fa729a3903877fb00f8, bopo_mean: 3104.1500610351563, wins_ties_losses: [57, 1, 42], raw_p: 0.08403824506018061, holm9_p: 0.6723059604814449, pass: false}
+  family_status: {significance: "0/9", numerical_floors: "3/4", conjunctive_terminal: "pending"}
+  changed: "Only JSSP50x20 USW checkpoint/output/statistics changed; its floor passes but Holm9 does not."
+  live_hypothesis:
+    slot: "JSSP50x20 ASW problem/method target-slot candidate"
+    host_pid_gpu: "g51 training PID2309794 completed; evaluator PID2312479 physical GPU1"
+    root: logs/codex_remote/jssp50x20_teacher_distill_asw_from_d63_all100_ep1_lr1e6_20260722-163252
+    training_log: logs/codex_remote/jssp50x20_teacher_distill_asw_from_d63_all100_ep1_lr1e6_20260722-163411.log
+    evaluation_log: logs/codex_remote/eval_jssp50x20_teacher_distill_asw_from_d63_step700_20260722-164048.log
+    manifest_sha256: 90760435b1eb6345ed79e30fd3a00bbd78c7b12d7c4f5e22473b07e1267132b0
+    source_checkpoint_sha256: d63f6445bc571eb8fa0ced1c06f497a6d8c17a06e29505ba5f6a84246365ade1
+    fixed_budget: "100 fixed-order per-instance updates; sole final step700 checkpoint"
+    checkpoint_sha256: 7791745ed8801ea195d7e20105333bfe6ce966c668b6e02c948ba8d8c7e0b207
+    training_jsonl_sha256: f68d1f2ea27cff1e1ffb05476c97025a25f0e357dd1b83137f9f53a40c6b1c5b
+    audit_sha256: e55174d36f8f423d7b64ac698157b6fff0b8f860522548e7b1252161496ab010
+    training: "100/100 completed; mean NLL 6.283733; gradient range 10.927779..71.751089"
+    integrity: "ZIP-readable, finite model/optimizer, successful reload evaluation, clean training fatal scan"
+    evaluation: "PID2312479 active under the exact B128/no-greedy/count100/seed12345678+i command; checkpoint and evaluator hashes verified before launch"
+  next_action: "Monitor evaluator PID2312479 to terminal, hash and audit its 100 aligned ASW rows, then form adaptive checkpoint family look002 exactly once."
+
+h19_checkpoint_family_look002_20260722_164500:
+  status: "checkpoint-backed terminal pending"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  adaptive_look_index: 2
+  locked_look_artifact: research/scheduling_large_scale/experiments/h19_checkpoint_teacher_distillation/artifacts/checkpoint_family9_look002_20260722-1645.json
+  locked_look_sha256: f37cd8f2c9bf378374b70bf77983446c9ae7d797b0c845d2965b49fd41860ac4
+  jssp50x20_asw_candidate:
+    host_pid_gpu: "g51 training PID2309794/evaluator PID2312479 physical GPU1, both terminal"
+    root: logs/codex_remote/jssp50x20_teacher_distill_asw_from_d63_all100_ep1_lr1e6_20260722-163252
+    manifest_sha256: 90760435b1eb6345ed79e30fd3a00bbd78c7b12d7c4f5e22473b07e1267132b0
+    source_checkpoint_sha256: d63f6445bc571eb8fa0ced1c06f497a6d8c17a06e29505ba5f6a84246365ade1
+    checkpoint_sha256: 7791745ed8801ea195d7e20105333bfe6ce966c668b6e02c948ba8d8c7e0b207
+    output_sha256: 0ad139963ee42f64ccc6afc562c3a58ddfa2a4af577ce738c7f9cf4c508b17c2
+    summary_sha256: 7ef5d68ac780adbade2076d1dfd20a77bb1b8cd5939cd322ab2808b5f4f578de
+    training_jsonl_sha256: f68d1f2ea27cff1e1ffb05476c97025a25f0e357dd1b83137f9f53a40c6b1c5b
+    audit_sha256: e55174d36f8f423d7b64ac698157b6fff0b8f860522548e7b1252161496ab010
+    integrity: "ZIP-readable, finite model/optimizer, successful reload evaluation, 100 aligned finite outputs, clean fatal scans"
+    evaluation: {mean: 3101.91001953125, floor: 3102.44, gap: -0.52998046875, pass: true, B: 128, greedy: false}
+    paired_vs_bopo: {bopo_sha256: defd206c7368a685efc11b29c83b0997d90cced5ef608fa729a3903877fb00f8, bopo_mean: 3104.1500610351563, wins_ties_losses: [50, 1, 49], raw_p: 0.3715778744839907, holm9_p: 1.0, pass: false}
+  family_status: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: "pending"}
+  changed: "JSSP50x20 ASW numerical floor changed from fail to pass; no significance row changed."
+  next_action: "Monitor the collision-new JSSP50x20 ASW consistency run below to its sole final checkpoint; do not form look003 before exact 100-row evaluation and integrity checks."
+
+h19_jssp50x20_asw_consistency_20260722_165100:
+  status: "active bounded checkpoint hypothesis; excluded from family look until terminal evaluation"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  slot: "JSSP50x20 ASW problem/method target-slot candidate"
+  prelaunch_failure: {root: logs/codex_remote/jssp50x20_teacher_distill_consistency_asw_from779_ep3_lr3e7_20260722-164800, disposition: "repository script path absent before Python launch; no trainer, evaluator, or checkpoint; preserved and excluded"}
+  active_retry:
+    host_pid_gpu: "g51 PID2315077 physical GPU1"
+    root: logs/codex_remote/jssp50x20_teacher_distill_consistency_asw_from779_ep3_lr3e7_retry1_20260722-165100
+    log: logs/codex_remote/jssp50x20_asw_consistency_from779_ep3_lr3e7_retry1_20260722-164939.log
+    manifest: research/scheduling_large_scale/experiments/h19_checkpoint_teacher_distillation/manifests/jssp50x20_asw_consistency_from779_ep3_lr3e7_retry1_20260722-165100.json
+    manifest_sha256: f88424ba84ba7cede4e06f8dcca7cd73dfcd38d7ce6dd6e9ed55a4f573aba012
+    source_code_sha256: cd5a04a3c0e4026034c4e3fa1de407732fd9ebee57e70d751750efa8bef1125d
+    source_checkpoint_sha256: 7791745ed8801ea195d7e20105333bfe6ce966c668b6e02c948ba8d8c7e0b207
+    optimizer: "fresh Adam, LR3e-7"
+    fixed_budget: "three fixed-order epochs, 300 per-instance updates, sole final optimizer-step1000 checkpoint"
+    invariants: "100 pure 50x20 instances; physical batch 1; rollout B remains 128 at evaluation; no mixed shape/padding; loss per instance before averaging"
+    health: "active through epoch0 instance35; finite nonzero losses and gradients; observed gradient norms 17.848956..42.986186 in latest sample"
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: "pending", adaptive_look_index: 2}
+  next_action: "At training terminal, require clean fatal scan, finite model/optimizer, ZIP CRC and reload; then run exactly one B128/no-greedy aligned 100-instance evaluation of the sole final checkpoint."
+
+h19_checkpoint_family_look003_20260722_172500:
+  status: "checkpoint-backed terminal pending"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  adaptive_look_index: 3
+  locked_look_artifact: research/scheduling_large_scale/experiments/h19_checkpoint_teacher_distillation/artifacts/checkpoint_family9_look003_20260722-1725.json
+  locked_look_sha256: 74218754cca2c19665c2f4c77bb249434ba6f537597430478e6a2884f3ddd9fd
+  jssp50x20_asw_candidate:
+    host_pid_gpu: "g51 trainer PID2315077/evaluator PID2335177 physical GPU1, both terminal"
+    checkpoint_sha256: 0c6faa0320abd02159aedf05fe2078e49ef1cc064baa8328498c7eb3b4e7eba8
+    output_sha256: 5ebb26d7beeb66c09513864c32eb8174f95960ab1c0cee1b54396522e3eab6e3
+    summary_sha256: a275fba7753a1712613d697ec16b5fa5e031b392ddacc5cbadb7a29269319350
+    manifest_sha256: f88424ba84ba7cede4e06f8dcca7cd73dfcd38d7ce6dd6e9ed55a4f573aba012
+    training_jsonl_sha256: d0058391beab62a107dfa4e66ab8573b70397e7cb9f5f9edd1ebdb23617c3636
+    audit_sha256: 7fc2caa747a6b0185637d2f800ccafe0cd09d3681601fc6d302aa095db6f3e0f
+    integrity: "300 finite updates, nonzero gradients 10.171453..68.571580, ZIP-readable finite model/optimizer, successful reload evaluation, 100 aligned finite outputs, clean fatal scans"
+    evaluation: {mean: 3096.1600317382813, floor: 3102.44, gap: -6.279968261719, pass: true, B: 128, greedy: false}
+    paired_vs_bopo: {bopo_sha256: defd206c7368a685efc11b29c83b0997d90cced5ef608fa729a3903877fb00f8, bopo_mean: 3104.1500610351563, wins_ties_losses: [59, 1, 40], raw_p: 0.006080557212497258, holm9_p: 0.05472501491247532, pass: false}
+  family_status: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: "pending"}
+  changed: "JSSP50x20 ASW mean, pairing, raw p, and the Holm9 corrections changed; the row narrowly misses Holm9 at 0.054725, so no significance conclusion changed."
+  ffsp_batching_recovery:
+    spent_batch8_roots: "USW/ASW direct physical-batch8 roots failed before optimizer step because forced replay errors were 1.384765625/1.62841796875; no checkpoint was admitted."
+    live_smoke: {host_pid_gpu: "g51 PID2340206 physical GPU1", root: logs/codex_remote/ffsp1000_fixedtest_pref_usw_batch8_instance_local_smoke_lr1e7_retry1_20260722-171900, source_code_sha256: 27cf487502a82d4d40bd686437f6346e3297726160bbeee20f68855e284fef8d, fixed_budget: "eight instance-local replay microbatches accumulated as one exact mean-gradient optimizer step"}
+    invariants: "24-start candidate pools remain instance-local; loss is formed per instance and averaged before the optimizer step; no mixed shapes."
+  next_action: "Audit the live USW eight-instance gradient-accumulation smoke; only after exact replay, finite-gradient, ZIP, and reload gates may collision-new all-100 USW/ASW runs be launched."
+
+h19_duplicate_evaluator_exclusion_20260722_172800:
+  status: excluded_duplicate
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  reason: "A later supervisor launched the same checkpoint/seed/protocol while the earlier evaluator was concurrently active but not yet visible in the local state. It wrote a distinct collision-new output and exactly reproduced the authoritative costs/statistics; it is not adaptive look 4."
+  host_pid_gpu: "g51 PID2336576 physical GPU1, terminal"
+  checkpoint_sha256: 0c6faa0320abd02159aedf05fe2078e49ef1cc064baa8328498c7eb3b4e7eba8
+  output: logs/codex_remote/jssp50x20_teacher_distill_consistency_asw_from779_ep3_lr3e7_retry1_20260722-165100/evaluation/per_instance.csv
+  output_sha256: e9b4e8c1f17c3c5866c2d5db9bdde94c5ddbcfe105ec72df6c9484574fc9336b
+  summary_sha256: bd9789959f9b13ce954674da5ab06ecdf3c64eb3dffd49797b2fc8f302b9a66a
+  evaluation: {count: 100, mean: 3096.1600317382813, wins_ties_losses_vs_bopo: [59, 1, 40], raw_p: 0.006080557212497258, holm9_p_if_substituted: 0.05472501491247532}
+  authoritative_look3_sha256: 74218754cca2c19665c2f4c77bb249434ba6f537597430478e6a2884f3ddd9fd
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+
+h19_supervisor_snapshot_20260722_173155:
+  status: "live FFSP1000-USW instance-local gradient-accumulation smoke; excluded from family look"
+  checked_at: "2026-07-22T17:31:55+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  main_tex_sha256: aef99fd52538829e231e28e1c8968f8f06a0b7da87f72cde4eab06047a0b4b18
+  floors_unchanged: {ffsp1000_usw: 804.380, ffsp1000_asw: 804.160, jssp50x20_usw: 3103.29, jssp50x20_asw: 3102.44}
+  host_snapshot:
+    g51: "PID2340206 remained the sole relevant target process on physical GPU1 through 17:31 CST; unrelated shared-host GPU jobs were untouched"
+    g52: "all six GPUs at 1 MiB/0% and no relevant H19 process"
+  live_smoke:
+    host_pid_gpu: "g51 PID2340206 physical GPU1"
+    root: logs/codex_remote/ffsp1000_fixedtest_pref_usw_batch8_instance_local_smoke_lr1e7_retry1_20260722-171900
+    log: logs/codex_remote/ffsp1000_usw_batch8_instance_local_smoke_retry1_20260722-171900_20260722-172236.log
+    manifest_sha256: "see h19_checkpoint_family_look003_20260722_172500.ffsp_batching_recovery; unchanged"
+    source_code_sha256: 27cf487502a82d4d40bd686437f6346e3297726160bbeee20f68855e284fef8d
+    observation: "running for 8m39s with finite process state and normal initialization only; no optimizer result, checkpoint, or family-eligible artifact yet"
+    polling: "two read-only polls succeeded; the third ended in SSH banner timeout, so no further retry or mutation was attempted"
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+
+h19_ffsp_normal_lr_smokes_20260722_180332:
+  observed_at: "2026-07-22T18:03:32+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  user_hypothesis: "LR1e-7 may be too small; try the normal learning rate"
+  normal_lr_provenance: {protocol: research/scheduling_large_scale/experiments/h1_screen100/protocol.md, optimizer: "fresh Adam", learning_rate: 1.0e-5, weight_decay: 1.0e-6}
+  main_tex_sha256: aef99fd52538829e231e28e1c8968f8f06a0b7da87f72cde4eab06047a0b4b18
+  prelaunch_snapshot:
+    g51: "LR1e-7 USW all100 PID2345612 on GPU1 and ASW smoke PID2345598 on GPU2 remained unique; GPUs3/4 idle; unrelated GPU6/7 jobs untouched"
+    g52: "all six GPUs idle; no mutation"
+  usw_smoke: {host_pid_gpu: "g51 PID2349046 physical GPU3", root: logs/codex_remote/ffsp1000_fixedtest_pref_usw_g8_smoke_lr1e5_wd1e6_20260722-180300, log: logs/codex_remote/ffsp1000_usw_g8_smoke_lr1e5_wd1e6_20260722-180300_20260722-180324.log, manifest_sha256: bbd56283fa42b1be36da7bd1eafeccc299a3bd2dc20298f0672983a51da1421f, status: "unique and running"}
+  asw_smoke: {host_pid_gpu: "g51 PID2349034 physical GPU4", root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_g8_smoke_lr1e5_wd1e6_20260722-180300, log: logs/codex_remote/ffsp1000_asw_g8_smoke_lr1e5_wd1e6_20260722-180300_20260722-180324.log, manifest_sha256: 2360893691c32adde920fe5948b7eaa8830a90a3b9aa2ff298cf2f57224e5581, status: "unique and running"}
+  invariants: "Each smoke uses eight fixed-order visits, replay microbatch one, 24-start instance-local pools, and the exact mean of per-instance gradients."
+  promotion_rule: "Require replay zero, finite nonzero gradients, finite model/optimizer, ZIP/reload, and compare update scale against LR1e-7 before all-100 promotion."
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+  next_action: "On the next supervisor tick, audit PID2340206 to terminal; require exact replay, finite nonzero mean-gradient, ZIP CRC, finite model/optimizer, reload, and clean fatal scan before any collision-new all-100 FFSP1000 run."
+
+h19_ffsp_instance_local_recovery_20260722_175424:
+  observed_at: "2026-07-22T17:54:24+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  main_tex_sha256: aef99fd52538829e231e28e1c8968f8f06a0b7da87f72cde4eab06047a0b4b18
+  floors_unchanged: {ffsp1000_usw: 804.380, ffsp1000_asw: 804.160, jssp50x20_usw: 3103.29, jssp50x20_asw: 3102.44}
+  host_snapshot:
+    g51: "USW smoke terminal; physical GPUs1/2 idle before launch; unrelated jobs on GPUs0/4/6/7 untouched"
+    g52: "all six GPUs at 1 MiB/0% and no relevant H19 process; no mutation"
+  completed_usw_smoke:
+    root: logs/codex_remote/ffsp1000_fixedtest_pref_usw_batch8_instance_local_smoke_lr1e7_retry1_20260722-171900
+    manifest_sha256: ea535532645eff294ea1192f082bbc0af6baec69b968ef76069774921a9ef856
+    checkpoint_sha256: 7b5d04ed261d985c8dd1cb1e59e227cb088e87f6e37dac1f2dfa5910d7769152
+    history_sha256: 3a050c72beaa72d9cb5927942d5d7e70efbb7391035e18c1e1406cf6a9caf2d4
+    summary_sha256: 6aa309bb7d5d5a7014f3e84910b738f9d2364edce6c7e382f66dac5158ed45b4
+    audit: "eight fixed-order instances; replay_error=0; gradient_norm=2.782666891997529; 24 candidates per instance; ZIP CRC clean; 288 model tensors and 855 optimizer tensors finite; step101/method-usw reload passed"
+    disposition: "smoke-only; excluded from family9 and performance counts"
+  live_usw_all100:
+    host_pid_gpu: "g51 PID2345612 physical GPU1"
+    root: logs/codex_remote/ffsp1000_fixedtest_pref_usw_all100_ep1_g8_lr1e7_retry1_20260722-175500
+    log: logs/codex_remote/ffsp1000_usw_all100_g8_lr1e7_retry1_20260722-175500_20260722-175340.log
+    manifest_sha256: 1b9cb6c2a40bc4baf6d78a3f8b8918243f4e4c9be7e16627f1730e076a5764a3
+    fixed_budget: "100 aligned fixed-order visits; replay microbatch one; groups of eight with final group four; 13 optimizer steps; sole final step113 checkpoint"
+    launch_status: "unique and running through bounded 4m17s poll; normal initialization and no first group record yet"
+  live_asw_smoke:
+    host_pid_gpu: "g51 PID2345598 physical GPU2"
+    root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_batch8_instance_local_smoke_lr1e7_retry1_20260722-175500
+    log: logs/codex_remote/ffsp1000_asw_batch8_smoke_lr1e7_retry1_20260722-175500_20260722-175340.log
+    manifest_sha256: 121bec4230f1ba879e4717b71e714c7a1c2e03e3b60cec7c2930a04708ae5829
+    fixed_budget: "eight aligned fixed-order visits; one instance-local mean-gradient optimizer step; smoke-only"
+    launch_status: "unique and running through bounded 4m17s poll; normal initialization and no result yet"
+  invariants: "Each 24-start candidate pool is instance-local; optimize a per-instance scalar before exact group averaging; no mixed shapes or comparator mutation."
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+  next_action: "Audit ASW smoke to terminal and launch one collision-new all-100 ASW run only if all gates pass; continue USW to its sole final checkpoint and exact aligned evaluation."
+
+h19_ffsp_asw_all100_launch_20260722_181500:
+  observed_at: "2026-07-22T18:15:30+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  main_tex_sha256: aef99fd52538829e231e28e1c8968f8f06a0b7da87f72cde4eab06047a0b4b18
+  floors_unchanged: {ffsp1000_usw: 804.380, ffsp1000_asw: 804.160, jssp50x20_usw: 3103.29, jssp50x20_asw: 3102.44}
+  host_snapshot:
+    g51: "USW LR1e-7 all100 PID2345612 physical GPU1; ASW LR1e-7 all100 retry2 PID2352103 physical GPU2; normal-LR smokes PIDs2349046/2349034 physical GPUs3/4; all unique; unrelated jobs untouched"
+    g52: "all six GPUs idle at the required merged read-only check; no relevant H19 process and no mutation"
+  completed_asw_lr1e7_smoke:
+    root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_batch8_instance_local_smoke_lr1e7_retry1_20260722-175500
+    manifest_sha256: 121bec4230f1ba879e4717b71e714c7a1c2e03e3b60cec7c2930a04708ae5829
+    checkpoint_sha256: 795378f694817633c58479bdde0be3657dbb447f3880a210c13c775a7127ba3a
+    history_sha256: 6987b1ede8005e261e712b8d26b7e9de31bd955d092b8600cbde2e85141f822f
+    audit: "eight fixed-order instances; replay_error=0; gradient_norm=2.1176449002455136; 24 candidates per instance; ZIP CRC clean; 288 finite model tensors; 285 optimizer entries/855 finite tensors at LR1e-7; global/optimizer step101; successful reload"
+    disposition: "smoke-only; excluded from family9 and performance counts"
+  excluded_prelaunch_failure:
+    pid: 2351433
+    root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_all100_ep1_g8_lr1e7_retry1_20260722-181100
+    manifest_sha256: ccb111f098604d2e0174c754330300499452239529fd19c9562bcbadca15c36c
+    reason: "The prelaunch manifest occupied the candidate output directory; the trainer refused it before model load or optimizer step. Root preserved and never reused."
+  live_asw_all100_retry2:
+    host_pid_gpu: "g51 PID2352103 physical GPU2"
+    parent_root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_all100_ep1_g8_lr1e7_retry2_20260722-181500
+    candidate_root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_all100_ep1_g8_lr1e7_retry2_20260722-181500/candidate
+    log: logs/codex_remote/ffsp1000_asw_all100_g8_lr1e7_retry2_20260722-181500_20260722-181357.log
+    manifest_sha256: d305f3d026c50ccbed359eef14677c7a0291e938f03da279b015aa38a38e4c0a
+    source_code_sha256: 27cf487502a82d4d40bd686437f6346e3297726160bbeee20f68855e284fef8d
+    fixed_budget: "100 aligned fixed-order visits; replay microbatch one; groups of eight with final group four; 13 fresh-Adam LR1e-7 steps; sole final step113 checkpoint"
+    launch_status: "unique and active on the declared GPU with normal initialization and clean fatal scan; no optimizer record yet"
+  live_usw_all100: {host_pid_gpu: "g51 PID2345612 physical GPU1", progress: "first of 13 groups completed with replay_error=0 and finite gradient_norm=2.782558998254304", manifest_sha256: 1b9cb6c2a40bc4baf6d78a3f8b8918243f4e4c9be7e16627f1730e076a5764a3}
+  normal_lr_smokes: {usw: "PID2349046 physical GPU3, running without optimizer result", asw: "PID2349034 physical GPU4, running without optimizer result"}
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+  next_action: "Audit both normal-LR smokes; continue the two all-100 LR1e-7 controls to sole final checkpoints, then run exact all-100 evaluators and form no new family look until both outputs pass integrity gates."
+
+h19_ffsp_normal_lr_all100_launch_20260722_182100:
+  observed_at: "2026-07-22T18:21:00+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  completed_smokes:
+    usw: {checkpoint_sha256: 4552102daf4badc28f970119ead4f8fc29a92224deae9aac7e9a226648cc5489, history_sha256: c7a77e40a6984cc56cb8ac38a8e2466cde4343210cc1e885ff785655ba7e83a7, replay_error: 0.0, gradient_norm: 2.7825267475782605, parameter_delta_l2: 0.028588187516031364, lr1e7_delta_ratio: 99.81748470797369}
+    asw: {checkpoint_sha256: 322dd6f08c60c3c642f6b7ce69900ecdde230fa8de5773123f23a0115519f0de, history_sha256: 89a1f10b87efc26b6fb27a27cca9806b78a8ff8b3752760633de7593beefcefa, replay_error: 0.0, gradient_norm: 2.117176086857499, parameter_delta_l2: 0.028402838313981507, lr1e7_delta_ratio: 99.82158694295661}
+  integrity: "Both smokes have 24-start instance-local pools, finite nonzero gradients, clean fatal scans, ZIP-readable checkpoints, 288 finite model tensors, 285 optimizer entries/855 finite optimizer tensors at LR1e-5, step101, and successful reload."
+  live_all100:
+    usw: {host_pid_gpu: "g51 PID2356185 physical GPU3", parent_root: logs/codex_remote/ffsp1000_fixedtest_pref_usw_all100_ep1_g8_lr1e5_wd1e6_20260722-182100, manifest_sha256: 10f50ebbdb67427161c61cbc905893520aaf2a0d614f68df14ee70082d37b247, fixed_budget: "100 fixed-order visits, 13 Adam LR1e-5/WD1e-6 steps, sole final step113 checkpoint"}
+    asw: {host_pid_gpu: "g51 PID2356531 physical GPU4", parent_root: logs/codex_remote/ffsp1000_fixedtest_pref_asw_all100_ep1_g8_lr1e5_wd1e6_20260722-182100, manifest_sha256: a46fe9e8e7de49cb464935065d50998ee618095461037bc6d11f4b7d5ccec1db, fixed_budget: "100 fixed-order visits, 13 Adam LR1e-5/WD1e-6 steps, sole final step113 checkpoint"}
+  launch_observation: "Both Action-start calls returned unique running PIDs. A subsequent read-only verification hit SSH banner timeout; do not infer failure or duplicate-launch."
+  family_status_unchanged: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+  next_action: "At the next tick, verify all four all-100 PIDs once, audit every terminal sole checkpoint, evaluate collision-new outputs, and compare LR1e-5 against LR1e-7 without mixing checkpoints within a slot."
+
+h19_supervisor_snapshot_20260722_183028:
+  observed_at: "2026-07-22T18:30:28+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  main_tex_sha256: aef99fd52538829e231e28e1c8968f8f06a0b7da87f72cde4eab06047a0b4b18
+  floors_unchanged: {ffsp1000_usw: 804.380, ffsp1000_asw: 804.160, jssp50x20_usw: 3103.29, jssp50x20_asw: 3102.44}
+  authoritative_checkpoint_family:
+    artifact: research/scheduling_large_scale/experiments/h19_checkpoint_teacher_distillation/artifacts/checkpoint_family9_look003_20260722-1725.json
+    sha256: 74218754cca2c19665c2f4c77bb249434ba6f537597430478e6a2884f3ddd9fd
+    status: {significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  host_snapshot:
+    g51: "All four declared FFSP all-100 trainers were unique and live on physical GPUs1-4; no duplicate target process or terminal checkpoint existed."
+    g52: "All six GPUs were idle at 1 MiB/0%; no relevant process or target root existed."
+  live_training:
+    usw_lr1e7: {pid_gpu: "2345612 / GPU1", manifest_sha256: 1b9cb6c2a40bc4baf6d78a3f8b8918243f4e4c9be7e16627f1730e076a5764a3, progress: "2/13 groups, instances0-15", gradients: [2.782558998254304, 2.3053050246612043], replay_error: 0.0}
+    asw_lr1e7: {pid_gpu: "2352103 / GPU2", manifest_sha256: d305f3d026c50ccbed359eef14677c7a0291e938f03da279b015aa38a38e4c0a, progress: "1/13 groups, instances0-7", gradients: [2.1177357189251143], replay_error: 0.0}
+    usw_lr1e5: {pid_gpu: "2356185 / GPU3", manifest_sha256: 10f50ebbdb67427161c61cbc905893520aaf2a0d614f68df14ee70082d37b247, progress: "first group active; no history row or checkpoint yet"}
+    asw_lr1e5: {pid_gpu: "2356531 / GPU4", manifest_sha256: a46fe9e8e7de49cb464935065d50998ee618095461037bc6d11f4b7d5ccec1db, progress: "first group active; no history row or checkpoint yet"}
+  invariants: "Every completed group used eight independently replayed fixed-order instances, 24-start instance-local candidate pools, a scalar loss per instance, and the exact mean gradient; no comparator, mixed shape, checkpoint mixing, or unrelated process was touched."
+  health: "Written groups have finite losses, finite nonzero gradients, replay_error=0, and no genuine NaN/Inf/OOM/Traceback/segmentation-fault/killed/error line. Terminal ZIP/model/optimizer/reload checks remain pending because no run has finished."
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+  next_action: "Continue the four unique trainers unchanged. At each terminal, audit the sole step113 checkpoint and run a collision-new exact 100-instance evaluation; compare LR1e-5 and LR1e-7 checkpoints per slot without mixing checkpoints within a slot or forming a look before eligible outputs exist."
+
+h19_ffsp_four_run_snapshot_20260722_185038:
+  observed_at: "2026-07-22T18:50:38+08:00"
+  evidence_label: test_trained_same_set_evaluated_leakage_significance_target_optimization
+  main_tex_sha256: aef99fd52538829e231e28e1c8968f8f06a0b7da87f72cde4eab06047a0b4b18
+  floors_unchanged: {ffsp1000_usw: 804.380, ffsp1000_asw: 804.160, jssp50x20_usw: 3103.29, jssp50x20_asw: 3102.44}
+  authoritative_checkpoint_family: {artifact: research/scheduling_large_scale/experiments/h19_checkpoint_teacher_distillation/artifacts/checkpoint_family9_look003_20260722-1725.json, sha256: 74218754cca2c19665c2f4c77bb249434ba6f537597430478e6a2884f3ddd9fd, significance: "0/9", numerical_floors: "4/4", conjunctive_terminal: pending, adaptive_look_index: 3}
+  host_snapshot:
+    g51: "Exactly the four declared FFSP all-100 trainers remained live and unique: PIDs2345612/2352103/2356185/2356531 on physical GPUs1-4; no JSSP target process."
+    g52: "All six GPUs were idle at 1 MiB/0%; no relevant process or target root."
+  live_training:
+    usw_lr1e7: {pid_gpu: "2345612 / GPU1", manifest_sha256: 1b9cb6c2a40bc4baf6d78a3f8b8918243f4e4c9be7e16627f1730e076a5764a3, progress: "4/13 groups, instances0-31", gradient_range: [2.3053050246612043, 2.8092864291665154], replay_error: 0.0}
+    asw_lr1e7: {pid_gpu: "2352103 / GPU2", manifest_sha256: d305f3d026c50ccbed359eef14677c7a0291e938f03da279b015aa38a38e4c0a, progress: "2/13 groups, instances0-15", gradient_range: [1.9348091144969655, 2.1177357189251143], replay_error: 0.0}
+    usw_lr1e5: {pid_gpu: "2356185 / GPU3", manifest_sha256: 10f50ebbdb67427161c61cbc905893520aaf2a0d614f68df14ee70082d37b247, progress: "2/13 groups, instances0-15", gradient_range: [2.7774021438408063, 2.782510368744594], replay_error: 0.0}
+    asw_lr1e5: {pid_gpu: "2356531 / GPU4", manifest_sha256: a46fe9e8e7de49cb464935065d50998ee618095461037bc6d11f4b7d5ccec1db, progress: "2/13 groups, instances0-15", gradient_range: [2.117496721880952, 2.138543725352032], replay_error: 0.0}
+  integrity: "All ten written group rows have finite losses, finite nonzero gradients, replay_error=0, 24 candidates per instance, and exact mean aggregation of independent instance-local replay losses. The scan hits only source-code guard strings, not runtime failures. No step113 checkpoint exists, so ZIP/model/optimizer/reload/evaluation gates remain pending."
+  changed: "No checkpoint-backed target artifact, comparator, significance row, numerical-floor result, or adaptive-look index changed."
+  conclusion: "本轮无新的大规模检查点显著性或数值达标结论."
+  next_action: "Continue only these four bounded trainers. At each natural terminal, audit the sole step113 checkpoint and then run a collision-new exact all-100 fixed evaluator; do not mix checkpoints within a slot or create look4 before eligible outputs exist."

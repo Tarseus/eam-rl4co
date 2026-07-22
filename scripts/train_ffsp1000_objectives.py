@@ -28,7 +28,7 @@ from scripts.eval_downloaded_routing_checkpoints import (
 )
 
 
-METHODS = ("po", "bopo", "usw", "asw")
+METHODS = ("rl", "po", "sll", "bopo", "usw", "asw")
 DEFAULT_PAIR_PATHS = {
     "usw": REPO_ROOT
     / "runs/pref_loss_ffsp100_discovery/20260403-142801/best_pair.json",
@@ -116,7 +116,9 @@ def _build_model(args: argparse.Namespace, checkpoint: Path):
             "num_starts": args.num_starts,
             "num_augment": 1,
             "loss_type": {
+                "rl": "rl_loss",
                 "po": "po_loss",
+                "sll": "sll_loss",
                 "bopo": "bopo_loss",
                 "usw": "free_loss",
                 "asw": "free_loss",
@@ -349,7 +351,7 @@ def _save_payload(model, optimizer, step: int, best: float, config: dict[str, An
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Common-checkpoint continuation for FFSP1000 PO/BOPO/USW/ASW."
+        description="Common-checkpoint continuation for FFSP1000 RL/PO/SLL/BOPO/USW/ASW."
     )
     parser.add_argument("--method", choices=METHODS, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
