@@ -84,6 +84,9 @@ def _load_tangent_bank(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]
             normalized = (
                 sorted_objective - float(sorted_objective[0])
             ) / objective_range
+            target_gradient_norm = float(record["target_gradient_norm"])
+            if not np.isfinite(target_gradient_norm) or target_gradient_norm <= 0.0:
+                raise ValueError("target_gradient_norm must be finite and positive")
             bank.append(
                 {
                     "probe": BranchProbe(
@@ -94,8 +97,10 @@ def _load_tangent_bank(path: Path) -> tuple[list[dict[str, Any]], dict[str, Any]
                         terminal_logp=arrays["terminal_logp"][row, order],
                         normalized_cost=normalized,
                     ),
-                    "local_influence": arrays["local_target_influence"][row, order],
-                    "terminal_influence": arrays["terminal_target_influence"][row, order],
+                    "local_influence": arrays["local_target_influence"][row, order]
+                    / target_gradient_norm,
+                    "terminal_influence": arrays["terminal_target_influence"][row, order]
+                    / target_gradient_norm,
                 }
             )
     if not bank:
@@ -122,6 +127,67 @@ def _score_bank(bank, selectors, margins) -> tuple[np.ndarray, np.ndarray]:
             "smk,k->sm", terminal_gradient, item["terminal_influence"]
         )
     return local_score, terminal_score
+
+
+def _aggregate_scores(
+    scores: np.ndarray,
+    bank,
+    mode: str,
+) -> np.ndarray:
+    if mode == "mean":
+        return scores.mean(axis=0)
+    if mode == "probe_cvar_20":
+        tail_count = max(1, int(np.ceil(0.2 * len(scores))))
+        return np.sort(scores, axis=0)[:tail_count].mean(axis=0)
+    keys = [
+        (item["probe"].policy_state, item["probe"].depth)
+        for item in bank
+    ]
+    strata = []
+    for key in sorted(set(keys)):
+        mask = np.asarray([value == key for value in keys], dtype=bool)
+        strata.append(scores[mask].mean(axis=0))
+    stratum_scores = np.stack(strata, axis=0)
+    if mode == "stratum_min":
+        return stratum_scores.min(axis=0)
+    if mode == "stratum_cvar_50":
+        tail_count = max(1, int(np.ceil(0.5 * len(stratum_scores))))
+        return np.sort(stratum_scores, axis=0)[:tail_count].mean(axis=0)
+    raise KeyError(mode)
+
+
+def _aggregation_report(
+    local_population: np.ndarray,
+    terminal_population: np.ndarray,
+) -> dict[str, Any]:
+    oracle = tuple(
+        int(value)
+        for value in np.unravel_index(
+            int(np.argmax(local_population)), local_population.shape
+        )
+    )
+    terminal_pick = tuple(
+        int(value)
+        for value in np.unravel_index(
+            int(np.argmax(terminal_population)), terminal_population.shape
+        )
+    )
+    oracle_value = float(local_population[oracle])
+    return {
+        "local_vs_terminal_program_spearman": _spearman(
+            local_population.ravel(), terminal_population.ravel()
+        ),
+        "oracle_program_indices": oracle,
+        "oracle_value": oracle_value,
+        "terminal_program_indices": terminal_pick,
+        "terminal_selection_regret": float(
+            oracle_value - local_population[terminal_pick]
+        ),
+        "random_expected_regret": float(
+            oracle_value - local_population.mean()
+        ),
+        "coordinate_basins": _coordinate_basins(local_population),
+    }
 
 
 def _selection_trials(
@@ -248,6 +314,18 @@ def analyze(
             oracle_value - local_population.mean()
         ),
         "coordinate_basins": _coordinate_basins(local_population),
+        "aggregation_reports": {
+            mode: _aggregation_report(
+                _aggregate_scores(local, bank, mode),
+                _aggregate_scores(terminal, bank, mode),
+            )
+            for mode in (
+                "mean",
+                "stratum_min",
+                "stratum_cvar_50",
+                "probe_cvar_20",
+            )
+        },
         "selection_trials": _selection_trials(
             local, terminal, repeats=repeats, seed=split_seed
         ),

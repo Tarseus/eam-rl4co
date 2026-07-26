@@ -24,7 +24,7 @@ from ptp_discovery.matched_branch_probe import (
 from rl4co.utils.ops import unbatchify
 
 
-SCHEMA = "nco-matched-branch-tangent-probes-v1"
+SCHEMA = "nco-matched-branch-tangent-probes-v2"
 
 
 @dataclass(frozen=True)
@@ -36,6 +36,7 @@ class TangentBranchProbe:
     objective: torch.Tensor
     local_target_influence: torch.Tensor
     terminal_target_influence: torch.Tensor
+    target_gradient_norm: float
 
     def validate(self) -> None:
         tensors = (
@@ -51,6 +52,10 @@ class TangentBranchProbe:
             raise ValueError("tangent probe tensors must share shape")
         if not all(torch.isfinite(tensor).all().item() for tensor in tensors):
             raise ValueError("tangent probe tensors must be finite")
+        if not torch.isfinite(torch.tensor(self.target_gradient_norm)):
+            raise ValueError("target gradient norm must be finite")
+        if self.target_gradient_norm <= 0.0:
+            raise ValueError("target gradient norm must be positive")
 
 
 def parameter_tangent_influence(
@@ -64,6 +69,17 @@ def parameter_tangent_influence(
     how many downstream source programs will later be screened.
     """
 
+    influence, _ = _parameter_tangent_influence_and_norm(
+        observables, target, parameters
+    )
+    return influence
+
+
+def _parameter_tangent_influence_and_norm(
+    observables: Sequence[torch.Tensor],
+    target: torch.Tensor,
+    parameters: Sequence[torch.nn.Parameter],
+) -> tuple[tuple[torch.Tensor, ...], float]:
     if not observables:
         raise ValueError("at least one observable tensor is required")
     if target.numel() != 1:
@@ -77,6 +93,14 @@ def parameter_tangent_influence(
         retain_graph=True,
         allow_unused=True,
     )
+    target_norm_squared = sum(
+        float(part.detach().double().square().sum())
+        for part in target_gradient
+        if part is not None
+    )
+    target_gradient_norm = target_norm_squared**0.5
+    if target_gradient_norm <= 0.0:
+        raise RuntimeError("branch target has zero parameter gradient")
     flat_observable = torch.cat([tensor.reshape(-1) for tensor in observables])
     cotangent = torch.ones_like(flat_observable, requires_grad=True)
     observable_probe = (flat_observable * cotangent).sum()
@@ -106,7 +130,7 @@ def parameter_tangent_influence(
         count = tensor.numel()
         outputs.append(flat_influence[offset : offset + count].reshape_as(tensor))
         offset += count
-    return tuple(outputs)
+    return tuple(outputs), target_gradient_norm
 
 
 def _normalize_objective(objective: torch.Tensor) -> torch.Tensor:
@@ -204,7 +228,7 @@ def _collect_tangent_policy_state(
         )
 
     target = torch.stack(target_terms).mean()
-    influences = parameter_tangent_influence(
+    influences, target_gradient_norm = _parameter_tangent_influence_and_norm(
         tuple(local_observables) + tuple(terminal_observables),
         target,
         tuple(policy.parameters()),
@@ -222,6 +246,7 @@ def _collect_tangent_policy_state(
             objective=objectives[index].detach().cpu(),
             local_target_influence=local_influences[index].detach().cpu(),
             terminal_target_influence=terminal_influences[index].detach().cpu(),
+            target_gradient_norm=target_gradient_norm,
         )
         probe.validate()
         probes.append(probe)
@@ -238,6 +263,7 @@ def _probe_record(probe: TangentBranchProbe) -> dict[str, Any]:
         "objective": probe.objective.double().tolist(),
         "local_target_influence": probe.local_target_influence.double().tolist(),
         "terminal_target_influence": probe.terminal_target_influence.double().tolist(),
+        "target_gradient_norm": probe.target_gradient_norm,
     }
 
 

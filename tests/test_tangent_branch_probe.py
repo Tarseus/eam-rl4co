@@ -82,3 +82,4 @@ def test_small_tsp_tangent_collector_returns_finite_nonzero_influence():
     assert probe.terminal_target_influence.shape == (2, 3)
     assert float(probe.local_target_influence.abs().sum()) > 0.0
     assert float(probe.terminal_target_influence.abs().sum()) > 0.0
+    assert probe.target_gradient_norm > 0.0
