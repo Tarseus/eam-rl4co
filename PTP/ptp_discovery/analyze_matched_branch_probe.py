@@ -265,31 +265,55 @@ def _budget_trials(
     for probe_count in tuple(value for value in requested if value <= maximum):
         local_hits = 0
         terminal_hits = 0
+        staged_hits = 0
+        random_hits = 0
         local_regret = []
         terminal_regret = []
+        staged_regret = []
+        random_regret = []
         for _ in range(repeats):
             indices = rng.choice(maximum, probe_count, replace=False)
-            local_pick = int(
-                np.argmax(local_value[indices].mean(axis=0))
-            )
+            local_screen = local_value[indices].mean(axis=0)
+            local_pick = int(np.argmax(local_screen))
             terminal_pick = int(
                 np.argmax(terminal_score[indices].mean(axis=0))
             )
+            local_matrix = local_screen.reshape(
+                len(SELECTORS), len(MARGINS)
+            )
+            staged_selector = int(np.argmax(local_matrix[:, 0]))
+            staged_margin = int(
+                np.argmax(local_matrix[staged_selector])
+            )
+            staged_pick = staged_selector * len(MARGINS) + staged_margin
+            random_pick = int(rng.integers(0, len(population_value)))
             local_hits += int(local_pick == oracle)
             terminal_hits += int(terminal_pick == oracle)
+            staged_hits += int(staged_pick == oracle)
+            random_hits += int(random_pick == oracle)
             local_regret.append(
                 population_value[oracle] - population_value[local_pick]
             )
             terminal_regret.append(
                 population_value[oracle] - population_value[terminal_pick]
             )
+            staged_regret.append(
+                population_value[oracle] - population_value[staged_pick]
+            )
+            random_regret.append(
+                population_value[oracle] - population_value[random_pick]
+            )
         rows.append(
             {
                 "probe_count": probe_count,
                 "local_hit_rate": local_hits / repeats,
                 "terminal_hit_rate": terminal_hits / repeats,
+                "staged_hit_rate": staged_hits / repeats,
+                "random_hit_rate": random_hits / repeats,
                 "local_mean_regret": float(np.mean(local_regret)),
                 "terminal_mean_regret": float(np.mean(terminal_regret)),
+                "staged_mean_regret": float(np.mean(staged_regret)),
+                "random_mean_regret": float(np.mean(random_regret)),
             }
         )
     return rows
@@ -310,6 +334,12 @@ def analyze(
     terminal_population = terminal_score.mean(axis=0)
     oracle = int(np.argmax(population_value))
     terminal_pick = int(np.argmax(terminal_population))
+    local_matrix = population_value.reshape(len(SELECTORS), len(MARGINS))
+    staged_selector = int(np.argmax(local_matrix[:, 0]))
+    staged_margin = int(np.argmax(local_matrix[staged_selector]))
+    staged_pick = staged_selector * len(MARGINS) + staged_margin
+    oracle_value = float(population_value[oracle])
+    terminal_regret = float(oracle_value - population_value[terminal_pick])
     states: dict[str, Any] = {}
     for state in sorted({probe.policy_state for probe in bank}):
         indices = np.asarray(
@@ -329,7 +359,7 @@ def analyze(
             ],
         }
     return {
-        "schema": "nco-matched-branch-analysis-v1",
+        "schema": "nco-matched-branch-analysis-v2",
         "source_config_sha256": source["config_sha256"],
         "probe_count": len(bank),
         "program_count": len(candidates),
@@ -341,9 +371,22 @@ def analyze(
             population_value, terminal_population
         ),
         "oracle_program": candidates[oracle],
+        "oracle_mean_improvement": oracle_value,
         "terminal_selected_program": candidates[terminal_pick],
-        "terminal_selection_regret": float(
-            population_value[oracle] - population_value[terminal_pick]
+        "terminal_selected_mean_improvement": float(
+            population_value[terminal_pick]
+        ),
+        "terminal_selection_regret": terminal_regret,
+        "terminal_selection_relative_regret": terminal_regret
+        / max(abs(oracle_value), EPS),
+        "staged_selected_program": candidates[staged_pick],
+        "staged_selected_mean_improvement": float(population_value[staged_pick]),
+        "staged_selection_regret": float(
+            oracle_value - population_value[staged_pick]
+        ),
+        "random_expected_mean_improvement": float(population_value.mean()),
+        "random_expected_regret": float(
+            oracle_value - population_value.mean()
         ),
         "states": states,
         "budget_trials": _budget_trials(

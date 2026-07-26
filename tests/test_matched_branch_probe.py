@@ -94,6 +94,6 @@ def test_save_matched_branch_probes_requires_both_policy_states(tmp_path):
         repeats=4,
         seed=9,
     )
-    assert analysis["schema"] == "nco-matched-branch-analysis-v1"
+    assert analysis["schema"] == "nco-matched-branch-analysis-v2"
     assert analysis["probe_count"] == 4
     assert analysis["program_count"] == 32
