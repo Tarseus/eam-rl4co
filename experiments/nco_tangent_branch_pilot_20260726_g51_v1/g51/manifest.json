@@ -1,0 +1,40 @@
+{
+  "run_id": "nco_tangent_branch_pilot_20260726_g51_v1",
+  "host": "g51",
+  "source_branch": "codex/nco-matched-branch",
+  "source_commit": "bf8248d642bbdb7b881e9d8efc467e740948fb5c",
+  "physical_gpu": 7,
+  "pid": 3270591,
+  "started_at": "2026-07-26T12:08:00+00:00",
+  "ended_at": "2026-07-26T12:08:23+00:00",
+  "final_state": "complete",
+  "remote_run_dir": "/data1/gushengda/eam-rl4co_runs/nco_tangent_branch_pilot_20260726_g51_v1",
+  "checkpoint": {
+    "path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+    "sha256": "c03fe6c9441c136044efb262f0680c660766ce526422b5f5b3f8ed373f44561b",
+    "bytes": 43680892
+  },
+  "probe": {
+    "instances_per_policy_state": 4,
+    "branches": 8,
+    "depths": [1, 50, 75],
+    "policy_states": ["early", "late"],
+    "device": "cuda",
+    "sha256": "6fd14fe7d84edcfaec1344f72f0c77758450e8037641bf86719b33dc8ec2138e",
+    "bytes": 33022
+  },
+  "analysis": {
+    "source_count_per_module": 32,
+    "combination_count": 1024,
+    "repeats": 1000,
+    "source_seed": 20260726,
+    "split_seed": 13,
+    "sha256": "ba51d2cf9ceafac40be4a578e824da17280ff202fb79e93db0e8d90dca156ea7",
+    "bytes": 4089
+  },
+  "commands": [
+    "PYTHONPATH=PTP:. python -m pytest tests/test_training.py::test_po4cops_tsp_forced_prefix_branches_share_state_and_complete tests/test_tangent_branch_probe.py -q",
+    "CUDA_VISIBLE_DEVICES=7 PYTHONPATH=PTP:. python -m ptp_discovery.run_tangent_branch_probe PTP/configs/pref_loss_coevo_double_eoh.yaml probes.json --late-checkpoint /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt --instances 4 --branches 8 --depths 1,50,75 --device cuda",
+    "PYTHONPATH=PTP:. python -m ptp_discovery.analyze_tangent_branch_probe probes.json analysis.json --source-count 32 --source-seed 20260726 --repeats 1000 --split-seed 13"
+  ]
+}
