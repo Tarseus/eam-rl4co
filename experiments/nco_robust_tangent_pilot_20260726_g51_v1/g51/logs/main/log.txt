@@ -1,0 +1,296 @@
+phase=pytest
+..                                                                       [100%]
+=============================== warnings summary ===============================
+tests/test_tangent_branch_probe.py::test_small_tsp_tangent_collector_returns_finite_nonzero_influence
+  /data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch_geometric/llm/utils/backend_utils.py:26: DeprecationWarning: `torch_geometric.distributed` has been deprecated since 2.7.0 and will no longer be maintained. For distributed training, refer to our tutorials on distributed training at https://pytorch-geometric.readthedocs.io/en/latest/tutorial/distributed.html or cuGraph examples at https://github.com/rapidsai/cugraph-gnn/tree/main/python/cugraph-pyg/cugraph_pyg/examples
+    from torch_geometric.distributed import (
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+2 passed, 1 warning in 4.67s
+phase=tangent_probe
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch_geometric/llm/utils/backend_utils.py:26: DeprecationWarning: `torch_geometric.distributed` has been deprecated since 2.7.0 and will no longer be maintained. For distributed training, refer to our tutorials on distributed training at https://pytorch-geometric.readthedocs.io/en/latest/tutorial/distributed.html or cuGraph examples at https://github.com/rapidsai/cugraph-gnn/tree/main/python/cugraph-pyg/cugraph_pyg/examples
+  from torch_geometric.distributed import (
+weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt
+/data1/gushengda/eam-rl4co_runs/nco_robust_tangent_pilot_20260726_g51_v1/probes.json
+phase=robust_tangent_analysis
+{
+  "aggregation_reports": {
+    "mean": {
+      "coordinate_basins": {
+        "largest_sinks": [
+          {
+            "basin_size": 1024,
+            "program_indices": [
+              17,
+              15
+            ],
+            "regret": 0.0
+          }
+        ],
+        "max_rounds": 2,
+        "oracle_basin_fraction": 1.0,
+        "sink_count": 1
+      },
+      "local_vs_terminal_program_spearman": 0.8916220674486801,
+      "oracle_program_indices": [
+        17,
+        15
+      ],
+      "oracle_value": 0.35783447288501163,
+      "random_expected_regret": 0.22048779995377532,
+      "terminal_program_indices": [
+        17,
+        11
+      ],
+      "terminal_selection_regret": 0.009540571168903944
+    },
+    "probe_cvar_20": {
+      "coordinate_basins": {
+        "largest_sinks": [
+          {
+            "basin_size": 1024,
+            "program_indices": [
+              6,
+              12
+            ],
+            "regret": 0.0
+          }
+        ],
+        "max_rounds": 2,
+        "oracle_basin_fraction": 1.0,
+        "sink_count": 1
+      },
+      "local_vs_terminal_program_spearman": 0.5585561655103355,
+      "oracle_program_indices": [
+        6,
+        12
+      ],
+      "oracle_value": -0.5394743496348992,
+      "random_expected_regret": 0.7656070906616675,
+      "terminal_program_indices": [
+        18,
+        8
+      ],
+      "terminal_selection_regret": 0.25656509104548253
+    },
+    "stratum_cvar_50": {
+      "coordinate_basins": {
+        "largest_sinks": [
+          {
+            "basin_size": 960,
+            "program_indices": [
+              17,
+              29
+            ],
+            "regret": 0.0
+          },
+          {
+            "basin_size": 64,
+            "program_indices": [
+              10,
+              8
+            ],
+            "regret": 0.00013637767244538412
+          }
+        ],
+        "max_rounds": 2,
+        "oracle_basin_fraction": 0.9375,
+        "sink_count": 2
+      },
+      "local_vs_terminal_program_spearman": 0.5771503737214791,
+      "oracle_program_indices": [
+        17,
+        29
+      ],
+      "oracle_value": 0.03316409050714182,
+      "random_expected_regret": 0.06740853725562197,
+      "terminal_program_indices": [
+        10,
+        8
+      ],
+      "terminal_selection_regret": 0.00013637767244538412
+    },
+    "stratum_min": {
+      "coordinate_basins": {
+        "largest_sinks": [
+          {
+            "basin_size": 1024,
+            "program_indices": [
+              14,
+              6
+            ],
+            "regret": 0.0
+          }
+        ],
+        "max_rounds": 2,
+        "oracle_basin_fraction": 1.0,
+        "sink_count": 1
+      },
+      "local_vs_terminal_program_spearman": 0.28380622586009585,
+      "oracle_program_indices": [
+        14,
+        6
+      ],
+      "oracle_value": 0.002575696662164292,
+      "random_expected_regret": 0.26978193471953865,
+      "terminal_program_indices": [
+        10,
+        2
+      ],
+      "terminal_selection_regret": 0.10549540567246969
+    }
+  },
+  "combination_count": 1024,
+  "coordinate_basins": {
+    "largest_sinks": [
+      {
+        "basin_size": 1024,
+        "program_indices": [
+          17,
+          15
+        ],
+        "regret": 0.0
+      }
+    ],
+    "max_rounds": 2,
+    "oracle_basin_fraction": 1.0,
+    "sink_count": 1
+  },
+  "local_vs_terminal_program_spearman": 0.8916220674486801,
+  "margin_count": 32,
+  "oracle_program_indices": [
+    17,
+    15
+  ],
+  "oracle_tangent_alignment": 0.35783447288501163,
+  "probe_count": 128,
+  "random_expected_regret": 0.22048779995377532,
+  "schema": "nco-tangent-branch-analysis-v1",
+  "selected_sources": {
+    "oracle_margin": {
+      "amplitude": 2.4848228910857397,
+      "coefficients": [
+        -0.017753575179763285,
+        0.3047025206760145,
+        -0.09584512357016992,
+        -0.05915736220006529,
+        -0.47302255645625924,
+        -0.03389801191843567,
+        0.6047404864718199,
+        0.36306976988906914,
+        0.3383620791034668,
+        0.2392410473941203
+      ]
+    },
+    "oracle_selector": {
+      "all_edges": false,
+      "coefficients": [
+        -0.5197089474809568,
+        -0.15865977887158553,
+        0.5004543937326812,
+        0.22929362024807062,
+        0.22915114801601555,
+        0.25604681309500743,
+        -0.38260050768341836,
+        0.34555925017896677,
+        0.12002430052745516,
+        0.05855872496658649
+      ],
+      "density": 0.2087470142829102
+    },
+    "terminal_margin": {
+      "amplitude": 3.9541907423743137,
+      "coefficients": [
+        -0.14160886697974695,
+        -0.5469999481634389,
+        0.08134397265177871,
+        -0.17394103924198437,
+        0.030563868141086314,
+        0.08087611743199696,
+        0.07407028299167552,
+        -0.12033416833313718,
+        0.6974097594193861,
+        -0.36061540545521886
+      ]
+    },
+    "terminal_selector": {
+      "all_edges": false,
+      "coefficients": [
+        -0.5197089474809568,
+        -0.15865977887158553,
+        0.5004543937326812,
+        0.22929362024807062,
+        0.22915114801601555,
+        0.25604681309500743,
+        -0.38260050768341836,
+        0.34555925017896677,
+        0.12002430052745516,
+        0.05855872496658649
+      ],
+      "density": 0.2087470142829102
+    }
+  },
+  "selection_trials": [
+    {
+      "coordinate4_test_regret": 0.1807760281655635,
+      "coordinate4_test_value": 0.1771540011765069,
+      "coordinate_test_regret": 0.17978945787613332,
+      "coordinate_test_value": 0.17814057146593712,
+      "local_test_regret": 0.18122962650406607,
+      "local_test_value": 0.17670040283800437,
+      "probe_count": 4,
+      "random_test_regret": 0.2188061839224477,
+      "random_test_value": 0.1391238454196227,
+      "terminal_test_regret": 0.19528881634130557,
+      "terminal_test_value": 0.16264121300076487
+    },
+    {
+      "coordinate4_test_regret": 0.19063734788733835,
+      "coordinate4_test_value": 0.1700738594220428,
+      "coordinate_test_regret": 0.1897446476120356,
+      "coordinate_test_value": 0.17096655969734553,
+      "local_test_regret": 0.19016954929422666,
+      "local_test_value": 0.17054165801515447,
+      "probe_count": 8,
+      "random_test_regret": 0.2182037326659095,
+      "random_test_value": 0.14250747464347166,
+      "terminal_test_regret": 0.1944339755994749,
+      "terminal_test_value": 0.16627723170990627
+    },
+    {
+      "coordinate4_test_regret": 0.18363091429833683,
+      "coordinate4_test_value": 0.17587192462257673,
+      "coordinate_test_regret": 0.18479750712995877,
+      "coordinate_test_value": 0.17470533179095474,
+      "local_test_regret": 0.18496679327135193,
+      "local_test_value": 0.1745360456495616,
+      "probe_count": 16,
+      "random_test_regret": 0.22274172245982435,
+      "random_test_value": 0.13676111646108915,
+      "terminal_test_regret": 0.17583835604516065,
+      "terminal_test_value": 0.18366448287575288
+    },
+    {
+      "coordinate4_test_regret": 0.14959952039182997,
+      "coordinate4_test_value": 0.2122457531976066,
+      "coordinate_test_regret": 0.14997955956158215,
+      "coordinate_test_value": 0.21186571402785442,
+      "local_test_regret": 0.1500673733144506,
+      "local_test_value": 0.21177790027498594,
+      "probe_count": 32,
+      "random_test_regret": 0.22207699638049014,
+      "random_test_value": 0.1397682772089464,
+      "terminal_test_regret": 0.1649183641392287,
+      "terminal_test_value": 0.19692690945020788
+    }
+  ],
+  "selector_count": 32,
+  "source_config_sha256": "a7c318520cc8f995840570bcceda71f51bb38933217e451c0dd15419d8947eec",
+  "terminal_program_indices": [
+    17,
+    11
+  ],
+  "terminal_selection_regret": 0.009540571168903944
+}
+final_state=complete
+ended_at=2026-07-26T12:18:30+00:00
