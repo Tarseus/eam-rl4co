@@ -1,0 +1,38 @@
+{
+  "run_id": "nco_matched_branch_pilot_20260726_g51_v1",
+  "host": "g51",
+  "source_branch": "codex/nco-matched-branch",
+  "source_commit": "8bf0ed42f9bbfe0d2f944f398d91109dd16c0e67",
+  "physical_gpu": 7,
+  "pid": 3266678,
+  "started_at": "2026-07-26T11:43:15+00:00",
+  "ended_at": "2026-07-26T11:43:39+00:00",
+  "final_state": "complete",
+  "remote_run_dir": "/data1/gushengda/eam-rl4co_runs/nco_matched_branch_pilot_20260726_g51_v1",
+  "checkpoint": {
+    "path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+    "sha256": "c03fe6c9441c136044efb262f0680c660766ce526422b5f5b3f8ed373f44561b",
+    "bytes": 43680892
+  },
+  "probe": {
+    "instances_per_policy_state": 64,
+    "branches": 8,
+    "depths": [1, 25, 50, 75],
+    "policy_states": ["early", "late"],
+    "device": "cuda",
+    "sha256": "0840d0c2aa56fc6112a9b62cd16971d0f2f442a322bd1e9477a193945faeff6a",
+    "bytes": 399762
+  },
+  "analysis": {
+    "step_size": 1.0,
+    "repeats": 1000,
+    "seed": 9,
+    "sha256": "e5eb4e5091f26fff9278eefc6e091d705525f53bca0776be09c49798c0e2f983",
+    "bytes": 3414
+  },
+  "commands": [
+    "PYTHONPATH=PTP:. python -m pytest tests/test_training.py::test_po4cops_tsp_forced_prefix_branches_share_state_and_complete tests/test_matched_branch_probe.py tests/test_matched_branch_training.py -q",
+    "CUDA_VISIBLE_DEVICES=7 PYTHONPATH=PTP:. python -m ptp_discovery.run_matched_branch_probe PTP/configs/pref_loss_coevo_double_eoh.yaml probes.json --late-checkpoint /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt --instances 64 --branches 8 --depths 1,25,50,75 --device cuda",
+    "PYTHONPATH=PTP:. python -m ptp_discovery.analyze_matched_branch_probe probes.json analysis.json --step-size 1.0 --repeats 1000 --seed 9"
+  ]
+}
