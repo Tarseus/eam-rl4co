@@ -480,6 +480,7 @@ class PO4COPsTSPPolicy(nn.Module):
         return_entropy: bool = False,
         return_sum_log_likelihood: bool = True,
         forced_actions: torch.Tensor | None = None,
+        forced_prefix_actions: torch.Tensor | None = None,
         checkpoint_encoder_layers: bool = False,
         checkpoint_selected_log_probs: bool = False,
         **unused_kwargs,
@@ -497,29 +498,40 @@ class PO4COPsTSPPolicy(nn.Module):
         )
         self.decoder.set_kv(encoded_nodes)
 
+        if forced_actions is not None and forced_prefix_actions is not None:
+            raise ValueError(
+                "forced_actions and forced_prefix_actions are mutually exclusive"
+            )
         forced_actions_3d = None
-        if forced_actions is not None:
-            if forced_actions.ndim == 2:
-                if forced_actions.shape[0] != base_batch * num_starts:
+        forced_input = (
+            forced_actions
+            if forced_actions is not None
+            else forced_prefix_actions
+        )
+        force_complete_trajectory = forced_actions is not None
+        if forced_input is not None:
+            if forced_input.ndim == 2:
+                if forced_input.shape[0] != base_batch * num_starts:
                     raise ValueError(
-                        "Flattened forced_actions must have leading dimension "
-                        f"{base_batch * num_starts}, got {forced_actions.shape[0]}"
+                        "Flattened forced action input must have leading dimension "
+                        f"{base_batch * num_starts}, got {forced_input.shape[0]}"
                     )
-                forced_actions_3d = forced_actions.reshape(
+                forced_actions_3d = forced_input.reshape(
                     num_starts,
                     base_batch,
                     -1,
                 ).permute(1, 0, 2)
-            elif forced_actions.ndim == 3:
-                if forced_actions.shape[:2] != (base_batch, num_starts):
+            elif forced_input.ndim == 3:
+                if forced_input.shape[:2] != (base_batch, num_starts):
                     raise ValueError(
-                        "Rank-3 forced_actions must have shape "
-                        f"[{base_batch}, {num_starts}, T], got {tuple(forced_actions.shape)}"
+                        "Rank-3 forced action input must have shape "
+                        f"[{base_batch}, {num_starts}, T], got {tuple(forced_input.shape)}"
                     )
-                forced_actions_3d = forced_actions
+                forced_actions_3d = forced_input
             else:
                 raise ValueError(
-                    f"forced_actions must have rank 2 or 3, got rank {forced_actions.ndim}"
+                    "forced action input must have rank 2 or 3, got rank "
+                    f"{forced_input.ndim}"
                 )
             forced_actions_3d = forced_actions_3d.to(
                 device=td_base.device,
@@ -569,7 +581,11 @@ class PO4COPsTSPPolicy(nn.Module):
                 torch.zeros_like(action_mask, dtype=encoded_nodes.dtype),
                 float("-inf"),
             )
-            if forced_actions_3d is None:
+            forcing_step = (
+                forced_actions_3d is not None
+                and step_index < forced_actions_3d.shape[2]
+            )
+            if not forcing_step:
                 probs = self.decoder(encoded_last_node, ninf_mask)
                 selected = _select_actions_from_probs(probs, use_sampling, use_hybrid)
                 prob = probs.gather(2, selected.unsqueeze(-1)).squeeze(-1).clamp_min(1e-12)
@@ -578,10 +594,6 @@ class PO4COPsTSPPolicy(nn.Module):
                     probs_safe = probs.clamp_min(1e-12)
                     entropies.append(-(probs_safe * probs_safe.log()).sum(dim=2))
             else:
-                if step_index >= forced_actions_3d.shape[2]:
-                    raise ValueError(
-                        "forced_actions ended before the environment rollout completed"
-                    )
                 selected = forced_actions_3d[:, :, step_index]
 
                 def selected_log_prob_fn(
@@ -631,7 +643,11 @@ class PO4COPsTSPPolicy(nn.Module):
             done = td_flat["done"]
             step_index += 1
 
-        if forced_actions_3d is not None and step_index != forced_actions_3d.shape[2]:
+        if (
+            force_complete_trajectory
+            and forced_actions_3d is not None
+            and step_index != forced_actions_3d.shape[2]
+        ):
             raise ValueError(
                 "forced_actions length does not match the completed environment rollout: "
                 f"used {step_index}, provided {forced_actions_3d.shape[2]}"

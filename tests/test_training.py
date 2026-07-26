@@ -334,6 +334,49 @@ def test_po4cops_tsp_forced_replay_matches_sampled_log_likelihood():
     )
 
 
+def test_po4cops_tsp_forced_prefix_branches_share_state_and_complete():
+    env, x = generate_env_data("tsp", size=8, batch_size=2)
+    td = env.reset(x)
+    policy = PO4COPsTSPPolicy(env_name=env.name)
+    branch_count = 3
+
+    base = policy(
+        td,
+        env,
+        phase="val",
+        num_starts=branch_count,
+        return_actions=True,
+    )
+    base_actions = unbatchify(base["actions"], (0, branch_count))[:, 0]
+    shared_prefix = base_actions[:, None, :2].expand(-1, branch_count, -1)
+    candidate_action = base_actions[:, 2 : 2 + branch_count]
+    forced_prefix = torch.cat(
+        (shared_prefix, candidate_action.unsqueeze(-1)), dim=-1
+    )
+
+    branched = policy(
+        td,
+        env,
+        phase="val",
+        num_starts=branch_count,
+        return_actions=True,
+        return_sum_log_likelihood=False,
+        forced_prefix_actions=forced_prefix,
+    )
+    actions = unbatchify(branched["actions"], (0, branch_count))
+    step_logp = unbatchify(
+        branched["log_likelihood"], (0, branch_count)
+    )
+
+    torch.testing.assert_close(actions[:, :, :2], shared_prefix)
+    torch.testing.assert_close(actions[:, :, 2], candidate_action)
+    assert actions.shape == (2, branch_count, 8)
+    assert step_logp.shape == (2, branch_count, 8)
+    assert torch.isfinite(step_logp).all()
+    expected = torch.arange(8, device=actions.device).expand_as(actions)
+    torch.testing.assert_close(actions.sort(dim=-1).values, expected)
+
+
 def test_po4cops_tsp_replay_surrogate_matches_direct_po_gradients():
     env, x = generate_env_data("tsp", size=8, batch_size=2)
     td = env.reset(x)
