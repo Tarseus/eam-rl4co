@@ -1,0 +1,129 @@
+phase=pytest
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+../anaconda3/envs/rlco1/lib/python3.11/site-packages/torch_geometric/llm/utils/backend_utils.py:26
+  /data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch_geometric/llm/utils/backend_utils.py:26: DeprecationWarning: `torch_geometric.distributed` has been deprecated since 2.7.0 and will no longer be maintained. For distributed training, refer to our tutorials on distributed training at https://pytorch-geometric.readthedocs.io/en/latest/tutorial/distributed.html or cuGraph examples at https://github.com/rapidsai/cugraph-gnn/tree/main/python/cugraph-pyg/cugraph_pyg/examples
+    from torch_geometric.distributed import (
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 1 warning in 5.28s
+phase=probe
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch_geometric/llm/utils/backend_utils.py:26: DeprecationWarning: `torch_geometric.distributed` has been deprecated since 2.7.0 and will no longer be maintained. For distributed training, refer to our tutorials on distributed training at https://pytorch-geometric.readthedocs.io/en/latest/tutorial/distributed.html or cuGraph examples at https://github.com/rapidsai/cugraph-gnn/tree/main/python/cugraph-pyg/cugraph_pyg/examples
+  from torch_geometric.distributed import (
+weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt
+/data1/gushengda/eam-rl4co_runs/nco_matched_branch_pilot_20260726_g51_v1/probes.json
+phase=analysis
+{
+  "budget_trials": [
+    {
+      "local_hit_rate": 0.288,
+      "local_mean_regret": 0.0003689280596784983,
+      "probe_count": 4,
+      "random_hit_rate": 0.028,
+      "random_mean_regret": 0.005435029969289626,
+      "staged_hit_rate": 0.291,
+      "staged_mean_regret": 0.00035303626923088703,
+      "terminal_hit_rate": 0.076,
+      "terminal_mean_regret": 0.0008191263888662299
+    },
+    {
+      "local_hit_rate": 0.418,
+      "local_mean_regret": 0.0003051098869272529,
+      "probe_count": 8,
+      "random_hit_rate": 0.034,
+      "random_mean_regret": 0.005436381681204423,
+      "staged_hit_rate": 0.43,
+      "staged_mean_regret": 0.0002818443387514925,
+      "terminal_hit_rate": 0.095,
+      "terminal_mean_regret": 0.0005471412872225605
+    },
+    {
+      "local_hit_rate": 0.604,
+      "local_mean_regret": 0.00019229588272149138,
+      "probe_count": 16,
+      "random_hit_rate": 0.03,
+      "random_mean_regret": 0.005342922364874495,
+      "staged_hit_rate": 0.617,
+      "staged_mean_regret": 0.0001655639652710123,
+      "terminal_hit_rate": 0.14,
+      "terminal_mean_regret": 0.0003333705267863811
+    },
+    {
+      "local_hit_rate": 0.78,
+      "local_mean_regret": 0.00010876964623494554,
+      "probe_count": 32,
+      "random_hit_rate": 0.04,
+      "random_mean_regret": 0.005497651158293367,
+      "staged_hit_rate": 0.793,
+      "staged_mean_regret": 8.785673257870327e-05,
+      "terminal_hit_rate": 0.139,
+      "terminal_mean_regret": 0.00016857619876526074
+    },
+    {
+      "local_hit_rate": 0.925,
+      "local_mean_regret": 2.9030040314894464e-05,
+      "probe_count": 64,
+      "random_hit_rate": 0.021,
+      "random_mean_regret": 0.005331029591522434,
+      "staged_hit_rate": 0.935,
+      "staged_mean_regret": 1.6216846165716212e-05,
+      "terminal_hit_rate": 0.07,
+      "terminal_mean_regret": 4.1113784052129215e-05
+    }
+  ],
+  "local_vs_terminal_pooled_spearman": 0.28130073514713133,
+  "local_vs_terminal_program_spearman": 0.9897360703812315,
+  "oracle_mean_improvement": 0.016134218967609998,
+  "oracle_program": [
+    "large_gap",
+    "depth_adaptive"
+  ],
+  "probe_count": 512,
+  "program_count": 32,
+  "random_expected_mean_improvement": 0.010752671168788969,
+  "random_expected_regret": 0.005381547798821029,
+  "schema": "nco-matched-branch-analysis-v2",
+  "source_config_sha256": "a7c318520cc8f995840570bcceda71f51bb38933217e451c0dd15419d8947eec",
+  "staged_selected_mean_improvement": 0.016134218967609998,
+  "staged_selected_program": [
+    "large_gap",
+    "depth_adaptive"
+  ],
+  "staged_selection_regret": 0.0,
+  "states": {
+    "early": {
+      "local_vs_terminal_pooled_spearman": 0.27566876918404626,
+      "oracle_program": [
+        "best_anchor",
+        "cost_gap"
+      ],
+      "probe_count": 256,
+      "terminal_selected_program": [
+        "large_gap",
+        "cost_gap"
+      ]
+    },
+    "late": {
+      "local_vs_terminal_pooled_spearman": 0.28561520198811147,
+      "oracle_program": [
+        "large_gap",
+        "depth_adaptive"
+      ],
+      "probe_count": 256,
+      "terminal_selected_program": [
+        "large_gap",
+        "cost_gap"
+      ]
+    }
+  },
+  "step_size": 1.0,
+  "terminal_selected_mean_improvement": 0.016118125873919625,
+  "terminal_selected_program": [
+    "large_gap",
+    "cost_gap"
+  ],
+  "terminal_selection_regret": 1.6093093690373178e-05,
+  "terminal_selection_relative_regret": 0.0009974510524916403
+}
+final_state=complete
+ended_at=2026-07-26T11:43:39+00:00
