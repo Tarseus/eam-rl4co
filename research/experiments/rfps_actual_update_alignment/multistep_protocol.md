@@ -23,8 +23,8 @@ replaced.
 - Run exactly three Adam steps with learning rate `3e-4`, weight decay `1e-6`,
   and one optimizer state maintained across the three steps.
 - At every step, use two fixed TSP100 instances and 100 POMO starts. Instance
-  banks are generated once with seeds `2026072801 + step` and shared across
-  candidates.
+  banks are generated once with seeds `2026072811`, `2026072812`, and
+  `2026072813`, and shared across candidates.
 - Before each rollout, reset the sampling RNG to the same step-specific seed
   for all candidates. Because the current policies differ after step one, the
   resulting trajectories may differ; each rollout is nevertheless sampled
@@ -57,3 +57,14 @@ to the cheapest descriptor that retains the observed actual-update alignment.
   may not be tuned after viewing results.
 - Record every candidate failure. Do not replace failed responses with scores
   or descriptor neighbors.
+
+## Protocol erratum recorded before the valid rerun
+
+The first implementation used the originally written formula
+`2026072801 + step`. Its second training seed was therefore `2026072802`,
+which equals the frozen held-out seed. That run violated the disjoint-bank rule
+and is retained only as an invalid diagnostic under `results_3step`; it must not
+be cited as evidence. The corrected seeds above are the sole change for the
+valid rerun, whose outputs go to `results_3step_disjoint`. Candidate selection,
+optimizer, number of steps, descriptors, held-out bank, and metrics remain
+unchanged.
