@@ -391,7 +391,7 @@ def experiment_coordinates(stores: dict[str, Any]) -> list[dict[str, Any]]:
                     }
                     row.update(agreement(references[method], matrix))
                     row.update(descriptor_metrics(matrix, scores))
-                    row.update(order_risk(matrix, scores, seed=SEED + kappa + permutation))
+                    row.update(order_risk(matrix, scores, seed=SEED + 3))
                     rows.append(row)
     return rows
 
@@ -430,7 +430,7 @@ def experiment_nonuniform(
                     drift = agreement(uniform[method], matrix)
                     row.update({f'drift_{key}': value for key, value in drift.items()})
                     row.update(descriptor_metrics(matrix, scores))
-                    row.update(order_risk(matrix, scores, seed=SEED + int(beta * 100)))
+                    row.update(order_risk(matrix, scores, seed=SEED + 4))
                     rows.append(row)
     return rows
 

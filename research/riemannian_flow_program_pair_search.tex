@@ -3,6 +3,7 @@
 \usepackage[a4paper,margin=2.25cm]{geometry}
 \usepackage{amsmath,amssymb,mathtools,bm}
 \usepackage{booktabs,array,tabularx,multirow}
+\usepackage{graphicx}
 \usepackage{enumitem}
 \usepackage{float,needspace}
 \usepackage{xcolor}
@@ -519,8 +520,28 @@ external / scratch& 2 & .487 & .715 & .00731 & \textbf{.106} & .715 & \textbf{.0
 
 欧氏两点看起来接近并不意味着两种定义等价。当前实验从均匀 $q_0$ 出发，此时 Fisher 权重在第一点只是共同常数，所以两种方法共享几乎相同的 $d_0$；同时 $\ell=.03$ 很短，第二方向仍靠近第一方向，描述符的主要信号自然相似。
 欧氏基线因此是 Fisher 描述符在\textbf{一个固定坐标、一个近均匀起点和一个短程区域}内的局部近似。
-一旦更换概率坐标、起点远离均匀分布，或比较不同点的方向，它便不再保证给出相同近邻；Fisher 构造则由式~\eqref{eq:coordinate-invariance} 保证描述的是同一个统计对象。
+后续压力测试直接改变同一分布的坐标表示，证实欧氏近邻会随坐标尺度改变；非均匀起点在本文测试范围内仍保持很强的局部近似，因而不作为 Fisher 必要性的主要证据。Fisher 构造则由式~\eqref{eq:coordinate-invariance} 保证在两类设置中描述的始终是同一个统计对象。
 鉴于闭式指数映射与平行移动只增加 $O(M)$ 逐元运算而不增加求导次数，最终方法保留轻量 Fisher，但不恢复多步流或曲率系统。
+
+\subsection{实例覆盖、坐标重参数化与非均匀起点}
+
+为区分“数据太少导致三者看起来相近”和“欧氏两点只是选定坐标下的局部近似”，我们在预注册协议下补做三项验证。两组 checkpoint-135 rollout bank 合并为 16 个真实 TSP100 实例；候选、真实 fitness 标签、$M=100$ 和 $\ell=.03$ 均保持不变。图~\ref{fig:invariance-validation} 汇总结果。
+
+\textbf{增加实例数不会放大方法差距。}
+对 $R\in\{2,4,8,12,16\}$，在 $R<16$ 时无放回抽取 100 个实例子集，并对每个子集审计 200 个随机历史顺序。随着 $R$ 从 2 增至 12，Fisher 两点 $\rho$ 的 95\% 子集区间宽度在三个真实标签上由 $.042$--$.114$ 收缩到 $.012$--$.014$；这说明多实例主要降低 probe 选择方差。到 $R=16$ 时，Fisher 相对欧氏两点的 $\rho$ 差仅为 matched scratch 的 $.0043$、matched warm 的 $.0051$ 和 external scratch 的 $.0006$，并未随 $R$ 单调增大。因此不能靠继续堆实例制造 Fisher 优势；部署保留 $R=8$ 是精度与开销之间的合理折中。
+
+\textbf{坐标压力测试给出直接的不变性证据。}
+先用正交 Helmert 基 $B$ 去掉 softmax 的平移自由度，写成 $z=Bx$；再用 $\eta=Ax$ 表示同一个分布，其中 $A$ 为条件数 $\kappa\in\{1,3,10,30\}$ 的对角矩阵，每个非平凡条件数使用五个固定随机排列。Fisher 两点的距离、top-1 和 top-5 近邻在所有重参数化下均保持 $1.000$ 一致；欧氏两点在 $\kappa=30$ 时的 top-1 一致率降至 matched 的 $.900$ 和 external 的 $.831$，top-5 一致率降至 $.930/.852$。更重要的是，在 matched scratch 上，欧氏两点有三种排列把配对历史下的误跳过率从恒等坐标的 $.0219$ 提高到 $.1469$，而 Fisher 结果严格不变。相关系数仍可能看起来接近，是因为大多数候选对距离只发生小扰动；筛选真正敏感的是近邻尾部，而这正是坐标依赖会改变的部分。
+
+\textbf{非均匀起点没有提供稳定的额外分离。}
+令 $q_0(\beta)\propto\exp(-\beta\widetilde o)$，其中 $\widetilde o$ 是按实例稳健标准化并截断的目标值，测试 $\beta\in\{0,.25,.5,1\}$。当 $\beta=1$ 时，中位有效样本比例已降至 $.521$，但欧氏/Fisher 的成对距离秩相关仍为 $.997$--$.998$；top-1 一致率随 $\beta$ 非单调变化，真实 fitness 的 $\rho$ 优劣也会换向。因而非均匀起点不能作为“Fisher 预测更准”的证据，也没有理由增加第二个起点通道。最终方法继续使用均匀 $q_0$；选择 Fisher 的实证依据是坐标重参数化下近邻定义稳定，而不是刻意寻找一个能把数值差距放大的起点。
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{experiments/rfps_invariance_validation/results/fig_validation.pdf}
+  \caption{三项预注册验证。（a）相对一点方向的配对 $\Delta\rho$；阴影为跨实例子集与三个真实标签的 95\% 经验区间，增加 $R$ 主要收窄方差。（b）对同一分布作条件数为 $\kappa(A)$ 的坐标重参数化；带状区域为两个候选集和五个排列的范围，Fisher 近邻严格不变，欧氏近邻逐渐漂移。（c）非均匀起点下欧氏/Fisher 的 top-1 近邻一致率；变化非单调，不能稳定拉开两者。}
+  \label{fig:invariance-validation}
+\end{figure}
 
 \Needspace{0.72\textheight}
 \subsection{每个旧组件是否有独立贡献}
@@ -538,7 +559,9 @@ external / scratch& 2 & .487 & .715 & .00731 & \textbf{.106} & .715 & \textbf{.0
 30 步积分 & 3 次粗粒度重求导复现曲率；一次扰动后的方向对进一步复现有效近邻。 & 删除\\
 原始两点梯度差 & 六个设置的 $\rho$ 仅约 .10--.28；梯度幅值遮蔽了方向变化。 & 拒绝\\
 公平一点单位方向 & $\rho$ 达 .627--.853，但在相似度尾部出现高 fitness 差碰撞。 & 只作第一半\\
-Fisher 与欧氏两点 & 欧氏基线在当前均匀起点和短步长下是强局部近似；Fisher 版在六个设置中 $\rho$ 一致持平或小幅提高，且不增加求导次数或误跳过率，同时使方向、探测长度与跨点比较不依赖坐标。 & 保留轻量 Fisher\\
+Fisher 与欧氏两点 & 固定坐标下两者的 $\rho$ 接近；但坐标条件数为 30 时，欧氏 top-1 近邻一致率降至 $.831$--$.900$，且 matched scratch 的误跳过率可由 $.0219$ 升至 $.1469$；Fisher 严格不变。 & 保留轻量 Fisher\\
+实例数 $8\to16$ & 95\% 子集区间继续收窄，但 Fisher--欧氏的 $\rho$ 差没有随实例数扩大；更多实例只提高稳定性。 & 部署保留 $R=8$\\
+非均匀 $q_0$ & ESS 降至 $.521$ 后两者距离秩相关仍为 $.997$--$.998$，近邻和 $\rho$ 差异非单调。 & 删除额外起点\\
 候选级自适应弧长 & 固定 forward/reverse KL 或 ESS 改变解回的 Fisher 弧长 CV 不超过 $.002$，与固定 $.03$ 的描述符指标相同；max-log 和 turning 自适应也无稳定收益。 & 删除自适应\\
 scratch/warm 双锚点 & 单个 warm checkpoint bank 同时预测 scratch 与 warm 标签，且 scratch $\rho$ 约 .80、外部 $\rho$ 约 .71。 & 删除双锚点\\
 初始 Gram & 与逐 probe 单位方向的距离相关约 .98--.995，且继承相同危险碰撞。 & 删除\\
