@@ -12457,6 +12457,11 @@ def run_pref_loss_coevo(
             str(joint_pair_llm_raw.get("prompt_path") or llm_prompts.get("joint_pair_generation", "PTP/prompts/joint_pair_generation.txt"))
         ),
         "seed_reserve": int(joint_pair_llm_raw.get("seed_reserve", 0) or 0),
+        "init_seed": (
+            dict(joint_pair_llm_raw.get("init_seed") or {})
+            if isinstance(joint_pair_llm_raw.get("init_seed"), Mapping)
+            else {}
+        ),
     }
 
     llm_cfg: Dict[str, Any] = {

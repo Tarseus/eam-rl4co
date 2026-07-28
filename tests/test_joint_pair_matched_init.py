@@ -88,3 +88,92 @@ def test_joint_pair_matched_init_requires_exact_population_by_default(tmp_path) 
                 }
             },
         )
+
+
+def test_joint_pair_runtime_preserves_matched_init_and_skips_llm(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    import yaml
+
+    source = tmp_path / "losses.jsonl"
+    source.write_text(
+        "\n".join(json.dumps(_loss_row(index)) for index in range(2)) + "\n",
+        encoding="utf-8",
+    )
+
+    def _unexpected_llm_call(**_kwargs):
+        raise AssertionError("runtime generation zero must use the matched init seed")
+
+    monkeypatch.setattr(
+        loop.joint_pair_llm_ops,
+        "generate_joint_pair_candidate_with_meta",
+        _unexpected_llm_call,
+    )
+
+    cfg = {
+        "seed": 1234,
+        "output_root": str(tmp_path / "runs"),
+        "search_mode": "joint_pair",
+        "generations": 1,
+        "pop_g": 2,
+        "pop_f": 2,
+        "elite_g": 1,
+        "elite_f": 1,
+        "pairing_budget_per_gen": 2,
+        "cheap_gate_on": False,
+        "high_fidelity_on": False,
+        "eval_stages": {
+            "stage0_gate": False,
+            "stage1_proxy": False,
+            "stage2_micro_unroll": False,
+            "stage3_high_fidelity": False,
+        },
+        "backend": "rl4co",
+        "env_name": "tsp",
+        "policy_name": "pomo",
+        "generator_params": {"num_loc": 20},
+        "hf_epochs": 0,
+        "hf_instances_per_epoch": 0,
+        "train_problem_size": 20,
+        "valid_problem_sizes": [20],
+        "train_batch_size": 8,
+        "validation_batch_size": 8,
+        "num_validation_episodes": 8,
+        "pomo_size": 8,
+        "device": "cpu",
+        "devices": ["cpu"],
+        "mp": {"enabled": False},
+        "llm_init_only": True,
+        "population": {
+            "n_candidates_pair": 2,
+            "n_candidates_loss": 2,
+            "n_candidates_builder": 2,
+            "keep_top_k": 1,
+        },
+        "joint_pair_llm": {
+            "enabled": True,
+            "offline_mode": False,
+            "n_candidates": 2,
+            "init_seed": {
+                "enabled": True,
+                "source_losses_path": str(source),
+                "source_generation": 0,
+                "strict_count": True,
+            },
+        },
+        "builder_llm": {"enabled": False},
+        "loss_llm": {"enabled": False},
+    }
+    cfg_path = tmp_path / "cfg.yaml"
+    cfg_path.write_text(yaml.safe_dump(cfg, sort_keys=False), encoding="utf-8")
+
+    loop.run_pref_loss_coevo(str(cfg_path))
+
+    run_dir = sorted((tmp_path / "runs").iterdir())[-1]
+    loss_rows = [
+        json.loads(line)
+        for line in (run_dir / "losses.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert len(loss_rows) == 2
