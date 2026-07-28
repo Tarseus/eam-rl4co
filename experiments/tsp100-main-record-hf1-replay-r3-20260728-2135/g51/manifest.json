@@ -1,0 +1,60 @@
+{
+  "run_id": "tsp100-main-record-hf1-replay-r3-20260728-2135",
+  "host": "g51",
+  "state": "completed",
+  "source_commit": "8ee9d8e551d9b0fc9251c1eeb8919b79425a079b",
+  "source_worktree": "/data1/gushengda/codex_worktrees/tsp100-main-record-hf1-replay-src",
+  "original_run": "/data1/gushengda/eam-rl4co/runs/pref_loss_tsp100_discovery/20260317-131507",
+  "physical_gpu": 7,
+  "protocol": {
+    "record_setters_only": true,
+    "baseline": "auto-generated ref_logsigmoid under identical hf1 protocol",
+    "hf_epochs_per_init": 1,
+    "init_sources": [
+      "scratch",
+      "ckpt_135"
+    ],
+    "hf_instances_per_epoch": 100000,
+    "num_validation_episodes": 10000,
+    "aggregation": "mean(candidate-baseline across scratch and ckpt_135)"
+  },
+  "tasks": [
+    {
+      "name": "01_f000_011_cf248071",
+      "f_id": "f000_011_cf248071",
+      "g_id": "g_ref",
+      "generation": 0,
+      "pair_index": 7,
+      "payload": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/payloads/01_f000_011_cf248071.json",
+      "result": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/tasks/01_f000_011_cf248071/result.json",
+      "original_payload": "/data1/gushengda/eam-rl4co/runs/pref_loss_tsp100_discovery/20260317-131507/hf_subprocess/gen000_pair007_cuda_0/payload.json"
+    },
+    {
+      "name": "02_f000_006_3c0966c5",
+      "f_id": "f000_006_3c0966c5",
+      "g_id": "g_ref",
+      "generation": 0,
+      "pair_index": 8,
+      "payload": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/payloads/02_f000_006_3c0966c5.json",
+      "result": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/tasks/02_f000_006_3c0966c5/result.json",
+      "original_payload": "/data1/gushengda/eam-rl4co/runs/pref_loss_tsp100_discovery/20260317-131507/hf_subprocess/gen000_pair008_cuda_1/payload.json"
+    },
+    {
+      "name": "03_f004_009_8bc47121",
+      "f_id": "f004_009_8bc47121",
+      "g_id": "g_ref",
+      "generation": 4,
+      "pair_index": 8,
+      "payload": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/payloads/03_f004_009_8bc47121.json",
+      "result": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/tasks/03_f004_009_8bc47121/result.json",
+      "original_payload": "/data1/gushengda/eam-rl4co/runs/pref_loss_tsp100_discovery/20260317-131507/hf_subprocess/gen004_pair008_cuda_0/payload.json"
+    }
+  ],
+  "baseline_cache": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/baseline_cache/baseline_minitrain_tsp100_epoch1_inst100000.json",
+  "result_branch": "results/tsp100-main-record-hf1-replay-r3-20260728-2135/g51",
+  "pid": 3644091,
+  "start_time": "2026-07-28T13:34:05+00:00",
+  "command": "CUDA_VISIBLE_DEVICES=7 python -u launch_replay.py",
+  "launcher_log": "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135/launcher.log",
+  "finished_at": 1785250060.1934404
+}
