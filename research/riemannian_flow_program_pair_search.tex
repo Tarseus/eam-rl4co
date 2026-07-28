@@ -4,6 +4,7 @@
 \usepackage{amsmath,amssymb,mathtools,bm}
 \usepackage{booktabs,array,tabularx,multirow}
 \usepackage{enumitem}
+\usepackage{float,needspace}
 \usepackage{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric}
@@ -29,8 +30,8 @@
 \newcommand{\RFPS}{\textsc{RFPS}}
 
 \title{\textbf{RFPS 方法说明}\\[0.35em]
-\large 用两点方向响应筛选因子化偏好程序对}
-\author{方法版本 4.0（最小化修订）}
+\large 用轻量 Fisher 不变两点响应筛选因子化偏好程序对}
+\author{方法版本 5.0（固定弧长修订）}
 \date{\today}
 
 \begin{document}
@@ -40,11 +41,13 @@
 本文给出 \RFPS{}（\emph{Response-Field Program-pair Search}，响应场程序对搜索）的最小版本。
 搜索变量仍是两个短程序 $C=(f,g)$：$g$ 决定如何构造和加权偏好对，$f$ 决定每个偏好对产生什么损失；
 变异时每次只改一个程序，但筛选和训练始终评价完整组合。
-为了在真实训练前发现行为近似重复的组合，我们在一个固定参考检查点生成的 rollout bank 上，计算候选损失对经验 log-weight 的单位下降方向 $d_0$；沿候选自身的 $d_0$ 做一次长度为 $0.03$ 的虚拟欧氏扰动后，重新计算 $d_1$。
+为了在真实训练前发现行为近似重复的组合，我们在一个固定参考检查点生成的 rollout bank 上，把经验分布看作概率单纯形。
+候选损失先产生 Fisher 单位自然梯度 $d_0$；随后沿 $d_0$ 做一次固定 Fisher--Rao 弧长 $\ell=0.03$ 的闭式指数映射，在新点重新计算方向，并把它闭式平行移动回起点得到 $d_1$。
 把 $(d_0,d_1)$ 拼接，便得到唯一的行为描述符。
 
-这次修订删除了旧版的 Fisher--Rao 度量、双锚点、30/60 步积分、三点对数映射、平行移动、曲率残差、ESS 截断、Gram 通道、随机投影和额外的多样性父代模块。
-两组独立 probe 的离线消融表明：新描述符只需两次候选损失求导，却在 scratch、warm-start 和外部候选集上保留或提高了与真实训练差异的相关性，并保持了旧曲率特征在危险近邻处的辨别能力。
+这次修订只保留 Fisher 几何中保证坐标不变性所必需的三个操作：单位化、一次指数映射和一次平行移动；
+双锚点、30/60 步积分、第三个流点、曲率残差、自适应步长、ESS 通道、Gram 通道、随机投影和额外的多样性父代模块全部删除。
+两组独立 probe 的离线消融表明：该描述符只需两次候选损失求导；相较欧氏两点响应，它在 scratch、warm-start 和外部候选集上的相关性一致持平或小幅提高，且没有增加危险近邻的误跳过率。
 描述符只用于软分配训练预算；候选的 fitness 仍只来自真实 on-policy 训练。
 \end{abstract}
 
@@ -77,9 +80,9 @@
 ]
 \node[box,fill=rflightblue] (bank) {一个固定 checkpoint\\rollout bank};
 \node[box,right=of bank] (pair) {完整程序对\\$C=(f,g)$};
-\node[box,fill=rflightgreen,right=of pair] (d0) {第一次求导\\单位方向 $d_0$};
-\node[box,fill=rflightorange,right=of d0] (step) {一次自诱导扰动\\$z_1=z_0+0.03d_0$};
-\node[box,fill=rflightgreen,below=of step] (d1) {第二次求导\\单位方向 $d_1$};
+\node[box,fill=rflightgreen,right=of pair] (d0) {第一次求导\\Fisher 单位方向 $d_0$};
+\node[box,fill=rflightorange,right=of d0] (step) {一次闭式测地步\\Fisher 弧长 $0.03$};
+\node[box,fill=rflightgreen,below=of step] (d1) {第二次求导\\平行移回得 $d_1$};
 \node[box,left=of d1] (psi) {统一描述符\\$\Psi(C)=[d_0\concat d_1]$};
 \node[box,fill=rflightblue,left=of psi] (train) {近邻距离\\软分配训练预算};
 \draw[arr] (bank)--(pair);
@@ -104,16 +107,16 @@
 \label{tab:keep-delete}
 \begin{tabularx}{\textwidth}{p{0.27\textwidth}X}
 \toprule
-\textbf{保留} & 单模块变异；完整 $C=(f,g)$ 联合求值；一个 checkpoint rollout bank；两次损失求导；一次长度 $0.03$ 的经验 log-weight 扰动；两个单位方向；软筛选与非零审计；真实 on-policy fitness。\\
+\textbf{保留} & 单模块变异；完整 $C=(f,g)$ 联合求值；一个 checkpoint rollout bank；两次损失求导；Fisher 单位化；一次固定弧长 $\ell=0.03$ 的闭式指数映射；一次闭式平行移动；两个单位方向；软筛选与非零审计；真实 on-policy fitness。\\
 \midrule
-\textbf{删除} & scratch/warm 双锚点；Fisher--Rao 度量、球面回缩和平行移动；30/60 步积分；第三个流点；对数映射与曲率残差；ESS 截断；稳健多通道融合；Gram 特征；随机投影；由描述符驱动的额外父代密度奖励。\\
+\textbf{删除} & scratch/warm 双锚点；30/60 步积分和数值 ODE；第三个流点；对数映射与曲率残差；候选级自适应步长；ESS 截断或通道；稳健多通道融合；Gram 特征；随机投影；由描述符驱动的额外父代密度奖励。\\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \section{预备知识：从固定 rollout 到局部方向}
 
-本节只使用概率、偏导数、向量投影和欧氏距离。
+本节只使用概率、偏导数、向量内积和单位球面。Fisher 几何在这里不是一套多步优化器，只是规定“方向多长”与“不同点的方向怎么比”。
 
 \subsection{参考 rollout bank}
 
@@ -164,7 +167,29 @@ p_m(q)=p_m^0+\log\frac{q_m}{q_m^0}
 式~\eqref{eq:effective-p} 不是在声称任意 $q$ 都能由某个共享参数策略精确实现；它只是对\textbf{已经采到的有限支持}做一次可重复的重加权实验。
 因此本文不把虚拟路径称为网络参数训练轨迹，也不使用“策略流形上的真实测地线”这一强解释。
 
-\subsection{可比较的单位下降方向}
+\subsection{Fisher--Rao 不变度量}
+
+所有严格为正且和为 $1$ 的 $q$ 构成概率单纯形
+\[
+\Delta_M^\circ=\{q\in\R^M:q_m>0,\ \bm 1^\top q=1\}.
+\]
+它在 $q$ 处的切向量 $v$ 必须满足 $\bm 1^\top v=0$，因为概率总和不能改变。
+在对充分统计或 Markov 嵌入保持不变的要求下，经典信息几何中的度量在整体常数因子外由 Fisher 度量唯一确定\cite{Le_2013_FisherUnique}。固定这个常数为 $1$，定义
+\begin{equation}
+\langle v,w\rangle_q=\sum_{m=1}^{M}\frac{v_mw_m}{q_m},
+\qquad
+\lVert v\rVert_q=\sqrt{\sum_{m=1}^{M}\frac{v_m^2}{q_m}}.
+\label{eq:fisher-metric}
+\end{equation}
+直觉上，改变一个当前概率很小的轨迹更显著，所以同样的 $v_m$ 会被 $1/q_m$ 放大。
+
+令 $h=\sqrt q$（逐元开方），则 $\lVert h\rVert_2=1$，概率单纯形被映到单位球面的正象限。式~\eqref{eq:fisher-metric} 的线元满足
+\[
+\mathrm ds_{\mathrm{FR}}^2=4\,\mathrm dh^\top\mathrm dh.
+\]
+因此 Fisher--Rao 弧长等于球面弧长的两倍。这个平方根表示使后面的指数映射和平行移动都有闭式解，无需数值积分。
+
+\subsection{完整程序对的 Fisher 单位自然梯度}
 
 在当前 $q$ 处，对有效 log-probability 求负梯度：
 \[
@@ -172,72 +197,95 @@ c_C(q)=-\nabla_p\mathcal L_C(q)\in\R^M.
 \]
 求这一次局部导数时，把当前 $q$ 已经确定的配对、权重和集合统计量视为常量；移动到 $q_1$ 后再完整重算它们。
 这样得到的是程序在两个局部状态下的响应，而不是对离散配对规则强行求导。
-对所有 $p_m$ 同时加同一个常数不会改变 softmax 分布。为去掉这个无意义的共同平移，我们投影为
+对所有 $p_m$ 同时加同一个常数不会改变 softmax 分布。将这个余切向量用 Fisher 逆度量升为切向量，并去掉无意义的共同平移，得到负自然梯度
 \begin{equation}
 u_C(q)=c_C(q)-q\,\bm 1^\top c_C(q),
 \qquad \bm 1^\top u_C(q)=0.
 \label{eq:projection}
 \end{equation}
-最后消去整体尺度：
+这里“自然梯度”不是新的 score 的导数；$u_C$ 就是原损失梯度在 Fisher 度量下对应的下降切向量。可直接验证，对任意 $\bm 1^\top v=0$，有
+\[
+\langle u_C,v\rangle_q
+=-\mathrm d\mathcal L_C(q)[v].
+\]
+令 $s_C(q)=\lVert u_C(q)\rVert_q$。为了用普通向量计算保存 Fisher 单位方向，把它写到平方根球面坐标中：
 \begin{equation}
-d_C(q)=\frac{u_C(q)}{\lVert u_C(q)\rVert_2+\delta}.
+d_C(q)=
+\frac{u_C(q)}{\sqrt q\,s_C(q)},
+\qquad s_C(q)>\delta.
 \label{eq:direction}
 \end{equation}
-$d_C(q)$ 表示候选在这组轨迹上“想相对提高哪些轨迹、压低哪些轨迹”。
-单位化非常关键：它防止不同实例或不同程序仅因梯度幅值不同而显得行为不同。
+其中除法和开方均逐元进行；若 $s_C(q)\le\delta$，按后文失败保护处理，而不伪造单位方向。当 $s_C(q)>\delta$ 时，$\lVert d_C(q)\rVert_2=1$，且 $\langle d_C(q),\sqrt q\rangle_2=0$，所以它是球面切空间中的单位向量。
+$d_C(q)$ 表示候选在这组轨迹上“想相对提高哪些轨迹、压低哪些轨迹”；Fisher 单位化同时消去整体梯度幅值并保持概率重参数化不变。
 
-\section{两点方向响应描述符}
+\section{轻量 Fisher 不变两点响应}
 
 \subsection{第一点：候选的初始方向}
 
-对第 $r$ 个实例，从均匀分布 $q_0^{(r)}$ 出发，按式~\eqref{eq:loss}--\eqref{eq:direction} 计算
+对第 $r$ 个实例，从均匀分布 $q_0^{(r)}$ 出发，令 $h_0^{(r)}=\sqrt{q_0^{(r)}}$，按式~\eqref{eq:loss}--\eqref{eq:direction} 计算
 \[
 d_0^{(r)}=d_C(q_0^{(r)}).
 \]
-这个方向已经包含了完整程序对的主要行为信息。实验也显示，公平地逐实例单位化后，$d_0$ 与真实训练差异的全局相关性很高。
+这个方向已经包含完整程序对的主要行为信息。实验也显示，公平地逐实例 Fisher 单位化后，$d_0$ 与真实训练差异的全局相关性很高。
 但只看一个点仍可能把少量训练结果差异很大的候选放得过近，因此它不能单独承担跳过训练的决定。
 
-\subsection{第二点：候选自身制造的压力测试}
+\subsection{固定弧长的一次闭式指数映射}
 
-沿候选自己的初始方向做一次小扰动：
+沿候选自己的初始方向走固定 Fisher--Rao 弧长 $\ell=0.03$。由于平方根球面的弧长是 Fisher--Rao 弧长的一半，这一步的闭式解为
 \begin{equation}
-z_1^{(r)}=z_0^{(r)}+\eta d_0^{(r)},
-\qquad q_1^{(r)}=\softmax(z_1^{(r)}),
-\qquad \eta=0.03.
+h_1^{(r)}=
+\cos\!\left(\frac{\ell}{2}\right)h_0^{(r)}
++\sin\!\left(\frac{\ell}{2}\right)d_0^{(r)},
+\qquad
+q_1^{(r)}=h_1^{(r)}\odot h_1^{(r)},
+\qquad \ell=0.03,
 \label{eq:self-step}
 \end{equation}
-然后重新计算式~\eqref{eq:effective-p} 中的 $p(q_1)$、所有依赖 $q_1$ 的集合统计量、程序 $g$ 的配对与权重，以及完整损失的单位方向：
-\[
-d_1^{(r)}=d_C(q_1^{(r)}).
-\]
+其中 $\odot$ 表示逐元乘法。这是沿 Fisher 单位自然梯度的一次精确测地步，不需要 ODE 积分，也不为不同候选调节长度。
 
+然后在 $q_1^{(r)}$ 下完整重算式~\eqref{eq:effective-p} 中的 $p(q_1)$、所有依赖 $q_1$ 的集合统计量、程序 $g$ 的配对与权重，以及完整损失的 Fisher 单位方向：
+\[
+\widetilde d_1^{(r)}=d_C(q_1^{(r)}).
+\]
 第二点不是由外部随意选择的 probe，而是由候选的 $d_0$ 自己产生。
-所以 $d_1$ 回答的是：\textbf{当经验分布沿该候选最想推动的方向轻微变化后，它还会怎样推动？}
-两个候选可能在起点方向相同，却因集合统计量、权重切换或 $f$--$g$ 交互，在第二点给出不同方向。
+所以 $\widetilde d_1$ 回答的是：\textbf{当经验分布沿该候选最想推动的方向走同样小的信息距离后，它还会怎样推动？}
+
+\subsection{把第二方向移回共同切空间}
+
+$d_0^{(r)}$ 位于 $h_0^{(r)}$ 的切空间，$\widetilde d_1^{(r)}$ 位于 $h_1^{(r)}$ 的切空间；不先对齐就直接减或拼接，会依赖所选坐标。沿式~\eqref{eq:self-step} 的球面短测地线，把 $\widetilde d_1^{(r)}$ 平行移动回 $h_0^{(r)}$：
+\begin{equation}
+d_1^{(r)}=
+\widetilde d_1^{(r)}-
+\frac{\left\langle\widetilde d_1^{(r)},h_0^{(r)}\right\rangle_2}
+{1+\left\langle h_1^{(r)},h_0^{(r)}\right\rangle_2}
+\left(h_1^{(r)}+h_0^{(r)}\right).
+\label{eq:transport}
+\end{equation}
+这个闭式操作保持向量长度和测地线上的夹角，并使 $d_0^{(r)}$ 与 $d_1^{(r)}$ 都在共同的 $h_0^{(r)}$ 切空间中。
 
 \subsection{统一描述符与距离}
 
-把 $R$ 个实例的两个方向直接拼接并归一化：
+把 $R$ 个实例的两个对齐方向直接拼接并归一化：
 \begin{equation}
 \Psi(C)=\frac{1}{\sqrt{2R}}
 \operatorname{concat}_{r=1}^{R}
 \left[d_0^{(r)}\concat d_1^{(r)}\right].
 \label{eq:descriptor}
 \end{equation}
-两个候选的行为距离为普通欧氏距离
+两个候选的行为距离为共同切坐标中的欧氏距离
 \begin{equation}
 D(C_a,C_b)=\lVert\Psi(C_a)-\Psi(C_b)\rVert_2.
 \label{eq:distance}
 \end{equation}
-因为每个 $d_t^{(r)}$ 都已单位化，式~\eqref{eq:distance} 等价于汇总两个位置上的方向夹角差异。
-最终方法没有 Fisher 度量、Hessian、Jacobian--vector product 或显式曲率。
+因为每个 $d_t^{(r)}$ 都是 Fisher 单位方向的球面表示，式~\eqref{eq:distance} 汇总的是两个位置上的不变方向夹角差异。
+这里的“轻量 Fisher”只有 $O(M)$ 的逐元运算和内积；最终方法没有 Hessian、Jacobian--vector product、显式曲率或多步流积分。
 
 \paragraph{为什么不是只保存方向差 $d_1-d_0$？}
 只保存差会丢失两个候选在起点朝向完全不同这一重要信息。
 拼接 $[d_0\concat d_1]$ 同时保留全局的一阶行为和局部的方向响应；实验中它比原始两点梯度差更可靠。
 
 \paragraph{为什么一步就够？}
-三点曲率与只用前两点的早期曲率在六个设置中几乎相同；把 30 步积分压到 3 次粗粒度求导也不改变结论；进一步比较后，一次欧氏扰动得到的两个单位方向已经保留有效近邻关系。
+三点曲率与只用前两点的早期曲率在六个设置中几乎相同；把 30 步积分压到 3 次粗粒度求导也不改变结论；进一步比较后，一次固定弧长扰动得到的两个单位方向已经保留有效近邻关系。
 继续积分主要增加数值与实现复杂度，没有观察到独立收益。
 
 \subsection{描述符计算过程}
@@ -245,14 +293,14 @@ D(C_a,C_b)=\lVert\Psi(C_a)-\Psi(C_b)\rVert_2.
 对单个候选 $C$，计算过程如下。
 
 \begin{enumerate}
-  \item 读取固定参考 bank 的第 $r$ 个实例，设 $q_0=\bm 1/M$。
-  \item 用完整 $C=(f,g)$ 计算 $\mathcal L_C(q_0)$，求 $c_0$，投影并单位化得到 $d_0$。
-  \item 令 $q_1=\softmax(\log q_0+0.03d_0)$。
-  \item 在 $q_1$ 下重新计算有效 log-probability、统计量、配对、权重和完整损失，得到 $d_1$。
-  \item 对所有 $R$ 个实例重复，并按式~\eqref{eq:descriptor} 拼接。
+  \item 读取固定参考 bank 的第 $r$ 个实例，设 $q_0=\bm 1/M$、$h_0=\sqrt{q_0}$。
+  \item 用完整 $C=(f,g)$ 计算 $\mathcal L_C(q_0)$，求 $c_0$、$u_0$，Fisher 单位化得到 $d_0$。
+  \item 按式~\eqref{eq:self-step} 沿 $d_0$ 走固定弧长 $\ell=0.03$，得到 $q_1$。
+  \item 在 $q_1$ 下重新计算有效 log-probability、统计量、配对、权重和完整损失，得到 $\widetilde d_1$。
+  \item 按式~\eqref{eq:transport} 把 $\widetilde d_1$ 平行移动回 $h_0$ 得到 $d_1$；对所有 $R$ 个实例重复，并按式~\eqref{eq:descriptor} 拼接。
 \end{enumerate}
 
-这两次求导只针对候选表达式在有限 rollout 上的输出，不修改网络参数，也不需要重要性采样生成新的轨迹。
+这两次求导只针对候选表达式在有限 rollout 上的输出，不修改网络参数，也不需要重要性采样生成新的轨迹。指数映射与平行移动都是闭式 $O(M)$ 操作，不增加候选损失求导次数。
 
 \section{用描述符分配真实训练预算}
 
@@ -301,8 +349,10 @@ P_{\mathrm{train}}(C)=
 
 \subsection{相关工作的边界}
 
-本文只把“使用候选损失的局部导数来发现机器学习目标的行为等价或近似重复”视为直接相关问题，不把一般的神经架构搜索、代理模型、信息几何优化或多样性搜索全部扩进相关工作。
-在这个窄边界内，最直接的参照是 AutoLoss-Zero 的 gradient-equivalence check：它在若干预测样本上比较候选损失产生的梯度范数，并对等价候选复用评价结果\cite{Li_2022_CVPR}。
+本文把相关工作限定为“使用相同数学工具解决相似机器学习问题”。因此只保留两条近邻：一条是用局部梯度判断损失程序是否重复的损失搜索；另一条是用 Fisher 度量规范概率分布局部更新的策略优化。一般神经架构搜索、代理模型或泛化多样性搜索不在这个边界内。
+
+第一条中，最直接的参照是 AutoLoss-Zero 的 gradient-equivalence check：它在若干预测样本上比较候选损失产生的梯度范数，并对等价候选复用评价结果\cite{Li_2022_CVPR}。
+第二条中，Fisher 度量的不变性与唯一性给出了概率单纯形上不依赖坐标的局部长度\cite{Le_2013_FisherUnique}；TRPO 等方法用这类信息距离约束真实策略参数更新\cite{Schulman_2015_TRPO}。RFPS 不是策略优化器：它只在固定 rollout 的经验分布上取一次固定弧长 probe，用来筛选损失程序对。
 
 \begin{table}[h]
 \centering
@@ -314,9 +364,9 @@ P_{\mathrm{train}}(C)=
  & \textbf{AutoLoss-Zero} & \textbf{本文 RFPS}\\
 \midrule
 搜索单位 & 单个损失程序 & 完整偏好程序对 $C=(f,g)$\\
-局部观测 & 若干点上的梯度范数，主要是标量幅值 & 每个 rollout 上的完整相对方向\\
-观测位置 & 固定的单个局部状态 & 起点与候选自己诱导出的第二点\\
-保留信息 & 候选把梯度推得多大 & 候选推向哪里，以及沿该方向轻扰动后还推向哪里\\
+局部观测 & 若干点上的梯度范数，主要是标量幅值 & 每个 rollout 上的完整 Fisher 单位方向\\
+观测位置 & 固定的单个局部状态 & 起点与候选自己沿固定信息弧长诱导的第二点\\
+保留信息 & 候选把梯度推得多大 & 候选推向哪里，以及沿该方向走同样信息距离后还推向哪里\\
 筛选动作 & 等价候选复用已有结果 & 只软分配训练预算，保留非零审计率，不伪造 fitness\\
 \bottomrule
 \end{tabularx}
@@ -332,7 +382,7 @@ P_{\mathrm{train}}(C)=
   \item \textbf{初始单位方向：}每个 probe 分别归一化后的 $d_0$；
   \item \textbf{原始两点梯度差：}保留幅值的 $c(q_1)-c(q_0)$；
   \item \textbf{有限差分 JVP/HVP 型特征：}用两点梯度差近似局部场变化；
-  \item \textbf{固定 logits 上的两三步欧氏更新：}检验 Fisher 几何是否必要；
+  \item \textbf{欧氏两点方向对：}在同一 bank 上去掉 Fisher 单位化、指数映射与平行移动，检验不变几何的独立价值；
   \item \textbf{初始 Gram 特征：}汇总不同 probe 方向之间的内积；
   \item \textbf{随机投影梯度轨迹：}检验高维坐标是否只是冗余；
   \item \textbf{只用 $f$ 或只用 $g$：}检验拆开评价是否丢失组合交互。
@@ -344,11 +394,11 @@ P_{\mathrm{train}}(C)=
 本文可以支持的创新点有三条：
 \begin{enumerate}
   \item \textbf{因子化基因型、联合表型：}每次只让大模型变异一个短程序，但所有筛选方向都由完整 $C=(f,g)$ 产生。
-  \item \textbf{自诱导两点响应：}第二个 probe 点不是手工指定，而是由候选自己的第一方向产生；描述符同时保存 $d_0$ 与 $d_1$，不把它们压成梯度范数或单个曲率标量。
+  \item \textbf{Fisher 不变的自诱导两点响应：}第二个 probe 点不是手工指定，而是由候选自己的第一方向沿固定信息弧长产生；第二方向经平行移动后与第一方向在同一切空间比较。描述符不把它们压成梯度范数或单个曲率标量。
   \item \textbf{风险受控的预算用途：}方向距离只决定真实训练概率，不冒充性能预测；软筛选和审计下限允许在线发现固定支持造成的错误近邻。
 \end{enumerate}
 
-本文\textbf{不}声称提出新的黎曼优化器，不声称虚拟重加权等价于参数训练，也不声称高方向变化本身意味着高 fitness。
+本文\textbf{不}声称提出新的黎曼优化器或新的 Fisher 度量，不声称虚拟重加权等价于参数训练，也不声称高方向变化本身意味着高 fitness。新意在于将这个轻量不变几何变成\textbf{完整损失程序对的两点行为签名}，并且只用于真实训练前的风险受控预筛。
 
 \section{最小化消融证据}
 
@@ -357,7 +407,7 @@ P_{\mathrm{train}}(C)=
 消融在方案锁定后运行。数据包括：（1）40 个同时具有 from-scratch 与 checkpoint-135 warm-start 高保真标签的匹配候选；
 （2）65 个未参与旧曲率公式选择的外部 scratch 候选。
 每个描述符使用 8 个 TSP100 实例、每实例 100 个 POMO starts，并用两组独立随机 bank 复核。
-旧版 Fisher 流使用共同弧长 $0.10$、30 个积分步和三个检查点；最终方法只使用一个 warm checkpoint bank 和式~\eqref{eq:self-step} 的一次欧氏步。
+旧版 Fisher 流使用共同弧长 $0.10$、30 个积分步和三个检查点；最终方法只使用一个 warm checkpoint bank、式~\eqref{eq:self-step} 的一次闭式 Fisher 步和式~\eqref{eq:transport} 的一次闭式平行移动。
 
 对所有候选对，令 $d_{ij}$ 为描述符距离，$y_{ij}=|F_i-F_j|$ 为真实 fitness 差。评价包括：
 \begin{itemize}
@@ -371,39 +421,41 @@ P_{\mathrm{train}}(C)=
 \subsection{主结果}
 
 表~\ref{tab:main-ablation} 给出两个 probe seed 的结果。旧曲率列对 scratch 标签使用其匹配 scratch bank，对 warm 标签使用匹配 warm bank；
-公平一阶基线与最终两点描述符都只使用同一个 warm checkpoint bank。因此最终方法不仅计算更少，还取消了双锚点。
+公平一阶基线、欧氏两点和最终 Fisher 两点描述符都只使用同一个 warm checkpoint bank。因此最终方法不仅计算更少，还取消了双锚点。
 
 \begin{table}[t]
 \centering
 \scriptsize
-\caption{旧三点曲率、公平的一点单位方向与最终欧氏两点方向对。$\rho$ 越高越好，NN 与误跳过率越低越好。}
+\caption{旧三点曲率、公平的一点单位方向、欧氏两点与最终 Fisher 两点。$\rho$ 越高越好，NN 与误跳过率越低越好。}
 \label{tab:main-ablation}
-\begin{tabular}{llccccc}
+\begin{tabular}{llcccccc}
 \toprule
-\textbf{候选集/标签} & \textbf{seed} & \textbf{旧曲率 $\rho$} & \textbf{一点 $d_0$ $\rho$} & \textbf{最终 $[d_0,d_1]$ $\rho$} & \textbf{最终 NN} & \textbf{最终误跳过}\\
+\textbf{候选集/标签} & \textbf{seed} & \textbf{旧曲率 $\rho$} & \textbf{一点 $d_0$ $\rho$} & \textbf{欧氏两点 $\rho$} & \textbf{Fisher 两点 $\rho$} & \textbf{Fisher NN} & \textbf{Fisher 误跳过}\\
 \midrule
-matched / scratch & 1 & .565 & .803 & \textbf{.806} & .00659 & .112\\
-matched / scratch & 2 & .578 & .806 & \textbf{.810} & .00659 & .030\\
-matched / warm    & 1 & .552 & .851 & \textbf{.853} & .00122 & .000\\
-matched / warm    & 2 & .573 & .853 & \textbf{.855} & .00133 & .000\\
-external / scratch& 1 & .454 & .713 & .712 & .00662 & .109\\
-external / scratch& 2 & .487 & .715 & .715 & .00689 & .109\\
+matched / scratch & 1 & .565 & .803 & .806 & \textbf{.808} & .00659 & .112\\
+matched / scratch & 2 & .578 & .806 & .810 & \textbf{.816} & .00659 & .030\\
+matched / warm    & 1 & .552 & .851 & .853 & \textbf{.856} & .00113 & .000\\
+matched / warm    & 2 & .573 & .853 & .855 & \textbf{.863} & .00113 & .000\\
+external / scratch& 1 & .454 & .713 & .712 & \textbf{.714} & .00689 & .109\\
+external / scratch& 2 & .487 & .715 & .715 & \textbf{.716} & .00689 & .109\\
 \bottomrule
 \end{tabular}
 \end{table}
 
-结果说明两件事。第一，逐 probe 单位化的一点方向比旧曲率拥有更高的全局相关性；旧文中“二阶估计优于一阶估计”的结论只对\textbf{未做公平单位化的一阶欧氏距离}成立，不能写成一般结论。
+结果说明三件事。第一，逐 probe 单位化的一点方向比旧曲率拥有更高的全局相关性；旧文中“二阶估计优于一阶估计”的结论只对\textbf{未做公平单位化的一阶欧氏距离}成立，不能写成一般结论。
 第二，一点方向仍会产生危险的尾部碰撞：在匹配候选的随机顺序模拟中，其平均误跳过率约为 $0.14$--$0.16$，被误跳过候选的平均 fitness 误差约为 $0.027$--$0.063$。
 加入第二点方向后，既保留一点方向的高 $\rho$，又把被误跳过候选的平均误差降到约 $0.001$--$0.006$；这才是保留第二次求导的理由。
+第三，在相同两次求导预算下，Fisher 版在六个设置中相对欧氏版的 $\rho$ 分别提高 $.002,.006,.003,.008,.002,.001$，且误跳过率没有增加。增益不大，所以只保留闭式不变几何，不恢复多步流或曲率系统。
 
+\Needspace{0.72\textheight}
 \subsection{每个旧组件是否有独立贡献}
 
-\begin{table}[h]
+\begin{table}[H]
 \centering
 \small
 \caption{组件级结论。删除决定以同一候选、同一真实标签上的对照为依据。}
 \label{tab:component}
-\begin{tabularx}{\textwidth}{p{0.24\textwidth}Xp{0.13\textwidth}}
+\begin{tabularx}{\textwidth}{p{0.23\textwidth}Xp{0.16\textwidth}}
 \toprule
 \textbf{对照} & \textbf{观察} & \textbf{决定}\\
 \midrule
@@ -411,7 +463,8 @@ external / scratch& 2 & .487 & .715 & .715 & .00689 & .109\\
 30 步积分 & 3 次粗粒度重求导复现曲率；一次扰动后的方向对进一步复现有效近邻。 & 删除\\
 原始两点梯度差 & 六个设置的 $\rho$ 仅约 .10--.28；梯度幅值遮蔽了方向变化。 & 拒绝\\
 公平一点单位方向 & $\rho$ 达 .627--.853，但在相似度尾部出现高 fitness 差碰撞。 & 只作第一半\\
-Fisher 与欧氏步 & 相同步长下两者的 $\rho$ 和近邻风险几乎相同，Fisher 没有显示独立增益。 & 删除 Fisher\\
+Fisher 与欧氏两点 & Fisher 版在六个设置中 $\rho$ 一致持平或小幅提高，且不增加求导次数或误跳过率；同时给出坐标不变的长度与跨点对齐。 & 保留轻量 Fisher\\
+候选级自适应弧长 & 固定 forward/reverse KL 或 ESS 改变解回的 Fisher 弧长 CV 不超过 $.002$，与固定 $.03$ 的描述符指标相同；max-log 和 turning 自适应也无稳定收益。 & 删除自适应\\
 scratch/warm 双锚点 & 单个 warm checkpoint bank 同时预测 scratch 与 warm 标签，且 scratch $\rho$ 约 .80、外部 $\rho$ 约 .71。 & 删除双锚点\\
 初始 Gram & 与逐 probe 单位方向的距离相关约 .98--.995，且继承相同危险碰撞。 & 删除\\
 随机投影 & 可近似保留旧曲率，但只是在压缩冗余高维坐标，没有新增机制。 & 删除\\
@@ -419,15 +472,19 @@ scratch/warm 双锚点 & 单个 warm checkpoint bank 同时预测 scratch 与 wa
 \end{tabularx}
 \end{table}
 
-\subsection{步长与探针选择}
+\subsection{弧长与探针选择}
 
-$\eta\in\{0.01,0.03,0.10\}$ 时，两点方向对的 $\rho$ 基本稳定。
-$0.01$ 在匹配集合上偶尔使第二点离第一点太近，方向分辨率不足；$0.10$ 没有稳定增益，且对 Fisher 版本的误跳过率有轻微恶化。
-因此当前固定 $\eta=0.03$，不把步长作为额外搜索超参数。
+$\ell\in\{0.01,0.03,0.10\}$ 时，Fisher 两点方向对的 $\rho$ 基本稳定。
+$0.01$ 在匹配集合上偶尔使第二点离第一点太近，方向分辨率不足；$0.10$ 没有稳定增益，且在一个 scratch 设置中使误跳过率轻微恶化。
+因此当前固定 $\ell=0.03$，不把弧长作为候选级超参数。
+
+这里要区分“度量不变”与“步长自动唯一”。Fisher 度量在整体常数外由不变性确定，但它不会单独决定应走多远。我们固定度量的尺度为 $1$，再固定一个对所有候选相同的短弧 $0.03$。这使候选间比较公平，也避免为了选步长又引入一组与候选相关的新规则。
+额外实验中，用相同的 forward KL、reverse KL 或 ESS 改变反解弧长时，各候选得到的弧长几乎都是 $0.03$；而用最大 log-ratio 或方向转角调节弧长没有稳定提高筛选指标。因此固定短弧是实验与简洁性共同支持的最小选择。
 
 两组独立 bank 的结论相近，说明描述符不是依赖单次 rollout 噪声的偶然现象。
 部署时只保留一组由 checkpoint-135 生成的 $R=8$ 个实例；第二组仅作为实验复核，不需要融合尺度或投票。
 
+\Needspace{0.38\textheight}
 \section{搜索空间覆盖与程序合法性}
 
 方法能否找到有效目标，取决于 $f$ 与 $g$ 的 DSL 是否覆盖已知偏好结构，而不取决于描述符公式本身。最低覆盖要求是：
@@ -446,13 +503,14 @@ $0.01$ 在匹配集合上偶尔使第二点离第一点太近，方向分辨率�
 \section{计算代价}
 
 设每个实例有 $M$ 条轨迹，程序 $g$ 产生 $K$ 个偏好对，候选表达式一次前后向代价记为 $B(M,K)$。
-最终描述符对每个实例恰好计算两次，总代价为
+最终描述符对每个实例恰好计算两次候选损失，加上线性代价的几何操作，总代价为
 \[
-O\!\left(2R\,B(M,K)\right).
+O\!\left(2R\,B(M,K)+RM\right).
 \]
-它不进行网络 forward/backward、不更新参数、不重新 rollout，也不存储 $M\times M$ Hessian。
+其中 Fisher 单位化、指数映射和平行移动都只含逐元运算与向量内积。
+它不进行网络的前向或反向传播，不更新参数，不重新 rollout，也不存储 $M\times M$ Fisher 矩阵或 Hessian。
 
-旧版若以 $H$ 个积分步重算候选场，代价约为 $O(RH B)$，另有对数映射、平行移动和多锚点开销。
+旧版若以 $H$ 个积分步重算候选场，代价约为 $O(RH B)$，另有多个对数映射、多次平行移动和多锚点开销。
 在当前 $H=30$ 且双锚点的实现中，删减后的候选求导次数从量级 $60R$ 降为 $2R$；
 这是结构性降本，而不只是常数优化。
 
@@ -461,7 +519,9 @@ O\!\left(2R\,B(M,K)\right).
 \begin{enumerate}
   \item \textbf{固定支持：}描述符只能观察参考 bank 已覆盖的轨迹；它无法发现候选在全新状态上的差异。解决方式是保留审计率，并周期性更新整个 bank，而不是为每个候选单独 rollout。
   \item \textbf{虚拟分布可实现性：}式~\eqref{eq:effective-p} 不保证存在网络参数精确实现 $q_1$。因此它是局部压力测试，不是参数训练的无偏估计，也无需声称使用重要性采样即可替代训练。
-  \item \textbf{数值边界：}若 $\lVert u\rVert_2$ 太小、配对为空或产生非有限值，候选不能因“距离近”而被跳过；应直接送入审计或判为非法程序。
+  \item \textbf{经验流形的边界：}Fisher 度量的唯一性适用于本文选定的有限支持概率单纯形，它不把 $q$ 自动变成共享参数策略的完整流形。
+  \item \textbf{固定弧长的含义：}不变度量确定了如何测量，但不唯一确定 $\ell$。$0.03$ 是对所有候选公用并经消融选定的短弧，不声称等于某个真实优化器的参数步。
+  \item \textbf{数值边界：}若 $s_C(q)$ 太小、任一 $q_m$ 接近数值下溢、配对为空或产生非有限值，候选不能因“距离近”而被跳过；应直接送入审计或判为非法程序。
   \item \textbf{描述符不是价值：}大距离只表示行为新，不表示性能好；父代选择与最终排名只使用真实 fitness。
   \item \textbf{$g$ 变化的证据仍不足：}当前最小化消融主要来自固定参考 $g$、变化 $f$ 的历史候选。联合搜索上线前必须单独报告只变 $f$、只变 $g$、两者都变三组的近邻可靠性。
   \item \textbf{最终搜索证据：}离线相关和误跳过率只能证明筛选器有信号；论文主实验仍应比较相同真实训练预算下的 best-so-far、有效候选数与审计漏失。
@@ -479,10 +539,10 @@ O\!\left(2R\,B(M,K)\right).
 $C=(f,g)$ & 完整程序对；$f$ 生成逐对损失，$g$ 生成偏好对与权重\\
 $R,M,K$ & probe 实例数、每实例轨迹数、程序 $g$ 生成的偏好对数\\
 $p_m^0,o_m$ & 第 $m$ 条参考轨迹的 log-probability 与任务目标值\\
-$z,q$ & 经验 log-weight 与其 softmax 概率\\
+$z,q,h$ & 经验 log-weight、其 softmax 概率与平方根坐标 $h=\sqrt q$\\
 $\mathcal L_C(q)$ & 在当前经验分布下由完整程序对产生的加权损失\\
-$c,u,d$ & 负 log-probability 梯度、去共同平移后的向量、单位方向\\
-$\eta$ & 一次自诱导经验 log-weight 步长，当前固定为 $0.03$\\
+$c,u,d$ & 负 log-probability 梯度、Fisher 负自然梯度、其平方根球面单位方向\\
+$\ell$ & 一次自诱导 Fisher--Rao 弧长，对所有候选固定为 $0.03$\\
 $\Psi(C)$ & 所有实例的 $[d_0\concat d_1]$ 拼接描述符\\
 $D(C_a,C_b)$ & 两个程序对的描述符欧氏距离\\
 $F(C)$ & 真实 on-policy 训练得到的 fitness\\
@@ -494,11 +554,10 @@ $\varepsilon_{\mathrm{audit}}$ & 即使极近也保留的最小真实训练概�
 
 \section{结论}
 
-最小化后的 RFPS 不再依赖“黎曼曲率”叙事。它保留的经验事实更简单：
-完整程序对在固定 rollout 上的\textbf{单位下降方向}提供主要全局行为信号，而沿该方向一次轻微重加权后的\textbf{第二个单位方向}能减少危险的局部碰撞。
-因此最终方法只需要一个参考 bank、两次候选损失求导和一个两点方向描述符。
+最小化后的 RFPS 不再依赖“黎曼曲率”叙事，但保留了 Fisher 度量的不变性。完整程序对在固定 rollout 上的\textbf{Fisher 单位自然梯度}提供主要全局行为信号，而沿该方向走固定短弧后、再平行移回的\textbf{第二个单位方向}能减少危险的局部碰撞。
+因此最终方法只需要一个参考 bank、两次候选损失求导、一次闭式指数映射和一次闭式平行移动。
 
-这个版本的核心贡献不是更复杂的几何，而是把两个相互作用的短程序放进同一个可审计行为表型中，并用它谨慎分配昂贵的真实训练预算。
+这个版本的核心贡献不是发明新几何，而是把标准 Fisher 几何压缩成一个两点、固定弧长、无积分的行为签名，将两个相互作用的短程序放进同一个可审计行为表型中，并用它谨慎分配昂贵的真实训练预算。
 
 \bibliographystyle{plain}
 \bibliography{rfps_method}
