@@ -1,0 +1,133 @@
+{
+  "source_results": "E:\\CAS\\pre-proof\\research\\experiments\\rfps_feature_pilot\\results_dual_ckpt135_seed1_curvature",
+  "n_candidates": 40,
+  "n_probes": 8,
+  "ell_max": 0.1,
+  "metrics": {
+    "initial_field": {
+      "rho": 0.27776844087962366,
+      "nn_median": 0.0016044605255127742,
+      "nn_mean": 0.0704038695335388,
+      "false_skip_20pct_tol001": 0.125,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "fisher_field_delta_pt": {
+      "rho": 0.260749267501732,
+      "nn_median": 0.00170750732421876,
+      "nn_mean": 0.07624555881500243,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "fisher_field_delta_ambient": {
+      "rho": 0.2611590537355762,
+      "nn_median": 0.00170750732421876,
+      "nn_mean": 0.0676769717407227,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "fisher_direction_delta": {
+      "rho": 0.5594463128673182,
+      "nn_median": 0.0020081531524658303,
+      "nn_mean": 0.06570998298645028,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "fisher_direction_delta_pt": {
+      "rho": 0.559500671033393,
+      "nn_median": 0.001775371551513416,
+      "nn_mean": 0.06571091783523567,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "fisher_two_fields": {
+      "rho": 0.27953584629374445,
+      "nn_median": 0.0016044605255127742,
+      "nn_mean": 0.06517867431640625,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 1600
+    },
+    "fisher_coarse_kappa_early": {
+      "rho": 0.5594842364751796,
+      "nn_median": 0.0020081531524658303,
+      "nn_mean": 0.06574413520812997,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "fisher_coarse_kappa_full": {
+      "rho": 0.5565942414348715,
+      "nn_median": 0.0020081531524658303,
+      "nn_mean": 0.06572157884597787,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 1600
+    },
+    "euclidean_field_delta": {
+      "rho": 0.2668506317521789,
+      "nn_median": 0.001775371551513416,
+      "nn_mean": 0.07110048696517948,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "euclidean_field_delta_white": {
+      "rho": 0.26804865104583736,
+      "nn_median": 0.00170750732421876,
+      "nn_mean": 0.06366679132461553,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "euclidean_direction_delta": {
+      "rho": 0.6348933080349832,
+      "nn_median": 0.001775371551513416,
+      "nn_mean": 0.041208540134430004,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "euclidean_two_fields": {
+      "rho": 0.2781897054937407,
+      "nn_median": 0.0016044605255127742,
+      "nn_mean": 0.06517541524887085,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 1600
+    },
+    "euclidean_kappa_early": {
+      "rho": 0.6349238951576966,
+      "nn_median": 0.0019394245147705824,
+      "nn_mean": 0.04122268999099743,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 800
+    },
+    "euclidean_kappa_full": {
+      "rho": 0.632235019756137,
+      "nn_median": 0.001775371551513416,
+      "nn_mean": 0.05383033674240119,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 1600
+    },
+    "reference_kappa_full": {
+      "rho": 0.5521333000421504,
+      "nn_median": 0.0020081531524658303,
+      "nn_mean": 0.06573253934860238,
+      "false_skip_20pct_tol001": 0.0,
+      "skip_rate": 0.20512820512820512,
+      "dimension": 1600
+    }
+  },
+  "cost_model": {
+    "field_delta": "2 field evaluations per probe",
+    "coarse_curvature": "3 field evaluations per probe",
+    "reference_curvature": "30 integration field evaluations plus checkpoint evaluations per probe"
+  }
+}

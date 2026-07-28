@@ -1,0 +1,1191 @@
+% Archived RFPS v3 source; superseded by the minimal two-point response-field method.
+\documentclass[UTF8,11pt]{ctexart}
+
+\usepackage[a4paper,margin=2.35cm]{geometry}
+\usepackage{amsmath,amssymb,mathtools,bm}
+\usepackage{booktabs,array,tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,calc,fit,positioning,shapes.geometric,backgrounds}
+\usepackage[colorlinks=true,linkcolor=blue!55!black,citecolor=green!45!black,urlcolor=blue!60!black]{hyperref}
+
+\setlength{\parindent}{2em}
+\setlength{\parskip}{0.25em}
+\setlist[itemize]{leftmargin=2em,itemsep=0.25em}
+\setlist[enumerate]{leftmargin=2em,itemsep=0.25em}
+\renewcommand{\arraystretch}{1.18}
+
+\definecolor{rfblue}{HTML}{0072B2}
+\definecolor{rforange}{HTML}{D55E00}
+\definecolor{rfgreen}{HTML}{009E73}
+\definecolor{rfpurple}{HTML}{CC79A7}
+\definecolor{rflightblue}{HTML}{EAF3F8}
+\definecolor{rflightorange}{HTML}{FAEEE8}
+\definecolor{rflightgreen}{HTML}{E8F5F0}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\simplex}{\Delta_M^\circ}
+\newcommand{\sg}{\operatorname{sg}}
+\newcommand{\Log}{\operatorname{Log}}
+\newcommand{\concat}{\mathbin{\|}}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\RFPS}{\textsc{RFPS}}
+\DeclareMathOperator{\ESS}{ESS}
+\DeclareMathOperator{\median}{median}
+\DeclareMathOperator{\MAD}{MAD}
+\DeclareMathOperator{\sigmoid}{sigmoid}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{\textbf{RFPS 方法说明}\\
+\large 用重要性重加权的 Fisher--Rao 流曲率筛选因子化偏好程序对}
+\author{方法设计稿（v3.0）}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+本文说明短程黎曼流程序对搜索（Riemannian-Flow Program-pair
+Search，\RFPS）的当前版本。方法搜索两个小程序：成对损失程序 \(f\)
+决定一对解如何产生训练信号，集合权重程序 \(g\) 决定哪些解对更重要。
+二者分别变异，但始终以完整组合 \(C=(f,g)\) 为评价单位。对每个候选，
+\RFPS{} 不更新神经网络参数，而是在一组固定的 on-policy rollout
+上构造重要性重加权的 Fisher--Rao 梯度流；随后消去流的初始直线项，
+提取统一切空间中的曲率残差 \(\kappa_C\)。该残差用于选择哪些组合值得
+接受昂贵的真实训练，而不直接预测候选的最终性能。本文从概率单纯形、
+Fisher--Rao 度量、梯度流、对数映射和重要性采样开始，逐步推导完整方法，
+并明确说明它与单点梯度范数等价检查的区别。
+\end{abstract}
+
+\tableofcontents
+
+\section{阅读指南与方法概览}
+
+\subsection{一句话说明}
+
+\RFPS{} 让每个完整程序对 \(C=(f,g)\) 在固定 rollout 的经验分布上诱导
+一条短程 Fisher--Rao 梯度流，并用该流相对初始直线运动的弯曲程度
+\(\kappa_C\) 作为训练前行为特征；只有在该特征空间中值得探索的组合，
+才优先接受真实 on-policy 训练。
+
+\subsection{为什么仍然搜索两个程序}
+
+偏好训练目标同时包含两个不同问题：
+\begin{enumerate}
+    \item 给定更优解 \(\tau_w\) 和较差解 \(\tau_l\)，二者应产生什么损失；
+    \item 给定一个完整候选解集，哪些偏好对应该参与训练以及占多大权重。
+\end{enumerate}
+用一个大程序同时表达这两个问题，会显著增加 LLM 生成和变异的难度。
+因此令
+\[
+    C=(f,g),
+\]
+其中 \(f\) 是成对损失程序，\(g\) 是集合权重程序。每次变异只修改
+\(f\) 或 \(g\) 中的一个，但描述符、筛选结果和真实适应度始终属于完整
+组合 \(C\)，不存在分别给 \(f\) 和 \(g\) 打分的 staged search。
+
+\subsection{三个层次不要混淆}
+
+\begin{itemize}
+    \item \textbf{真实训练：}更新神经网络参数 \(\theta\)，重新进行
+    on-policy rollout，最终得到真实适应度。
+    \item \textbf{虚拟流：}冻结网络与 rollout，只改变固定样本的经验权重
+    \(q\)，用于观察候选目标在局部分布变化下如何改变训练信号。
+    \item \textbf{曲率描述符：}把虚拟流的三个位置映射到共同切空间，
+    消去初始切向量后得到 \(\kappa_C\)。它用于分配真实训练预算，不是
+    一个学习得到的 fitness predictor。
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+    node distance=7mm and 7mm,
+    box/.style={rounded corners=2mm, draw=black!35, minimum height=10mm,
+        align=center, font=\small, inner xsep=3mm},
+    arr/.style={-{Latex[length=2.2mm]}, thick, draw=black!55}
+]
+\node[box, fill=rflightblue] (pair) {程序对\\ \(C=(f,g)\)};
+\node[box, fill=rflightblue, right=of pair] (probe) {固定 on-policy\\rollout 探针};
+\node[box, fill=rflightgreen, right=of probe] (flow) {重要性重加权\\Fisher--Rao 短流};
+\node[box, fill=rflightgreen, right=of flow] (curve) {曲率残差\\\(\kappa_C\)};
+\node[box, fill=rflightorange, below=10mm of curve] (screen) {与已训练代表比较\\训练概率 / 审计};
+\node[box, fill=rflightorange, left=of screen] (train) {真实 on-policy 训练\\得到 \(F_{\mathrm{train}}(C)\)};
+\node[box, fill=gray!10, left=of train] (unit) {更新已评价\\行为单元};
+
+\draw[arr] (pair) -- (probe);
+\draw[arr] (probe) -- (flow);
+\draw[arr] (flow) -- (curve);
+\draw[arr] (curve) -- (screen);
+\draw[arr] (screen) -- node[above,font=\scriptsize]{值得评价} (train);
+\draw[arr] (train) -- (unit);
+\draw[arr, dashed] (screen.east) -- ++(8mm,0) node[right,align=left,font=\scriptsize]
+    {过近：暂不训练\\但保留审计概率};
+\draw[arr, dashed] (unit.south) |- ++(-28mm,-8mm) -| node[pos=.25,below,font=\scriptsize]
+    {真实 fitness 只用于已训练代表} (pair.south);
+\end{tikzpicture}
+\caption{\RFPS{} 的数据流。曲率特征只决定是否值得分配一次新的真实训练，
+不会替代真实适应度。}
+\label{fig:pipeline}
+\end{figure}
+
+\section{预备知识}
+
+本节只使用信息论、概率论、线性代数和多元微积分中的基本概念。
+
+\subsection{概率单纯形}
+
+设固定支持集上共有 \(M\) 条 rollout。一个严格为正的经验概率分布写为
+\[
+    q=(q_1,\ldots,q_M),\qquad
+    q_m>0,\qquad \sum_{m=1}^{M}q_m=1.
+\]
+所有这样的 \(q\) 构成开概率单纯形
+\[
+    \simplex
+    =
+    \left\{
+    q\in\R^M:
+    q_m>0,\ \sum_m q_m=1
+    \right\}.
+\]
+它位于 \(\R^M\) 中，但由于总和必须为 \(1\)，实际只有 \(M-1\) 个自由度。
+
+如果 \(q(s)\) 是单纯形中的一条曲线，那么速度
+\[
+    v=\frac{dq}{ds}
+\]
+必须满足
+\[
+    \sum_m v_m=0.
+\]
+这是因为对恒等式 \(\sum_mq_m(s)=1\) 求导后，右侧导数为零。满足
+\(\sum_m v_m=0\) 的向量组成点 \(q\) 处的切空间，记为 \(T_q\simplex\)。
+直观上，增加一部分样本的概率质量时，必须从其他样本处减去同样多的质量。
+
+\subsection{为什么概率空间不宜直接使用普通欧氏长度}
+
+若直接使用欧氏长度 \(\sum_m v_m^2\)，相同的绝对改变量在大概率与小概率
+位置被视为同样重要。例如，把概率从 \(0.50\) 改为 \(0.51\) 与从
+\(0.001\) 改为 \(0.011\) 都变化了 \(0.01\)，但后者的相对变化大得多。
+
+Fisher--Rao 度量在点 \(q\) 处定义切向量 \(v,w\) 的内积为
+\[
+    \langle v,w\rangle_q
+    =
+    \sum_{m=1}^{M}\frac{v_mw_m}{q_m}.
+\]
+对应的局部平方长度为
+\[
+    \|v\|_q^2
+    =
+    \sum_m\frac{v_m^2}{q_m}.
+\]
+因此，相同的绝对变化发生在小 \(q_m\) 上时会得到更大的长度。这与信息论中
+KL 散度的二阶展开一致：
+\[
+    2D_{\mathrm{KL}}(q\,\|\,q+dq)
+    =
+    \sum_m\frac{dq_m^2}{q_m}
+    +o(\|dq\|^2).
+\]
+所以 Fisher--Rao 度量可以理解为“KL 散度在一个点附近给出的局部尺子”。
+
+\subsection{平方根映射：把单纯形变成球面}
+
+定义逐元素平方根
+\[
+    h=\sqrt q
+    =
+    (\sqrt{q_1},\ldots,\sqrt{q_M}).
+\]
+由于 \(\sum_mq_m=1\)，有
+\[
+    \|h\|_2^2=\sum_mh_m^2=1.
+\]
+因此 \(h\) 位于单位球面的正象限。又因为
+\[
+    dq_m=2h_m\,dh_m,
+\]
+Fisher--Rao 线元满足
+\[
+    ds_{\mathrm{FR}}^2
+    =
+    \sum_m\frac{dq_m^2}{q_m}
+    =
+    4\sum_mdh_m^2.
+\]
+也就是说，概率单纯形上的 Fisher--Rao 几何等价于平方根球面几何，只差
+一个固定的长度因子 \(2\)。这使得保正积分、距离和对数映射都可以用稳定
+的球面公式实现。
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[scale=0.96,>=Latex]
+% simplex
+\begin{scope}[xshift=0cm]
+  \coordinate (A) at (0,0);
+  \coordinate (B) at (4.5,0);
+  \coordinate (C) at (2.25,3.75);
+  \fill[rflightblue] (A)--(B)--(C)--cycle;
+  \draw[thick] (A)--(B)--(C)--cycle;
+  \node[below left] at (A) {\(q_2=1\)};
+  \node[below right] at (B) {\(q_1=1\)};
+  \node[above] at (C) {\(q_3=1\)};
+  \coordinate (Q) at (2.55,1.45);
+  \fill[rfblue] (Q) circle (2.2pt);
+  \draw[->,thick,rfblue] (Q) -- ++(0.85,0.28)
+      node[right,font=\small] {\(v\in T_q\Delta_3^\circ\)};
+  \draw[dashed] ($(Q)+(-1.3,-.43)$) -- ($(Q)+(1.25,.41)$);
+  \node[align=center] at (2.25,-0.75)
+      {概率单纯形\\\(\sum_mq_m=1\)};
+\end{scope}
+
+\draw[->,very thick,black!55] (5.0,1.8) -- (6.8,1.8)
+    node[midway,above] {\(h=\sqrt q\)};
+
+% sphere schematic
+\begin{scope}[xshift=9.2cm,yshift=1.65cm]
+  \fill[rflightgreen] (0,0) circle (1.95);
+  \draw[thick] (0,0) circle (1.95);
+  \draw[black!45] (-1.95,0) arc[start angle=180,end angle=360,x radius=1.95,y radius=.55];
+  \draw[dashed,black!35] (1.95,0) arc[start angle=0,end angle=180,x radius=1.95,y radius=.55];
+  \draw[black!45] (0,-1.95) arc[start angle=-90,end angle=90,x radius=.65,y radius=1.95];
+  \coordinate (H) at (-.45,.95);
+  \fill[rfgreen] (H) circle (2.2pt);
+  \draw[->,thick,rfgreen] (H) -- ++(.85,.39)
+      node[right,font=\small] {\(dh\perp h\)};
+  \draw[thick,rfpurple] (-1.25,.15) .. controls (-.75,.7) and (-.15,1.2) .. (.8,1.45);
+  \node[align=center] at (0,-2.6)
+      {单位球面正象限\\\(ds_{\mathrm{FR}}=2\,ds_{\mathrm{sphere}}\)};
+\end{scope}
+\end{tikzpicture}
+\caption{平方根映射把概率单纯形上的 Fisher--Rao 几何转化为球面几何。
+图中只画出 \(M=3\) 的示意；实际方法可以处理任意有限 \(M\)。}
+\label{fig:simplex-sphere}
+\end{figure}
+
+\subsection{黎曼梯度与梯度流}
+
+普通梯度依赖坐标所使用的长度定义。给定一个标量函数 \(L(q)\)，
+Fisher--Rao 梯度 \(\operatorname{grad}_{\mathrm{FR}}L(q)\) 定义为满足
+\[
+    dL(q)[v]
+    =
+    \left\langle
+    \operatorname{grad}_{\mathrm{FR}}L(q),v
+    \right\rangle_q
+    \quad
+    \text{对所有 }v\in T_q\simplex
+\]
+的唯一切向量。负黎曼梯度
+\(-\operatorname{grad}_{\mathrm{FR}}L\) 是按照 Fisher--Rao 局部长度衡量时
+使 \(L\) 下降最快的方向。
+
+梯度流是常微分方程
+\[
+    \frac{dq}{dt}
+    =
+    -\operatorname{grad}_{\mathrm{FR}}L(q).
+\]
+沿该曲线有
+\[
+    \frac{dL(q(t))}{dt}
+    =
+    -\left\|
+    \operatorname{grad}_{\mathrm{FR}}L(q(t))
+    \right\|_{q(t)}^2
+    \le 0.
+\]
+注意：\textbf{梯度流不是测地线}。测地线只由初始位置和初始速度决定，
+相当于流形上的“直线”；梯度流每到一个新位置都会重新计算梯度，因此一般
+会弯曲。本文利用的正是这种弯曲，而不是把初始梯度沿直线延长。
+
+\subsection{对数映射：把不同流点搬回同一张切平面}
+
+两个流点处的切空间不同，不能直接把它们的局部坐标相减。若
+\(h_0=\sqrt{q_0}\)、\(h=\sqrt q\)，令
+\[
+    \theta
+    =
+    \arccos\!\left(
+    \operatorname{clip}(h_0^\top h,-1,1)
+    \right),
+\]
+则从 \(q_0\) 指向 \(q\) 的 Fisher--Rao 对数映射可写为
+\[
+    \Log_{q_0}(q)
+    =
+    2\frac{\theta}{\sin\theta}
+    \left(
+    h-\cos\theta\,h_0
+    \right).
+\]
+它位于共同起点的平方根切空间，满足
+\[
+    h_0^\top\Log_{q_0}(q)=0,
+    \qquad
+    \left\|\Log_{q_0}(q)\right\|_2=2\theta.
+\]
+当 \(\theta\to0\) 时使用连续极限 \(2(h-h_0)\)。
+
+\subsection{重要性权重与有效样本量}
+
+设样本来自基准经验分布 \(q^0\)，希望用同一批样本近似另一个经验分布
+\(q\)。密度比为
+\[
+    \rho_m(q)=\frac{q_m}{q_m^0}.
+\]
+对任意样本函数 \(A_m\)，
+\[
+    \mathbb E_{m\sim q}[A_m]
+    =
+    \mathbb E_{m\sim q^0}[\rho_m(q)A_m].
+\]
+当少数 \(\rho_m\) 很大时，估计会被少量样本支配。归一化有效样本量定义为
+\[
+    r_{\mathrm{ESS}}(q)
+    =
+    \frac{\ESS(q)}{M}
+    =
+    \frac{1}{M\sum_mq_m^2},
+\]
+其中使用了 \(\sum_mq_m=1\)。均匀分布时 \(r_{\mathrm{ESS}}=1\)；
+分布越集中，该比值越小。本文用它限制虚拟流不能离开固定 rollout
+所能可靠支持的区域。
+
+\section{问题设定：完整程序对}
+
+\subsection{固定 rollout 与基本记号}
+
+用 \(a\in\mathcal H\) 表示策略锚点。当前至少考虑
+\[
+    \mathcal H=\{\text{scratch},\text{warm}\},
+\]
+分别对应固定随机初始化策略和固定训练 checkpoint。对锚点 \(a\) 的第
+\(r\) 个探针，策略 \(\pi_{\theta_a}\) 在若干实例上生成 rollout
+\[
+    \mathcal D^{a,r}
+    =
+    \left\{
+    \tau_{bj}
+    :b=1,\ldots,B,\ j=1,\ldots,N
+    \right\}.
+\]
+这里 \(b\) 是实例编号，\(j\) 是该实例中的候选解编号。记
+\[
+    o_{bj}=o(\tau_{bj}),\qquad
+    T_{bj}=|\tau_{bj}|,\qquad
+    p^0_{bj}
+    =
+    \log\pi_{\theta_a}(\tau_{bj}\mid x_b).
+\]
+以下把二重索引 \((b,j)\) 展平为 \(m=1,\ldots,M\)，其中 \(M=BN\)。
+rollout、目标值、长度和基准 log-prob 在整个虚拟流中保持不变。
+
+\subsection{成对损失程序 \(f\)}
+
+以最小化问题为例。若 \(o_{bi}<o_{bj}\)，则 \((i,j)\) 是有向偏好对，
+记为 \(\tau_{bi}\succ\tau_{bj}\)。程序 \(f\) 接收局部成对特征
+\[
+    u_{bij}
+    =
+    \left(
+    p_{bi},p_{bj},
+    p_{bi}-p_{bj},
+    \frac{p_{bi}}{T_{bi}}-\frac{p_{bj}}{T_{bj}},
+    o_{bi},o_{bj},
+    \text{归一化目标差},
+    \text{rank/regret/advantage 等}
+    \right)
+\]
+并输出标量损失
+\[
+    \ell^f_{bij}=f(u_{bij}).
+\]
+允许的原语由受限 DSL 指定，并使用保护除法、有限值检查和稳定的
+\(\log\sigma\) 等算子。
+
+\subsection{集合权重程序 \(g\)}
+
+程序 \(g\) 接收偏好对在整个候选解集中的位置
+\[
+    v_{bij}
+    =
+    \left(
+    \operatorname{rank}_{bi},
+    \operatorname{rank}_{bj},
+    \mathbf 1[i=\text{best}],
+    N,\text{集合统计量}
+    \right),
+\]
+输出非负选择强度
+\[
+    \widehat g_{bij}=g(v_{bij})\ge0.
+\]
+它可以表达 all-pair、best-anchor、top-\(k\)、均匀排名采样或连续软权重。
+在对策略 log-prob 求导时，\(g\) 的权重停止梯度；它负责选对和加权，
+而不通过权重分支额外产生策略梯度。
+
+\section{冻结探针上的重要性重加权目标}
+
+\subsection{经验分布与有效 log-prob}
+
+在一个探针上维护经验概率
+\[
+    q(s)\in\simplex,
+\]
+初始分布取为均匀分布
+\[
+    q_m^0=\frac1M.
+\]
+对任意流位置 \(q\)，定义有效 log-prob
+\[
+    p_m(q)
+    =
+    p_m^0
+    +
+    \log\frac{q_m}{q_m^0}.
+    \label{eq:effective-logprob}
+\]
+式 \eqref{eq:effective-logprob} 不是修改神经网络输出，而是用经验密度比
+模拟“如果相对概率质量按 \(q/q^0\) 倾斜，候选目标会产生什么训练信号”。
+
+对每个实例，还定义条件归一化经验权重
+\[
+    \bar q_{bj}
+    =
+    \frac{q_{bj}}{\sum_{k=1}^{N}q_{bk}}.
+\]
+所有依赖候选解集合的统计量，例如加权均值、方差、中位数、MAD、
+advantage 和 regret，都在每一个流点用 \(\bar q\) 重新计算。
+
+\subsection{完整组合损失}
+
+对偏好对 \((i,j)\)，定义未归一化的组合权重
+\[
+    A^C_{bij}(q)
+    =
+    \bar q_{bi}\bar q_{bj}\,
+    \sg\!\left(\widehat g_{bij}(q)\right).
+\]
+前两项是两条 rollout 的经验重要性权重，最后一项来自集合程序 \(g\)。
+归一化后
+\[
+    w^C_{bij}(q)
+    =
+    \frac{A^C_{bij}(q)}
+    {\sum_{b',i',j'}A^C_{b'i'j'}(q)}.
+\]
+完整程序对在流点 \(q\) 的损失为
+\[
+    \mathcal L_C(q)
+    =
+    \sum_{b,i,j}
+    w^C_{bij}(q)\,
+    f\!\left(u_{bij}(p(q),q)\right).
+    \label{eq:combined-loss}
+\]
+实现中有一个容易忽略但很重要的约定：在同一个流点求
+\(\partial\mathcal L_C/\partial p\) 时，所有由 \(q\) 计算的权重和集合统计量
+都视为常数；走到下一个流点以后，再用新的 \(q\) 重新计算它们。因此方法
+观察的是“重加权---求导---移动---再重加权---再求导”的动态，而不是对
+重要性权重本身反向传播。
+
+\section{从候选损失到 Fisher--Rao 梯度流}
+
+\subsection{解级系数}
+
+在固定流点 \(q\)，先对有效 log-prob 求普通偏导：
+\[
+    c_m^C(q)
+    =
+    -\frac{\partial\mathcal L_C}{\partial p_m}.
+\]
+\(c_m^C\) 可以理解为候选目标希望怎样改变第 \(m\) 条 rollout 的
+log-prob。因为
+\[
+    dp_m=\frac{dq_m}{q_m},
+\]
+对任意合法扰动 \(dq\in T_q\simplex\)，损失微分为
+\[
+    d\mathcal L_C
+    =
+    -\sum_m c_m^C\frac{dq_m}{q_m}.
+\]
+
+\subsection{投影到单纯形切空间}
+
+向量 \(c^C\) 的分量和不一定为零，不能直接作为概率变化速度。定义
+\[
+    u_m^C(q)
+    =
+    c_m^C(q)
+    -
+    q_m\sum_{k=1}^{M}c_k^C(q).
+    \label{eq:fisher-field}
+\]
+显然
+\[
+    \sum_m u_m^C=0,
+\]
+所以 \(u^C(q)\in T_q\simplex\)。并且
+\[
+\begin{aligned}
+    \langle u^C,dq\rangle_q
+    &=
+    \sum_m\frac{u_m^C\,dq_m}{q_m}\\
+    &=
+    \sum_m\frac{c_m^C\,dq_m}{q_m}
+    -
+    \left(\sum_kc_k^C\right)\sum_mdq_m\\
+    &=-d\mathcal L_C.
+\end{aligned}
+\]
+因此
+\[
+    u^C(q)
+    =
+    -\operatorname{grad}_{\mathrm{FR}}\mathcal L_C(q).
+\]
+对应速度为
+\[
+    \nu_C(q)
+    =
+    \|u^C(q)\|_q
+    =
+    \sqrt{
+    \sum_m\frac{(u_m^C(q))^2}{q_m}
+    }.
+\]
+
+\subsection{使用共同弧长参数}
+
+若直接按相同时间 \(t\) 积分，梯度尺度大的候选会走得更远，路径形状与
+梯度幅度会混在一起。本文按 Fisher--Rao 弧长 \(s\) 参数化：
+\[
+    \frac{dq_C}{ds}
+    =
+    \frac{u^C(q_C(s))}{\nu_C(q_C(s))},
+    \qquad
+    q_C(0)=q^0.
+    \label{eq:unit-speed-flow}
+\]
+只要 \(\nu_C>0\)，该曲线满足
+\[
+    \left\|\frac{dq_C}{ds}\right\|_{q_C}=1.
+\]
+若 \(\nu_C\) 低于固定数值阈值，则把该位置视为驻点。
+
+\subsection{平方根球面上的稳定积分}
+
+令 \(h=\sqrt q\)。在一个流点，球面速度为
+\[
+    \dot h
+    =
+    \frac{u^C}{2\sqrt q}.
+\]
+对弧长步长 \(\Delta s\)，令
+\[
+    \widehat z
+    =
+    \frac{\dot h}{\|\dot h\|_2},
+\]
+则使用球面大圆回缩
+\[
+    h^+
+    =
+    \cos\!\left(\frac{\Delta s}{2}\right)h
+    +
+    \sin\!\left(\frac{\Delta s}{2}\right)\widehat z,
+    \qquad
+    q^+=(h^+)^{\odot2}.
+    \label{eq:sphere-step}
+\]
+其中 \(\odot2\) 表示逐元素平方。式 \eqref{eq:sphere-step} 自动保持
+\(q_m^+>0\) 和 \(\sum_mq_m^+=1\)，比在 \(q\) 坐标中直接做 Euler
+更新稳定。
+
+若 proposed step 使
+\[
+    r_{\mathrm{ESS}}(q^+)<r_{\min},
+\]
+则二分缩短该步，停在满足约束的最大位置，并终止该条虚拟流。当前 pilot
+采用
+\[
+    r_{\min}=0.4,\qquad
+    \ell_{\max}=0.10,\qquad
+    H=30
+\]
+作为初始配置；这些是待校准的实现参数，不是理论常数。
+
+\section{黎曼流曲率残差}
+
+\subsection{三个共同位置}
+
+在共同弧长
+\[
+    s_1=\frac{\ell_{\max}}3,\qquad
+    s_2=\frac{2\ell_{\max}}3,\qquad
+    s_3=\ell_{\max}
+\]
+记录三个流点 \(q_C(s_k)\)，并用对数映射搬回共同起点切空间：
+\[
+    \eta_{C,k}
+    =
+    \Log_{q^0}\!\left(q_C(s_k)\right).
+\]
+若直接拼接 \(\eta_{C,1},\eta_{C,2},\eta_{C,3}\)，三个块都会主要包含
+同一个初始方向，等于重复编码单点梯度。当前方法不再使用这种原始三点
+拼接。
+
+\subsection{消去初始直线项}
+
+定义从起点看向第 \(k\) 个位置的平均方向
+\[
+    d_{C,k}
+    =
+    \frac{\eta_{C,k}}{s_k}.
+\]
+最终的单探针曲率残差为
+\[
+    \kappa(C;\mathcal D)
+    =
+    \frac1{\sqrt2}
+    \left[
+    \left(d_{C,2}-d_{C,1}\right)
+    \concat
+    \left(d_{C,3}-d_{C,2}\right)
+    \right].
+    \label{eq:curvature-signature}
+\]
+这里的 \(\concat\) 表示向量拼接。
+
+在共同起点的正规坐标中，短流展开为
+\[
+    \eta_C(s)
+    =
+    s\,v_C^0
+    +
+    \frac12s^2a_C^0
+    +
+    O(s^3),
+    \label{eq:flow-taylor}
+\]
+其中 \(v_C^0\) 是初始单位切向量，\(a_C^0\) 表示流的协变加速度。
+因此
+\[
+    d_{C,2}-d_{C,1}
+    =
+    \frac12(s_2-s_1)a_C^0+O(\ell_{\max}^2),
+\]
+\[
+    d_{C,3}-d_{C,2}
+    =
+    \frac12(s_3-s_2)a_C^0+O(\ell_{\max}^2).
+\]
+初始方向 \(v_C^0\) 被显式消去，留下向量场随经验分布变化而发生的转折。
+这种变化包含损失关于有效 log-prob 的二阶导数、集合统计量的重新计算以及
+Fisher--Rao 度量随 \(q\) 的变化。
+
+严格地说，式 \eqref{eq:curvature-signature} 是\textbf{曲率残差特征}，
+不是微分几何中某个点的精确标量曲率。它是三个有限流点给出的稳定有限差分：
+若路径是从起点出发的 Fisher--Rao 测地线，则
+\(\eta_C(s)=sv_C^0\)，从而 \(\kappa=0\)；路径越偏离该直线模型，
+残差通常越大。
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[>=Latex,scale=1.0]
+% Manifold patch
+\path[fill=gray!7,draw=black!35,thick]
+    (0,0) .. controls (2,-.7) and (4,-.45) .. (6,.15)
+          .. controls (5.7,2.5) and (1.0,2.65) .. (0,0);
+\node[black!55] at (.8,2.05) {Fisher 流形};
+\coordinate (Q0) at (1.05,.55);
+\fill[black] (Q0) circle (2.2pt) node[below left] {\(q^0\)};
+\draw[-{Latex},thick,black!65] (Q0) -- ++(1.25,.45)
+    node[below right,font=\small] {共同初始切向量};
+
+% same tangent, different curves
+\draw[very thick,rfblue]
+    (Q0) .. controls (2.25,.98) and (3.55,1.10) .. (5.35,1.72);
+\draw[very thick,rforange]
+    (Q0) .. controls (2.25,.98) and (3.40,.50) .. (5.45,.62);
+
+\foreach \x/\y/\lab in {2.32/0.93/1,3.72/1.18/2,5.35/1.72/3}
+  {\fill[rfblue] (\x,\y) circle (2pt) node[above,font=\scriptsize] {\(s_{\lab}\)};}
+\foreach \x/\y/\lab in {2.30/0.91/1,3.65/0.63/2,5.45/0.62/3}
+  {\fill[rforange] (\x,\y) circle (2pt) node[below,font=\scriptsize] {\(s_{\lab}\)};}
+
+\node[rfblue,right] at (5.35,1.72) {候选 \(A\)};
+\node[rforange,right] at (5.45,.62) {候选 \(B\)};
+
+% arrow to tangent space
+\draw[->,very thick,black!50] (6.6,1.15) -- (8.0,1.15)
+    node[midway,above,font=\small] {\(\Log_{q^0}\)};
+
+% tangent plane
+\begin{scope}[xshift=8.4cm,yshift=.15cm]
+  \fill[rflightgreen] (0,0)--(4.0,.45)--(4.5,2.55)--(.5,2.1)--cycle;
+  \draw[black!35,thick] (0,0)--(4.0,.45)--(4.5,2.55)--(.5,2.1)--cycle;
+  \coordinate (O) at (.75,.62);
+  \fill[black] (O) circle (2pt) node[below] {\(0\)};
+  \draw[thick,rfblue] (O) -- (1.65,1.00) -- (2.7,1.52) -- (3.75,2.10);
+  \draw[thick,rforange] (O) -- (1.65,.98) -- (2.85,.87) -- (3.95,.92);
+  \node[align=center,font=\small] at (2.1,-.42)
+    {共同切空间中的 \(\eta_{C,k}\)\\
+     初始直线项相同，后续残差不同};
+\end{scope}
+\end{tikzpicture}
+\caption{两个候选可以在起点具有相同的切向量，却因向量场在移动后变化不同
+而产生不同曲率残差。单点梯度检查看不到这种二阶分离。}
+\label{fig:curvature}
+\end{figure}
+
+\subsection{多探针与双锚点特征}
+
+对锚点 \(a\) 选择 \(R_a\) 个固定探针，定义
+\[
+    \Phi_a(C)
+    =
+    \frac1{\sqrt{R_a}}
+    \left[
+    \kappa(C;\mathcal D^{a,1})
+    \concat\cdots\concat
+    \kappa(C;\mathcal D^{a,R_a})
+    \right].
+\]
+锚点内距离为
+\[
+    D_a(C,C')
+    =
+    \left\|\Phi_a(C)-\Phi_a(C')\right\|_2.
+\]
+为了避免 scratch 与 warm 通道因天然尺度不同而由其中一个通道支配，
+在独立校准候选集上固定稳健尺度
+\[
+    \sigma_a
+    =
+    \median_{C<C'}D_a(C,C').
+\]
+最终双通道距离定义为
+\[
+    D_{\mathrm{RF}}(C,C')
+    =
+    \sqrt{
+    \frac12
+    \left[
+    \left(\frac{D_{\mathrm{scratch}}(C,C')}{\sigma_{\mathrm{scratch}}}\right)^2
+    +
+    \left(\frac{D_{\mathrm{warm}}(C,C')}{\sigma_{\mathrm{warm}}}\right)^2
+    \right]
+    }.
+    \label{eq:dual-distance}
+\]
+若实验只关心 from-scratch 或只关心 warmstart，则直接使用对应的单通道
+距离。所有探针、锚点、尺度常数和积分参数在正式搜索前固定，不能针对某个
+候选单独调整。
+
+\section{曲率特征如何进入搜索}
+
+\subsection{它筛选评价预算，而不预测适应度}
+
+设 \(\mathcal R\) 是已经完成真实训练的代表程序对集合。每个
+\(R\in\mathcal R\) 都具有真实适应度 \(F_{\mathrm{train}}(R)\) 和固定
+曲率特征。对新候选 \(C\)，找到最近代表
+\[
+    R^\star(C)
+    =
+    \argmin_{R\in\mathcal R}D_{\mathrm{RF}}(C,R),
+\]
+并记
+\[
+    D_{\min}(C)
+    =
+    D_{\mathrm{RF}}(C,R^\star(C)).
+\]
+\(D_{\min}\) 回答的是“这个组合是否提供新的局部非线性训练行为”，不回答
+“这个组合最终有多好”。未接受真实训练的候选不获得伪造适应度。
+
+\subsection{当前采用软筛选}
+
+现有离线结果尚不足以支持“距离小于固定阈值就永远不训练”的硬规则。
+因此定义随新颖度单调增加的训练概率
+\[
+    P_{\mathrm{train}}(C)
+    =
+    \eps_{\mathrm{audit}}
+    +
+    (1-\eps_{\mathrm{audit}})
+    \sigmoid\!\left(
+    \frac{D_{\min}(C)-\tau}{T}
+    \right),
+    \label{eq:soft-screen}
+\]
+其中：
+\begin{itemize}
+    \item \(\tau\) 是由独立校准集确定的距离中心；
+    \item \(T>0\) 控制软阈值宽度；
+    \item \(\eps_{\mathrm{audit}}>0\) 保证再接近的候选也有最小审计概率。
+\end{itemize}
+被抽中者执行与基线相同的真实 on-policy 训练并获得真实适应度。未被抽中者
+只作为最近代表的语法别名保存，不进入基于 fitness 的排名。审计得到的
+误跳过率用于重新校准 \(\tau,T,\eps_{\mathrm{audit}}\)。
+
+若未来独立实验能够证明某个距离区间的错误跳过率置信上界低于预设风险预算，
+式 \eqref{eq:soft-screen} 才可以在该区间退化为确定性跳过；在此之前，
+论文应把它称为\textbf{概率性训练前筛选}。
+
+\subsection{父代选择与单模块变异}
+
+父代的质量仍由已经真实训练得到的 \(F_{\mathrm{train}}\) 决定。曲率特征
+可以作为第二层多样性控制：
+\begin{enumerate}
+    \item 先按真实适应度执行 tournament selection；
+    \item 当多个已训练代表的适应度处于预设容差内时，优先选择曲率空间中
+    局部密度较低者；
+    \item 只变异 \(f\) 或 \(g\) 中的一个，得到
+    \(C'=(f',g)\) 或 \(C'=(f,g')\)；
+    \item 对完整 \(C'\) 重新计算 \(\Phi_a(C')\)，绝不把
+    \(f\) 描述符与 \(g\) 描述符分别打分后相加。
+\end{enumerate}
+
+对于单模块变异，还可以记录
+\[
+    \Delta_f
+    =
+    \Phi(f',g)-\Phi(f,g),
+    \qquad
+    \Delta_g
+    =
+    \Phi(f,g')-\Phi(f,g),
+\]
+用来调节下一代选择“变 \(f\)”还是“变 \(g\)”的概率。该量只表示哪个
+变异算子更可能离开已有行为区域，不应被解释为性能提升方向。
+
+\subsection{完整搜索伪代码}
+
+\begin{center}
+\fcolorbox{black!25}{gray!4}{
+\begin{minipage}{0.92\linewidth}
+\small
+\textbf{输入：}已训练代表集合 \(\mathcal R\)，固定 scratch/warm 探针，
+积分参数与校准常数。\\[2mm]
+\textbf{重复：}
+\begin{enumerate}
+    \item 按真实适应度选择一个已训练行为单元；必要时用曲率密度打破平局。
+    \item 从该单元的代表或保留别名出发，只变异 \(f\) 或 \(g\) 中的一个，
+    形成完整候选 \(C'\)。
+    \item 编译并检查 AST、有限值、非零权重和有效偏好对。
+    \item 对每个固定探针令 \(q^0=1/M\)，按
+    \eqref{eq:effective-logprob}--\eqref{eq:sphere-step} 积分短流。
+    \item 在 \(s_1,s_2,s_3\) 记录流点，按
+    \eqref{eq:curvature-signature} 得到曲率残差。
+    \item 拼接多探针、双锚点特征，计算 \(D_{\min}(C')\)。
+    \item 按 \eqref{eq:soft-screen} 决定是否执行真实训练：
+    \begin{itemize}
+        \item 若训练：得到 \(F_{\mathrm{train}}(C')\)，建立新的已评价代表；
+        \item 若暂不训练：保存为最近代表的语法别名，不赋予独立 fitness。
+    \end{itemize}
+    \item 随机审计部分近邻别名，更新下一轮搜索使用的校准常数。
+\end{enumerate}
+\textbf{输出：}真实训练适应度最高的完整程序对。
+\end{minipage}}
+\end{center}
+
+\section{“梯度等价”究竟指什么}
+
+\subsection{经验单纯形上的一阶等价}
+
+固定同一个 \(q\)，定义线性映射
+\[
+    P_q(c)
+    =
+    c-q\bm 1^\top c.
+\]
+式 \eqref{eq:fisher-field} 就是 \(u=P_q(c)\)。对两个候选 \(A,B\)，
+\[
+    u_A(q)=u_B(q)
+    \quad\Longleftrightarrow\quad
+    c_A(q)-c_B(q)=\lambda q
+    \quad\text{对某个 }\lambda\in\R.
+    \label{eq:tangent-equivalence}
+\]
+证明很直接：若两个投影相同，令 \(d=c_A-c_B\)，则
+\(d=q\bm1^\top d\)，所以 \(d\) 必须是 \(q\) 的倍数；反向代入也成立。
+
+式 \eqref{eq:tangent-equivalence} 的含义是：两个解级系数在去掉概率单纯形
+法向分量后，诱导相同的\textbf{经验分布一阶变化}。它不是无条件的神经
+网络参数梯度等价。真实参数梯度为
+\[
+    -\nabla_\theta\mathcal L_C
+    =
+    \sum_m c_m^C\nabla_\theta p_m,
+\]
+除非额外满足相应的 score-centering 条件，否则
+\(c_A-c_B=\lambda q\) 不必推出两者的完整参数梯度相同。本文把虚拟流明确
+定位为固定支持集上的行为代理，因此不使用更强的参数梯度等价表述。
+
+\subsection{为什么最终描述符不使用初始切向量}
+
+初始切向量 \(u_C(q^0)\) 只描述一个点上的一阶行为。两个候选即使满足
+\[
+    u_A(q^0)=u_B(q^0),
+\]
+只要向量场导数不同，
+\[
+    D u_A(q^0)[u_A(q^0)]
+    \ne
+    D u_B(q^0)[u_B(q^0)],
+\]
+二者的流就会从二阶开始分离。曲率残差 \(\kappa_C\) 正是为了观察这种
+分离，并显式消去初始直线项。
+
+反过来，只保留曲率也会丢失纯粹的初始方向差异。例如两条方向不同但都近似
+笔直的流都可能具有较小 \(\kappa\)。这正是当前版本只进行软筛选并保留
+\(\eps_{\mathrm{audit}}\) 的原因：\(\kappa\) 是经实验选择的非线性行为
+标记，不是完整训练等价的数学证明。
+
+\subsection{现有实证证据：二阶曲率比一阶初始场更有用}
+
+我们用已经完成真实训练的候选检验曲率是否只是更复杂的一阶编码。这里的
+一阶基线是在共同起点 \(q^0\) 计算的初始 Fisher--Rao 场；二阶特征是
+式 \eqref{eq:curvature-signature} 的曲率残差。对任意候选对
+\((C_i,C_j)\)，令
+\[
+    y_{ij}
+    =
+    \left|
+    F_{\mathrm{train}}(C_i)-F_{\mathrm{train}}(C_j)
+    \right|,
+\]
+并分别计算一阶特征距离 \(d^{(1)}_{ij}\) 和曲率距离
+\(d^{(2)}_{ij}\)。评价量
+\[
+    \rho^{(r)}
+    =
+    \operatorname{Spearman}
+    \left(
+        \{d^{(r)}_{ij}\}_{i<j},
+        \{y_{ij}\}_{i<j}
+    \right),
+    \qquad r\in\{1,2\},
+\]
+衡量描述符距离能否预测真实训练适应度差；\(\rho\) 越大，行为上相近的
+候选越可能具有相近的真实适应度。我们还报告每个候选在描述符空间中最近邻
+的适应度绝对误差中位数，越小越好。
+
+主实验使用 \(40\) 个同时具有 from-scratch 与 checkpoint-135 高保真
+适应度的候选，并在每个锚点上使用两组独立 rollout probe。表
+\ref{tab:second-order-evidence} 显示，曲率在四种匹配设置中都比初始场
+具有更高的距离--适应度差相关，同时得到更小的最近邻误差。
+
+\begin{table}[t]
+\centering
+\small
+\caption{初始一阶场与二阶曲率残差的匹配候选结果。NN 误差是描述符最近邻
+的真实适应度绝对误差中位数。}
+\label{tab:second-order-evidence}
+\begin{tabular}{llrrrrr}
+\toprule
+锚点 & Probe & \(\rho^{(1)}\) & \(\rho^{(2)}\) &
+\(\Delta\rho\) & 一阶 NN & 曲率 NN\\
+\midrule
+scratch & 1 & 0.117 & 0.565 & \(+0.448\) & 0.01008 & 0.00856\\
+scratch & 2 & 0.121 & 0.578 & \(+0.456\) & 0.01008 & 0.00866\\
+warm    & 1 & 0.239 & 0.552 & \(+0.314\) & 0.00233 & 0.00201\\
+warm    & 2 & 0.240 & 0.573 & \(+0.334\) & 0.00233 & 0.00171\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+在候选级 bootstrap 中，scratch 的 \(\Delta\rho\) 的 \(95\%\) 区间为
+\([0.042,0.699]\) 和 \([0.056,0.723]\)。warmstart 的点估计也稳定为正，
+但对应区间 \([-0.069,0.603]\) 和 \([-0.042,0.622]\) 仍跨过零，因此
+当前样本量不足以声称 warmstart 上的增益已经达到统计显著。更重要的是，
+曲率距离与初始场距离的相关只有 \(0.06\)--\(0.16\)；控制初始场距离后，
+曲率距离与适应度差的偏相关在 scratch 上为 \(0.563/0.574\)，在 warm
+上为 \(0.537/0.558\)。这说明曲率提供的是初始场之外的增量信息，而不是
+把一阶方向重复编码到更高维向量中。
+
+在固定曲率公式后，我们又将其直接用于另一批 \(65\) 个未参与特征选择的
+scratch 高保真候选。两个 probe 上，一阶场的 \(\rho\) 均为 \(0.091\)，
+曲率的 \(\rho\) 分别为 \(0.454\) 和 \(0.487\)；最近邻误差也分别从
+\(0.00768\) 降至 \(0.00689\)，以及从 \(0.00936\) 降至 \(0.00646\)。
+这一独立候选集合复现排除了“只在用于选择曲率公式的候选上有效”这一简单
+解释。
+
+该结论对数值设置也较稳定：两组独立 probe 的曲率距离相关在 scratch 和
+warm 上分别为 \(0.997\) 和 \(0.991\)；积分步数从 \(30\) 增至 \(60\)
+时，\(\rho\) 的变化小于 \(10^{-3}\)；把共同弧长从 \(0.10\) 增至
+\(0.50\) 后，曲率的 \(\rho\) 仍为 \(0.582\) 和 \(0.522\)，继续超过
+相应的一阶基线。相比之下，直接拼接三个流位置时的 \(\rho\) 仅约为
+\(0.11\)--\(0.21\)，说明有效信息来自消去初始直线项后的二阶残差，
+而不是“多取几个一阶流点”。
+
+因此，现有证据支持一个有边界的结论：\textbf{在当前冻结 rollout、
+固定 \(g_{\mathrm{ref}}\) 的候选集合上，二阶曲率残差比初始一阶场更能
+识别真实训练行为近邻。}这里的“更有用”特指更高的距离--适应度差相关和
+更低的最近邻适应度误差，并不意味着曲率已经足以替代真实训练，也不等价于
+已经证明曲率筛选能提高最终搜索的 best-so-far。这一边界与软筛选和随机
+审计的设计一致。
+
+\subsection{与 AutoLoss-Zero 梯度等价检查的区别}
+
+AutoLoss-Zero 对每个候选损失 \(L\)，在 \(B=5\) 个样本上记录
+\[
+    \left\{
+    \left\|
+    \frac{\partial L}{\partial\widehat y_b}
+    \right\|_2
+    \right\}_{b=1}^{B}.
+\]
+如果两个候选在所有样本上的梯度范数保留两位有效数字后相同，就认为二者
+等价并复用已有评价分数~\cite{Li_2022_CVPR}。
+
+\begin{table}[t]
+\centering
+\caption{AutoLoss-Zero 的梯度范数检查与 \RFPS{} 曲率筛选的对象不同。}
+\label{tab:gradient-difference}
+\begin{tabularx}{\linewidth}{>{\bfseries}p{2.8cm}XX}
+\toprule
+ & AutoLoss-Zero & \RFPS{}（当前版本）\\
+\midrule
+搜索单位 & 单个损失表达式 & 完整程序对 \(C=(f,g)\)\\
+观测量 & 每个样本的预测梯度范数 & 经验分布上的多步 Fisher--Rao 流曲率残差\\
+保留方向吗 & 否；范数是标量 & 不单独保留初始方向；保留方向如何随流变化\\
+是否重新求导 & 否，只检查一个局部状态 & 是，每个流点重算权重、统计量和梯度\\
+相近的含义 & 局部梯度范数签名相同 & 局部非线性分布响应相近\\
+用途 & 视为等价并复用分数 & 概率性分配真实训练预算，保留审计\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+因此，两种方法不能概括为“都给候选算一个梯度标签”。AutoLoss-Zero
+压缩的是单点梯度的\textbf{大小}；\RFPS{} 观察的是完整程序对诱导的
+\textbf{分布动力学如何弯曲}。具有相同梯度范数的两个候选可以拥有相反或
+正交的梯度方向；即使完整初始切向量相同，它们也可以因 Hessian、集合统计
+重算和度量变化而得到不同的 \(\kappa\)。
+
+\section{实现参数、计算量与边界}
+
+\subsection{当前推荐配置}
+
+\begin{table}[h]
+\centering
+\caption{当前 pilot 使用的主要配置。正式搜索前应在独立校准集上冻结。}
+\begin{tabular}{lll}
+\toprule
+符号 & 当前值 & 含义\\
+\midrule
+\(\ell_{\max}\) & \(0.10\) & Fisher--Rao 最大共同弧长\\
+\(H\) & \(30\) & 球面回缩积分步数\\
+\((s_1,s_2,s_3)\) &
+\((\ell_{\max}/3,2\ell_{\max}/3,\ell_{\max})\) & 流检查点\\
+\(r_{\min}\) & \(0.4\) & 最小归一化 ESS\\
+\(q^0\) & \(1/M\) & 固定 rollout 的初始经验分布\\
+锚点 & scratch, warm & 分别服务两种真实训练初始化\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{计算量}
+
+设每个探针有 \(M\) 条 rollout、\(P\) 个偏好对，使用 \(H\) 个积分步，
+共有 \(R\) 个探针。忽略候选程序 AST 的常数级差异，描述符成本约为
+\[
+    O\!\left(RH(P+M)\right).
+\]
+它不执行新 rollout，不构造完整网络参数梯度，也不更新优化器状态。其价值
+成立的必要条件是：描述符及近邻检索的总成本显著小于被减少的真实训练成本。
+
+\subsection{必须保留的边界}
+
+\begin{enumerate}
+    \item \textbf{冻结 rollout 不是真实 on-policy 轨迹。}
+    虚拟流不重新采样，无法表示排序、best anchor 和可达轨迹集合的离散变化。
+    \item \textbf{经验分布变化不一定由某个网络参数更新精确实现。}
+    本文没有声称 \(q(s)\) 是参数空间真实训练轨迹的投影。
+    \item \textbf{曲率相近不等于完整训练等价。}
+    它只是在固定探针、固定弧长和固定数值协议下的近似行为标记。
+    \item \textbf{重要性采样只在有效支持范围内可靠。}
+    ESS 下界限制了权重退化，但不能补回基准 rollout 从未覆盖的轨迹。
+    \item \textbf{当前直接证据主要来自固定 \(g_{\mathrm{ref}}\)、改变 \(f\)。}
+    正式方法结论还需在固定 \(f\)、改变 \(g\) 以及真正的 \((f,g)\)
+    联合候选上验证。
+    \item \textbf{warmstart 样本量仍需扩大。}
+    当前趋势稳定为正，但应通过新的独立候选集确认误筛风险。
+\end{enumerate}
+
+\subsection{最小验证清单}
+
+在把曲率筛选接入正式搜索以前，至少完成：
+\begin{enumerate}
+    \item 数值恒等式：
+    \(\sum_mu_m=0\)、\(q_m>0\)、\(\sum_mq_m=1\)；
+    \item 步数稳定性：\(H=30\) 与 \(H=60\) 的距离矩阵近似一致；
+    \item probe 稳定性：独立 rollout bank 的候选两两距离保持高相关；
+    \item 增量价值：\(\kappa\) 对真实训练差异的相关性超过初始场；
+    \item 双轴验证：分别改变 \(f\)、改变 \(g\)，再测试联合组合；
+    \item 风险曲线：报告不同 \(\tau,T,\eps_{\mathrm{audit}}\) 下的真实训练率、
+    错误跳过率和 best-so-far；
+    \item 精确复现 AutoLoss-Zero 的梯度范数检查作为直接基线。
+\end{enumerate}
+
+\section{符号表}
+
+\begin{table}[h]
+\centering
+\begin{tabularx}{\linewidth}{>{\centering\arraybackslash}p{2.4cm}X}
+\toprule
+符号 & 含义\\
+\midrule
+\(C=(f,g)\) & 完整候选；\(f\) 是成对损失程序，\(g\) 是集合权重程序\\
+\(\tau_{bj}\) & 第 \(b\) 个实例的第 \(j\) 条固定 rollout\\
+\(o_{bj},T_{bj},p^0_{bj}\) & rollout 的目标值、长度和基准策略 log-prob\\
+\(M\) & 一个探针中展平后的 rollout 总数\\
+\(q^0,q(s)\) & 初始与流中的经验概率分布\\
+\(\bar q_{bj}\) & 在单个实例内部归一化的经验权重\\
+\(p_m(q)\) & 密度比修正后的有效 log-prob\\
+\(\mathcal L_C(q)\) & 完整程序对在流点 \(q\) 上的重加权损失\\
+\(c_m^C\) & \(-\partial\mathcal L_C/\partial p_m\)，解级普通导数系数\\
+\(u_C(q)\) & 单纯形上的 Fisher--Rao 负梯度场\\
+\(\nu_C(q)\) & 向量场的 Fisher--Rao 速度\\
+\(s,\ell_{\max}\) & 共同 Fisher--Rao 弧长及其最大值\\
+\(\eta_{C,k}\) & 第 \(k\) 个流点映射到起点切空间后的坐标\\
+\(\kappa(C;\mathcal D)\) & 单探针曲率残差特征\\
+\(\Phi_a(C)\) & 锚点 \(a\) 上的多探针曲率特征\\
+\(D_{\mathrm{RF}}\) & 融合 scratch 与 warm 通道的曲率距离\\
+\(F_{\mathrm{train}}(C)\) & 真实 on-policy 训练得到的适应度\\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{小结}
+
+\RFPS{} 的核心不是“把某个梯度再算一个分数”，而是以下连续过程：
+\[
+    (f,g)
+    \longrightarrow
+    \mathcal L_C
+    \longrightarrow
+    u_C(q)
+    \longrightarrow
+    q_C(s)
+    \longrightarrow
+    \kappa_C
+    \longrightarrow
+    \text{真实训练预算分配}.
+\]
+两个程序分别变异，使生成问题保持简单；二者组合后的损失却只诱导一条联合
+Fisher--Rao 流。曲率残差消去初始直线项，专门保留候选目标在经验分布发生
+小幅变化后表现出的非线性响应。现有高保真候选实验中，曲率距离与真实
+适应度差的相关在 scratch 和 warm 两个锚点上都高于初始一阶场，并在独立
+scratch 候选集合上复现。该特征目前用于概率性预筛与父代多样性控制，而
+真实适应度仍完全来自标准 on-policy 训练。
+
+\bibliographystyle{plain}
+\bibliography{rfps_method}
+
+\end{document}

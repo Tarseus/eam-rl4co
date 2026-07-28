@@ -1,16 +1,20 @@
 project: rfps-minimality
 question: Which RFPS descriptor components are necessary for predicting real training-behavior similarity?
-status: protocol_locked
-current_phase: inner_loop
+status: completed
+current_phase: paper_method_rewritten_and_verified
 primary_metric: pairwise_distance_fitness_gap_spearman
 decision_rule: protocol.md
 hypotheses:
-  H1_two_checkpoint_curvature: pending
-  H2_two_point_field_delta: pending
-  H3_euclidean_virtual_update: pending
-  H4_probe_count: pending
-  H5_anchor_count: pending
+  H1_two_checkpoint_curvature: confirmed_third_checkpoint_redundant
+  H2_two_point_field_delta: raw_delta_refuted_direction_pair_supported
+  H3_euclidean_virtual_update: confirmed_fisher_geometry_redundant
+  H4_probe_count: partially_supported_single_bank_retained
+  H5_anchor_count: confirmed_single_checkpoint_anchor
 artifacts:
   protocol: research/experiments/rfps_minimality/protocol.md
   findings: research/experiments/rfps_minimality/findings.md
   log: research/experiments/rfps_minimality/research-log.md
+  report: research/experiments/rfps_minimality/minimality_report.md
+  method_tex: research/riemannian_flow_program_pair_search.tex
+  compiled_pdf: research/riemannian_flow_program_pair_search.pdf
+  archived_v3: research/archive/riemannian_flow_program_pair_search_v3.tex
