@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib.util
 import json
 import math
 import sys
@@ -15,9 +16,14 @@ from scipy.stats import spearmanr
 
 
 HERE = Path(__file__).resolve().parent
-sys.path.insert(0, str(HERE))
-
-import run_validation as dual
+spec = importlib.util.spec_from_file_location(
+    'pair_margin_dual_validation', HERE / 'run_validation.py'
+)
+if spec is None or spec.loader is None:
+    raise ImportError('cannot load real-margin validation module')
+dual = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = dual
+spec.loader.exec_module(dual)
 
 
 METHODS = (
