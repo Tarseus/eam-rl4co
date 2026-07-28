@@ -51,6 +51,21 @@ def test_llm_model_routing_prefers_nano_for_bulk_and_mini_for_repairs(monkeypatc
     assert state["models"] == ["gpt-4.1-nano", "gpt-4.1-mini", "gpt-4.1-mini"]
 
 
+def test_explicit_openai_model_overrides_all_operation_tiers(monkeypatch):
+    repo_root = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(repo_root))
+    sys.path.insert(0, str(repo_root / "PTP"))
+
+    from ptp_discovery import free_loss_llm_ops as llm_ops
+
+    monkeypatch.setenv("OPENAI_MODEL", "gpt-4.1-nano")
+    monkeypatch.setenv("OPENAI_MODEL_NANO", "nano-tier-model")
+    monkeypatch.setenv("OPENAI_MODEL_MINI", "mini-tier-model")
+
+    for llm_op in ("E1", "REPAIR", "M3", "DIR_REPAIR_SYNTAX", "LOSS_CONSTRAINT_INJECT", "UNKNOWN"):
+        assert llm_ops._resolve_llm_model_for_op(llm_op) == "gpt-4.1-nano"
+
+
 def test_eoh_smoke_generates_m1(monkeypatch, tmp_path):
     # Ensure local `PTP/` modules are importable under pytest.
     repo_root = Path(__file__).resolve().parents[1]

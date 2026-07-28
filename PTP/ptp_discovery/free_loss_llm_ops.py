@@ -529,9 +529,12 @@ def _cache_key(*, model: str, prompt: str) -> str:
 def _resolve_llm_model_for_op(llm_op: str) -> str:
     op = str(llm_op or "").strip().upper()
 
+    explicit_model = str(os.getenv("OPENAI_MODEL", "") or "").strip()
+    if explicit_model:
+        return explicit_model
+
     nano_default = os.getenv("OPENAI_MODEL_NANO", "gpt-4.1-nano")
     mini_default = os.getenv("OPENAI_MODEL_MINI", "gpt-4.1-mini")
-    fallback_model = os.getenv("OPENAI_MODEL", mini_default)
 
     nano_ops = {"E1_GENERATE", "E1", "E2", "M1", "M2"}
     mini_prefixes = ("DIR_REPAIR_",)
@@ -546,7 +549,7 @@ def _resolve_llm_model_for_op(llm_op: str) -> str:
         return str(mini_default)
     if any(op.endswith(suffix) for suffix in mini_suffixes):
         return str(mini_default)
-    return str(fallback_model)
+    return str(mini_default)
 
 
 def _call_llm(prompt: str, *, llm_op: str, prompt_path: str | None) -> str:
