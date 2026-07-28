@@ -1,0 +1,624 @@
+[2026-07-28 11:11:52,848] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-20260728-1100/search_runs/20260728-111152
+[2026-07-28 11:11:52,849] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torchrl/data/replay_buffers/samplers.py:37: UserWarning: Failed to import torchrl C++ binaries. Some modules (eg, prioritized replay buffers) may not work with your installation. If you installed TorchRL from PyPI, please report the bug on TorchRL github. If you installed TorchRL locally and/or in development mode, check that you have all the required compiling packages.
+  warnings.warn(EXTENSION_WARNING)
+[2026-07-28 11:11:58,232] WARNING:fitness.free_loss_fidelity: weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt
+[2026-07-28 11:11:58,333] INFO:fitness.free_loss_fidelity: Loaded init checkpoint into policy: path=/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt prefix=policy. matched=97 missing=0 unexpected=0
+[2026-07-28 11:12:19,497] WARNING:fitness.free_loss_fidelity: weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt
+[2026-07-28 11:12:19,545] INFO:fitness.free_loss_fidelity: Loaded init checkpoint into policy: path=/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt prefix=policy. matched=97 missing=0 unexpected=0
+[2026-07-28 11:12:19,550] INFO:fitness.free_loss_fidelity: RL4CO free-loss phase=warmstart: epochs=1 steps_f1=1563 steps_f2=0 total_steps=1563 (ckpt=/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt, device=cuda:0, env=tsp)
+[2026-07-28 11:12:20,138] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 1/1563: score=7.751812 (avg=7.751812), loss=0.674859 (avg=0.674859), pairs_step=315787, pairs_total=315787
+[2026-07-28 11:13:11,819] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 156/1563: score=7.752089 (avg=7.796222), loss=0.672862 (avg=0.674419), pairs_step=315938, pairs_total=49249207
+[2026-07-28 11:14:03,852] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 312/1563: score=7.787898 (avg=7.799069), loss=0.673475 (avg=0.674448), pairs_step=315519, pairs_total=98491616
+[2026-07-28 11:14:55,870] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 468/1563: score=7.832687 (avg=7.798918), loss=0.675975 (avg=0.674539), pairs_step=315951, pairs_total=147733248
+[2026-07-28 11:15:48,112] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 624/1563: score=7.784493 (avg=7.797798), loss=0.676384 (avg=0.674487), pairs_step=315854, pairs_total=196974642
+[2026-07-28 11:16:40,124] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 780/1563: score=7.838115 (avg=7.798410), loss=0.676544 (avg=0.674529), pairs_step=316015, pairs_total=246221902
+[2026-07-28 11:17:32,143] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 936/1563: score=7.778196 (avg=7.798327), loss=0.675460 (avg=0.674667), pairs_step=315797, pairs_total=295469569
+[2026-07-28 11:18:24,154] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 1092/1563: score=7.804465 (avg=7.797976), loss=0.673495 (avg=0.674697), pairs_step=315534, pairs_total=344707312
+[2026-07-28 11:19:16,161] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 1248/1563: score=7.793777 (avg=7.798297), loss=0.675636 (avg=0.674694), pairs_step=315511, pairs_total=393955325
+[2026-07-28 11:20:08,222] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 1404/1563: score=7.818193 (avg=7.797788), loss=0.674655 (avg=0.674672), pairs_step=315620, pairs_total=443194841
+[2026-07-28 11:21:00,501] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] step 1560/1563: score=7.826956 (avg=7.797839), loss=0.672780 (avg=0.674637), pairs_step=315235, pairs_total=492435888
+[2026-07-28 11:21:22,349] INFO:fitness.free_loss_fidelity: RL4CO free-loss[warmstart] epoch 1/1: validation_objective=7.799167
+[2026-07-28 11:21:43,501] INFO:ptp_discovery.pref_loss_coevo: Stage3 baseline mini-eval prepared scenario=tsp100 fidelity=epoch1_inst100000 path=/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-20260728-1100/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json cached=False regenerated=True
+[2026-07-28 11:21:43,501] WARNING:ptp_discovery.pref_loss_coevo: preset=simple: advanced keys are ignored: ['cheap_gate_on', 'high_fidelity_on']
+[2026-07-28 11:21:43,502] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-20260728-1100/search_runs/20260728-111152/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-07-28 11:21:43,502] WARNING:ptp_discovery.pref_loss_coevo: Failed to load external baseline epoch objectives (/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/baseline/metrics.csv): [Errno 2] No such file or directory: '/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/baseline/metrics.csv'
+[2026-07-28 11:21:43,503] INFO:ptp_discovery.pref_loss_coevo: Initialized incumbent from baseline: score=inf pair=(g_ref,f_ref) stage=baseline gen=-1
+[2026-07-28 11:21:43,503] INFO:ptp_discovery.pref_loss_coevo: Baseline incumbent uses sentinel score (no external baseline_early_valid); will calibrate with evaluated (g_ref,f_ref) when rollout caches are available.
+[2026-07-28 11:21:43,504] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=0 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-28 11:21:43,504] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 0/19 ===
+[2026-07-28 11:21:43,504] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-28 11:21:43,504] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-07-28 11:21:44,023] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=371M/free=23753M/alloc=16M/resv=40M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-28 11:21:44,024] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-07-28 11:21:44,024] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-07-28 11:21:44,024] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-07-28 11:22:04,565] INFO:openai._base_client: Retrying request to /chat/completions in 0.379193 seconds
+[2026-07-28 11:22:24,966] INFO:openai._base_client: Retrying request to /chat/completions in 0.889817 seconds
+[2026-07-28 11:22:45,878] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.5s
+[2026-07-28 11:23:06,407] INFO:openai._base_client: Retrying request to /chat/completions in 0.386128 seconds
+[2026-07-28 11:23:26,815] INFO:openai._base_client: Retrying request to /chat/completions in 0.765183 seconds
+[2026-07-28 11:23:47,602] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.2s
+[2026-07-28 11:24:09,789] INFO:openai._base_client: Retrying request to /chat/completions in 0.416055 seconds
+[2026-07-28 11:24:30,226] INFO:openai._base_client: Retrying request to /chat/completions in 0.979015 seconds
+[2026-07-28 11:24:51,227] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.1s
+[2026-07-28 11:25:16,315] INFO:openai._base_client: Retrying request to /chat/completions in 0.470399 seconds
+[2026-07-28 11:25:36,807] INFO:openai._base_client: Retrying request to /chat/completions in 0.992296 seconds
+[2026-07-28 11:25:57,821] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 10.3s
+[2026-07-28 11:26:28,153] INFO:openai._base_client: Retrying request to /chat/completions in 0.456739 seconds
+[2026-07-28 11:26:48,631] INFO:openai._base_client: Retrying request to /chat/completions in 0.844180 seconds
+[2026-07-28 11:27:09,497] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 17.9s
+[2026-07-28 11:27:47,372] INFO:openai._base_client: Retrying request to /chat/completions in 0.481431 seconds
+[2026-07-28 11:28:07,875] INFO:openai._base_client: Retrying request to /chat/completions in 0.954227 seconds
+[2026-07-28 11:28:28,851] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=0/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 11:28:48,874] INFO:openai._base_client: Retrying request to /chat/completions in 0.485698 seconds
+[2026-07-28 11:29:09,381] INFO:openai._base_client: Retrying request to /chat/completions in 0.996345 seconds
+[2026-07-28 11:29:30,399] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.0s
+[2026-07-28 11:29:51,408] INFO:openai._base_client: Retrying request to /chat/completions in 0.379387 seconds
+[2026-07-28 11:30:11,809] INFO:openai._base_client: Retrying request to /chat/completions in 0.983859 seconds
+[2026-07-28 11:30:32,815] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.1s
+[2026-07-28 11:30:54,919] INFO:openai._base_client: Retrying request to /chat/completions in 0.441763 seconds
+[2026-07-28 11:31:15,382] INFO:openai._base_client: Retrying request to /chat/completions in 0.849634 seconds
+[2026-07-28 11:31:36,253] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 2.4s
+[2026-07-28 11:31:58,631] INFO:openai._base_client: Retrying request to /chat/completions in 0.427625 seconds
+[2026-07-28 11:32:19,080] INFO:openai._base_client: Retrying request to /chat/completions in 0.932604 seconds
+[2026-07-28 11:32:40,035] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 8.5s
+[2026-07-28 11:33:08,508] INFO:openai._base_client: Retrying request to /chat/completions in 0.419421 seconds
+[2026-07-28 11:33:28,949] INFO:openai._base_client: Retrying request to /chat/completions in 0.879741 seconds
+[2026-07-28 11:33:49,850] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.7s
+[2026-07-28 11:34:23,557] INFO:openai._base_client: Retrying request to /chat/completions in 0.468856 seconds
+[2026-07-28 11:34:44,047] INFO:openai._base_client: Retrying request to /chat/completions in 0.766621 seconds
+[2026-07-28 11:35:04,835] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=1/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 11:35:24,858] INFO:openai._base_client: Retrying request to /chat/completions in 0.443326 seconds
+[2026-07-28 11:35:45,323] INFO:openai._base_client: Retrying request to /chat/completions in 0.867460 seconds
+[2026-07-28 11:36:06,212] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.5s
+[2026-07-28 11:36:26,753] INFO:openai._base_client: Retrying request to /chat/completions in 0.436487 seconds
+[2026-07-28 11:36:47,211] INFO:openai._base_client: Retrying request to /chat/completions in 0.998555 seconds
+[2026-07-28 11:37:08,231] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 11:37:29,541] INFO:openai._base_client: Retrying request to /chat/completions in 0.440897 seconds
+[2026-07-28 11:37:50,003] INFO:openai._base_client: Retrying request to /chat/completions in 0.905663 seconds
+[2026-07-28 11:38:10,931] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 2.2s
+[2026-07-28 11:38:33,170] INFO:openai._base_client: Retrying request to /chat/completions in 0.426559 seconds
+[2026-07-28 11:38:53,618] INFO:openai._base_client: Retrying request to /chat/completions in 0.958999 seconds
+[2026-07-28 11:39:14,598] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 8.5s
+[2026-07-28 11:39:43,079] INFO:openai._base_client: Retrying request to /chat/completions in 0.481969 seconds
+[2026-07-28 11:40:03,582] INFO:openai._base_client: Retrying request to /chat/completions in 0.765673 seconds
+[2026-07-28 11:40:24,370] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 20.3s
+[2026-07-28 11:41:04,728] INFO:openai._base_client: Retrying request to /chat/completions in 0.380383 seconds
+[2026-07-28 11:41:25,129] INFO:openai._base_client: Retrying request to /chat/completions in 0.964693 seconds
+[2026-07-28 11:41:46,116] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=2/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 11:42:06,139] INFO:openai._base_client: Retrying request to /chat/completions in 0.461826 seconds
+[2026-07-28 11:42:26,622] INFO:openai._base_client: Retrying request to /chat/completions in 0.990103 seconds
+[2026-07-28 11:42:47,634] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.8s
+[2026-07-28 11:43:08,433] INFO:openai._base_client: Retrying request to /chat/completions in 0.399186 seconds
+[2026-07-28 11:43:28,854] INFO:openai._base_client: Retrying request to /chat/completions in 0.955664 seconds
+[2026-07-28 11:43:49,831] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 11:44:11,162] INFO:openai._base_client: Retrying request to /chat/completions in 0.380660 seconds
+[2026-07-28 11:44:31,565] INFO:openai._base_client: Retrying request to /chat/completions in 0.961362 seconds
+[2026-07-28 11:44:52,548] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.3s
+[2026-07-28 11:45:17,906] INFO:openai._base_client: Retrying request to /chat/completions in 0.494867 seconds
+[2026-07-28 11:45:38,422] INFO:openai._base_client: Retrying request to /chat/completions in 0.903454 seconds
+[2026-07-28 11:45:59,347] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 6.8s
+[2026-07-28 11:46:26,166] INFO:openai._base_client: Retrying request to /chat/completions in 0.457287 seconds
+[2026-07-28 11:46:46,645] INFO:openai._base_client: Retrying request to /chat/completions in 0.795884 seconds
+[2026-07-28 11:47:07,463] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 15.6s
+[2026-07-28 11:47:43,100] INFO:openai._base_client: Retrying request to /chat/completions in 0.402139 seconds
+[2026-07-28 11:48:03,524] INFO:openai._base_client: Retrying request to /chat/completions in 0.882290 seconds
+[2026-07-28 11:48:24,428] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=3/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 11:48:44,451] INFO:openai._base_client: Retrying request to /chat/completions in 0.397832 seconds
+[2026-07-28 11:49:04,870] INFO:openai._base_client: Retrying request to /chat/completions in 0.779608 seconds
+[2026-07-28 11:49:25,671] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.9s
+[2026-07-28 11:49:46,633] INFO:openai._base_client: Retrying request to /chat/completions in 0.402367 seconds
+[2026-07-28 11:50:07,057] INFO:openai._base_client: Retrying request to /chat/completions in 0.796315 seconds
+[2026-07-28 11:50:27,876] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.6s
+[2026-07-28 11:50:49,489] INFO:openai._base_client: Retrying request to /chat/completions in 0.484515 seconds
+[2026-07-28 11:51:09,995] INFO:openai._base_client: Retrying request to /chat/completions in 0.953595 seconds
+[2026-07-28 11:51:30,970] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.7s
+[2026-07-28 11:51:54,737] INFO:openai._base_client: Retrying request to /chat/completions in 0.485067 seconds
+[2026-07-28 11:52:15,244] INFO:openai._base_client: Retrying request to /chat/completions in 0.867550 seconds
+[2026-07-28 11:52:36,133] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 10.6s
+[2026-07-28 11:53:06,790] INFO:openai._base_client: Retrying request to /chat/completions in 0.439350 seconds
+[2026-07-28 11:53:27,251] INFO:openai._base_client: Retrying request to /chat/completions in 0.795566 seconds
+[2026-07-28 11:53:48,068] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 18.5s
+[2026-07-28 11:54:26,593] INFO:openai._base_client: Retrying request to /chat/completions in 0.419870 seconds
+[2026-07-28 11:54:47,034] INFO:openai._base_client: Retrying request to /chat/completions in 0.913663 seconds
+[2026-07-28 11:55:07,970] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=4/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 11:55:27,993] INFO:openai._base_client: Retrying request to /chat/completions in 0.412168 seconds
+[2026-07-28 11:55:48,426] INFO:openai._base_client: Retrying request to /chat/completions in 0.797515 seconds
+[2026-07-28 11:56:09,246] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.7s
+[2026-07-28 11:56:29,925] INFO:openai._base_client: Retrying request to /chat/completions in 0.386501 seconds
+[2026-07-28 11:56:50,333] INFO:openai._base_client: Retrying request to /chat/completions in 0.932667 seconds
+[2026-07-28 11:57:11,287] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 11:57:32,619] INFO:openai._base_client: Retrying request to /chat/completions in 0.394940 seconds
+[2026-07-28 11:57:53,036] INFO:openai._base_client: Retrying request to /chat/completions in 0.819968 seconds
+[2026-07-28 11:58:13,877] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.2s
+[2026-07-28 11:58:39,074] INFO:openai._base_client: Retrying request to /chat/completions in 0.444166 seconds
+[2026-07-28 11:58:59,539] INFO:openai._base_client: Retrying request to /chat/completions in 0.982307 seconds
+[2026-07-28 11:59:20,543] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 7.2s
+[2026-07-28 11:59:47,728] INFO:openai._base_client: Retrying request to /chat/completions in 0.494033 seconds
+[2026-07-28 12:00:08,243] INFO:openai._base_client: Retrying request to /chat/completions in 0.928467 seconds
+[2026-07-28 12:00:29,193] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 8.6s
+[2026-07-28 12:00:57,823] INFO:openai._base_client: Retrying request to /chat/completions in 0.436661 seconds
+[2026-07-28 12:01:18,281] INFO:openai._base_client: Retrying request to /chat/completions in 0.978083 seconds
+[2026-07-28 12:01:39,281] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=5/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:01:59,304] INFO:openai._base_client: Retrying request to /chat/completions in 0.383397 seconds
+[2026-07-28 12:02:19,709] INFO:openai._base_client: Retrying request to /chat/completions in 0.825153 seconds
+[2026-07-28 12:02:40,556] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.8s
+[2026-07-28 12:03:01,396] INFO:openai._base_client: Retrying request to /chat/completions in 0.381869 seconds
+[2026-07-28 12:03:21,799] INFO:openai._base_client: Retrying request to /chat/completions in 0.983443 seconds
+[2026-07-28 12:03:42,804] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.5s
+[2026-07-28 12:04:04,341] INFO:openai._base_client: Retrying request to /chat/completions in 0.490875 seconds
+[2026-07-28 12:04:24,854] INFO:openai._base_client: Retrying request to /chat/completions in 0.893424 seconds
+[2026-07-28 12:04:45,769] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 2.8s
+[2026-07-28 12:05:08,599] INFO:openai._base_client: Retrying request to /chat/completions in 0.450419 seconds
+[2026-07-28 12:05:29,070] INFO:openai._base_client: Retrying request to /chat/completions in 0.823785 seconds
+[2026-07-28 12:05:49,916] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 11.1s
+[2026-07-28 12:06:21,037] INFO:openai._base_client: Retrying request to /chat/completions in 0.437435 seconds
+[2026-07-28 12:06:41,496] INFO:openai._base_client: Retrying request to /chat/completions in 0.795367 seconds
+[2026-07-28 12:07:02,313] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.8s
+[2026-07-28 12:07:36,115] INFO:openai._base_client: Retrying request to /chat/completions in 0.392664 seconds
+[2026-07-28 12:07:56,529] INFO:openai._base_client: Retrying request to /chat/completions in 0.871241 seconds
+[2026-07-28 12:08:17,422] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=6/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:08:37,446] INFO:openai._base_client: Retrying request to /chat/completions in 0.412198 seconds
+[2026-07-28 12:08:57,879] INFO:openai._base_client: Retrying request to /chat/completions in 0.956328 seconds
+[2026-07-28 12:09:18,857] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.1s
+[2026-07-28 12:09:39,964] INFO:openai._base_client: Retrying request to /chat/completions in 0.462278 seconds
+[2026-07-28 12:10:00,448] INFO:openai._base_client: Retrying request to /chat/completions in 0.796787 seconds
+[2026-07-28 12:10:21,266] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.1s
+[2026-07-28 12:10:43,357] INFO:openai._base_client: Retrying request to /chat/completions in 0.437552 seconds
+[2026-07-28 12:11:03,816] INFO:openai._base_client: Retrying request to /chat/completions in 0.806669 seconds
+[2026-07-28 12:11:24,644] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.2s
+[2026-07-28 12:11:48,859] INFO:openai._base_client: Retrying request to /chat/completions in 0.458280 seconds
+[2026-07-28 12:12:09,339] INFO:openai._base_client: Retrying request to /chat/completions in 0.967267 seconds
+[2026-07-28 12:12:30,327] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 9.0s
+[2026-07-28 12:12:59,346] INFO:openai._base_client: Retrying request to /chat/completions in 0.384332 seconds
+[2026-07-28 12:13:19,752] INFO:openai._base_client: Retrying request to /chat/completions in 0.789415 seconds
+[2026-07-28 12:13:40,562] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 9.1s
+[2026-07-28 12:14:09,701] INFO:openai._base_client: Retrying request to /chat/completions in 0.459339 seconds
+[2026-07-28 12:14:30,182] INFO:openai._base_client: Retrying request to /chat/completions in 0.999573 seconds
+[2026-07-28 12:14:51,203] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=7/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:15:11,226] INFO:openai._base_client: Retrying request to /chat/completions in 0.415663 seconds
+[2026-07-28 12:15:31,663] INFO:openai._base_client: Retrying request to /chat/completions in 0.840430 seconds
+[2026-07-28 12:15:52,525] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 12:16:13,805] INFO:openai._base_client: Retrying request to /chat/completions in 0.481466 seconds
+[2026-07-28 12:16:34,308] INFO:openai._base_client: Retrying request to /chat/completions in 0.945742 seconds
+[2026-07-28 12:16:55,276] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.9s
+[2026-07-28 12:17:17,163] INFO:openai._base_client: Retrying request to /chat/completions in 0.407909 seconds
+[2026-07-28 12:17:37,593] INFO:openai._base_client: Retrying request to /chat/completions in 0.948220 seconds
+[2026-07-28 12:17:58,562] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.3s
+[2026-07-28 12:18:23,876] INFO:openai._base_client: Retrying request to /chat/completions in 0.452350 seconds
+[2026-07-28 12:18:44,350] INFO:openai._base_client: Retrying request to /chat/completions in 0.781429 seconds
+[2026-07-28 12:19:05,153] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 11.7s
+[2026-07-28 12:19:36,855] INFO:openai._base_client: Retrying request to /chat/completions in 0.432814 seconds
+[2026-07-28 12:19:57,310] INFO:openai._base_client: Retrying request to /chat/completions in 0.769733 seconds
+[2026-07-28 12:20:18,101] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 14.8s
+[2026-07-28 12:20:52,876] INFO:openai._base_client: Retrying request to /chat/completions in 0.414341 seconds
+[2026-07-28 12:21:13,312] INFO:openai._base_client: Retrying request to /chat/completions in 0.788273 seconds
+[2026-07-28 12:21:34,122] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=8/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:21:54,145] INFO:openai._base_client: Retrying request to /chat/completions in 0.395154 seconds
+[2026-07-28 12:22:14,562] INFO:openai._base_client: Retrying request to /chat/completions in 0.976783 seconds
+[2026-07-28 12:22:35,560] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.8s
+[2026-07-28 12:22:56,342] INFO:openai._base_client: Retrying request to /chat/completions in 0.448718 seconds
+[2026-07-28 12:23:16,812] INFO:openai._base_client: Retrying request to /chat/completions in 0.785544 seconds
+[2026-07-28 12:23:37,619] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.6s
+[2026-07-28 12:23:59,195] INFO:openai._base_client: Retrying request to /chat/completions in 0.485783 seconds
+[2026-07-28 12:24:19,702] INFO:openai._base_client: Retrying request to /chat/completions in 0.906163 seconds
+[2026-07-28 12:24:40,630] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 2.9s
+[2026-07-28 12:25:03,508] INFO:openai._base_client: Retrying request to /chat/completions in 0.410470 seconds
+[2026-07-28 12:25:23,940] INFO:openai._base_client: Retrying request to /chat/completions in 0.853123 seconds
+[2026-07-28 12:25:44,814] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 4.4s
+[2026-07-28 12:26:09,257] INFO:openai._base_client: Retrying request to /chat/completions in 0.390321 seconds
+[2026-07-28 12:26:29,668] INFO:openai._base_client: Retrying request to /chat/completions in 0.889861 seconds
+[2026-07-28 12:26:50,580] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 20.4s
+[2026-07-28 12:27:31,032] INFO:openai._base_client: Retrying request to /chat/completions in 0.479335 seconds
+[2026-07-28 12:27:51,533] INFO:openai._base_client: Retrying request to /chat/completions in 0.923021 seconds
+[2026-07-28 12:28:12,478] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=9/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:28:32,500] INFO:openai._base_client: Retrying request to /chat/completions in 0.490834 seconds
+[2026-07-28 12:28:53,012] INFO:openai._base_client: Retrying request to /chat/completions in 0.901252 seconds
+[2026-07-28 12:29:13,935] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.9s
+[2026-07-28 12:29:34,886] INFO:openai._base_client: Retrying request to /chat/completions in 0.414650 seconds
+[2026-07-28 12:29:55,323] INFO:openai._base_client: Retrying request to /chat/completions in 0.880103 seconds
+[2026-07-28 12:30:16,224] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.8s
+[2026-07-28 12:30:38,048] INFO:openai._base_client: Retrying request to /chat/completions in 0.440255 seconds
+[2026-07-28 12:30:58,509] INFO:openai._base_client: Retrying request to /chat/completions in 0.929685 seconds
+[2026-07-28 12:31:19,460] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.5s
+[2026-07-28 12:31:42,961] INFO:openai._base_client: Retrying request to /chat/completions in 0.424938 seconds
+[2026-07-28 12:32:03,407] INFO:openai._base_client: Retrying request to /chat/completions in 0.948483 seconds
+[2026-07-28 12:32:24,377] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 8.2s
+[2026-07-28 12:32:52,551] INFO:openai._base_client: Retrying request to /chat/completions in 0.383791 seconds
+[2026-07-28 12:33:12,956] INFO:openai._base_client: Retrying request to /chat/completions in 0.885646 seconds
+[2026-07-28 12:33:33,863] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 18.7s
+[2026-07-28 12:34:12,578] INFO:openai._base_client: Retrying request to /chat/completions in 0.417520 seconds
+[2026-07-28 12:34:33,017] INFO:openai._base_client: Retrying request to /chat/completions in 0.799664 seconds
+[2026-07-28 12:34:53,839] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=10/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:35:13,861] INFO:openai._base_client: Retrying request to /chat/completions in 0.409306 seconds
+[2026-07-28 12:35:34,292] INFO:openai._base_client: Retrying request to /chat/completions in 0.834823 seconds
+[2026-07-28 12:35:55,149] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.6s
+[2026-07-28 12:36:15,774] INFO:openai._base_client: Retrying request to /chat/completions in 0.454171 seconds
+[2026-07-28 12:36:36,250] INFO:openai._base_client: Retrying request to /chat/completions in 0.801485 seconds
+[2026-07-28 12:36:57,073] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.1s
+[2026-07-28 12:37:18,226] INFO:openai._base_client: Retrying request to /chat/completions in 0.482498 seconds
+[2026-07-28 12:37:38,730] INFO:openai._base_client: Retrying request to /chat/completions in 0.773660 seconds
+[2026-07-28 12:37:59,525] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.4s
+[2026-07-28 12:38:23,900] INFO:openai._base_client: Retrying request to /chat/completions in 0.377479 seconds
+[2026-07-28 12:38:44,299] INFO:openai._base_client: Retrying request to /chat/completions in 0.811605 seconds
+[2026-07-28 12:39:05,132] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 12.0s
+[2026-07-28 12:39:37,120] INFO:openai._base_client: Retrying request to /chat/completions in 0.462673 seconds
+[2026-07-28 12:39:57,604] INFO:openai._base_client: Retrying request to /chat/completions in 0.828486 seconds
+[2026-07-28 12:40:18,454] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.3s
+[2026-07-28 12:40:51,765] INFO:openai._base_client: Retrying request to /chat/completions in 0.381754 seconds
+[2026-07-28 12:41:12,169] INFO:openai._base_client: Retrying request to /chat/completions in 0.926555 seconds
+[2026-07-28 12:41:33,117] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=11/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:41:53,140] INFO:openai._base_client: Retrying request to /chat/completions in 0.475679 seconds
+[2026-07-28 12:42:13,637] INFO:openai._base_client: Retrying request to /chat/completions in 0.796429 seconds
+[2026-07-28 12:42:34,455] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.8s
+[2026-07-28 12:42:55,256] INFO:openai._base_client: Retrying request to /chat/completions in 0.433246 seconds
+[2026-07-28 12:43:15,711] INFO:openai._base_client: Retrying request to /chat/completions in 0.849449 seconds
+[2026-07-28 12:43:36,582] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.7s
+[2026-07-28 12:43:58,283] INFO:openai._base_client: Retrying request to /chat/completions in 0.458221 seconds
+[2026-07-28 12:44:18,763] INFO:openai._base_client: Retrying request to /chat/completions in 0.919735 seconds
+[2026-07-28 12:44:39,704] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.1s
+[2026-07-28 12:45:02,796] INFO:openai._base_client: Retrying request to /chat/completions in 0.405041 seconds
+[2026-07-28 12:45:23,222] INFO:openai._base_client: Retrying request to /chat/completions in 0.852693 seconds
+[2026-07-28 12:45:44,097] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 8.4s
+[2026-07-28 12:46:12,505] INFO:openai._base_client: Retrying request to /chat/completions in 0.396983 seconds
+[2026-07-28 12:46:32,923] INFO:openai._base_client: Retrying request to /chat/completions in 0.935712 seconds
+[2026-07-28 12:46:53,881] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 10.2s
+[2026-07-28 12:47:24,096] INFO:openai._base_client: Retrying request to /chat/completions in 0.496453 seconds
+[2026-07-28 12:47:44,614] INFO:openai._base_client: Retrying request to /chat/completions in 0.990662 seconds
+[2026-07-28 12:48:05,626] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=12/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:48:25,650] INFO:openai._base_client: Retrying request to /chat/completions in 0.376165 seconds
+[2026-07-28 12:48:46,047] INFO:openai._base_client: Retrying request to /chat/completions in 0.756546 seconds
+[2026-07-28 12:49:06,825] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.2s
+[2026-07-28 12:49:28,014] INFO:openai._base_client: Retrying request to /chat/completions in 0.376167 seconds
+[2026-07-28 12:49:48,412] INFO:openai._base_client: Retrying request to /chat/completions in 0.871087 seconds
+[2026-07-28 12:50:09,305] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.9s
+[2026-07-28 12:50:31,196] INFO:openai._base_client: Retrying request to /chat/completions in 0.435589 seconds
+[2026-07-28 12:50:51,653] INFO:openai._base_client: Retrying request to /chat/completions in 0.982751 seconds
+[2026-07-28 12:51:12,657] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.0s
+[2026-07-28 12:51:37,717] INFO:openai._base_client: Retrying request to /chat/completions in 0.461855 seconds
+[2026-07-28 12:51:58,200] INFO:openai._base_client: Retrying request to /chat/completions in 0.825480 seconds
+[2026-07-28 12:52:19,047] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 11.3s
+[2026-07-28 12:52:50,346] INFO:openai._base_client: Retrying request to /chat/completions in 0.472550 seconds
+[2026-07-28 12:53:10,840] INFO:openai._base_client: Retrying request to /chat/completions in 0.873906 seconds
+[2026-07-28 12:53:31,735] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 18.5s
+[2026-07-28 12:54:10,208] INFO:openai._base_client: Retrying request to /chat/completions in 0.398630 seconds
+[2026-07-28 12:54:30,628] INFO:openai._base_client: Retrying request to /chat/completions in 0.829312 seconds
+[2026-07-28 12:54:51,478] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=13/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 12:55:11,501] INFO:openai._base_client: Retrying request to /chat/completions in 0.458614 seconds
+[2026-07-28 12:55:31,981] INFO:openai._base_client: Retrying request to /chat/completions in 0.858955 seconds
+[2026-07-28 12:55:52,862] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.7s
+[2026-07-28 12:56:13,546] INFO:openai._base_client: Retrying request to /chat/completions in 0.437573 seconds
+[2026-07-28 12:56:34,005] INFO:openai._base_client: Retrying request to /chat/completions in 0.764988 seconds
+[2026-07-28 12:56:54,792] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.9s
+[2026-07-28 12:57:17,714] INFO:openai._base_client: Retrying request to /chat/completions in 0.482508 seconds
+[2026-07-28 12:57:38,218] INFO:openai._base_client: Retrying request to /chat/completions in 0.866922 seconds
+[2026-07-28 12:57:59,106] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.5s
+[2026-07-28 12:58:23,608] INFO:openai._base_client: Retrying request to /chat/completions in 0.481809 seconds
+[2026-07-28 12:58:44,111] INFO:openai._base_client: Retrying request to /chat/completions in 0.762752 seconds
+[2026-07-28 12:59:04,895] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 5.9s
+[2026-07-28 12:59:30,864] INFO:openai._base_client: Retrying request to /chat/completions in 0.479469 seconds
+[2026-07-28 12:59:51,365] INFO:openai._base_client: Retrying request to /chat/completions in 0.873392 seconds
+[2026-07-28 13:00:12,260] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 16.1s
+[2026-07-28 13:00:48,362] INFO:openai._base_client: Retrying request to /chat/completions in 0.403319 seconds
+[2026-07-28 13:01:08,787] INFO:openai._base_client: Retrying request to /chat/completions in 0.786706 seconds
+[2026-07-28 13:01:29,595] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=14/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:01:49,618] INFO:openai._base_client: Retrying request to /chat/completions in 0.459187 seconds
+[2026-07-28 13:02:10,099] INFO:openai._base_client: Retrying request to /chat/completions in 0.822943 seconds
+[2026-07-28 13:02:30,943] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.1s
+[2026-07-28 13:02:52,027] INFO:openai._base_client: Retrying request to /chat/completions in 0.433115 seconds
+[2026-07-28 13:03:12,481] INFO:openai._base_client: Retrying request to /chat/completions in 0.850200 seconds
+[2026-07-28 13:03:33,353] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.9s
+[2026-07-28 13:03:55,268] INFO:openai._base_client: Retrying request to /chat/completions in 0.453537 seconds
+[2026-07-28 13:04:15,743] INFO:openai._base_client: Retrying request to /chat/completions in 0.767569 seconds
+[2026-07-28 13:04:36,532] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.1s
+[2026-07-28 13:05:01,606] INFO:openai._base_client: Retrying request to /chat/completions in 0.415516 seconds
+[2026-07-28 13:05:22,043] INFO:openai._base_client: Retrying request to /chat/completions in 0.778422 seconds
+[2026-07-28 13:05:42,842] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 8.8s
+[2026-07-28 13:06:11,697] INFO:openai._base_client: Retrying request to /chat/completions in 0.491137 seconds
+[2026-07-28 13:06:32,210] INFO:openai._base_client: Retrying request to /chat/completions in 0.943019 seconds
+[2026-07-28 13:06:53,174] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 20.8s
+[2026-07-28 13:07:34,045] INFO:openai._base_client: Retrying request to /chat/completions in 0.456727 seconds
+[2026-07-28 13:07:54,523] INFO:openai._base_client: Retrying request to /chat/completions in 0.765095 seconds
+[2026-07-28 13:08:15,309] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=15/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:08:35,333] INFO:openai._base_client: Retrying request to /chat/completions in 0.413868 seconds
+[2026-07-28 13:08:55,768] INFO:openai._base_client: Retrying request to /chat/completions in 0.905053 seconds
+[2026-07-28 13:09:16,695] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.0s
+[2026-07-28 13:09:37,710] INFO:openai._base_client: Retrying request to /chat/completions in 0.493444 seconds
+[2026-07-28 13:09:58,225] INFO:openai._base_client: Retrying request to /chat/completions in 0.887981 seconds
+[2026-07-28 13:10:19,135] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.2s
+[2026-07-28 13:10:40,317] INFO:openai._base_client: Retrying request to /chat/completions in 0.463354 seconds
+[2026-07-28 13:11:00,802] INFO:openai._base_client: Retrying request to /chat/completions in 0.767677 seconds
+[2026-07-28 13:11:21,591] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 2.6s
+[2026-07-28 13:11:44,205] INFO:openai._base_client: Retrying request to /chat/completions in 0.415385 seconds
+[2026-07-28 13:12:04,642] INFO:openai._base_client: Retrying request to /chat/completions in 0.837303 seconds
+[2026-07-28 13:12:25,501] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 9.5s
+[2026-07-28 13:12:55,067] INFO:openai._base_client: Retrying request to /chat/completions in 0.400691 seconds
+[2026-07-28 13:13:15,490] INFO:openai._base_client: Retrying request to /chat/completions in 0.783936 seconds
+[2026-07-28 13:13:36,295] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.7s
+[2026-07-28 13:14:10,023] INFO:openai._base_client: Retrying request to /chat/completions in 0.453574 seconds
+[2026-07-28 13:14:30,498] INFO:openai._base_client: Retrying request to /chat/completions in 0.956488 seconds
+[2026-07-28 13:14:51,476] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=16/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:15:11,499] INFO:openai._base_client: Retrying request to /chat/completions in 0.420072 seconds
+[2026-07-28 13:15:31,941] INFO:openai._base_client: Retrying request to /chat/completions in 0.946932 seconds
+[2026-07-28 13:15:52,909] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.7s
+[2026-07-28 13:16:13,628] INFO:openai._base_client: Retrying request to /chat/completions in 0.376238 seconds
+[2026-07-28 13:16:34,025] INFO:openai._base_client: Retrying request to /chat/completions in 0.844895 seconds
+[2026-07-28 13:16:54,892] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.5s
+[2026-07-28 13:17:17,375] INFO:openai._base_client: Retrying request to /chat/completions in 0.437268 seconds
+[2026-07-28 13:17:37,834] INFO:openai._base_client: Retrying request to /chat/completions in 0.966875 seconds
+[2026-07-28 13:17:58,822] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.6s
+[2026-07-28 13:18:24,485] INFO:openai._base_client: Retrying request to /chat/completions in 0.418594 seconds
+[2026-07-28 13:18:44,925] INFO:openai._base_client: Retrying request to /chat/completions in 0.987623 seconds
+[2026-07-28 13:19:05,935] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 11.3s
+[2026-07-28 13:19:37,269] INFO:openai._base_client: Retrying request to /chat/completions in 0.441494 seconds
+[2026-07-28 13:19:57,732] INFO:openai._base_client: Retrying request to /chat/completions in 0.850560 seconds
+[2026-07-28 13:20:18,604] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.9s
+[2026-07-28 13:20:52,575] INFO:openai._base_client: Retrying request to /chat/completions in 0.450418 seconds
+[2026-07-28 13:21:13,047] INFO:openai._base_client: Retrying request to /chat/completions in 0.805398 seconds
+[2026-07-28 13:21:33,874] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=17/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:21:53,897] INFO:openai._base_client: Retrying request to /chat/completions in 0.470729 seconds
+[2026-07-28 13:22:14,389] INFO:openai._base_client: Retrying request to /chat/completions in 0.997814 seconds
+[2026-07-28 13:22:35,408] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.8s
+[2026-07-28 13:22:56,243] INFO:openai._base_client: Retrying request to /chat/completions in 0.376828 seconds
+[2026-07-28 13:23:16,642] INFO:openai._base_client: Retrying request to /chat/completions in 0.969882 seconds
+[2026-07-28 13:23:37,633] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.2s
+[2026-07-28 13:23:59,855] INFO:openai._base_client: Retrying request to /chat/completions in 0.391865 seconds
+[2026-07-28 13:24:20,268] INFO:openai._base_client: Retrying request to /chat/completions in 0.866503 seconds
+[2026-07-28 13:24:41,156] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.4s
+[2026-07-28 13:25:05,553] INFO:openai._base_client: Retrying request to /chat/completions in 0.432850 seconds
+[2026-07-28 13:25:26,009] INFO:openai._base_client: Retrying request to /chat/completions in 0.919441 seconds
+[2026-07-28 13:25:46,950] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 6.9s
+[2026-07-28 13:26:13,876] INFO:openai._base_client: Retrying request to /chat/completions in 0.384174 seconds
+[2026-07-28 13:26:34,281] INFO:openai._base_client: Retrying request to /chat/completions in 0.821964 seconds
+[2026-07-28 13:26:55,125] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 18.3s
+[2026-07-28 13:27:33,430] INFO:openai._base_client: Retrying request to /chat/completions in 0.442892 seconds
+[2026-07-28 13:27:53,895] INFO:openai._base_client: Retrying request to /chat/completions in 0.772257 seconds
+[2026-07-28 13:28:14,689] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=18/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:28:34,712] INFO:openai._base_client: Retrying request to /chat/completions in 0.390395 seconds
+[2026-07-28 13:28:55,124] INFO:openai._base_client: Retrying request to /chat/completions in 0.758213 seconds
+[2026-07-28 13:29:15,904] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.0s
+[2026-07-28 13:29:36,970] INFO:openai._base_client: Retrying request to /chat/completions in 0.448924 seconds
+[2026-07-28 13:29:57,440] INFO:openai._base_client: Retrying request to /chat/completions in 0.952070 seconds
+[2026-07-28 13:30:18,414] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.5s
+[2026-07-28 13:30:39,983] INFO:openai._base_client: Retrying request to /chat/completions in 0.391537 seconds
+[2026-07-28 13:31:00,396] INFO:openai._base_client: Retrying request to /chat/completions in 0.956438 seconds
+[2026-07-28 13:31:21,374] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.8s
+[2026-07-28 13:31:47,180] INFO:openai._base_client: Retrying request to /chat/completions in 0.426705 seconds
+[2026-07-28 13:32:07,628] INFO:openai._base_client: Retrying request to /chat/completions in 0.788235 seconds
+[2026-07-28 13:32:28,438] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 8.2s
+[2026-07-28 13:32:56,701] INFO:openai._base_client: Retrying request to /chat/completions in 0.405655 seconds
+[2026-07-28 13:33:17,129] INFO:openai._base_client: Retrying request to /chat/completions in 0.853198 seconds
+[2026-07-28 13:33:38,003] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 21.2s
+[2026-07-28 13:34:19,275] INFO:openai._base_client: Retrying request to /chat/completions in 0.435708 seconds
+[2026-07-28 13:34:39,732] INFO:openai._base_client: Retrying request to /chat/completions in 0.818948 seconds
+[2026-07-28 13:35:00,572] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=19/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:35:20,595] INFO:openai._base_client: Retrying request to /chat/completions in 0.399562 seconds
+[2026-07-28 13:35:41,017] INFO:openai._base_client: Retrying request to /chat/completions in 0.906743 seconds
+[2026-07-28 13:36:01,945] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.6s
+[2026-07-28 13:36:22,570] INFO:openai._base_client: Retrying request to /chat/completions in 0.415625 seconds
+[2026-07-28 13:36:43,007] INFO:openai._base_client: Retrying request to /chat/completions in 0.787430 seconds
+[2026-07-28 13:37:03,816] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.7s
+[2026-07-28 13:37:26,506] INFO:openai._base_client: Retrying request to /chat/completions in 0.484120 seconds
+[2026-07-28 13:37:47,012] INFO:openai._base_client: Retrying request to /chat/completions in 0.803896 seconds
+[2026-07-28 13:38:07,837] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.0s
+[2026-07-28 13:38:31,812] INFO:openai._base_client: Retrying request to /chat/completions in 0.431706 seconds
+[2026-07-28 13:38:52,265] INFO:openai._base_client: Retrying request to /chat/completions in 0.967040 seconds
+[2026-07-28 13:39:13,254] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 10.2s
+[2026-07-28 13:39:43,433] INFO:openai._base_client: Retrying request to /chat/completions in 0.470128 seconds
+[2026-07-28 13:40:03,925] INFO:openai._base_client: Retrying request to /chat/completions in 0.825374 seconds
+[2026-07-28 13:40:24,772] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.4s
+[2026-07-28 13:40:58,159] INFO:openai._base_client: Retrying request to /chat/completions in 0.380424 seconds
+[2026-07-28 13:41:18,561] INFO:openai._base_client: Retrying request to /chat/completions in 0.822124 seconds
+[2026-07-28 13:41:39,404] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=20/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:41:59,428] INFO:openai._base_client: Retrying request to /chat/completions in 0.455628 seconds
+[2026-07-28 13:42:19,905] INFO:openai._base_client: Retrying request to /chat/completions in 0.862988 seconds
+[2026-07-28 13:42:40,789] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.7s
+[2026-07-28 13:43:01,500] INFO:openai._base_client: Retrying request to /chat/completions in 0.440884 seconds
+[2026-07-28 13:43:21,962] INFO:openai._base_client: Retrying request to /chat/completions in 0.767216 seconds
+[2026-07-28 13:43:42,751] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.9s
+[2026-07-28 13:44:05,631] INFO:openai._base_client: Retrying request to /chat/completions in 0.460057 seconds
+[2026-07-28 13:44:26,113] INFO:openai._base_client: Retrying request to /chat/completions in 0.889605 seconds
+[2026-07-28 13:44:47,024] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.1s
+[2026-07-28 13:45:11,146] INFO:openai._base_client: Retrying request to /chat/completions in 0.432604 seconds
+[2026-07-28 13:45:31,600] INFO:openai._base_client: Retrying request to /chat/completions in 0.752602 seconds
+[2026-07-28 13:45:52,374] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 4.7s
+[2026-07-28 13:46:17,083] INFO:openai._base_client: Retrying request to /chat/completions in 0.475317 seconds
+[2026-07-28 13:46:37,580] INFO:openai._base_client: Retrying request to /chat/completions in 0.848074 seconds
+[2026-07-28 13:46:58,449] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 13.4s
+[2026-07-28 13:47:31,846] INFO:openai._base_client: Retrying request to /chat/completions in 0.452781 seconds
+[2026-07-28 13:47:52,320] INFO:openai._base_client: Retrying request to /chat/completions in 0.826272 seconds
+[2026-07-28 13:48:13,168] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=21/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:48:33,191] INFO:openai._base_client: Retrying request to /chat/completions in 0.475051 seconds
+[2026-07-28 13:48:53,688] INFO:openai._base_client: Retrying request to /chat/completions in 0.992655 seconds
+[2026-07-28 13:49:14,702] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.5s
+[2026-07-28 13:49:36,195] INFO:openai._base_client: Retrying request to /chat/completions in 0.460495 seconds
+[2026-07-28 13:49:56,677] INFO:openai._base_client: Retrying request to /chat/completions in 0.975062 seconds
+[2026-07-28 13:50:17,673] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.1s
+[2026-07-28 13:50:38,807] INFO:openai._base_client: Retrying request to /chat/completions in 0.415044 seconds
+[2026-07-28 13:50:59,243] INFO:openai._base_client: Retrying request to /chat/completions in 0.894002 seconds
+[2026-07-28 13:51:20,159] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.4s
+[2026-07-28 13:51:43,541] INFO:openai._base_client: Retrying request to /chat/completions in 0.377539 seconds
+[2026-07-28 13:52:03,940] INFO:openai._base_client: Retrying request to /chat/completions in 0.767601 seconds
+[2026-07-28 13:52:24,729] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 9.7s
+[2026-07-28 13:52:54,470] INFO:openai._base_client: Retrying request to /chat/completions in 0.387183 seconds
+[2026-07-28 13:53:14,879] INFO:openai._base_client: Retrying request to /chat/completions in 0.958434 seconds
+[2026-07-28 13:53:35,858] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 23.6s
+[2026-07-28 13:54:19,439] INFO:openai._base_client: Retrying request to /chat/completions in 0.498894 seconds
+[2026-07-28 13:54:39,960] INFO:openai._base_client: Retrying request to /chat/completions in 0.850850 seconds
+[2026-07-28 13:55:00,832] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=22/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 13:55:20,855] INFO:openai._base_client: Retrying request to /chat/completions in 0.384816 seconds
+[2026-07-28 13:55:41,262] INFO:openai._base_client: Retrying request to /chat/completions in 0.772531 seconds
+[2026-07-28 13:56:02,056] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.2s
+[2026-07-28 13:56:23,282] INFO:openai._base_client: Retrying request to /chat/completions in 0.384248 seconds
+[2026-07-28 13:56:43,687] INFO:openai._base_client: Retrying request to /chat/completions in 0.847655 seconds
+[2026-07-28 13:57:04,557] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 13:57:25,891] INFO:openai._base_client: Retrying request to /chat/completions in 0.384905 seconds
+[2026-07-28 13:57:46,298] INFO:openai._base_client: Retrying request to /chat/completions in 0.951426 seconds
+[2026-07-28 13:58:07,271] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.8s
+[2026-07-28 13:58:31,105] INFO:openai._base_client: Retrying request to /chat/completions in 0.444371 seconds
+[2026-07-28 13:58:51,571] INFO:openai._base_client: Retrying request to /chat/completions in 0.874539 seconds
+[2026-07-28 13:59:12,467] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 6.7s
+[2026-07-28 13:59:39,180] INFO:openai._base_client: Retrying request to /chat/completions in 0.466405 seconds
+[2026-07-28 13:59:59,668] INFO:openai._base_client: Retrying request to /chat/completions in 0.777772 seconds
+[2026-07-28 14:00:20,467] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 14.3s
+[2026-07-28 14:00:54,758] INFO:openai._base_client: Retrying request to /chat/completions in 0.414305 seconds
+[2026-07-28 14:01:15,194] INFO:openai._base_client: Retrying request to /chat/completions in 0.876613 seconds
+[2026-07-28 14:01:36,092] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=23/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:01:56,115] INFO:openai._base_client: Retrying request to /chat/completions in 0.469039 seconds
+[2026-07-28 14:02:16,605] INFO:openai._base_client: Retrying request to /chat/completions in 0.928449 seconds
+[2026-07-28 14:02:37,555] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.5s
+[2026-07-28 14:02:59,048] INFO:openai._base_client: Retrying request to /chat/completions in 0.387012 seconds
+[2026-07-28 14:03:19,456] INFO:openai._base_client: Retrying request to /chat/completions in 0.960593 seconds
+[2026-07-28 14:03:40,438] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.5s
+[2026-07-28 14:04:01,926] INFO:openai._base_client: Retrying request to /chat/completions in 0.380131 seconds
+[2026-07-28 14:04:22,327] INFO:openai._base_client: Retrying request to /chat/completions in 0.769626 seconds
+[2026-07-28 14:04:43,119] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.4s
+[2026-07-28 14:05:06,556] INFO:openai._base_client: Retrying request to /chat/completions in 0.432019 seconds
+[2026-07-28 14:05:27,010] INFO:openai._base_client: Retrying request to /chat/completions in 0.892476 seconds
+[2026-07-28 14:05:47,924] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 7.6s
+[2026-07-28 14:06:15,500] INFO:openai._base_client: Retrying request to /chat/completions in 0.431265 seconds
+[2026-07-28 14:06:35,953] INFO:openai._base_client: Retrying request to /chat/completions in 0.805024 seconds
+[2026-07-28 14:06:56,779] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 19.5s
+[2026-07-28 14:07:36,293] INFO:openai._base_client: Retrying request to /chat/completions in 0.410320 seconds
+[2026-07-28 14:07:56,725] INFO:openai._base_client: Retrying request to /chat/completions in 0.982296 seconds
+[2026-07-28 14:08:17,728] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=24/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:08:37,751] INFO:openai._base_client: Retrying request to /chat/completions in 0.469450 seconds
+[2026-07-28 14:08:58,242] INFO:openai._base_client: Retrying request to /chat/completions in 0.838385 seconds
+[2026-07-28 14:09:19,102] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.2s
+[2026-07-28 14:09:40,338] INFO:openai._base_client: Retrying request to /chat/completions in 0.439319 seconds
+[2026-07-28 14:10:00,799] INFO:openai._base_client: Retrying request to /chat/completions in 0.805123 seconds
+[2026-07-28 14:10:21,625] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.9s
+[2026-07-28 14:10:44,561] INFO:openai._base_client: Retrying request to /chat/completions in 0.413438 seconds
+[2026-07-28 14:11:04,996] INFO:openai._base_client: Retrying request to /chat/completions in 0.791900 seconds
+[2026-07-28 14:11:25,809] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.3s
+[2026-07-28 14:11:49,141] INFO:openai._base_client: Retrying request to /chat/completions in 0.397817 seconds
+[2026-07-28 14:12:09,560] INFO:openai._base_client: Retrying request to /chat/completions in 0.870407 seconds
+[2026-07-28 14:12:30,452] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 10.4s
+[2026-07-28 14:13:00,919] INFO:openai._base_client: Retrying request to /chat/completions in 0.414716 seconds
+[2026-07-28 14:13:21,355] INFO:openai._base_client: Retrying request to /chat/completions in 0.924315 seconds
+[2026-07-28 14:13:42,301] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 20.3s
+[2026-07-28 14:14:22,645] INFO:openai._base_client: Retrying request to /chat/completions in 0.400040 seconds
+[2026-07-28 14:14:43,067] INFO:openai._base_client: Retrying request to /chat/completions in 0.874734 seconds
+[2026-07-28 14:15:03,963] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=25/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:15:23,986] INFO:openai._base_client: Retrying request to /chat/completions in 0.482150 seconds
+[2026-07-28 14:15:44,489] INFO:openai._base_client: Retrying request to /chat/completions in 0.906138 seconds
+[2026-07-28 14:16:05,417] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.7s
+[2026-07-28 14:16:26,116] INFO:openai._base_client: Retrying request to /chat/completions in 0.482882 seconds
+[2026-07-28 14:16:46,621] INFO:openai._base_client: Retrying request to /chat/completions in 0.924655 seconds
+[2026-07-28 14:17:07,567] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.0s
+[2026-07-28 14:17:29,566] INFO:openai._base_client: Retrying request to /chat/completions in 0.399848 seconds
+[2026-07-28 14:17:49,987] INFO:openai._base_client: Retrying request to /chat/completions in 0.849728 seconds
+[2026-07-28 14:18:10,858] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.1s
+[2026-07-28 14:18:33,949] INFO:openai._base_client: Retrying request to /chat/completions in 0.385390 seconds
+[2026-07-28 14:18:54,356] INFO:openai._base_client: Retrying request to /chat/completions in 0.762683 seconds
+[2026-07-28 14:19:15,140] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 10.9s
+[2026-07-28 14:19:46,041] INFO:openai._base_client: Retrying request to /chat/completions in 0.441000 seconds
+[2026-07-28 14:20:06,503] INFO:openai._base_client: Retrying request to /chat/completions in 0.782029 seconds
+[2026-07-28 14:20:27,307] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 10.7s
+[2026-07-28 14:20:58,009] INFO:openai._base_client: Retrying request to /chat/completions in 0.401001 seconds
+[2026-07-28 14:21:18,432] INFO:openai._base_client: Retrying request to /chat/completions in 0.942429 seconds
+[2026-07-28 14:21:39,396] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=26/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:21:59,419] INFO:openai._base_client: Retrying request to /chat/completions in 0.468781 seconds
+[2026-07-28 14:22:19,909] INFO:openai._base_client: Retrying request to /chat/completions in 0.983296 seconds
+[2026-07-28 14:22:40,914] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 14:23:02,262] INFO:openai._base_client: Retrying request to /chat/completions in 0.398025 seconds
+[2026-07-28 14:23:22,681] INFO:openai._base_client: Retrying request to /chat/completions in 0.792373 seconds
+[2026-07-28 14:23:43,495] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.1s
+[2026-07-28 14:24:05,640] INFO:openai._base_client: Retrying request to /chat/completions in 0.481891 seconds
+[2026-07-28 14:24:26,144] INFO:openai._base_client: Retrying request to /chat/completions in 0.901483 seconds
+[2026-07-28 14:24:47,067] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 2.9s
+[2026-07-28 14:25:09,960] INFO:openai._base_client: Retrying request to /chat/completions in 0.429945 seconds
+[2026-07-28 14:25:30,412] INFO:openai._base_client: Retrying request to /chat/completions in 0.963456 seconds
+[2026-07-28 14:25:51,397] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 5.7s
+[2026-07-28 14:26:17,115] INFO:openai._base_client: Retrying request to /chat/completions in 0.409455 seconds
+[2026-07-28 14:26:37,546] INFO:openai._base_client: Retrying request to /chat/completions in 0.845472 seconds
+[2026-07-28 14:26:58,413] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 18.9s
+[2026-07-28 14:27:37,309] INFO:openai._base_client: Retrying request to /chat/completions in 0.435195 seconds
+[2026-07-28 14:27:57,766] INFO:openai._base_client: Retrying request to /chat/completions in 0.913429 seconds
+[2026-07-28 14:28:18,701] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=27/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:28:38,724] INFO:openai._base_client: Retrying request to /chat/completions in 0.476086 seconds
+[2026-07-28 14:28:59,221] INFO:openai._base_client: Retrying request to /chat/completions in 0.944088 seconds
+[2026-07-28 14:29:20,187] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.1s
+[2026-07-28 14:29:41,262] INFO:openai._base_client: Retrying request to /chat/completions in 0.497793 seconds
+[2026-07-28 14:30:01,782] INFO:openai._base_client: Retrying request to /chat/completions in 0.909207 seconds
+[2026-07-28 14:30:22,713] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.9s
+[2026-07-28 14:30:44,616] INFO:openai._base_client: Retrying request to /chat/completions in 0.414688 seconds
+[2026-07-28 14:31:05,052] INFO:openai._base_client: Retrying request to /chat/completions in 0.997232 seconds
+[2026-07-28 14:31:26,070] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.7s
+[2026-07-28 14:31:49,782] INFO:openai._base_client: Retrying request to /chat/completions in 0.447285 seconds
+[2026-07-28 14:32:10,251] INFO:openai._base_client: Retrying request to /chat/completions in 0.764239 seconds
+[2026-07-28 14:32:31,036] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 9.2s
+[2026-07-28 14:33:00,247] INFO:openai._base_client: Retrying request to /chat/completions in 0.435183 seconds
+[2026-07-28 14:33:20,703] INFO:openai._base_client: Retrying request to /chat/completions in 0.810738 seconds
+[2026-07-28 14:33:41,535] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 20.3s
+[2026-07-28 14:34:21,905] INFO:openai._base_client: Retrying request to /chat/completions in 0.402452 seconds
+[2026-07-28 14:34:42,328] INFO:openai._base_client: Retrying request to /chat/completions in 0.859094 seconds
+[2026-07-28 14:35:03,209] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=28/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:35:23,232] INFO:openai._base_client: Retrying request to /chat/completions in 0.461815 seconds
+[2026-07-28 14:35:43,715] INFO:openai._base_client: Retrying request to /chat/completions in 0.852299 seconds
+[2026-07-28 14:36:04,589] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.5s
+[2026-07-28 14:36:25,132] INFO:openai._base_client: Retrying request to /chat/completions in 0.412724 seconds
+[2026-07-28 14:36:45,566] INFO:openai._base_client: Retrying request to /chat/completions in 0.969146 seconds
+[2026-07-28 14:37:06,556] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 2.9s
+[2026-07-28 14:37:29,517] INFO:openai._base_client: Retrying request to /chat/completions in 0.428502 seconds
+[2026-07-28 14:37:49,967] INFO:openai._base_client: Retrying request to /chat/completions in 0.810189 seconds
+[2026-07-28 14:38:10,799] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 3.6s
+[2026-07-28 14:38:34,402] INFO:openai._base_client: Retrying request to /chat/completions in 0.473827 seconds
+[2026-07-28 14:38:54,898] INFO:openai._base_client: Retrying request to /chat/completions in 0.892172 seconds
+[2026-07-28 14:39:15,811] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 4.9s
+[2026-07-28 14:39:40,725] INFO:openai._base_client: Retrying request to /chat/completions in 0.448423 seconds
+[2026-07-28 14:40:01,195] INFO:openai._base_client: Retrying request to /chat/completions in 0.785815 seconds
+[2026-07-28 14:40:22,003] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 17.8s
+[2026-07-28 14:40:59,778] INFO:openai._base_client: Retrying request to /chat/completions in 0.385936 seconds
+[2026-07-28 14:41:20,186] INFO:openai._base_client: Retrying request to /chat/completions in 0.819764 seconds
+[2026-07-28 14:41:41,027] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=29/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:42:01,051] INFO:openai._base_client: Retrying request to /chat/completions in 0.401643 seconds
+[2026-07-28 14:42:21,474] INFO:openai._base_client: Retrying request to /chat/completions in 0.813066 seconds
+[2026-07-28 14:42:42,308] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 0.7s
+[2026-07-28 14:43:03,060] INFO:openai._base_client: Retrying request to /chat/completions in 0.492091 seconds
+[2026-07-28 14:43:23,574] INFO:openai._base_client: Retrying request to /chat/completions in 0.905018 seconds
+[2026-07-28 14:43:44,500] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.3s
+[2026-07-28 14:44:05,776] INFO:openai._base_client: Retrying request to /chat/completions in 0.415645 seconds
+[2026-07-28 14:44:26,213] INFO:openai._base_client: Retrying request to /chat/completions in 0.992808 seconds
+[2026-07-28 14:44:47,228] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 4.0s
+[2026-07-28 14:45:11,283] INFO:openai._base_client: Retrying request to /chat/completions in 0.399927 seconds
+[2026-07-28 14:45:31,705] INFO:openai._base_client: Retrying request to /chat/completions in 0.817499 seconds
+[2026-07-28 14:45:52,544] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 4.1s
+[2026-07-28 14:46:16,707] INFO:openai._base_client: Retrying request to /chat/completions in 0.494352 seconds
+[2026-07-28 14:46:37,223] INFO:openai._base_client: Retrying request to /chat/completions in 0.763277 seconds
+[2026-07-28 14:46:58,008] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 8.5s
+[2026-07-28 14:47:26,517] INFO:openai._base_client: Retrying request to /chat/completions in 0.405729 seconds
+[2026-07-28 14:47:46,944] INFO:openai._base_client: Retrying request to /chat/completions in 0.779231 seconds
+[2026-07-28 14:48:07,745] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=30/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:48:27,768] INFO:openai._base_client: Retrying request to /chat/completions in 0.471163 seconds
+[2026-07-28 14:48:48,260] INFO:openai._base_client: Retrying request to /chat/completions in 0.844338 seconds
+[2026-07-28 14:49:09,126] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 1/6, model=glm-4-flash): Connection error.; retrying in 1.1s
+[2026-07-28 14:49:30,225] INFO:openai._base_client: Retrying request to /chat/completions in 0.388375 seconds
+[2026-07-28 14:49:50,634] INFO:openai._base_client: Retrying request to /chat/completions in 0.939151 seconds
+[2026-07-28 14:50:11,595] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 2/6, model=glm-4-flash): Connection error.; retrying in 1.9s
+[2026-07-28 14:50:33,535] INFO:openai._base_client: Retrying request to /chat/completions in 0.467081 seconds
+[2026-07-28 14:50:54,024] INFO:openai._base_client: Retrying request to /chat/completions in 0.895642 seconds
+[2026-07-28 14:51:14,941] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 3/6, model=glm-4-flash): Connection error.; retrying in 5.0s
+[2026-07-28 14:51:39,929] INFO:openai._base_client: Retrying request to /chat/completions in 0.434720 seconds
+[2026-07-28 14:52:00,386] INFO:openai._base_client: Retrying request to /chat/completions in 0.997616 seconds
+[2026-07-28 14:52:21,405] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 4/6, model=glm-4-flash): Connection error.; retrying in 6.3s
+[2026-07-28 14:52:47,764] INFO:openai._base_client: Retrying request to /chat/completions in 0.418188 seconds
+[2026-07-28 14:53:08,204] INFO:openai._base_client: Retrying request to /chat/completions in 0.761328 seconds
+[2026-07-28 14:53:28,987] WARNING:ptp_discovery.free_loss_llm_ops: LLM call failed (attempt 5/6, model=glm-4-flash): Connection error.; retrying in 17.5s
+[2026-07-28 14:54:06,525] INFO:openai._base_client: Retrying request to /chat/completions in 0.385903 seconds
+[2026-07-28 14:54:26,932] INFO:openai._base_client: Retrying request to /chat/completions in 0.824872 seconds
+[2026-07-28 14:54:47,778] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failed at gen=0 idx=0 attempt=31/32 prompt=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt error=APIConnectionError: Connection error.
+[2026-07-28 14:54:47,779] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair LLM proposal failure summary at gen=0: JOINT_PAIR_GENERATE=32
+[2026-07-28 14:54:47,779] ERROR:ptp_discovery.pref_loss_coevo: Joint-pair generation 0 produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. failure_samples=[{'candidate_index': 0, 'attempt_index': 0, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 1, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 2, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 3, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 4, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 5, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 6, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 7, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}]
+Traceback (most recent call last):
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/run_pref_loss_coevo.py", line 230, in <module>
+    main()
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/run_pref_loss_coevo.py", line 216, in main
+    run_pref_loss_coevo(args.config, resume_dir=resume_dir, **overrides)
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 13492, in run_pref_loss_coevo
+    joint_pair_proposals = _propose_joint_pairs_for_generation(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 9220, in _propose_joint_pairs_for_generation
+    raise RuntimeError(msg)
+RuntimeError: Joint-pair generation 0 produced zero valid proposals while llm_init_only=true; all LLM attempts failed and seed/backfill is disabled. failure_samples=[{'candidate_index': 0, 'attempt_index': 0, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 1, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 2, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 3, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 4, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 5, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 6, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}, {'candidate_index': 0, 'attempt_index': 7, 'error_type': 'APIConnectionError', 'error': 'Connection error.'}]
