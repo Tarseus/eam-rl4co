@@ -1,0 +1,14 @@
+command=exec env CUDA_VISIBLE_DEVICES=7 PYTHONUNBUFFERED=1 /data1/gushengda/anaconda3/envs/rlco1/bin/python -u /data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-weighting-r1-20260728-2150/launch_weighting_replay.py
+started_at=2026-07-28T13:54:10+00:00
+weighting_replay_wait run=/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-weighting-r1-20260728-2150 predecessor=/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-r3-20260728-2135
+Traceback (most recent call last):
+  File "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-weighting-r1-20260728-2150/launch_weighting_replay.py", line 257, in <module>
+    tasks = [prepare_payload(spec) for spec in RECORD_SETTERS]
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-weighting-r1-20260728-2150/launch_weighting_replay.py", line 257, in <listcomp>
+    tasks = [prepare_payload(spec) for spec in RECORD_SETTERS]
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/eam-rl4co_runs/tsp100-main-record-hf1-replay-weighting-r1-20260728-2150/launch_weighting_replay.py", line 180, in prepare_payload
+    cfg["stage3_early_prune"]["enabled"] = False
+    ~~~^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'stage3_early_prune'
