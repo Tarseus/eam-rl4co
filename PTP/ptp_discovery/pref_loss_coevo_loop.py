@@ -8821,6 +8821,113 @@ def _propose_joint_pairs_for_generation(
     if not bool(joint_cfg and joint_cfg.get("enabled", False)):
         return []
 
+    init_seed_cfg_raw = joint_cfg.get("init_seed", {})
+    init_seed_cfg = dict(init_seed_cfg_raw) if isinstance(init_seed_cfg_raw, Mapping) else {}
+    if int(generation) == 0 and bool(init_seed_cfg.get("enabled", False)):
+        source_path = str(init_seed_cfg.get("source_losses_path", "") or "").strip()
+        if not source_path:
+            raise ValueError(
+                "joint_pair.init_seed.enabled=true requires source_losses_path"
+            )
+        source_generation = int(init_seed_cfg.get("source_generation", 0) or 0)
+        strict_count = bool(init_seed_cfg.get("strict_count", True))
+        seeded_rows: List[Dict[str, Any]] = []
+        with open(_abs_from_repo_root(source_path), "r", encoding="utf-8") as handle:
+            for line_number, line in enumerate(handle, start=1):
+                raw_line = line.strip()
+                if not raw_line:
+                    continue
+                try:
+                    row = json.loads(raw_line)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        f"Invalid joint init seed JSONL at {source_path}:{line_number}: {exc}"
+                    ) from exc
+                if not isinstance(row, Mapping):
+                    continue
+                if int(row.get("generation", -1) or 0) != int(source_generation):
+                    continue
+                ir_raw = row.get("ir")
+                if not isinstance(ir_raw, Mapping):
+                    raise ValueError(
+                        f"Joint init seed row lacks loss IR at {source_path}:{line_number}"
+                    )
+                seeded_rows.append(dict(row))
+
+        seeded_rows.sort(
+            key=lambda row: (
+                int(row.get("index", 0) or 0),
+                str(row.get("id", "")),
+            )
+        )
+        if strict_count and len(seeded_rows) != int(pop_pairs):
+            raise ValueError(
+                "Matched joint init seed count differs from joint population: "
+                f"source={source_path} generation={source_generation} "
+                f"seeded={len(seeded_rows)} expected={pop_pairs}"
+            )
+        if len(seeded_rows) < int(pop_pairs):
+            raise ValueError(
+                "Matched joint init seed population is incomplete: "
+                f"source={source_path} generation={source_generation} "
+                f"seeded={len(seeded_rows)} required={pop_pairs}"
+            )
+
+        seeded: List[Dict[str, Any]] = []
+        for candidate_index, row in enumerate(seeded_rows[:pop_pairs]):
+            loss_ir = free_loss_ir_from_json(row["ir"])
+            source_loss_id = str(row.get("id") or f"source_loss_{candidate_index:03d}")
+            source_signature = str(
+                row.get("signature")
+                or sha1(
+                    json.dumps(row["ir"], sort_keys=True, ensure_ascii=False).encode("utf-8")
+                ).hexdigest()
+            )
+            joint_pair_id = (
+                f"jp{int(generation):03d}_{int(candidate_index):03d}"
+                f"_matched_{source_signature[:8]}"
+            )
+            seeded.append(
+                {
+                    "builder_ir": _ref_builder_ir(),
+                    "loss_ir": loss_ir,
+                    "joint_pair_id": joint_pair_id,
+                    "origin": "MATCHED_TSP_INIT",
+                    "origin_base": "MATCHED_TSP_INIT",
+                    "op_type": "JOINT_PAIR_MATCHED_INIT",
+                    "parents": [source_loss_id],
+                    "attempt": 0,
+                    "prompt_sha1": row.get("prompt_sha1"),
+                    "prompt_path": row.get("prompt_path"),
+                    "history": [
+                        {
+                            "attempt": 0,
+                            "side": "joint_pair",
+                            "llm_op": "JOINT_PAIR_MATCHED_INIT",
+                            "source_losses_path": os.path.abspath(
+                                _abs_from_repo_root(source_path)
+                            ),
+                            "source_generation": int(source_generation),
+                            "source_loss_id": source_loss_id,
+                            "source_loss_signature": source_signature,
+                        }
+                    ],
+                    "llm_seed": row.get("llm_seed"),
+                    "source_loss_id": source_loss_id,
+                    "source_loss_signature": source_signature,
+                }
+            )
+        LOGGER.info(
+            "Initialized joint-pair generation %d from matched TSP losses: "
+            "source=%s source_generation=%d pairs=%d builder=%s",
+            int(generation),
+            os.path.abspath(_abs_from_repo_root(source_path)),
+            int(source_generation),
+            int(len(seeded)),
+            G_REF_ID,
+        )
+        return seeded
+
     prompts = llm_root.get("prompts", joint_cfg.get("prompts", {})) or {}
     if not isinstance(prompts, dict):
         prompts = {}
@@ -13612,6 +13719,9 @@ def run_pref_loss_coevo(
         for idx, proposal in enumerate(proposed_g):
             ir: PreferenceBuilderIR = proposal["ir"]
             sig = _sig_pref_builder(ir)
+            matched_joint_init = (
+                str(proposal.get("op_type") or "") == "JOINT_PAIR_MATCHED_INIT"
+            )
             family_signature = _builder_family_signature(ir)
             entry: Dict[str, Any] = {
                 "generation": int(gen),
@@ -13648,7 +13758,14 @@ def run_pref_loss_coevo(
                     weight_nonneg=bool(cfg_yaml.get("builder_weight_nonneg", True)),
                     semantic_tolerance=float(cfg_yaml.get("builder_semantic_tolerance", 0.0) or 0.0),
                     semantic_min_pass_rate=float(cfg_yaml.get("builder_semantic_min_pass_rate", 1.0) or 1.0),
-                    min_instance_weight_cv=float(cfg_yaml.get("builder_min_instance_weight_cv", 0.0) or 0.0),
+                    min_instance_weight_cv=(
+                        0.0
+                        if matched_joint_init
+                        else float(
+                            cfg_yaml.get("builder_min_instance_weight_cv", 0.0)
+                            or 0.0
+                        )
+                    ),
                     min_instance_weight_cv_pass_rate=float(
                         cfg_yaml.get("builder_min_instance_weight_cv_pass_rate", 1.0) or 1.0
                     ),
@@ -13657,7 +13774,7 @@ def run_pref_loss_coevo(
                 entry["builder_static_ok"] = bool(bg.ok)
                 entry["builder_static_reason"] = str(bg.reason)
                 entry["builder_static_trace"] = bg.trace
-                if bool(bg.ok):
+                if bool(bg.ok) and not matched_joint_init:
                     search_ok, search_fail = _validate_builder_search_space_contract(
                         compiled=compiled,
                         pref_batch=pb,
