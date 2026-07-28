@@ -2408,6 +2408,18 @@ def _hf_task_physical_device(logical_device: str) -> str:
     return physical_device
 
 
+def _next_hf_task_index_for_free_device(
+    pending: Sequence[Mapping[str, Any]],
+    busy_physical_devices: set[str],
+) -> int | None:
+    for idx, task in enumerate(pending):
+        logical_device = str(task.get("device_str", ""))
+        physical_device = _hf_task_physical_device(logical_device)
+        if physical_device not in busy_physical_devices:
+            return idx
+    return None
+
+
 def _hf_task_artifact_dir(task_root: str, generation: int, pair_index: int, physical_device: str) -> str:
     return os.path.join(
         task_root,
@@ -2599,12 +2611,7 @@ def _run_hf_tasks_via_subprocess(  # noqa: PLR0912
             str(meta.get("device_physical_str", meta.get("device_str", ""))) for meta in active
         }
         while len(active) < int(max_workers):
-            next_idx = None
-            for idx, task in enumerate(pending):
-                dev = str(task.get("device_str", ""))
-                if dev not in busy_devices:
-                    next_idx = idx
-                    break
+            next_idx = _next_hf_task_index_for_free_device(pending, busy_devices)
             if next_idx is None:
                 break
 

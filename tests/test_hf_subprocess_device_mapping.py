@@ -34,6 +34,31 @@ def test_hf_subprocess_env_can_enable_cuda_launch_blocking():
     assert worker_device == "cuda:0"
 
 
+def test_hf_scheduler_checks_busy_physical_devices(monkeypatch):
+    loop = importlib.import_module("ptp_discovery.pref_loss_coevo_loop")
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1,3,6,7")
+
+    pending = [
+        {"device_str": "cuda:0"},
+        {"device_str": "cuda:1"},
+        {"device_str": "cuda:2"},
+        {"device_str": "cuda:3"},
+    ]
+
+    assert loop._next_hf_task_index_for_free_device(
+        pending,
+        {"cuda:1"},
+    ) == 1
+    assert loop._next_hf_task_index_for_free_device(
+        pending,
+        {"cuda:1", "cuda:3", "cuda:6"},
+    ) == 3
+    assert loop._next_hf_task_index_for_free_device(
+        pending,
+        {"cuda:1", "cuda:3", "cuda:6", "cuda:7"},
+    ) is None
+
+
 def test_worker_device_fields_keep_physical_and_logical_devices():
     loop = importlib.import_module("ptp_discovery.pref_loss_coevo_loop")
 
