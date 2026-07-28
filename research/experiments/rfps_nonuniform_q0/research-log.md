@@ -34,3 +34,11 @@ Recomputing the preregistered all-pair endpoint revealed that tied objectives
 make it slightly non-uniform. This materially changed one mixed-bank global
 correlation but did not change tail risk. On the deployed warm bank it changed
 rho by less than 0.001, confirming that it adds no useful component.
+
+## 2026-07-28: Gaussian shape stress test
+
+Tested best-centered, middle-centered, and best/worst two-tail Gaussian
+reference measures over normalized tour-cost rank, with three widths per
+family. Uniform remained best for scratch and warm targets on both probe
+seeds. The closest Gaussian had normalized ESS 0.985 and converged toward,
+rather than improved upon, the uniform result.

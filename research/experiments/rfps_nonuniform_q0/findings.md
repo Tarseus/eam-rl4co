@@ -69,6 +69,28 @@ pair and 0.586 for the Fisher pair; warm rho is 0.651 and 0.652. The reason to
 retain Fisher geometry remains coordinate invariance, not an engineered
 non-uniform start.
 
+## Gaussian reference measures
+
+As a final shape check, `q0` was defined on normalized within-probe tour-cost
+rank and tested with three candidate-independent Gaussian families: centered
+on the best tours, centered on the middle ranks, and a symmetric best/worst
+mixture. Each family was evaluated at three widths with the same ESS floor,
+40 candidates, 16 probes, and both scratch and warm targets.
+
+No Gaussian beat uniform weighting. The broadest two-tail Gaussian came
+closest, but it was already nearly uniform (mean normalized ESS 0.985):
+
+| Target | Uniform rho | Best Gaussian rho | Uniform false skip | Best Gaussian false skip |
+|---|---:|---:|---:|---:|
+| scratch | 0.8113 | 0.8093 | 0.0312 | 0.1119 |
+| warm | 0.8606 | 0.8564 | 0.0000 | 0.0000 |
+
+The ordering is consistent on both probe seeds. Narrower Gaussians deteriorate
+substantially (down to 0.617 scratch and 0.630 warm). Performance approaches
+the baseline as the Gaussian approaches uniform, rather than revealing a
+useful non-uniform optimum. Fisher also does not gain a special advantage over
+the Euclidean two-point feature under these measures.
+
 ## Interpretation
 
 The reference bank is better viewed as a **behavioral probe** than as an
@@ -99,3 +121,4 @@ wants to redistribute that common probe.
 - Warm-bank pair-exposure follow-up:
   `results_warmbank_pair_exposure/metrics.csv`
 - Literal all-pair warm-bank follow-up: `results_warmbank_allpair/metrics.csv`
+- Gaussian warm-bank follow-up: `results_warmbank_gaussian/summary.md`
