@@ -27,7 +27,12 @@ REPO_ROOT = HERE.parents[2]
 RUNTIME_POMO = (
     PILOT_DIR / 'find_pref_runtime' / 'rl4co' / 'models' / 'zoo' / 'pomo'
 )
-sys.path[:0] = [str(PILOT_DIR), str(MINIMALITY_DIR), str(INVARIANCE_DIR)]
+sys.path[:0] = [
+    str(REPO_ROOT),
+    str(PILOT_DIR),
+    str(MINIMALITY_DIR),
+    str(INVARIANCE_DIR),
+]
 
 import run_pilot as pilot  # noqa: E402
 from run_validation import fisher_euclidean_blocks  # noqa: E402
