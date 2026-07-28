@@ -10377,8 +10377,13 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         return record
 
     variant = "hidden" if bool(cfg.get("hidden_dynamic_gates_enabled", False)) else "visible"
-    runtime_builder_gate_cfg = _runtime_builder_gate_cfg(cfg, g_id=str(g_entry.get("id") or ""))
-    runtime_cfg = _cfg_with_runtime_builder_gate_overrides(cfg, g_id=str(g_entry.get("id") or ""))
+    matched_joint_init = (
+        int(generation) == 0
+        and str(g_entry.get("op_type") or "") == "JOINT_PAIR_MATCHED_INIT"
+    )
+    runtime_gate_g_id = G_REF_ID if matched_joint_init else str(g_entry.get("id") or "")
+    runtime_builder_gate_cfg = _runtime_builder_gate_cfg(cfg, g_id=runtime_gate_g_id)
+    runtime_cfg = _cfg_with_runtime_builder_gate_overrides(cfg, g_id=runtime_gate_g_id)
     feature_cache = _dummy_feature_cache(
         batch_size=int(cfg.get("cheap_gate_batch_size", 8) or 8),
         k=int(cfg.get("cheap_gate_k", 16) or 16),
@@ -10452,6 +10457,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         builder_gate_repair_enabled
         and (not builder_gate.ok)
         and str(g_entry["id"]) != G_REF_ID
+        and not matched_joint_init
         and builder_gate_repair_max_attempts > 0
     ):
         try:
@@ -10474,6 +10480,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 "builder_repair": builder_gate_repair_prompt_path,
             },
             global_feedback=None,
+            prompt_context=None,
             max_attempts=int(builder_gate_repair_max_attempts),
             simplify_first=bool(builder_gate_repair_simplify_first),
         )
@@ -14693,6 +14700,7 @@ def run_pref_loss_coevo(
                                 },
                                 llm_prompts={"builder_m3": p_builder_m3, "builder_repair": p_builder_rep},
                                 global_feedback=call_feedback,
+                                prompt_context=builder_prompt_context,
                                 max_attempts=max(0, int(gate_repair_attempts)),
                                 simplify_first=bool(builder_repair_live_cfg.get("simplify_first", True)),
                             )

@@ -111,6 +111,11 @@ def test_joint_pair_runtime_preserves_matched_init_and_skips_llm(
         _unexpected_llm_call,
     )
 
+    def _unexpected_builder_repair(*_args, **_kwargs):
+        raise AssertionError("matched reference builder must bypass searched-builder repair")
+
+    monkeypatch.setattr(loop, "_repair_builder_candidate_loop", _unexpected_builder_repair)
+
     cfg = {
         "seed": 1234,
         "output_root": str(tmp_path / "runs"),
@@ -121,7 +126,7 @@ def test_joint_pair_runtime_preserves_matched_init_and_skips_llm(
         "elite_g": 1,
         "elite_f": 1,
         "pairing_budget_per_gen": 2,
-        "cheap_gate_on": False,
+        "cheap_gate_on": True,
         "high_fidelity_on": False,
         "eval_stages": {
             "stage0_gate": False,
@@ -145,6 +150,9 @@ def test_joint_pair_runtime_preserves_matched_init_and_skips_llm(
         "devices": ["cpu"],
         "mp": {"enabled": False},
         "llm_init_only": True,
+        "builder_min_instance_weight_cv": 0.1,
+        "builder_min_instance_weight_cv_pass_rate": 0.75,
+        "builder_gate_repair_enabled": True,
         "population": {
             "n_candidates_pair": 2,
             "n_candidates_loss": 2,
