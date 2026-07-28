@@ -17,6 +17,7 @@ import run_alignment as base
 
 HERE = Path(__file__).resolve().parent
 STEPS = 3
+TRAIN_SEEDS = (2026072811, 2026072812, 2026072813)
 
 
 def load_primary_descriptors(
@@ -102,9 +103,7 @@ def write_results(
         'num_train_instances_per_step': args.num_train_instances,
         'num_heldout_instances': args.num_heldout_instances,
         'num_starts': args.num_starts,
-        'train_seeds': [
-            base.PRIMARY['train_seed'] + step for step in range(args.num_steps)
-        ],
+        'train_seeds': list(TRAIN_SEEDS[: args.num_steps]),
         'heldout_seed': base.PRIMARY['heldout_seed'],
         'learning_rate': base.PRIMARY['learning_rate'],
         'weight_decay': base.PRIMARY['weight_decay'],
@@ -198,7 +197,9 @@ def parse_args() -> argparse.Namespace:
         args.num_starts = base.PRIMARY['num_starts']
     if args.output_dir is None:
         args.output_dir = HERE / (
-            'smoke_results_3step' if args.smoke else 'results_3step'
+            'smoke_results_3step_disjoint'
+            if args.smoke
+            else 'results_3step_disjoint'
         )
     return args
 
@@ -245,7 +246,7 @@ def main() -> int:
     train_banks = [
         base.make_env_bank(
             env_cls,
-            seed=base.PRIMARY['train_seed'] + step,
+            seed=TRAIN_SEEDS[step],
             num_instances=args.num_train_instances,
         )
         for step in range(args.num_steps)
@@ -274,7 +275,7 @@ def main() -> int:
                     policy,
                     train_env,
                     train_td,
-                    seed=base.PRIMARY['train_seed'] + step,
+                    seed=TRAIN_SEEDS[step],
                     num_instances=args.num_train_instances,
                     num_starts=args.num_starts,
                 )
