@@ -40,3 +40,43 @@ This negative result does not yet answer whether Fisher is useful as the metric
 for an update direction supplied by the actual optimizer. That distinct
 question uses a primal tangent representation `F^{1/2} v` and requires a
 separate locked extension.
+
+## Fisher tangent-metric extension
+
+The locked extension kept the realizable Euclidean direction and measured it
+with the primal Fisher metric. This also failed its promotion rule.
+
+For one-step realized updates, Euclidean versus Fisher-tangent distance
+correlations were:
+
+- matched: `0.982` versus `0.973`;
+- external: `0.698` versus `0.665`.
+
+For valid three-step on-policy updates:
+
+- matched: `0.955` versus `0.940`;
+- external: `0.622` versus `0.590`.
+
+The methods were not equivalent: their descriptor-distance matrices had
+Pearson correlation `0.971` and mean absolute distance difference `0.092`.
+Fisher therefore made a real change, but that change selected a less faithful
+training topology.
+
+## Current conclusion
+
+The margin-only representation is strongly supported as a clean restriction:
+
+`a_C = dL_C/ds`, followed by `c_C = B^T a_C`, exactly reconstructs the loss
+gradient with respect to trajectory log-probabilities while discarding all
+absolute-log-probability dependence and unrealizable pair-cycle components.
+
+Neither inverse-Fisher naturalization nor primal-Fisher tangent measurement
+improves alignment with Adam training. The standalone Bradley--Terry pair
+Fisher omits the model Jacobian and Adam preconditioner that determine the
+realized policy update. Under the current optimizer, the minimal supported
+descriptor is therefore the realizable Euclidean margin gradient `B^T dL/ds`.
+
+Fisher would become mechanically aligned only after either incorporating the
+optimizer/model pullback or changing training itself to a natural-gradient
+method. Both are materially different methods and are not justified by the
+present screening evidence.
