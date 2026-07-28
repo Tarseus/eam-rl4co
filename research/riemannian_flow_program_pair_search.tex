@@ -426,25 +426,31 @@ P_{\mathrm{train}}(C)=
 \begin{table}[t]
 \centering
 \scriptsize
-\caption{旧三点曲率、公平的一点单位方向、欧氏两点与最终 Fisher 两点。$\rho$ 越高越好，NN 与误跳过率越低越好。}
+\setlength{\tabcolsep}{3.2pt}
+\caption{旧三点曲率、公平的一点单位方向、欧氏两点与最终 Fisher 两点。$\rho$ 越高越好，NN 与 FS 越低越好；FS 是在随机历史顺序下模拟 $20\%$ 跳过、并以 fitness 差超过 $.01$ 为错误的平均误跳过率。}
 \label{tab:main-ablation}
-\begin{tabular}{llcccccc}
+\begin{tabular}{llc ccc ccc ccc}
 \toprule
-\textbf{候选集/标签} & \textbf{seed} & \textbf{旧曲率 $\rho$} & \textbf{一点 $d_0$ $\rho$} & \textbf{欧氏两点 $\rho$} & \textbf{Fisher 两点 $\rho$} & \textbf{Fisher NN} & \textbf{Fisher 误跳过}\\
+\textbf{候选集/标签} & \textbf{seed} & \textbf{旧曲率 $\rho$}
+& \multicolumn{3}{c}{\textbf{一点 $d_0$}}
+& \multicolumn{3}{c}{\textbf{欧氏两点}}
+& \multicolumn{3}{c}{\textbf{Fisher 两点}}\\
+\cmidrule(lr){4-6}\cmidrule(lr){7-9}\cmidrule(lr){10-12}
+& & & $\rho$ & NN & FS & $\rho$ & NN & FS & $\rho$ & NN & FS\\
 \midrule
-matched / scratch & 1 & .565 & .803 & .806 & \textbf{.808} & .00659 & .112\\
-matched / scratch & 2 & .578 & .806 & .810 & \textbf{.816} & .00659 & .030\\
-matched / warm    & 1 & .552 & .851 & .853 & \textbf{.856} & .00113 & .000\\
-matched / warm    & 2 & .573 & .853 & .855 & \textbf{.863} & .00113 & .000\\
-external / scratch& 1 & .454 & .713 & .712 & \textbf{.714} & .00689 & .109\\
-external / scratch& 2 & .487 & .715 & .715 & \textbf{.716} & .00689 & .109\\
+matched / scratch & 1 & .565 & .803 & \textbf{.00659} & .142 & .806 & \textbf{.00659} & \textbf{.112} & \textbf{.808} & \textbf{.00659} & \textbf{.112}\\
+matched / scratch & 2 & .578 & .806 & \textbf{.00659} & .142 & .810 & \textbf{.00659} & \textbf{.030} & \textbf{.816} & \textbf{.00659} & \textbf{.030}\\
+matched / warm    & 1 & .552 & .851 & .00122 & .125 & .853 & .00122 & \textbf{.000} & \textbf{.856} & \textbf{.00113} & \textbf{.000}\\
+matched / warm    & 2 & .573 & .853 & .00133 & .125 & .855 & .00133 & \textbf{.000} & \textbf{.863} & \textbf{.00113} & \textbf{.000}\\
+external / scratch& 1 & .454 & .713 & .00731 & \textbf{.106} & .712 & \textbf{.00662} & .109 & \textbf{.714} & .00689 & .109\\
+external / scratch& 2 & .487 & .715 & .00731 & \textbf{.106} & .715 & \textbf{.00689} & .109 & \textbf{.716} & \textbf{.00689} & .109\\
 \bottomrule
 \end{tabular}
 \end{table}
 
 结果说明三件事。第一，逐 probe 单位化的一点方向比旧曲率拥有更高的全局相关性；旧文中“二阶估计优于一阶估计”的结论只对\textbf{未做公平单位化的一阶欧氏距离}成立，不能写成一般结论。
-第二，一点方向仍会产生危险的尾部碰撞：在匹配候选的随机顺序模拟中，其平均误跳过率约为 $0.14$--$0.16$，被误跳过候选的平均 fitness 误差约为 $0.027$--$0.063$。
-加入第二点方向后，既保留一点方向的高 $\rho$，又把被误跳过候选的平均误差降到约 $0.001$--$0.006$；这才是保留第二次求导的理由。
+第二，一点方向仍会产生危险的尾部碰撞：在两组 matched scratch 模拟中，其平均误跳过率均为 $.142$，被误跳过候选的平均 fitness 误差约为 $.063$；matched warm 的一点误跳过率为 $.125$。
+加入第二点方向后，matched scratch 的误跳过率降为 $.112/.030$，matched warm 降为 $.000/.000$；同时既保留一点方向的高 $\rho$，又把被误跳过候选的平均误差降到约 $0.001$--$0.006$。这才是保留第二次求导的理由。
 第三，在相同两次求导预算下，Fisher 版在六个设置中相对欧氏版的 $\rho$ 分别提高 $.002,.006,.003,.008,.002,.001$，且误跳过率没有增加。增益不大，所以只保留闭式不变几何，不恢复多步流或曲率系统。
 
 \Needspace{0.72\textheight}
