@@ -1,0 +1,99 @@
+{
+  "generation": 0,
+  "pair_index": 1,
+  "g_entry": {
+    "id": "g000_001_311f50c2",
+    "ir": {
+      "name": "all_pairs_diff_weight_tiebreak",
+      "intuition": "All pairs with tie-breaking using index order to ensure non-zero weight variation even when objectives are equal, increasing instance weight CV.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "objective_difference",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs",
+        "weight_by_objective_diff"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    batch_size, seq_len = objective.shape\n    # Create mask including ties (<=) and exclude diagonal\n    mask = objective[:, :, None] <= objective[:, None, :]\n    eye = torch.eye(seq_len, device=objective.device).bool().unsqueeze(0)\n    mask = mask & (~eye)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Weight = absolute objective difference + small index-based term to break ties\n    weight = (objective[b_idx, winner_idx] - objective[b_idx, loser_idx]).abs()\n    idx_diff = (loser_idx - winner_idx).abs().float() * 1e-6\n    weight = weight + idx_diff\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_diff_weight_tiebreak'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_001_4b362843",
+    "ir": {
+      "name": "unnamed_free_loss",
+      "intuition": "Pairwise loss comparing log probabilities of winning (log_prob_w) and losing (log_prob_l) completions, weighted by weight, and incorporating advantage_gap as an adaptive margin to improve separation.",
+      "pseudocode": "For each pair: margin = log_prob_l - log_prob_w; loss = weight * softplus(margin - advantage_gap); return mean(loss).",
+      "hyperparams": {},
+      "operators_used": [
+        "sub",
+        "softplus",
+        "mul",
+        "mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch[\"log_prob_w\"]\n    log_prob_l = batch[\"log_prob_l\"]\n    weight = batch[\"weight\"]\n    advantage_gap = batch[\"advantage_gap\"]\n    margin = ops.sub(log_prob_l, log_prob_w)\n    loss = ops.mul(weight, ops.softplus(ops.sub(margin, advantage_gap)))\n    return ops.mean(loss)",
+      "theoretical_basis": "Margin-based pairwise loss where the margin is the advantage gap, encouraging the winning completion to have higher log probability than the losing one by at least the advantage difference, weighted by importance and aggregated via softplus for smooth optimization."
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

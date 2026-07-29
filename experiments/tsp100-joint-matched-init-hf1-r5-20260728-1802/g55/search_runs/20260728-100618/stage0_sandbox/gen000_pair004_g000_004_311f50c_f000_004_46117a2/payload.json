@@ -1,0 +1,131 @@
+{
+  "generation": 0,
+  "pair_index": 4,
+  "g_entry": {
+    "id": "g000_004_311f50c2",
+    "ir": {
+      "name": "all_pairs_weighted_diff",
+      "intuition": "All winner/loser pairs by strict objective ordering, weighted by the positive difference in objective, with loser index first in pair tuple to satisfy winner/loser semantics.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "objective_diff",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "all_pairs_weighted_diff"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, loser_idx, winner_idx = mask.nonzero(as_tuple=True)\n    weight = objective[b_idx, winner_idx] - objective[b_idx, loser_idx]\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, loser_idx, winner_idx), weight=weight, meta={'builder': 'all_pairs_weighted_diff'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_004_46117a24",
+    "ir": {
+      "name": "loss_diff_exp_advantage",
+      "intuition": "Parabolic penalization of log-probability difference with exponential sensitivity, aligned to cost_gap target",
+      "pseudocode": "gap = log_prob_w - log_prob_l; scaled_gap = alpha * gap; target_gap = alpha * cost_gap; clamp both; exp_term = exp(scaled_gap); target_exp = exp(target_gap); loss = weight * (exp_term - target_exp)^2; loss = mean(loss)",
+      "hyperparams": {
+        "paradigm_family": "pairwise_regression",
+        "signal_family": "log_prob",
+        "link_family": "exponential",
+        "agg_family": "mean",
+        "constraint_family": "none",
+        "other_hparams": "alpha=1.0"
+      },
+      "operators_used": [
+        "logsigmoid",
+        "softplus",
+        "sigmoid",
+        "exp",
+        "log",
+        "abs",
+        "tanh",
+        "relu",
+        "clamp",
+        "normalize",
+        "zscore",
+        "rank_gap",
+        "sum",
+        "mean",
+        "stack",
+        "cat",
+        "ones_like",
+        "zeros_like",
+        "sqrt",
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "neg",
+        "max",
+        "min",
+        "maximum",
+        "minimum",
+        "sign",
+        "norm"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "cost_gap"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    eps = 1e-8\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch['weight']\n    cost_gap = batch['cost_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    gap = ops.sub(lpw, lpl)\n    scaled_gap = ops.mul(alpha, gap)\n    scaled_gap = ops.clamp(scaled_gap, -10.0, 10.0)\n    target_gap = ops.mul(alpha, cost_gap)\n    target_gap = ops.clamp(target_gap, -10.0, 10.0)\n    exp_term = ops.exp(scaled_gap)\n    target_exp = ops.exp(target_gap)\n    diff = ops.sub(exp_term, target_exp)\n    loss = ops.mul(diff, diff)\n    loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

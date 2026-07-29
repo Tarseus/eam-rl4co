@@ -1,0 +1,564 @@
+{
+  "generation": 6,
+  "pair_index": 4,
+  "g_id": "g006_004_a5015802",
+  "f_id": "f006_004_2fde2877",
+  "g_ir": {
+    "name": "margin_regret_blend_builder",
+    "intuition": "Combines pair-level log-prob margin and instance-level scaled regret to weight pairs, using objective std to normalize margin for instance-specific difficulty.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob",
+        "rank",
+        "regret",
+        "instance_obj_mad",
+        "instance_obj_std",
+        "instance_log_prob_std",
+        "instance_regret_std"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "weight_scale": 1.0,
+      "clamp_lo": 0.25,
+      "clamp_hi": 4.0,
+      "lambda_rank": 1.0,
+      "lambda_regret": 1.0,
+      "gamma": 0.5,
+      "weight_family": "margin_regret_blend",
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "constraint_family": "clamp_only",
+      "template": "all_pairs_reweight"
+    },
+    "operators_used": [
+      "all_pairs_reweight",
+      "margin_regret_blend"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    regret = feature_cache['regret']\n    batch_size = int(objective.shape[0])\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if int(b_idx.numel()) <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_reweight_template', 'weight_family': 'margin_regret_blend'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_scale = feature_cache.get('instance_obj_mad')\n    if instance_obj_scale is None:\n        instance_obj_scale = feature_cache.get('instance_obj_std')\n    if instance_obj_scale is None:\n        instance_obj_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    instance_log_prob_scale = feature_cache.get('instance_log_prob_std')\n    if instance_log_prob_scale is None:\n        instance_log_prob_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    instance_regret_scale = feature_cache.get('instance_regret_std')\n    if instance_regret_scale is None:\n        instance_regret_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)\n    regret_span = regret[b_idx, loser_idx] - regret[b_idx, winner_idx]\n    regret_span = regret_span / (1.0 + instance_regret_scale[b_idx].clamp_min(eps))\n    margin_abs = (log_prob[b_idx, winner_idx] - log_prob[b_idx, loser_idx]).abs()\n    margin_scaled = margin_abs / instance_log_prob_scale[b_idx].clamp_min(eps)\n    raw = ((1.0 + 1 * regret_span) / (margin_scaled + eps).pow(0.5)) * 1\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(0.25, 4)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_reweight_template', 'weight_family': 'margin_regret_blend'})\n"
+  },
+  "f_ir": {
+    "name": "weighted_softplus_gap_loss",
+    "intuition": "Softplus loss on log-prob gap modulated by builder weights; pairs with larger margin and higher regret are emphasized due to the weighting from the builder.",
+    "pseudocode": "weight = batch['weight']; gap = log_prob_w - log_prob_l; loss = weight * softplus((target_margin - gap) * gap_scale / temperature); return weighted_mean(loss)",
+    "hyperparams": {
+      "temperature": 1.0,
+      "gap_scale": 0.5,
+      "target_margin": 0.0,
+      "template": "weighted_softplus_gap",
+      "paradigm_family": "pairwise_margin",
+      "agg_family": "weighted_mean",
+      "constraint_family": "finite_softplus"
+    },
+    "operators_used": [
+      "weighted_softplus_gap",
+      "weighted_mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "delta_z",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    margin = log_prob_w - log_prob_l\n    weight = batch.get('weight', torch.ones_like(margin))\n    weight = torch.nan_to_num(weight, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    signal = batch.get('delta_z', torch.zeros_like(margin)).detach().clamp_min(0.0)\n    loss_vec = weight * F.softplus((0 + 0.5 * signal) - 1 * margin)\n    denom = weight.sum().clamp_min(1.0)\n    return loss_vec.sum() / denom\n",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:1",
+  "device_str": "cuda:1",
+  "device_physical_str": "cuda:1",
+  "device_logical_str": "cuda:0",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "08f29f5860cf6ce6",
+  "score": 1.0058220489501943,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 1.0,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": null,
+  "descriptor": null,
+  "joint_pair_id": "jp006_004_a174060c",
+  "hf_cuda_diagnostics": "hf_subprocess/gen006_pair004_cuda_1/cuda_diagnostics.jsonl",
+  "proxy_score": 0.0,
+  "joint_gate_repaired": false,
+  "joint_gate_repair_attempts": 0,
+  "f_id_before_repair": null,
+  "f_id_after_repair": null,
+  "joint_gate_repair_reports": [],
+  "builder_gate_repaired": false,
+  "builder_gate_repair_attempts": 0,
+  "g_id_before_repair": null,
+  "g_id_after_repair": null,
+  "builder_gate_repair_reports": [],
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "sandbox_gate": {
+    "ok": true,
+    "generation": 6,
+    "pair_index": 4,
+    "failure_kind": null,
+    "reason": "ok",
+    "checks": [
+      {
+        "variant": "visible",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      },
+      {
+        "variant": "hidden",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      }
+    ],
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen006_pair004_g006_004_a501580_f006_004_2fde287/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen006_pair004_g006_004_a501580_f006_004_2fde287/result.json"
+  },
+  "sandbox_gate_ok": true,
+  "sandbox_gate_reason": "ok",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": true,
+      "cv_threshold": 0.1,
+      "pass_rate_threshold": 0.75,
+      "eligible_instances": 8,
+      "observed_cv_values": [
+        0.21343374914057806,
+        0.21343374914057806,
+        0.21343374914057806,
+        0.21343374914057806,
+        0.21343374914057806,
+        0.21343374914057806,
+        0.21343374914057806,
+        0.21343374914057806
+      ]
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": {
+    "failed_gate": null,
+    "failure_kind": null,
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 1.0,
+      "loss": 0.7060312628746033,
+      "loss_swap": 0.994300901889801,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 0.7060312628746033
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [],
+    "variant": "visible"
+  },
+  "co_enabled": true,
+  "co_ok": true,
+  "co_reason": "ok",
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_ok": true,
+  "co_invariance_ok": true,
+  "co_sensitivity_visible_ok": true,
+  "co_sensitivity_visible_reason": "ok",
+  "co_sensitivity_visible_abs_delta": 0.7996177673339844,
+  "co_sensitivity_visible_rel_delta": 0.28738998710882163,
+  "co_sensitivity_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_objective_perturbation",
+    "observed": {
+      "abs_delta": 0.7996177673339844,
+      "rel_delta": 0.28738998710882163,
+      "grad_ratio": 1.3660052345651665
+    },
+    "threshold": {
+      "min_abs_delta": 0.001,
+      "min_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": ">=",
+      "rel_delta": ">=",
+      "grad_ratio": "informational"
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "loss_small": 0.9913630485534668,
+        "loss_large": 1.7909808158874512,
+        "log_prob_w": -5.259264945983887,
+        "log_prob_l": -5.600832939147949,
+        "delta_z_small": 0.04579274728894234,
+        "delta_z_large": 2.289637327194214
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_sensitivity_hidden_ok": null,
+  "co_sensitivity_hidden_reason": null,
+  "co_sensitivity_hidden_abs_delta": null,
+  "co_sensitivity_hidden_rel_delta": null,
+  "co_sensitivity_hidden_trace": null,
+  "co_invariance_visible_ok": true,
+  "co_invariance_visible_reason": "ok",
+  "co_invariance_visible_abs_delta": 0.0,
+  "co_invariance_visible_rel_delta": 0.0,
+  "co_invariance_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_affine_transform",
+    "observed": {
+      "abs_delta": 0.0,
+      "rel_delta": 0.0
+    },
+    "threshold": {
+      "max_abs_delta": 0.001,
+      "max_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": "<=",
+      "rel_delta": "<="
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "a": 7.0,
+        "b": 3.0,
+        "loss_raw": 1.3452723026275635,
+        "loss_affine": 1.3452723026275635,
+        "log_prob_w": -4.814239978790283,
+        "log_prob_l": -4.138802528381348
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_invariance_hidden_ok": null,
+  "co_invariance_hidden_reason": null,
+  "co_invariance_hidden_abs_delta": null,
+  "co_invariance_hidden_rel_delta": null,
+  "co_invariance_hidden_trace": null,
+  "hf_log_file": "gen006_pair004_cuda_1_g006_004_a5015802_f006_004_2fde2877.log",
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "fitness": {
+    "per_init": {
+      "ckpt_135": {
+        "obj_cand_by_size": {
+          "100": 8.80216681060791
+        },
+        "obj_base_by_size": {
+          "100": 7.796344761657715
+        },
+        "obj_cand": 8.80216681060791,
+        "obj_base": 7.796344761657715,
+        "delta": 1.0058220489501943,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+        "error": null,
+        "error_traceback": null,
+        "preflight_rollout_smoke_test": {
+          "ok": true,
+          "phase": "train",
+          "device": "cuda:0",
+          "precision": "32-true",
+          "batch_size": 1,
+          "num_rollouts": 2,
+          "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+          "rollout_strategy": "policy_multistart",
+          "reward": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "stats_skipped": "cuda_tensor"
+          },
+          "log_likelihood": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "stats_skipped": "cuda_tensor"
+          },
+          "rollout_debug_events": []
+        },
+        "rollout_debug_events": []
+      }
+    },
+    "per_scenario": {
+      "tsp100": {
+        "scenario_name": "tsp100",
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "baseline_mini_eval_path": "/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": false,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 1,
+          "hf_instances_per_epoch": 100000
+        },
+        "K": 200,
+        "per_init": {
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 8.80216681060791
+            },
+            "obj_base_by_size": {
+              "100": 7.796344761657715
+            },
+            "obj_cand": 8.80216681060791,
+            "obj_base": 7.796344761657715,
+            "delta": 1.0058220489501943,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+            "error": null,
+            "error_traceback": null,
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "stats_skipped": "cuda_tensor"
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "stats_skipped": "cuda_tensor"
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "delta_mean": 1.0058220489501943,
+        "delta_worst": 1.0058220489501943
+      }
+    },
+    "scenario_names": [
+      "tsp100"
+    ],
+    "delta_mean": 1.0058220489501943,
+    "delta_worst": 1.0058220489501943,
+    "all_scenarios_negative": false,
+    "nonnegative_scenario_count": 1,
+    "worst_scenario_delta": 1.0058220489501943,
+    "baseline_mini_eval_path": "/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json",
+    "baseline_mini_eval_paths": {
+      "tsp100": "/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json"
+    },
+    "baseline_multiseed_cache_path": null,
+    "baseline_multiseed_cache_paths": {
+      "tsp100": null
+    },
+    "baseline_compare_mode": "mini_eval",
+    "baseline_compare_modes": {
+      "tsp100": "mini_eval"
+    },
+    "eval_signature": {
+      "protocol": "stage3_online_minitrain_v1",
+      "baseline_eval_impl_version": 2,
+      "baseline_eval_mode": "ref_free_loss",
+      "scenario_name": "tsp100",
+      "env_name": "tsp",
+      "policy_name": "pomo",
+      "policy_kwargs": {
+        "po4cops_compat": true,
+        "embed_dim": 128,
+        "num_encoder_layers": 6,
+        "decoder_layer_num": 1,
+        "qkv_dim": 16,
+        "num_heads": 8,
+        "feedforward_hidden": 512,
+        "tanh_clipping": 50,
+        "eval_type": "argmax",
+        "val_decode_type": "greedy",
+        "test_decode_type": "greedy"
+      },
+      "env_kwargs": {},
+      "rollout_strategy": "auto",
+      "objective_sign": "neg_reward",
+      "alpha": 0.05,
+      "po_impl": "bt",
+      "K": 200,
+      "train_problem_size": 100,
+      "valid_problem_sizes": [
+        100
+      ],
+      "train_batch_size": 64,
+      "num_validation_episodes": 10000,
+      "validation_batch_size": 64,
+      "pomo_size": null,
+      "learning_rate": 0.0003,
+      "weight_decay": 1e-06,
+      "size_aggregation": "mean",
+      "size_cvar_alpha": 0.2,
+      "scratch_init_seed": 1234,
+      "data": {
+        "mode": "online",
+        "generator_params": {
+          "num_loc": 100
+        }
+      },
+      "include_scratch": false,
+      "checkpoints": [
+        {
+          "name": "ckpt_135",
+          "path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+          "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+        }
+      ],
+      "budget_mode": "epochs",
+      "hf_epochs": 1,
+      "hf_instances_per_epoch": 100000
+    },
+    "any_error": false,
+    "runtime_error_count": 0,
+    "runtime_error_inits": []
+  },
+  "better_than_baseline_mean": false,
+  "better_than_baseline_strict": false,
+  "better_than_baseline_all_scenarios": false,
+  "stage3_all_scenarios_negative": false,
+  "stage3_nonnegative_scenario_count": 1,
+  "stage3_worst_scenario_delta": 1.0058220489501943,
+  "stage3_any_error": false,
+  "stage3_runtime_error_count": 0,
+  "stage3_runtime_error_inits": [],
+  "elapsed_s": 1072.4841754436493
+}

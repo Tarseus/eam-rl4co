@@ -1,0 +1,60 @@
+[2026-07-29 03:18:19,034] INFO:fitness.free_loss_fidelity: Stage3 offline mini-train start gen=17 pair_index=9 scenarios=['tsp100']
+[2026-07-29 03:18:19,119] INFO:fitness.free_loss_fidelity: Stage3 scenario start gen=17 pair_index=9 scenario=tsp100 K=200 seed=1234 valid_sizes=[100] baseline_json=/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json
+[2026-07-29 03:18:24,049] WARNING:fitness.free_loss_fidelity: weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt
+[2026-07-29 03:18:24,099] INFO:fitness.free_loss_fidelity: Loaded init checkpoint into policy: path=/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt prefix=policy. matched=97 missing=0 unexpected=0
+[2026-07-29 03:18:25,005] WARNING:fitness.free_loss_fidelity: weights_only checkpoint load failed (UnpicklingError); retrying weights_only=False for /data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt
+[2026-07-29 03:18:25,047] INFO:fitness.free_loss_fidelity: Loaded init checkpoint into policy: path=/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt prefix=policy. matched=97 missing=0 unexpected=0
+[2026-07-29 03:18:25,227] INFO:fitness.free_loss_fidelity: RL4CO free-loss phase=warmstart: epochs=1 steps_f1=1563 steps_f2=0 total_steps=1563 (ckpt=/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt, device=cuda:0, env=tsp)
+[2026-07-29 03:18:25,568] ERROR:fitness.free_loss_fidelity: Stage3 mini-train FAILED scenario=tsp100 init=ckpt_135 g_id=g017_009_a047a7da f_id=f017_009_faec2194 device=cuda:3 logical_device=cuda:0
+Traceback (most recent call last):
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/pref_loss_coevo_loop.py", line 11534, in _evaluate_pair_worker
+    fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py", line 4703, in evaluate_free_loss_candidate
+    return _evaluate_free_loss_candidate_rl4co(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py", line 2933, in _evaluate_free_loss_candidate_rl4co
+    warm_res = _run_phase(
+               ^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py", line 2775, in _run_phase
+    score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py", line 2295, in _train_one_batch_with_free_loss_rl4co
+    rollout = _rl4co_rollout_full(
+              ^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py", line 1348, in _rl4co_rollout_full
+    out = policy(
+          ^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 418, in forward
+    probs = self.decoder(encoded_last_node, ninf_mask)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 273, in forward
+    out = layer(out, ninf_mask)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 207, in forward
+    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py", line 52, in _multi_head_attention
+    score_scaled = score_scaled + rank3_ninf_mask[:, None, :, :].expand(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 13.06 MiB is free. Process 3169085 has 256.00 MiB memory in use. Process 3260035 has 8.63 GiB memory in use. Process 3260036 has 8.63 GiB memory in use. Including non-PyTorch memory, this process has 6.01 GiB memory in use. Of the allocated memory 5.49 GiB is allocated by PyTorch, and 221.63 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[2026-07-29 03:18:25,575] WARNING:fitness.free_loss_fidelity: Stage3 early prune triggered gen=17 pair_index=9 scenario=tsp100 report={'scenario_name': 'tsp100', 'init_ratios': {'ckpt_135': 128265235.8984921}, 'triggered_inits': {'ckpt_135': 128265235.8984921}, 'mean_ratio': 128265235.8984921, 'max_init_ratio_to_baseline': 2.0, 'max_mean_ratio_to_baseline': None}
+[2026-07-29 03:18:25,576] INFO:fitness.free_loss_fidelity: Stage3 offline mini-train DONE gen=17 pair_index=9 score=inf any_error=True

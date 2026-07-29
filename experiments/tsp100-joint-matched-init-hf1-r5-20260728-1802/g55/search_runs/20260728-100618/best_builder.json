@@ -1,0 +1,53 @@
+{
+  "id": "g000_003_311f50c2",
+  "ir": {
+    "name": "ref_all_pairs_builder",
+    "intuition": "Reference builder: all winner/loser pairs by objective ordering.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "uniform_none",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "ref_all_pairs"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'ref_all_pairs'})\n"
+  },
+  "stage": "high_fidelity",
+  "score": 0.017992042541504105,
+  "pair_ok": true,
+  "pair_reason": "ok_stage3_offline_minitrain",
+  "best_pair_generation": 0,
+  "best_pair_phase": "joint_pair",
+  "score_history": [
+    {
+      "generation": 0,
+      "pair_index": 3,
+      "phase": "joint_pair",
+      "stage": "high_fidelity",
+      "stage_final": "high_fidelity",
+      "score": 0.017992042541504105,
+      "eval_budget_signature": "08f29f5860cf6ce6",
+      "reference_score": 1.35233699645996
+    }
+  ],
+  "score_history_summary": {
+    "count": 1,
+    "scores": [
+      0.017992042541504105
+    ],
+    "best": 0.017992042541504105,
+    "worst": 0.017992042541504105,
+    "mean": 0.017992042541504105,
+    "latest": 0.017992042541504105
+  }
+}

@@ -1,0 +1,592 @@
+{
+  "generation": 5,
+  "pair_index": 13,
+  "g_id": "g005_013_61842826",
+  "f_id": "f005_013_64d3de0f",
+  "g_ir": {
+    "name": "gap_linear_instance_std",
+    "intuition": "Weight each pair by the objective gap normalized by the instance-level objective standard deviation, so that pairs from instances with tight objective ranges are up-weighted relative to those with wide spreads. This focuses learning on finer-grained distinctions where the model can still improve.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob",
+        "rank",
+        "regret",
+        "instance_obj_mad",
+        "instance_obj_std",
+        "instance_log_prob_std",
+        "instance_regret_std"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "weight_scale": 1.0,
+      "clamp_lo": 0.25,
+      "clamp_hi": 4.0,
+      "lambda_rank": 1.0,
+      "lambda_regret": 1.0,
+      "gamma": 0.5,
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "gap_linear",
+      "constraint_family": "clamp_only",
+      "template": "all_pairs_reweight"
+    },
+    "operators_used": [
+      "all_pairs_reweight",
+      "gap_linear"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    regret = feature_cache['regret']\n    batch_size = int(objective.shape[0])\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if int(b_idx.numel()) <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_reweight_template', 'weight_family': 'gap_linear'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_scale = feature_cache.get('instance_obj_mad')\n    if instance_obj_scale is None:\n        instance_obj_scale = feature_cache.get('instance_obj_std')\n    if instance_obj_scale is None:\n        instance_obj_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    instance_log_prob_scale = feature_cache.get('instance_log_prob_std')\n    if instance_log_prob_scale is None:\n        instance_log_prob_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    instance_regret_scale = feature_cache.get('instance_regret_std')\n    if instance_regret_scale is None:\n        instance_regret_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)\n    raw = (gap_scaled.clamp_min(0.0)) * 1\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(0.25, 4)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_reweight_template', 'weight_family': 'gap_linear'})\n"
+  },
+  "f_ir": {
+    "name": "softplus_gap_weighted",
+    "intuition": "Softplus loss on the log-prob gap, weighted by the builder's instance-conditioned weights. The gap scale and temperature control the steepness of the margin penalty, and the target margin is kept at zero to directly penalize wrong orderings.",
+    "pseudocode": "gap = log_prob_w - log_prob_l; loss = weight * softplus((target_margin - gap) * gap_scale / temperature); return weighted_mean(loss)",
+    "hyperparams": {
+      "temperature": 1.0,
+      "gap_scale": 0.5,
+      "target_margin": 0.0,
+      "template": "weighted_softplus_gap",
+      "paradigm_family": "pairwise_margin",
+      "agg_family": "weighted_mean",
+      "constraint_family": "finite_softplus"
+    },
+    "operators_used": [
+      "weighted_softplus_gap",
+      "weighted_mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "delta_z",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    margin = log_prob_w - log_prob_l\n    weight = batch.get('weight', torch.ones_like(margin))\n    weight = torch.nan_to_num(weight, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    signal = batch.get('delta_z', torch.zeros_like(margin)).detach().clamp_min(0.0)\n    loss_vec = weight * F.softplus((0 + 0.5 * signal) - 1 * margin)\n    denom = weight.sum().clamp_min(1.0)\n    return loss_vec.sum() / denom\n",
+    "theoretical_basis": ""
+  },
+  "device": "cuda:3",
+  "device_str": "cuda:3",
+  "device_physical_str": "cuda:3",
+  "device_logical_str": "cuda:0",
+  "cheap_gate_on": false,
+  "high_fidelity_on": true,
+  "eval_budget_signature": "08f29f5860cf6ce6",
+  "score": Infinity,
+  "proxy_metrics": {
+    "cheap_effective_grad_ratio": 1.0,
+    "cheap_semantic_pass_rate": 1.0
+  },
+  "seed_signature": null,
+  "descriptor": null,
+  "joint_pair_id": "jp005_013_31488a74",
+  "hf_cuda_diagnostics": "hf_subprocess/gen005_pair013_cuda_3/cuda_diagnostics.jsonl",
+  "proxy_score": 0.0,
+  "joint_gate_repaired": false,
+  "joint_gate_repair_attempts": 0,
+  "f_id_before_repair": null,
+  "f_id_after_repair": null,
+  "joint_gate_repair_reports": [],
+  "builder_gate_repaired": false,
+  "builder_gate_repair_attempts": 0,
+  "g_id_before_repair": null,
+  "g_id_after_repair": null,
+  "builder_gate_repair_reports": [],
+  "g_compile_ok": true,
+  "g_compile_reason": "ok",
+  "f_static_ok": true,
+  "f_static_reason": "",
+  "f_compile_ok": true,
+  "f_compile_reason": "ok",
+  "sandbox_gate": {
+    "ok": true,
+    "generation": 5,
+    "pair_index": 13,
+    "failure_kind": null,
+    "reason": "ok",
+    "checks": [
+      {
+        "variant": "visible",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      },
+      {
+        "variant": "hidden",
+        "round": 0,
+        "builder_gate_ok": true,
+        "joint_gate_ok": true,
+        "joint_failure_kind": null
+      }
+    ],
+    "exit_code": 0,
+    "sandbox_log": "stage0_sandbox/gen005_pair013_g005_013_6184282_f005_013_64d3de0/subprocess.log",
+    "sandbox_result": "stage0_sandbox/gen005_pair013_g005_013_6184282_f005_013_64d3de0/result.json"
+  },
+  "sandbox_gate_ok": true,
+  "sandbox_gate_reason": "ok",
+  "builder_gate_ok": true,
+  "builder_gate_reason": "ok",
+  "builder_gate_trace": {
+    "failed_gate": null,
+    "checks": [
+      {
+        "metric_name": "pair_count",
+        "observed_value": 960,
+        "threshold": 1,
+        "direction": ">="
+      },
+      {
+        "metric_name": "coverage",
+        "observed_value": 1.0,
+        "threshold": 0.0,
+        "direction": ">="
+      },
+      {
+        "metric_name": "max_pairs_per_instance",
+        "observed_value": 120,
+        "threshold": 8192,
+        "direction": "<="
+      },
+      {
+        "metric_name": "semantic_pass_rate",
+        "observed_value": 1.0,
+        "threshold": 1.0,
+        "direction": ">="
+      }
+    ],
+    "instance_weight_cv_gate": {
+      "enabled": true,
+      "cv_threshold": 0.1,
+      "pass_rate_threshold": 0.75,
+      "eligible_instances": 8,
+      "observed_cv_values": [
+        0.6416889679204427,
+        0.6416889679204427,
+        0.6416889679204427,
+        0.6416889980715024,
+        0.6416889679204427,
+        0.6416889679204427,
+        0.6416889679204427,
+        0.6416889980715024
+      ]
+    },
+    "builder_pref_cache_hit": false,
+    "memory_metric_available": false,
+    "memory_device": "cpu"
+  },
+  "joint_gate_ok": true,
+  "joint_gate_reason": "ok",
+  "joint_gate_trace": {
+    "failed_gate": null,
+    "failure_kind": null,
+    "observed": {
+      "grad_w_pass_rate": 1.0,
+      "grad_l_pass_rate": 1.0,
+      "effective_grad_ratio": 1.0,
+      "loss": 0.7134726047515869,
+      "loss_swap": 1.1844922304153442,
+      "swap_ok": true,
+      "swap_check_mode": "data",
+      "swap_ref_loss": 0.7134726047515869
+    },
+    "threshold": {
+      "min_pass_rate": 0.8,
+      "swap_tolerance": 0.001,
+      "swap_test_margin": 1.0,
+      "min_effective_grad_ratio": 0.1,
+      "grad_eps": 1e-08
+    },
+    "where_failed": [],
+    "variant": "visible"
+  },
+  "co_enabled": true,
+  "co_ok": true,
+  "co_reason": "ok",
+  "co_failed_gate": null,
+  "co_failure_kind": null,
+  "co_sensitivity_ok": true,
+  "co_invariance_ok": true,
+  "co_sensitivity_visible_ok": true,
+  "co_sensitivity_visible_reason": "ok",
+  "co_sensitivity_visible_abs_delta": 0.8789541721343994,
+  "co_sensitivity_visible_rel_delta": 0.29742063144708014,
+  "co_sensitivity_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_objective_perturbation",
+    "observed": {
+      "abs_delta": 0.8789541721343994,
+      "rel_delta": 0.29742063144708014,
+      "grad_ratio": 1.4023311723878997
+    },
+    "threshold": {
+      "min_abs_delta": 0.001,
+      "min_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": ">=",
+      "rel_delta": ">=",
+      "grad_ratio": "informational"
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "loss_small": 1.0381510257720947,
+        "loss_large": 1.9171051979064941,
+        "log_prob_w": -4.545772552490234,
+        "log_prob_l": -3.4980454444885254,
+        "delta_z_small": 0.07094846665859222,
+        "delta_z_large": 3.5474231243133545
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_sensitivity_hidden_ok": null,
+  "co_sensitivity_hidden_reason": null,
+  "co_sensitivity_hidden_abs_delta": null,
+  "co_sensitivity_hidden_rel_delta": null,
+  "co_sensitivity_hidden_trace": null,
+  "co_invariance_visible_ok": true,
+  "co_invariance_visible_reason": "ok",
+  "co_invariance_visible_abs_delta": 0.0,
+  "co_invariance_visible_rel_delta": 0.0,
+  "co_invariance_visible_trace": {
+    "failed_gate": null,
+    "metric_name": "delta_loss_under_affine_transform",
+    "observed": {
+      "abs_delta": 0.0,
+      "rel_delta": 0.0
+    },
+    "threshold": {
+      "max_abs_delta": 0.001,
+      "max_rel_delta": 0.01
+    },
+    "direction": {
+      "abs_delta": "<=",
+      "rel_delta": "<="
+    },
+    "where_failed": null,
+    "counterexamples": [
+      {
+        "a": 7.0,
+        "b": 3.0,
+        "loss_raw": 1.2047266960144043,
+        "loss_affine": 1.2047266960144043,
+        "log_prob_w": -1.371605396270752,
+        "log_prob_l": -0.10855817794799805
+      }
+    ],
+    "variant": "visible"
+  },
+  "co_invariance_hidden_ok": null,
+  "co_invariance_hidden_reason": null,
+  "co_invariance_hidden_abs_delta": null,
+  "co_invariance_hidden_rel_delta": null,
+  "co_invariance_hidden_trace": null,
+  "hf_log_file": "gen005_pair013_cuda_3_g005_013_61842826_f005_013_64d3de0f.log",
+  "pair_ok": false,
+  "pair_reason": "stage3_early_pruned",
+  "stage3_early_prune": {
+    "scenario_name": "tsp100",
+    "init_ratios": {
+      "ckpt_135": 128265235.8984921
+    },
+    "triggered_inits": {
+      "ckpt_135": 128265235.8984921
+    },
+    "mean_ratio": 128265235.8984921,
+    "max_init_ratio_to_baseline": 2.0,
+    "max_mean_ratio_to_baseline": null
+  },
+  "fitness": {
+    "per_init": {
+      "ckpt_135": {
+        "obj_cand_by_size": {
+          "100": 1000000000.0
+        },
+        "obj_base_by_size": {
+          "100": 7.796344761657715
+        },
+        "obj_cand": 1000000000.0,
+        "obj_base": 7.796344761657715,
+        "delta": 999999992.2036552,
+        "baseline_source": "mini_eval",
+        "baseline_seed": null,
+        "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+        "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 13.12 MiB is free. Process 3169085 has 256.00 MiB memory in use. Process 3204025 has 8.63 GiB memory in use. Process 3204024 has 8.63 GiB memory in use. Including non-PyTorch memory, this process has 6.01 GiB memory in use. Of the allocated memory 5.49 GiB is allocated by PyTorch, and 221.63 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)",
+        "error_traceback": "Traceback (most recent call last):\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/pref_loss_coevo_loop.py\", line 11534, in _evaluate_pair_worker\n    fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 4703, in evaluate_free_loss_candidate\n    return _evaluate_free_loss_candidate_rl4co(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 2933, in _evaluate_free_loss_candidate_rl4co\n    warm_res = _run_phase(\n               ^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 2775, in _run_phase\n    score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 2295, in _train_one_batch_with_free_loss_rl4co\n    rollout = _rl4co_rollout_full(\n              ^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 1348, in _rl4co_rollout_full\n    out = policy(\n          ^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 418, in forward\n    probs = self.decoder(encoded_last_node, ninf_mask)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 273, in forward\n    out = layer(out, ninf_mask)\n          ^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 207, in forward\n    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 52, in _multi_head_attention\n    score_scaled = score_scaled + rank3_ninf_mask[:, None, :, :].expand(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 13.12 MiB is free. Process 3169085 has 256.00 MiB memory in use. Process 3204025 has 8.63 GiB memory in use. Process 3204024 has 8.63 GiB memory in use. Including non-PyTorch memory, this process has 6.01 GiB memory in use. Of the allocated memory 5.49 GiB is allocated by PyTorch, and 221.63 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\n",
+        "preflight_rollout_smoke_test": {
+          "ok": true,
+          "phase": "train",
+          "device": "cuda:0",
+          "precision": "32-true",
+          "batch_size": 1,
+          "num_rollouts": 2,
+          "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+          "rollout_strategy": "policy_multistart",
+          "reward": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "stats_skipped": "cuda_tensor"
+          },
+          "log_likelihood": {
+            "type": "tensor",
+            "shape": [
+              1,
+              2
+            ],
+            "dtype": "torch.float32",
+            "device": "cuda:0",
+            "numel": 2,
+            "stats_skipped": "cuda_tensor"
+          },
+          "rollout_debug_events": []
+        },
+        "rollout_debug_events": []
+      }
+    },
+    "per_scenario": {
+      "tsp100": {
+        "scenario_name": "tsp100",
+        "problem": "tsp",
+        "env_name": "tsp",
+        "train_problem_size": 100,
+        "valid_problem_sizes": [
+          100
+        ],
+        "baseline_mini_eval_path": "/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json",
+        "baseline_multiseed_cache_path": null,
+        "baseline_compare_mode": "mini_eval",
+        "eval_signature": {
+          "protocol": "stage3_online_minitrain_v1",
+          "baseline_eval_impl_version": 2,
+          "baseline_eval_mode": "ref_free_loss",
+          "scenario_name": "tsp100",
+          "env_name": "tsp",
+          "policy_name": "pomo",
+          "policy_kwargs": {
+            "po4cops_compat": true,
+            "embed_dim": 128,
+            "num_encoder_layers": 6,
+            "decoder_layer_num": 1,
+            "qkv_dim": 16,
+            "num_heads": 8,
+            "feedforward_hidden": 512,
+            "tanh_clipping": 50,
+            "eval_type": "argmax",
+            "val_decode_type": "greedy",
+            "test_decode_type": "greedy"
+          },
+          "env_kwargs": {},
+          "rollout_strategy": "auto",
+          "objective_sign": "neg_reward",
+          "alpha": 0.05,
+          "po_impl": "bt",
+          "K": 200,
+          "train_problem_size": 100,
+          "valid_problem_sizes": [
+            100
+          ],
+          "train_batch_size": 64,
+          "num_validation_episodes": 10000,
+          "validation_batch_size": 64,
+          "pomo_size": null,
+          "learning_rate": 0.0003,
+          "weight_decay": 1e-06,
+          "size_aggregation": "mean",
+          "size_cvar_alpha": 0.2,
+          "scratch_init_seed": 1234,
+          "data": {
+            "mode": "online",
+            "generator_params": {
+              "num_loc": 100
+            }
+          },
+          "include_scratch": false,
+          "checkpoints": [
+            {
+              "name": "ckpt_135",
+              "path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+            }
+          ],
+          "budget_mode": "epochs",
+          "hf_epochs": 1,
+          "hf_instances_per_epoch": 100000
+        },
+        "K": 200,
+        "per_init": {
+          "ckpt_135": {
+            "obj_cand_by_size": {
+              "100": 1000000000.0
+            },
+            "obj_base_by_size": {
+              "100": 7.796344761657715
+            },
+            "obj_cand": 1000000000.0,
+            "obj_base": 7.796344761657715,
+            "delta": 999999992.2036552,
+            "baseline_source": "mini_eval",
+            "baseline_seed": null,
+            "init_checkpoint": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+            "error": "OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 13.12 MiB is free. Process 3169085 has 256.00 MiB memory in use. Process 3204025 has 8.63 GiB memory in use. Process 3204024 has 8.63 GiB memory in use. Including non-PyTorch memory, this process has 6.01 GiB memory in use. Of the allocated memory 5.49 GiB is allocated by PyTorch, and 221.63 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)",
+            "error_traceback": "Traceback (most recent call last):\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/ptp_discovery/pref_loss_coevo_loop.py\", line 11534, in _evaluate_pair_worker\n    fitness = evaluate_free_loss_candidate(compiled_f, free_cfg, pref_builder=adapter)\n              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 4703, in evaluate_free_loss_candidate\n    return _evaluate_free_loss_candidate_rl4co(\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 2933, in _evaluate_free_loss_candidate_rl4co\n    warm_res = _run_phase(\n               ^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 2775, in _run_phase\n    score, loss, pair_count = _train_one_batch_with_free_loss_rl4co(\n                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 2295, in _train_one_batch_with_free_loss_rl4co\n    rollout = _rl4co_rollout_full(\n              ^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/fitness/free_loss_fidelity.py\", line 1348, in _rl4co_rollout_full\n    out = policy(\n          ^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 418, in forward\n    probs = self.decoder(encoded_last_node, ninf_mask)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 273, in forward\n    out = layer(out, ninf_mask)\n          ^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1739, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/anaconda3/envs/rlco1/lib/python3.11/site-packages/torch/nn/modules/module.py\", line 1750, in _call_impl\n    return forward_call(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 207, in forward\n    out_concat = _multi_head_attention(q, self.k, self.v, rank3_ninf_mask=ninf_mask)\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/rl4co/models/zoo/pomo/po4cops_tsp_policy.py\", line 52, in _multi_head_attention\n    score_scaled = score_scaled + rank3_ninf_mask[:, None, :, :].expand(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 23.56 GiB of which 13.12 MiB is free. Process 3169085 has 256.00 MiB memory in use. Process 3204025 has 8.63 GiB memory in use. Process 3204024 has 8.63 GiB memory in use. Including non-PyTorch memory, this process has 6.01 GiB memory in use. Of the allocated memory 5.49 GiB is allocated by PyTorch, and 221.63 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)\n",
+            "preflight_rollout_smoke_test": {
+              "ok": true,
+              "phase": "train",
+              "device": "cuda:0",
+              "precision": "32-true",
+              "batch_size": 1,
+              "num_rollouts": 2,
+              "init_checkpoint_path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+              "rollout_strategy": "policy_multistart",
+              "reward": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "stats_skipped": "cuda_tensor"
+              },
+              "log_likelihood": {
+                "type": "tensor",
+                "shape": [
+                  1,
+                  2
+                ],
+                "dtype": "torch.float32",
+                "device": "cuda:0",
+                "numel": 2,
+                "stats_skipped": "cuda_tensor"
+              },
+              "rollout_debug_events": []
+            },
+            "rollout_debug_events": []
+          }
+        },
+        "delta_mean": 999999992.2036552,
+        "delta_worst": 999999992.2036552
+      }
+    },
+    "scenario_names": [
+      "tsp100"
+    ],
+    "delta_mean": 999999992.2036552,
+    "delta_worst": 999999992.2036552,
+    "all_scenarios_negative": false,
+    "nonnegative_scenario_count": 1,
+    "worst_scenario_delta": 999999992.2036552,
+    "baseline_mini_eval_path": "/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json",
+    "baseline_mini_eval_paths": {
+      "tsp100": "/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r5-20260728-1802/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json"
+    },
+    "baseline_multiseed_cache_path": null,
+    "baseline_multiseed_cache_paths": {
+      "tsp100": null
+    },
+    "baseline_compare_mode": "mini_eval",
+    "baseline_compare_modes": {
+      "tsp100": "mini_eval"
+    },
+    "eval_signature": {
+      "protocol": "stage3_online_minitrain_v1",
+      "baseline_eval_impl_version": 2,
+      "baseline_eval_mode": "ref_free_loss",
+      "scenario_name": "tsp100",
+      "env_name": "tsp",
+      "policy_name": "pomo",
+      "policy_kwargs": {
+        "po4cops_compat": true,
+        "embed_dim": 128,
+        "num_encoder_layers": 6,
+        "decoder_layer_num": 1,
+        "qkv_dim": 16,
+        "num_heads": 8,
+        "feedforward_hidden": 512,
+        "tanh_clipping": 50,
+        "eval_type": "argmax",
+        "val_decode_type": "greedy",
+        "test_decode_type": "greedy"
+      },
+      "env_kwargs": {},
+      "rollout_strategy": "auto",
+      "objective_sign": "neg_reward",
+      "alpha": 0.05,
+      "po_impl": "bt",
+      "K": 200,
+      "train_problem_size": 100,
+      "valid_problem_sizes": [
+        100
+      ],
+      "train_batch_size": 64,
+      "num_validation_episodes": 10000,
+      "validation_batch_size": 64,
+      "pomo_size": null,
+      "learning_rate": 0.0003,
+      "weight_decay": 1e-06,
+      "size_aggregation": "mean",
+      "size_cvar_alpha": 0.2,
+      "scratch_init_seed": 1234,
+      "data": {
+        "mode": "online",
+        "generator_params": {
+          "num_loc": 100
+        }
+      },
+      "include_scratch": false,
+      "checkpoints": [
+        {
+          "name": "ckpt_135",
+          "path": "/data1/gushengda/eam-rl4co/baseline/tsp100_epoch_135.ckpt",
+          "sha1": "f2457d9b9da5698e7f1c610c105548e45353136c"
+        }
+      ],
+      "budget_mode": "epochs",
+      "hf_epochs": 1,
+      "hf_instances_per_epoch": 100000
+    },
+    "any_error": true,
+    "runtime_error_count": 1,
+    "runtime_error_inits": [
+      "ckpt_135"
+    ],
+    "early_prune": {
+      "scenario_name": "tsp100",
+      "init_ratios": {
+        "ckpt_135": 128265235.8984921
+      },
+      "triggered_inits": {
+        "ckpt_135": 128265235.8984921
+      },
+      "mean_ratio": 128265235.8984921,
+      "max_init_ratio_to_baseline": 2.0,
+      "max_mean_ratio_to_baseline": null
+    }
+  },
+  "better_than_baseline_mean": false,
+  "better_than_baseline_strict": false,
+  "better_than_baseline_all_scenarios": false,
+  "stage3_all_scenarios_negative": false,
+  "stage3_nonnegative_scenario_count": 1,
+  "stage3_worst_scenario_delta": 999999992.2036552,
+  "stage3_any_error": true,
+  "stage3_runtime_error_count": 1,
+  "stage3_runtime_error_inits": [
+    "ckpt_135"
+  ],
+  "elapsed_s": 8.328709125518799
+}

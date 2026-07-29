@@ -1,0 +1,72 @@
+{
+  "builder_id": "g000_003_311f50c2",
+  "cost": 960.0,
+  "perf": 0.017992042541504105,
+  "metric_mode": "minimize",
+  "slack": 0.0,
+  "best_perf": 0.017992042541504105,
+  "best_perf_anchor": 0.017992042541504105,
+  "threshold": 0.017992042541504105,
+  "generation": 0,
+  "phase": "joint_pair",
+  "perf_ref": {
+    "g_id": "g000_003_311f50c2",
+    "f_id": "f000_003_9fe5f4eb",
+    "score": 0.017992042541504105,
+    "final_score": 0.017992042541504105,
+    "stage": "high_fidelity",
+    "stage_final": "high_fidelity",
+    "phase": "joint_pair",
+    "generation": 0,
+    "pair_reason": "ok_stage3_offline_minitrain",
+    "pair_ok": true,
+    "g_ir": {
+      "name": "objective_diff_weight_all_pairs",
+      "intuition": "Weight each winner/loser pair by the absolute difference in objective values, using lower objective as winner (with tie-breaker on lower log_prob) to correct winner/loser semantics.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "objective_diff",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs",
+        "objective_diff_weight"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    # lower objective is better; tie-break with lower log_prob\n    mask = (objective[:, :, None] < objective[:, None, :]) | ((objective[:, :, None] == objective[:, None, :]) & (log_prob[:, :, None] < log_prob[:, None, :]))\n    b_idx, i, j = mask.nonzero(as_tuple=True)\n    winner_idx = i\n    loser_idx = j\n    weight = (objective[b_idx, winner_idx] - objective[b_idx, loser_idx]).abs() + 1e-6\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'objective_diff_weight_all_pairs'})"
+    },
+    "cost": 960.0
+  },
+  "feasible_count": 1,
+  "ir": {
+    "name": "objective_diff_weight_all_pairs",
+    "intuition": "Weight each winner/loser pair by the absolute difference in objective values, using lower objective as winner (with tie-breaker on lower log_prob) to correct winner/loser semantics.",
+    "implementation_hint": {
+      "expects": [
+        "objective",
+        "log_prob"
+      ],
+      "returns": "PrefBatch",
+      "mode": "pairwise"
+    },
+    "hyperparams": {
+      "geometry_family": "dense_all_pairs",
+      "cap_family": "uncapped_full",
+      "weight_family": "objective_diff",
+      "constraint_family": "none"
+    },
+    "operators_used": [
+      "ref_all_pairs",
+      "objective_diff_weight"
+    ],
+    "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    # lower objective is better; tie-break with lower log_prob\n    mask = (objective[:, :, None] < objective[:, None, :]) | ((objective[:, :, None] == objective[:, None, :]) & (log_prob[:, :, None] < log_prob[:, None, :]))\n    b_idx, i, j = mask.nonzero(as_tuple=True)\n    winner_idx = i\n    loser_idx = j\n    weight = (objective[b_idx, winner_idx] - objective[b_idx, loser_idx]).abs() + 1e-6\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'objective_diff_weight_all_pairs'})"
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "generation": 19,
+  "index": 2,
+  "id": "f019_002_7ee9bbc8",
+  "signature": "7ee9bbc88e2ca50e2861c4e3bddeda4c37a6cd3e",
+  "family": "pairwise_margin|unknown|weighted_mean|finite_softplus",
+  "family_signature": "paradigm=pairwise_margin|signal=unknown|agg=weighted_mean|constraint=finite_softplus",
+  "origin": "JOINT_PAIR",
+  "origin_base": "JOINT_PAIR",
+  "op_type": "JOINT_PAIR_GENERATE",
+  "parents": [],
+  "attempt": 0,
+  "prompt_sha1": "a708aff6de196c4067fda9972bda133cd176b0bc",
+  "prompt_path": "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt",
+  "llm_seed": 818623097,
+  "joint_pair_id": "jp019_002_a708aff6",
+  "history": [
+    {
+      "attempt": 0,
+      "side": "joint_pair",
+      "llm_op": "JOINT_PAIR_GENERATE",
+      "prompt_path": "/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/prompts/joint_pair_generation.txt",
+      "prompt_sha1": "a708aff6de196c4067fda9972bda133cd176b0bc",
+      "llm_seed": 818623097,
+      "candidate_index": 2,
+      "attempt_index": 2,
+      "target_weight_family": "gap_regret_blend"
+    }
+  ],
+  "novelty": null,
+  "ir": {
+    "name": "weighted_softplus_gap",
+    "intuition": "Penalizes log-prob gaps with softplus, weighted by instance-conditioned gap-regret blend weights to focus on informative pairs.",
+    "pseudocode": "gap = log_prob_w - log_prob_l; loss = weight * softplus((target_margin - gap) * gap_scale / temperature); return weighted_mean(loss)",
+    "hyperparams": {
+      "temperature": 1.0,
+      "gap_scale": 0.5,
+      "target_margin": 0.0,
+      "template": "weighted_softplus_gap",
+      "paradigm_family": "pairwise_margin",
+      "agg_family": "weighted_mean",
+      "constraint_family": "finite_softplus"
+    },
+    "operators_used": [
+      "weighted_softplus_gap",
+      "weighted_mean"
+    ],
+    "implementation_hint": {
+      "expects": [
+        "log_prob_w",
+        "log_prob_l",
+        "delta_z",
+        "weight"
+      ],
+      "returns": "scalar",
+      "mode": "pairwise"
+    },
+    "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    margin = log_prob_w - log_prob_l\n    weight = batch.get('weight', torch.ones_like(margin))\n    weight = torch.nan_to_num(weight, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    signal = batch.get('delta_z', torch.zeros_like(margin)).detach().clamp_min(0.0)\n    loss_vec = weight * F.softplus((0 + 0.5 * signal) - 1 * margin)\n    denom = weight.sum().clamp_min(1.0)\n    return loss_vec.sum() / denom\n",
+    "theoretical_basis": ""
+  },
+  "static_ok": true,
+  "static_reason": "",
+  "static_trace": null,
+  "compile_ok": true,
+  "compile_reason": "ok",
+  "fitness": 0.4998466888427737,
+  "descriptor": {
+    "x": 0.0,
+    "y": 0.0,
+    "cell": [
+      0,
+      0
+    ]
+  }
+}

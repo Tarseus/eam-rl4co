@@ -1,0 +1,118 @@
+{
+  "generation": 3,
+  "pair_index": 1,
+  "g_entry": {
+    "id": "g003_001_759d4fc0",
+    "ir": {
+      "name": "gap_rank_blend_inst",
+      "intuition": "Weights pairs by a sigmoid blend of normalized gap and rank, where gap is scaled by instance_obj_std and rank offset is scaled by instance_regret_mean, producing high weight for pairs with large gap and low rank (i.e., winner much better than loser and winner is high-ranked).",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob",
+          "rank",
+          "regret",
+          "instance_obj_mad",
+          "instance_obj_std",
+          "instance_log_prob_std",
+          "instance_regret_std"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "weight_scale": 1.0,
+        "clamp_lo": 0.25,
+        "clamp_hi": 4.0,
+        "lambda_rank": 1.0,
+        "lambda_regret": 1.0,
+        "gamma": 0.5,
+        "weight_family": "gap_rank_blend",
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "constraint_family": "clamp_only",
+        "template": "all_pairs_reweight"
+      },
+      "operators_used": [
+        "all_pairs_reweight",
+        "gap_rank_blend"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    log_prob = feature_cache['log_prob']\n    rank = feature_cache['rank']\n    regret = feature_cache['regret']\n    batch_size = int(objective.shape[0])\n    mask = objective[:, :, None] < objective[:, None, :]\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    if int(b_idx.numel()) <= 0:\n        return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=None, meta={'builder': 'all_pairs_reweight_template', 'weight_family': 'gap_rank_blend'})\n    eps = 1e-6\n    gap = objective[b_idx, loser_idx] - objective[b_idx, winner_idx]\n    instance_obj_scale = feature_cache.get('instance_obj_mad')\n    if instance_obj_scale is None:\n        instance_obj_scale = feature_cache.get('instance_obj_std')\n    if instance_obj_scale is None:\n        instance_obj_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    instance_log_prob_scale = feature_cache.get('instance_log_prob_std')\n    if instance_log_prob_scale is None:\n        instance_log_prob_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    instance_regret_scale = feature_cache.get('instance_regret_std')\n    if instance_regret_scale is None:\n        instance_regret_scale = torch.ones((batch_size,), dtype=objective.dtype, device=objective.device)\n    gap_scaled = gap / instance_obj_scale[b_idx].clamp_min(eps)\n    rank_span = rank[b_idx, loser_idx] - rank[b_idx, winner_idx]\n    raw = (gap_scaled.clamp_min(0.0).sqrt() * (1.0 + 1 * rank_span)) * 1\n    raw = torch.nan_to_num(raw, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    weight = raw.clamp(0.25, 4)\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_reweight_template', 'weight_family': 'gap_rank_blend'})"
+    }
+  },
+  "f_entry": {
+    "id": "f003_001_02998efe",
+    "ir": {
+      "name": "weighted_softplus_gap_inst",
+      "intuition": "Softplus loss on log-prob gap, weighted by the instance-conditioned pair weights from the gap_rank_blend builder to emphasize informative pairs.",
+      "pseudocode": "gap = log_prob_w - log_prob_l; scaled_gap = gap * gap_scale / temperature; loss = weight * softplus(target_margin - scaled_gap); return mean(loss)",
+      "hyperparams": {
+        "temperature": 1.0,
+        "gap_scale": 0.5,
+        "target_margin": 0.0,
+        "template": "weighted_softplus_gap",
+        "paradigm_family": "pairwise_margin",
+        "agg_family": "weighted_mean",
+        "constraint_family": "finite_softplus"
+      },
+      "operators_used": [
+        "weighted_softplus_gap",
+        "weighted_mean"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "delta_z",
+          "weight"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    margin = log_prob_w - log_prob_l\n    weight = batch.get('weight', torch.ones_like(margin))\n    weight = torch.nan_to_num(weight, nan=0.0, posinf=0.0, neginf=0.0).clamp_min(0.0)\n    signal = batch.get('delta_z', torch.zeros_like(margin)).detach().clamp_min(0.0)\n    loss_vec = weight * F.softplus((0 + 0.5 * signal) - 1 * margin)\n    denom = weight.sum().clamp_min(1.0)\n    return loss_vec.sum() / denom",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}

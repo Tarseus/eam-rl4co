@@ -1,0 +1,109 @@
+{
+  "generation": 0,
+  "pair_index": 6,
+  "g_entry": {
+    "id": "g000_006_311f50c2",
+    "ir": {
+      "name": "all_pairs_diff_weight_tiebreak",
+      "intuition": "All pairs with tie-breaking using index order to ensure non-zero weight variation even when objectives are equal, increasing instance weight CV.",
+      "implementation_hint": {
+        "expects": [
+          "objective",
+          "log_prob"
+        ],
+        "returns": "PrefBatch",
+        "mode": "pairwise"
+      },
+      "hyperparams": {
+        "geometry_family": "dense_all_pairs",
+        "cap_family": "uncapped_full",
+        "weight_family": "objective_difference",
+        "constraint_family": "none"
+      },
+      "operators_used": [
+        "ref_all_pairs",
+        "weight_by_objective_diff"
+      ],
+      "code": "def generated_builder(feature_cache, extra):\n    objective = feature_cache['objective']\n    batch_size, seq_len = objective.shape\n    # Create mask including ties (<=) and exclude diagonal\n    mask = objective[:, :, None] <= objective[:, None, :]\n    eye = torch.eye(seq_len, device=objective.device).bool().unsqueeze(0)\n    mask = mask & (~eye)\n    b_idx, winner_idx, loser_idx = mask.nonzero(as_tuple=True)\n    # Weight = absolute objective difference + small index-based term to break ties\n    weight = (objective[b_idx, winner_idx] - objective[b_idx, loser_idx]).abs()\n    idx_diff = (loser_idx - winner_idx).abs().float() * 1e-6\n    weight = weight + idx_diff\n    return PrefBatch(mode='pairwise', pair_idx=(b_idx, winner_idx, loser_idx), weight=weight, meta={'builder': 'all_pairs_diff_weight_tiebreak'})"
+    }
+  },
+  "f_entry": {
+    "id": "f000_006_3c0966c5",
+    "ir": {
+      "name": "loss_raw_margin_003",
+      "intuition": "Fixed JointPreference violation by replacing cost gap with advantage_w. The previous loss used symmetric cost gap (cost_b - cost_a) which flips sign under swap, making the loss symmetric when combined with logsigmoid over the batch. Using advantage_w (advantage of the chosen) breaks symmetry because advantage_w does not simply negate under swap (it becomes advantage_l, a different value), ensuring the loss changes when w and l are swapped, correctly enforcing preference ordering.",
+      "pseudocode": "loss = sum(-logsigmoid(clamp((log_prob_w - log_prob_l) + 0.1 * advantage_w, -20, 20)) * weight)",
+      "hyperparams": {
+        "scale": 1.0,
+        "paradigm_family": "pairwise_margin",
+        "signal_family": "advantage_w",
+        "link_family": "logsigmoid",
+        "agg_family": "sum",
+        "constraint_family": "clamp_stabilized"
+      },
+      "operators_used": [
+        "sub",
+        "add",
+        "mul",
+        "clamp",
+        "logsigmoid",
+        "sum",
+        "neg"
+      ],
+      "implementation_hint": {
+        "expects": [
+          "log_prob_w",
+          "log_prob_l",
+          "weight",
+          "advantage_w"
+        ],
+        "returns": "scalar",
+        "mode": "pairwise"
+      },
+      "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    adv_w = batch['advantage_w']\n    weight = batch['weight']\n    log_diff = ops.sub(lpw, lpl)\n    x = ops.add(log_diff, ops.mul(0.1, adv_w))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.mul(ops.neg(ops.logsigmoid(x)), weight)\n    return ops.sum(loss)",
+      "theoretical_basis": ""
+    }
+  },
+  "operator_whitelist": [],
+  "batch_size": 8,
+  "k": 16,
+  "rounds": 1,
+  "variants": [
+    "visible",
+    "hidden"
+  ],
+  "hard_failure_kinds": [
+    "pref_batch_to_loss_batch_error",
+    "forward_error",
+    "backward_error",
+    "loss_not_finite",
+    "missing_grads",
+    "grad_not_finite",
+    "numeric_stress_forward_error",
+    "numeric_stress_backward_error",
+    "numeric_stress_loss_not_finite",
+    "numeric_stress_missing_grads",
+    "numeric_stress_grad_not_finite"
+  ],
+  "builder_gate": {
+    "min_pairs": 1,
+    "min_coverage": 0.0,
+    "max_pairs_per_instance": 8192,
+    "weight_nonneg": true,
+    "semantic_tolerance": 0.0,
+    "semantic_min_pass_rate": 1.0,
+    "min_instance_weight_cv": 0.1,
+    "min_instance_weight_cv_pass_rate": 0.75
+  },
+  "joint_gate": {
+    "min_pass_rate": 0.8,
+    "swap_tolerance": 0.001,
+    "swap_check_mode": "data",
+    "swap_test_margin": 1.0,
+    "grad_eps": 1e-08,
+    "min_effective_grad_ratio": 0.1,
+    "numeric_stress_enabled": true,
+    "numeric_stress_margin": 120.0,
+    "numeric_stress_aux_scale": 32.0
+  }
+}
