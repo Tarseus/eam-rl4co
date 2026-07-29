@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "source_run": "runs/pref_loss_tsp100_discovery/20260317-131507",
+  "source_commit": "8ee9d8e551d9b0fc9251c1eeb8919b79425a079b",
+  "entries": [
+    {
+      "pair_index": 0,
+      "source_loss_id": "f000_015_8d035555",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 1,
+      "source_loss_id": "f000_012_50dd0498",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 2,
+      "source_loss_id": "f000_014_355129a9",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed"
+    },
+    {
+      "pair_index": 3,
+      "source_loss_id": "f000_013_c593f56c",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 4,
+      "source_loss_id": "f000_001_4b362843",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed"
+    },
+    {
+      "pair_index": 5,
+      "source_loss_id": "f000_009_236322cf",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed"
+    },
+    {
+      "pair_index": 6,
+      "source_loss_id": "f000_005_dfa4a10a",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 7,
+      "source_loss_id": "f000_011_cf248071",
+      "hf_eligible": true,
+      "original_pair_reason": "ok_stage3_offline_minitrain",
+      "runtime_loss_signature": "005b37a74e716cb8c976c550f4bf3869bf3f6346",
+      "runtime_loss_ir": {
+        "name": "loss_logsigmoid_001_cost_normalized_stabilized_v4",
+        "intuition": "Refined normalization by adding a small epsilon inside the norm to ensure numerical stability and prevent division by near zero norms. Used the detached normalized cost gap scaled by a smaller coefficient to limit its influence, preserving scale invariance while avoiding large perturbations. Clamping remains to avoid numerical instabilities in logsigmoid. This adjustment ensures stable gradients and consistent affine invariance, passing the co_gate check.",
+        "pseudocode": "diff = log_prob_w - log_prob_l\nnorm = sqrt(log_prob_w**2 + log_prob_l**2 + 1e-6)\ngap = cost_b - cost_a\ngap_norm = gap / norm\ngap_norm_det = gap_norm.detach()\nscaled_diff = alpha * scale * (diff / norm) - 0.03 * gap_norm_det\nclamped = clamp(scaled_diff, -20, 20)\nloss = -logsigmoid(clamped)\nweighted_loss = mean(loss * weight) if weight is not None else mean(loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "normalization"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sqrt",
+          "sub",
+          "mul",
+          "div",
+          "add",
+          "neg"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    epsilon = 1e-6\n\n    diff = ops.sub(lpw, lpl)\n    norm = ops.sqrt(ops.add(ops.add(ops.mul(lpw, lpw), ops.mul(lpl, lpl)), epsilon))\n    gap = ops.sub(cost_b, cost_a)\n    gap_norm = ops.div(gap, norm)\n    gap_norm_det = gap_norm.detach()\n\n    scaled_diff = ops.sub(ops.mul(ops.mul(alpha, scale), ops.div(diff, norm)), ops.mul(0.03, gap_norm_det))\n    clamped = ops.clamp(scaled_diff, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(clamped))\n\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 8,
+      "source_loss_id": "f000_006_3c0966c5",
+      "hf_eligible": true,
+      "original_pair_reason": "ok_stage3_offline_minitrain",
+      "runtime_loss_signature": "e552a82f46765d463e769a0b0dfdc65de168e469",
+      "runtime_loss_ir": {
+        "name": "loss_logsigmoid_003_cost_shifted_sum_weighted_scaled_margin",
+        "intuition": "The original loss violated affine invariance due to a fixed beta scaling on the raw cost gap, which does not compensate for shifts in cost baseline. To fix this, I centered the cost gap by subtracting its batch mean, making the loss invariant to uniform cost shifts. This preserves the margin-based pairwise log-sigmoid formulation with clamping and sum aggregation, maintains weighting, and helps reduce delta loss under objective perturbations, thus restoring the affine invariance property.",
+        "pseudocode": "gap = cost_b - cost_a\ncentered_gap = gap - mean(gap)\nx = alpha * scale * (log_prob_w - log_prob_l) - beta * centered_gap\nx = clamp(x, -20, 20)\nloss = sum(-logsigmoid(x) * weight)",
+        "hyperparams": {
+          "scale": "1.9496803035382082",
+          "beta": "0.05",
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "cost_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sum",
+          "mean",
+          "sub"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "cost_a",
+            "cost_b",
+            "cost_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = float(extra.get('hyperparams', {}).get('beta', 0.05))\n    cost_a = batch['cost_a']\n    cost_b = batch['cost_b']\n    gap = cost_b - cost_a\n    mean_gap = ops.mean(gap)\n    centered_gap = gap - mean_gap\n    x = alpha * scale * (lpw - lpl) - beta * centered_gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x) * weight\n    return ops.sum(loss)",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 9,
+      "source_loss_id": "f000_000_e8e19b52",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed"
+    },
+    {
+      "pair_index": 10,
+      "source_loss_id": "f000_007_c17cc502",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed"
+    },
+    {
+      "pair_index": 11,
+      "source_loss_id": "f000_004_46117a24",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 12,
+      "source_loss_id": "f000_010_98ad5566",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 13,
+      "source_loss_id": "f000_002_d78865a2",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed"
+    },
+    {
+      "pair_index": 14,
+      "source_loss_id": "f000_008_a10ec70e",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    },
+    {
+      "pair_index": 15,
+      "source_loss_id": "f000_003_9fe5f4eb",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed"
+    }
+  ]
+}

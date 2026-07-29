@@ -8806,6 +8806,128 @@ def _propose_losses_for_generation(
     return out[:pop_f]
 
 
+def _load_matched_joint_gate_replay(
+    *,
+    replay_path: str,
+    seeded_rows: Sequence[Mapping[str, Any]],
+    expected_count: int,
+) -> Dict[str, Any]:
+    """Load and validate a frozen generation-0 gate/HF replay manifest."""
+
+    replay_abs = os.path.abspath(_abs_from_repo_root(str(replay_path)))
+    with open(replay_abs, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, Mapping):
+        raise ValueError(
+            f"Matched joint gate replay must be a JSON object: {replay_abs}"
+        )
+    entries_raw = payload.get("entries")
+    if not isinstance(entries_raw, list):
+        raise ValueError(
+            f"Matched joint gate replay lacks entries: {replay_abs}"
+        )
+    if len(entries_raw) != int(expected_count):
+        raise ValueError(
+            "Matched joint gate replay entry count differs from population: "
+            f"replay={len(entries_raw)} expected={int(expected_count)} "
+            f"path={replay_abs}"
+        )
+
+    seeded_by_id = {
+        str(row.get("id") or ""): dict(row)
+        for row in seeded_rows
+        if str(row.get("id") or "").strip()
+    }
+    if len(seeded_by_id) != int(expected_count):
+        raise ValueError(
+            "Matched joint gate replay source population contains duplicate ids: "
+            f"unique={len(seeded_by_id)} expected={int(expected_count)}"
+        )
+
+    entries: List[Dict[str, Any]] = []
+    seen_source_ids: set[str] = set()
+    seen_pair_indices: set[int] = set()
+    for raw in entries_raw:
+        if not isinstance(raw, Mapping):
+            raise ValueError(
+                f"Matched joint gate replay entry is not an object: {replay_abs}"
+            )
+        entry = dict(raw)
+        source_loss_id = str(entry.get("source_loss_id") or "").strip()
+        pair_index = int(entry.get("pair_index", -1))
+        if source_loss_id not in seeded_by_id:
+            raise ValueError(
+                "Matched joint gate replay references an unknown source loss: "
+                f"source_loss_id={source_loss_id} path={replay_abs}"
+            )
+        if source_loss_id in seen_source_ids:
+            raise ValueError(
+                "Matched joint gate replay duplicates a source loss: "
+                f"source_loss_id={source_loss_id}"
+            )
+        if pair_index in seen_pair_indices:
+            raise ValueError(
+                "Matched joint gate replay duplicates a pair index: "
+                f"pair_index={pair_index}"
+            )
+        seen_source_ids.add(source_loss_id)
+        seen_pair_indices.add(pair_index)
+
+        hf_eligible = bool(entry.get("hf_eligible", False))
+        runtime_ir_raw = entry.get("runtime_loss_ir")
+        runtime_signature = str(entry.get("runtime_loss_signature") or "").strip()
+        if hf_eligible:
+            if not isinstance(runtime_ir_raw, Mapping) or not runtime_signature:
+                raise ValueError(
+                    "HF-eligible matched gate replay entry lacks a frozen runtime loss: "
+                    f"source_loss_id={source_loss_id}"
+                )
+            runtime_ir = free_loss_ir_from_json(runtime_ir_raw)
+            actual_runtime_signature = _sig_free_loss(runtime_ir)
+            if actual_runtime_signature != runtime_signature:
+                raise ValueError(
+                    "Matched gate replay runtime loss signature mismatch: "
+                    f"source_loss_id={source_loss_id} "
+                    f"actual={actual_runtime_signature} expected={runtime_signature}"
+                )
+            entry["runtime_loss_ir"] = asdict(runtime_ir)
+            entry["runtime_loss_signature"] = actual_runtime_signature
+        elif runtime_ir_raw is not None or runtime_signature:
+            raise ValueError(
+                "HF-ineligible matched gate replay entry unexpectedly contains "
+                f"a runtime loss: source_loss_id={source_loss_id}"
+            )
+        entry["source_loss_id"] = source_loss_id
+        entry["pair_index"] = pair_index
+        entry["hf_eligible"] = hf_eligible
+        entry["replay_manifest_path"] = replay_abs
+        entry["source_run"] = str(payload.get("source_run") or "")
+        entry["source_commit"] = str(payload.get("source_commit") or "")
+        entries.append(entry)
+
+    expected_indices = set(range(int(expected_count)))
+    if seen_pair_indices != expected_indices:
+        raise ValueError(
+            "Matched joint gate replay pair indices are not a complete zero-based range: "
+            f"actual={sorted(seen_pair_indices)} expected={sorted(expected_indices)}"
+        )
+    if seen_source_ids != set(seeded_by_id):
+        missing = sorted(set(seeded_by_id) - seen_source_ids)
+        extra = sorted(seen_source_ids - set(seeded_by_id))
+        raise ValueError(
+            "Matched joint gate replay source ids differ from the seeded population: "
+            f"missing={missing} extra={extra}"
+        )
+
+    return {
+        "schema_version": int(payload.get("schema_version", 1) or 1),
+        "path": replay_abs,
+        "source_run": str(payload.get("source_run") or ""),
+        "source_commit": str(payload.get("source_commit") or ""),
+        "entries": entries,
+    }
+
+
 def _propose_joint_pairs_for_generation(
     *,
     generation: int,
@@ -8880,6 +9002,22 @@ def _propose_joint_pairs_for_generation(
                 f"seeded={len(seeded_rows)} required={pop_pairs}"
             )
 
+        gate_replay: Dict[str, Any] | None = None
+        gate_replay_by_source_id: Dict[str, Dict[str, Any]] = {}
+        gate_replay_path = str(
+            init_seed_cfg.get("gate_replay_path", "") or ""
+        ).strip()
+        if gate_replay_path:
+            gate_replay = _load_matched_joint_gate_replay(
+                replay_path=gate_replay_path,
+                seeded_rows=seeded_rows,
+                expected_count=int(pop_pairs),
+            )
+            gate_replay_by_source_id = {
+                str(entry["source_loss_id"]): dict(entry)
+                for entry in gate_replay["entries"]
+            }
+
         seeded: List[Dict[str, Any]] = []
         for candidate_index, row in enumerate(seeded_rows[:pop_pairs]):
             loss_ir = free_loss_ir_from_json(row["ir"])
@@ -8894,6 +9032,7 @@ def _propose_joint_pairs_for_generation(
                 f"jp{int(generation):03d}_{int(candidate_index):03d}"
                 f"_matched_{source_signature[:8]}"
             )
+            matched_gate_replay = gate_replay_by_source_id.get(source_loss_id)
             seeded.append(
                 {
                     "builder_ir": _ref_builder_ir(),
@@ -8923,16 +9062,22 @@ def _propose_joint_pairs_for_generation(
                     "source_loss_id": source_loss_id,
                     "source_loss_signature": source_signature,
                     "source_loss_canonical_signature": _sig_free_loss(loss_ir),
+                    "matched_gate_replay": (
+                        dict(matched_gate_replay)
+                        if isinstance(matched_gate_replay, Mapping)
+                        else None
+                    ),
                 }
             )
         LOGGER.info(
             "Initialized joint-pair generation %d from matched TSP losses: "
-            "source=%s source_generation=%d pairs=%d builder=%s",
+            "source=%s source_generation=%d pairs=%d builder=%s gate_replay=%s",
             int(generation),
             os.path.abspath(_abs_from_repo_root(source_path)),
             int(source_generation),
             int(len(seeded)),
             G_REF_ID,
+            str(gate_replay.get("path") if gate_replay else "disabled"),
         )
         return seeded
 
@@ -10370,6 +10515,140 @@ def _validate_matched_joint_population(
     }
 
 
+def _build_matched_joint_gate_replay_record(
+    *,
+    generation: int,
+    pair_index: int,
+    g_entry: Mapping[str, Any],
+    f_entry: Mapping[str, Any],
+    eval_signature: str,
+    joint_pair_id: str | None,
+) -> Dict[str, Any]:
+    """Build a deterministic gate record from the original TSP generation zero."""
+
+    if int(generation) != 0:
+        raise RuntimeError(
+            f"Matched gate replay is only valid for generation zero: {generation}"
+        )
+    if not _is_matched_joint_init_entry(generation=0, entry=g_entry):
+        raise RuntimeError("Matched gate replay lost builder matched-init metadata")
+    if not _is_matched_joint_init_entry(generation=0, entry=f_entry):
+        raise RuntimeError("Matched gate replay lost loss matched-init metadata")
+    _assert_matched_joint_init_builder(
+        g_entry,
+        context=f"generation-0 gate replay pair {int(pair_index)}",
+    )
+    replay_raw = f_entry.get("matched_gate_replay")
+    if not isinstance(replay_raw, Mapping):
+        raise RuntimeError(
+            f"Matched gate replay metadata missing for f_id={f_entry.get('id')}"
+        )
+    replay = dict(replay_raw)
+    expected_pair_index = int(replay.get("pair_index", -1))
+    source_loss_id = str(replay.get("source_loss_id") or "")
+    if expected_pair_index != int(pair_index):
+        raise RuntimeError(
+            "Matched gate replay pair order changed: "
+            f"f_id={f_entry.get('id')} actual={int(pair_index)} "
+            f"expected={expected_pair_index}"
+        )
+    if source_loss_id != str(f_entry.get("source_loss_id") or ""):
+        raise RuntimeError(
+            "Matched gate replay source loss changed: "
+            f"f_id={f_entry.get('id')} actual={f_entry.get('source_loss_id')} "
+            f"expected={source_loss_id}"
+        )
+
+    hf_eligible = bool(replay.get("hf_eligible", False))
+    runtime_loss_signature: str | None = None
+    if hf_eligible:
+        runtime_ir_raw = replay.get("runtime_loss_ir")
+        runtime_loss_signature = str(
+            replay.get("runtime_loss_signature") or ""
+        ).strip()
+        if not isinstance(runtime_ir_raw, Mapping) or not runtime_loss_signature:
+            raise RuntimeError(
+                "HF-eligible matched gate replay lost its frozen runtime loss: "
+                f"source_loss_id={source_loss_id}"
+            )
+        runtime_ir = free_loss_ir_from_json(runtime_ir_raw)
+        actual_runtime_signature = _sig_free_loss(runtime_ir)
+        if actual_runtime_signature != runtime_loss_signature:
+            raise RuntimeError(
+                "Matched gate replay runtime loss changed: "
+                f"source_loss_id={source_loss_id} "
+                f"actual={actual_runtime_signature} expected={runtime_loss_signature}"
+            )
+        runtime_loss_ir = asdict(runtime_ir)
+    else:
+        runtime_loss_ir = dict(f_entry.get("ir") or {})
+
+    original_reason = str(
+        replay.get("original_pair_reason") or "matched_replay_gate_rejected"
+    )
+    record = {
+        "generation": int(generation),
+        "pair_index": int(pair_index),
+        "g_id": str(g_entry.get("id") or ""),
+        "f_id": str(f_entry.get("id") or ""),
+        "g_ir": dict(g_entry.get("ir") or {}),
+        "f_ir": runtime_loss_ir,
+        "matched_joint_init": True,
+        "matched_gate_replay": True,
+        "matched_replay_source_run": str(replay.get("source_run") or ""),
+        "matched_replay_source_commit": str(replay.get("source_commit") or ""),
+        "matched_replay_manifest_path": str(
+            replay.get("replay_manifest_path") or ""
+        ),
+        "matched_replay_source_loss_id": source_loss_id,
+        "matched_replay_original_pair_reason": original_reason,
+        "matched_replay_hf_eligible": bool(hf_eligible),
+        "matched_runtime_loss_signature": runtime_loss_signature,
+        "eval_budget_signature": str(eval_signature),
+        "score": 0.0 if hf_eligible else float("inf"),
+        "proxy_metrics": None,
+        "seed_signature": None,
+        "descriptor": None,
+        "joint_gate_repaired": False,
+        "joint_gate_repair_attempts": 0,
+        "f_id_before_repair": None,
+        "f_id_after_repair": None,
+        "joint_gate_repair_reports": [],
+        "builder_gate_repaired": False,
+        "builder_gate_repair_attempts": 0,
+        "g_id_before_repair": None,
+        "g_id_after_repair": None,
+        "builder_gate_repair_reports": [],
+        "g_compile_ok": True,
+        "g_compile_reason": "matched_gate_replay",
+        "f_static_ok": True,
+        "f_static_reason": "matched_gate_replay",
+        "f_compile_ok": True,
+        "f_compile_reason": "matched_gate_replay",
+        "builder_gate_ok": True,
+        "builder_gate_reason": "matched_gate_replay",
+        "joint_gate_ok": bool(hf_eligible or original_reason == "co_gate_failed"),
+        "joint_gate_reason": original_reason,
+        "co_ok": True if hf_eligible else False,
+        "co_reason": original_reason,
+        "sandbox_gate_ok": True if hf_eligible else None,
+        "sandbox_gate_reason": "matched_gate_replay" if hf_eligible else None,
+        "pair_ok": bool(hf_eligible),
+        "pair_reason": (
+            "matched_replay_original_hf_eligible"
+            if hf_eligible
+            else f"matched_replay_original_{original_reason}"
+        ),
+        "stage": "gate",
+        "stage_final": "none",
+        "stages_ran": ["stage0_gate_replay"],
+        "elapsed_s": 0.0,
+    }
+    if joint_pair_id:
+        record["joint_pair_id"] = str(joint_pair_id)
+    return record
+
+
 def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     """Evaluate a single (g,f) pair, optionally including high-fidelity training.
 
@@ -10431,6 +10710,24 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     matched_joint_init = bool(payload.get("matched_joint_init", False)) or (
         _is_matched_joint_init_entry(generation=generation, entry=g_entry)
     )
+    matched_gate_replay_spec = (
+        dict(f_entry.get("matched_gate_replay"))
+        if isinstance(f_entry.get("matched_gate_replay"), Mapping)
+        else None
+    )
+    matched_gate_replay = bool(payload.get("matched_gate_replay", False)) or (
+        matched_gate_replay_spec is not None
+        and bool(matched_gate_replay_spec.get("hf_eligible", False))
+    )
+    matched_runtime_loss_signature = str(
+        payload.get("matched_runtime_loss_signature")
+        or (
+            matched_gate_replay_spec.get("runtime_loss_signature")
+            if matched_gate_replay_spec
+            else ""
+        )
+        or ""
+    ).strip()
     if matched_joint_init:
         if int(generation) != 0:
             raise RuntimeError(
@@ -10438,9 +10735,22 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
                 f"generation={generation} g_id={g_entry.get('id')}"
             )
         _assert_matched_joint_init_builder(g_entry, context="HF worker payload")
+    if matched_gate_replay and not matched_joint_init:
+        raise RuntimeError("Matched gate replay requires matched joint initialization")
 
     g_ir = pref_builder_ir_from_json(g_entry["ir"])
     f_ir = free_loss_ir_from_json(f_entry["ir"])
+    if matched_gate_replay:
+        actual_runtime_loss_signature = _sig_free_loss(f_ir)
+        if (
+            not matched_runtime_loss_signature
+            or actual_runtime_loss_signature != matched_runtime_loss_signature
+        ):
+            raise RuntimeError(
+                "Matched gate replay HF loss changed before evaluation: "
+                f"f_id={f_entry.get('id')} actual={actual_runtime_loss_signature} "
+                f"expected={matched_runtime_loss_signature}"
+            )
     joint_pair_id = str(payload.get("joint_pair_id") or "").strip()
     if not joint_pair_id and proxy_record is not None:
         joint_pair_id = str(proxy_record.get("joint_pair_id") or "").strip()
@@ -10464,6 +10774,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "cheap_gate_on": cheap_gate_on,
         "high_fidelity_on": high_fidelity_on,
         "matched_joint_init": bool(matched_joint_init),
+        "matched_gate_replay": bool(matched_gate_replay),
+        "matched_runtime_loss_signature": (
+            matched_runtime_loss_signature if matched_gate_replay else None
+        ),
         "eval_budget_signature": eval_sig,
         # Required JSONL fields (filled from proxy stage if provided).
         "score": None,
@@ -10737,7 +11051,11 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     sandbox_gate_enabled = bool(cfg.get("stage0_sandbox_gate_enabled", False))
     sandbox_gate_only_when_hf = bool(cfg.get("stage0_sandbox_gate_only_when_hf", True))
     sandbox_gate_hard_block_hf = bool(cfg.get("stage0_sandbox_gate_hard_block_hf", True))
-    sandbox_should_run = bool(sandbox_gate_enabled and (high_fidelity_on or (not sandbox_gate_only_when_hf)))
+    sandbox_should_run = bool(
+        sandbox_gate_enabled
+        and (high_fidelity_on or (not sandbox_gate_only_when_hf))
+        and not matched_gate_replay
+    )
     sandbox_gate_result: Dict[str, Any] | None = None
 
     def _joint_gate_from_sandbox_failure(sandbox_res: Mapping[str, Any]) -> JointPreferenceGateResult:
@@ -10774,7 +11092,10 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
             joint_gate = _joint_gate_from_sandbox_failure(sandbox_gate_result)
 
     joint_gate_repair_reports: List[Dict[str, Any]] = []
-    repair_enabled = bool(cfg.get("joint_gate_repair_enabled", False))
+    repair_enabled = bool(
+        cfg.get("joint_gate_repair_enabled", False)
+        and not matched_gate_replay
+    )
     try:
         repair_max_attempts = max(int(cfg.get("joint_gate_repair_max_attempts", 2)), 0)
     except (TypeError, ValueError):
@@ -11483,6 +11804,19 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         }
         record["elapsed_s"] = float(time.time() - t0)
         return record
+
+    if matched_gate_replay:
+        final_runtime_loss_signature = _sig_free_loss(f_ir)
+        if (
+            bool(record.get("joint_gate_repaired"))
+            or final_runtime_loss_signature != matched_runtime_loss_signature
+        ):
+            raise RuntimeError(
+                "Matched gate replay HF loss changed during worker validation: "
+                f"f_id={record.get('f_id')} actual={final_runtime_loss_signature} "
+                f"expected={matched_runtime_loss_signature} "
+                f"repaired={record.get('joint_gate_repaired')}"
+            )
 
     # Stage3: discovery-style offline mini-train fitness, compared against one or more
     # precomputed baseline JSONs. Multi-scenario configs aggregate deltas across all
@@ -13660,7 +13994,29 @@ def run_pref_loss_coevo(
                 loss_observables=tuple(str(v) for v in cfg_yaml.get("loss_observables", []) if str(v).strip()),
                 llm_init_only=bool(llm_init_only),
             )
-            joint_pair_order = [str(p.get("joint_pair_id")) for p in joint_pair_proposals if str(p.get("joint_pair_id", "")).strip()]
+            replay_marked = [
+                p for p in joint_pair_proposals
+                if isinstance(p.get("matched_gate_replay"), Mapping)
+            ]
+            if replay_marked and len(replay_marked) != len(joint_pair_proposals):
+                raise RuntimeError(
+                    "Matched gate replay metadata is present on only part of generation zero"
+                )
+            joint_pair_order_source = (
+                sorted(
+                    joint_pair_proposals,
+                    key=lambda p: int(
+                        (p.get("matched_gate_replay") or {}).get("pair_index", -1)
+                    ),
+                )
+                if replay_marked
+                else joint_pair_proposals
+            )
+            joint_pair_order = [
+                str(p.get("joint_pair_id"))
+                for p in joint_pair_order_source
+                if str(p.get("joint_pair_id", "")).strip()
+            ]
             proposed_g = [
                 {
                     "ir": p["builder_ir"],
@@ -13677,6 +14033,11 @@ def run_pref_loss_coevo(
                     "source_loss_id": p.get("source_loss_id"),
                     "source_loss_signature": p.get("source_loss_signature"),
                     "source_loss_canonical_signature": p.get("source_loss_canonical_signature"),
+                    "matched_gate_replay": (
+                        dict(p.get("matched_gate_replay"))
+                        if isinstance(p.get("matched_gate_replay"), Mapping)
+                        else None
+                    ),
                 }
                 for p in joint_pair_proposals
                 if isinstance(p.get("builder_ir"), PreferenceBuilderIR)
@@ -13697,6 +14058,11 @@ def run_pref_loss_coevo(
                     "source_loss_id": p.get("source_loss_id"),
                     "source_loss_signature": p.get("source_loss_signature"),
                     "source_loss_canonical_signature": p.get("source_loss_canonical_signature"),
+                    "matched_gate_replay": (
+                        dict(p.get("matched_gate_replay"))
+                        if isinstance(p.get("matched_gate_replay"), Mapping)
+                        else None
+                    ),
                 }
                 for p in joint_pair_proposals
                 if isinstance(p.get("loss_ir"), FreeLossIR)
@@ -13908,6 +14274,11 @@ def run_pref_loss_coevo(
                 "source_loss_id": proposal.get("source_loss_id"),
                 "source_loss_signature": proposal.get("source_loss_signature"),
                 "source_loss_canonical_signature": proposal.get("source_loss_canonical_signature"),
+                "matched_gate_replay": (
+                    dict(proposal.get("matched_gate_replay"))
+                    if isinstance(proposal.get("matched_gate_replay"), Mapping)
+                    else None
+                ),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "ir": asdict(ir),
             }
@@ -13990,6 +14361,11 @@ def run_pref_loss_coevo(
                 "source_loss_id": proposal.get("source_loss_id"),
                 "source_loss_signature": proposal.get("source_loss_signature"),
                 "source_loss_canonical_signature": proposal.get("source_loss_canonical_signature"),
+                "matched_gate_replay": (
+                    dict(proposal.get("matched_gate_replay"))
+                    if isinstance(proposal.get("matched_gate_replay"), Mapping)
+                    else None
+                ),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "novelty": proposal.get("novelty"),
                 "ir": asdict(ir),
@@ -15228,16 +15604,38 @@ def run_pref_loss_coevo(
                     continue
 
                 cache_key = (str(gid), str(fid), str(eval_sig))
+                g_entry = g_map.get(str(gid))
+                f_entry = f_map.get(str(fid))
+                matched_replay_spec = (
+                    dict(f_entry.get("matched_gate_replay"))
+                    if isinstance(f_entry, Mapping)
+                    and isinstance(f_entry.get("matched_gate_replay"), Mapping)
+                    else None
+                )
                 cached = caches.get_pair(cache_key)
-                if isinstance(cached, dict) and str(cached.get("stage")) == "gate":
+                if matched_replay_spec is not None:
+                    if not isinstance(g_entry, Mapping) or not isinstance(f_entry, Mapping):
+                        raise RuntimeError(
+                            "Matched gate replay lost a generation-zero population entry: "
+                            f"g_id={gid} f_id={fid}"
+                        )
+                    rec = _build_matched_joint_gate_replay_record(
+                        generation=int(gen),
+                        pair_index=int(p_idx),
+                        g_entry=g_entry,
+                        f_entry=f_entry,
+                        eval_signature=str(eval_sig),
+                        joint_pair_id=joint_pair_id_by_pair.get(
+                            (str(gid), str(fid))
+                        ),
+                    )
+                elif isinstance(cached, dict) and str(cached.get("stage")) == "gate":
                     rec = dict(cached)
                     rec["generation"] = int(gen)
                     rec["pair_index"] = int(p_idx)
                 else:
-                    g_entry = g_map.get(str(gid))
                     if not isinstance(g_entry, dict) and str(gid) == G_REF_ID:
                         g_entry = {"id": str(G_REF_ID), "ir": asdict(_ref_builder_ir())}
-                    f_entry = f_map.get(str(fid))
                     if not isinstance(f_entry, dict) and str(fid) == F_REF_ID:
                         f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
                     if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
@@ -15714,6 +16112,15 @@ def run_pref_loss_coevo(
                     generation=int(gen),
                     entry=g_entry,
                 )
+                task_matched_gate_replay = (
+                    dict(f_entry.get("matched_gate_replay"))
+                    if isinstance(f_entry.get("matched_gate_replay"), Mapping)
+                    else None
+                )
+                task_matched_gate_replay_enabled = bool(
+                    task_matched_gate_replay
+                    and task_matched_gate_replay.get("hf_eligible", False)
+                )
                 if task_matched_joint_init:
                     _assert_matched_joint_init_builder(
                         g_entry,
@@ -15737,6 +16144,19 @@ def run_pref_loss_coevo(
                         "cheap_gate_on": False,
                         "high_fidelity_on": True,
                         "matched_joint_init": bool(task_matched_joint_init),
+                        "matched_gate_replay": bool(
+                            task_matched_gate_replay_enabled
+                        ),
+                        "matched_runtime_loss_signature": (
+                            str(
+                                task_matched_gate_replay.get(
+                                    "runtime_loss_signature"
+                                )
+                                or ""
+                            )
+                            if task_matched_gate_replay_enabled
+                            else None
+                        ),
                         "eval_budget_signature": str(eval_sig),
                         "joint_pair_id": r.get("joint_pair_id") or joint_pair_id_by_pair.get((str(gid), str(fid))),
                         "proxy_record": dict(r),
