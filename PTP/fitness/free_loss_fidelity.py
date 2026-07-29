@@ -690,7 +690,10 @@ class PrefBatch:
             features, b_idx=b_idx, winner_idx=winner_idx, loser_idx=loser_idx
         )
 
-        weight = self.weight
+        # Preference builders may compute weights from rollout-derived tensors.
+        # We treat them as a fixed training target: gradients must flow through
+        # log probabilities selected by the pair, never back through weights.
+        weight = self.weight.detach() if isinstance(self.weight, torch.Tensor) else self.weight
         if weight is None:
             weight = torch.ones_like(logp_w_tensor)
 
