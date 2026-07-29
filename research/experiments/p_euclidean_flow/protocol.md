@@ -132,7 +132,7 @@ directions, but they are not used to choose the primary result.
 - The same 65 external candidates with scratch outcomes.
 - Sixteen TSP100 probes per policy bank: two fixed seeds with eight instances
   each.
-- Report epoch-31, epoch-135, and their equal-weight product.  The product is
+- Report scratch, epoch-135, and their equal-weight product.  The product is
   the preregistered primary audit for continuity with the equal-arc control.
 - Controls: one-point direction, the existing logit-Euclidean two-point
   descriptor, and the existing one-step Fisher descriptor.
