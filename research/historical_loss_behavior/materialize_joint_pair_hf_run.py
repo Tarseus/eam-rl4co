@@ -89,7 +89,7 @@ def _config() -> dict[str, Any]:
     }
 
 
-def materialize(plan_path: Path, out_dir: Path) -> dict[str, Any]:
+def materialize(plan_path: Path, out_dir: Path, *, profile: str) -> dict[str, Any]:
     plan_raw = plan_path.read_bytes()
     plan = json.loads(plan_raw)
     records = plan.get("records")
@@ -102,6 +102,24 @@ def materialize(plan_path: Path, out_dir: Path) -> dict[str, Any]:
     payload_dir = out_dir / "payloads"
     payload_dir.mkdir()
     cfg = _config()
+    if profile == "behavior_short":
+        cfg.update(
+            {
+                "hf_epochs": 1,
+                "hf_instances_per_epoch": 100000,
+                "f1_steps": 32,
+                "num_validation_episodes": 512,
+                "policy_kwargs": {"po4cops_compat": True},
+                "baseline": {
+                    "mini_eval_paths": {
+                        "epoch1_inst100000": "baseline/mini_eval/baseline_minitrain_tsp100_epoch1_inst100000.json"
+                    },
+                    "checkpoints": [],
+                    "include_scratch": True,
+                    "multiseed_compare_enabled": False,
+                },
+            }
+        )
     cfg_hash = _sha256_bytes(_stable_json(cfg))
     payload_rows: list[dict[str, Any]] = []
     for index, row in enumerate(records):
@@ -129,6 +147,7 @@ def materialize(plan_path: Path, out_dir: Path) -> dict[str, Any]:
     manifest = {
         "dataset_id": str(plan.get("dataset_id")),
         "purpose": "Fixed 5x5 real builder/loss high-fidelity evaluation; payloads contain no search or repair.",
+        "profile": profile,
         "plan_path": str(plan_path),
         "plan_sha256": _sha256_bytes(plan_raw),
         "eval_budget_signature": EVAL_SIGNATURE,
@@ -144,8 +163,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--plan", type=Path, default=DEFAULT_PLAN)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--profile", choices=("full", "behavior_short"), default="full")
     args = parser.parse_args()
-    manifest = materialize(args.plan.resolve(), args.out.resolve())
+    manifest = materialize(args.plan.resolve(), args.out.resolve(), profile=args.profile)
     print(json.dumps({"pairs": len(manifest["pairs"]), "plan_sha256": manifest["plan_sha256"], "config_sha256": manifest["config_sha256"]}))
 
 
