@@ -302,6 +302,7 @@ def _build_operator_table() -> Dict[str, Callable[..., torch.Tensor]]:
         "relu": F.relu,
         "sum": torch.sum,
         "mean": torch.mean,
+        "median": torch.median,
         "stack": torch.stack,
         "cat": torch.cat,
         "ones_like": torch.ones_like,

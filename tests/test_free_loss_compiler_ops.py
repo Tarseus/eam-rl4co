@@ -137,6 +137,30 @@ def test_compile_free_loss_allows_safe_ones_like_alias(compiler_case) -> None:
     assert torch.isfinite(loss)
 
 
+
+
+def test_compile_free_loss_supports_median_reduction(compiler_case) -> None:
+    compiler_fn, _ = compiler_case
+    ir = _make_ir(
+        code=(
+            "def generated_loss(batch, model_output, extra):\n"
+            "    margin = ops.sub(batch['log_prob_w'], batch['log_prob_l'])\n"
+            "    return ops.median(ops.mul(margin, batch['weight']))\n"
+        ),
+        operators_used=["sub", "mul", "median"],
+    )
+    compiled = compiler_fn(ir)
+    batch = {
+        "log_prob_w": torch.tensor([0.5, -0.1, 0.2], requires_grad=True),
+        "log_prob_l": torch.tensor([-0.2, -0.3, 0.1], requires_grad=True),
+        "weight": torch.tensor([1.0, 2.0, 1.0]),
+        "advantage_gap": torch.tensor([1.0, -2.0, 0.5]),
+    }
+    loss = compiled.loss_fn(batch=batch, model_output={}, extra={})
+    assert loss.ndim == 0
+    assert torch.isfinite(loss)
+    loss.backward()
+    assert batch["log_prob_w"].grad is not None
 def test_compile_free_loss_rejects_disallowed_tensor_method_ops(compiler_case) -> None:
     compiler_fn, compile_error_cls = compiler_case
     ir = _make_ir(
