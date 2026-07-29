@@ -26,6 +26,24 @@ FLOW_LENGTH = 0.03
 STEP_COUNTS = (30, 60)
 GEOMETRIES = ('p_euclidean', 'fisher')
 RESULTS_DIR = HERE / 'results'
+PILOT_DIR = EXPERIMENTS / 'rfps_feature_pilot'
+BANK_PATHS = {
+    'scratch': (
+        PILOT_DIR / 'tsp100_scratch1234_rollout_probes_seed1.npz',
+        PILOT_DIR / 'tsp100_scratch1234_rollout_probes_seed2.npz',
+    ),
+    'epoch135': (
+        PILOT_DIR / 'tsp100_epoch135_rollout_probes.npz',
+        PILOT_DIR / 'tsp100_epoch135_rollout_probes_seed2.npz',
+    ),
+}
+
+
+def load_banks() -> dict[str, list[pilot.Probe]]:
+    return {
+        name: sum((pilot.load_probes_npz(path) for path in paths), [])
+        for name, paths in BANK_PATHS.items()
+    }
 
 
 def unit(vector: torch.Tensor) -> torch.Tensor:
@@ -437,7 +455,7 @@ def main() -> int:
     torch.set_default_dtype(pilot.DTYPE)
     torch.set_num_threads(max(1, min(8, torch.get_num_threads())))
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    banks = sweep.load_banks()
+    banks = load_banks()
     datasets = sweep.load_datasets()
     output: dict[str, Any] = {
         'flow_length': FLOW_LENGTH,
@@ -469,13 +487,13 @@ def main() -> int:
             name: {} for name in descriptor_names
         }
         for descriptor in descriptor_names:
-            for bank_name in ('epoch031', 'epoch135'):
+            for bank_name in ('scratch', 'epoch135'):
                 all_matrices[descriptor][bank_name] = bank_matrices[
                     bank_name
                 ][descriptor]
             all_matrices[descriptor]['product'] = np.concatenate(
                 [
-                    bank_matrices['epoch031'][descriptor] / math.sqrt(2.0),
+                    bank_matrices['scratch'][descriptor] / math.sqrt(2.0),
                     bank_matrices['epoch135'][descriptor] / math.sqrt(2.0),
                 ],
                 axis=1,
@@ -503,7 +521,7 @@ def main() -> int:
 
         comparisons: dict[str, dict[str, float]] = {}
         convergence: dict[str, dict[str, float]] = {}
-        for bank_name in ('epoch031', 'epoch135', 'product'):
+        for bank_name in ('scratch', 'epoch135', 'product'):
             for steps in STEP_COUNTS:
                 comparisons[f'{steps}:{bank_name}'] = distance_comparison(
                     all_matrices[f'p_euclidean_flow_{steps}'][bank_name],

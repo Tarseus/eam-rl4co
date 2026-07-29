@@ -130,7 +130,8 @@ directions, but they are not used to choose the primary result.
 
 - The same 40 matched candidates with scratch and warm-start outcomes.
 - The same 65 external candidates with scratch outcomes.
-- The same sixteen TSP100 probes: eight from epoch 31 and eight from epoch 135.
+- Sixteen TSP100 probes per policy bank: two fixed seeds with eight instances
+  each.
 - Report epoch-31, epoch-135, and their equal-weight product.  The product is
   the preregistered primary audit for continuity with the equal-arc control.
 - Controls: one-point direction, the existing logit-Euclidean two-point
@@ -177,3 +178,17 @@ criterion is recorded without changing length, normalization, or channels.
 - Stationary or non-finite candidates are audited rather than interpreted as
   close neighbors.
 
+## User-directed amendment before metric inspection
+
+Amended on 2026-07-29 after the first run had computed descriptors for part of
+the epoch-31 bank but before it had produced any aggregate metric or result
+file.  The user requested that checkpoint selection not be part of this test.
+
+- Replace epoch 31 with the scratch policy bank.
+- Evaluate scratch, epoch 135, and their equal-weight product.
+- The scratch + epoch-135 product becomes the preregistered primary audit.
+- All fields, flow length, step counts, descriptors, metrics, and success
+  thresholds above remain unchanged.
+
+The interrupted epoch-31 descriptors were never aggregated or inspected and
+are not retained as results.
