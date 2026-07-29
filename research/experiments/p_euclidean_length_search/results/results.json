@@ -1,0 +1,199 @@
+{
+  "status": "exploratory",
+  "selection_metric": "rho_fisher_minus_rho_p_euclidean",
+  "lengths": [
+    0.06,
+    0.1,
+    0.2,
+    0.4
+  ],
+  "coarse_steps": 30,
+  "audit_steps": 60,
+  "coarse_results": [
+    {
+      "length": 0.06,
+      "steps": 30,
+      "metrics": {
+        "p_euclidean": {
+          "rho_scratch": 0.7075034413029646,
+          "nn_primary_median": 0.006888439178466488,
+          "false20": 0.0673076923076923
+        },
+        "fisher": {
+          "rho_scratch": 0.7076512387402367,
+          "nn_primary_median": 0.006888439178466488,
+          "false20": 0.0673076923076923
+        }
+      },
+      "delta_rho": 0.00014779743727211248,
+      "false20_reduction": 0.0,
+      "geometry_comparison": {
+        "distance_rho": 0.9997360375584314,
+        "top1_agreement": 0.9230769230769231
+      },
+      "sanity": {
+        "minimum_initial_cosine": 0.9999999999999997,
+        "maximum_tangent_sum_error": 1.4551915228366852e-10,
+        "maximum_substep_length_error": 8.725156014355306e-13,
+        "minimum_probability": 0.004916266327070937,
+        "maximum_stationary_fraction": 0.0
+      }
+    },
+    {
+      "length": 0.1,
+      "steps": 30,
+      "metrics": {
+        "p_euclidean": {
+          "rho_scratch": 0.7067134117699748,
+          "nn_primary_median": 0.006888439178466488,
+          "false20": 0.06666666666666667
+        },
+        "fisher": {
+          "rho_scratch": 0.7072125766151249,
+          "nn_primary_median": 0.006888439178466488,
+          "false20": 0.06474820143884892
+        }
+      },
+      "delta_rho": 0.0004991648451501129,
+      "false20_reduction": 0.001918465227817745,
+      "geometry_comparison": {
+        "distance_rho": 0.9995139856493117,
+        "top1_agreement": 0.9384615384615385
+      },
+      "sanity": {
+        "minimum_initial_cosine": 0.9999999999999997,
+        "maximum_tangent_sum_error": 1.382431946694851e-10,
+        "maximum_substep_length_error": 4.1103405401532456e-13,
+        "minimum_probability": 0.0025154683093643656,
+        "maximum_stationary_fraction": 0.0
+      }
+    },
+    {
+      "length": 0.2,
+      "steps": 30,
+      "metrics": {
+        "p_euclidean": {
+          "rho_scratch": 0.6976631001612226,
+          "nn_primary_median": 0.006617299652099895,
+          "false20": 0.07511737089201878
+        },
+        "fisher": {
+          "rho_scratch": 0.6921190536769605,
+          "nn_primary_median": 0.006888439178466488,
+          "false20": 0.07692307692307693
+        }
+      },
+      "delta_rho": -0.0055440464842620996,
+      "false20_reduction": -0.0018057060310581463,
+      "geometry_comparison": {
+        "distance_rho": 0.9972311925009416,
+        "top1_agreement": 0.9692307692307692
+      },
+      "sanity": {
+        "minimum_initial_cosine": 0.9999999999999997,
+        "maximum_tangent_sum_error": 1.7462298274040222e-10,
+        "maximum_substep_length_error": 2.4248311691899005e-13,
+        "minimum_probability": 3.1216939064079734e-08,
+        "maximum_stationary_fraction": 0.0
+      }
+    },
+    {
+      "length": 0.4,
+      "steps": 30,
+      "metrics": {
+        "p_euclidean": {
+          "rho_scratch": 0.6405020568953531,
+          "nn_primary_median": 0.00731441421508805,
+          "false20": 0.1388235294117647
+        },
+        "fisher": {
+          "rho_scratch": 0.6228074601318314,
+          "nn_primary_median": 0.006888439178466488,
+          "false20": 0.1291866028708134
+        }
+      },
+      "delta_rho": -0.017694596763521697,
+      "false20_reduction": 0.009636926540951302,
+      "geometry_comparison": {
+        "distance_rho": 0.9884473325177847,
+        "top1_agreement": 0.9076923076923077
+      },
+      "sanity": {
+        "minimum_initial_cosine": 0.9999999999999997,
+        "maximum_tangent_sum_error": 1.8917489796876907e-10,
+        "maximum_substep_length_error": 0.01268070734255634,
+        "minimum_probability": 5.967540291661195e-43,
+        "maximum_stationary_fraction": 0.0
+      }
+    }
+  ],
+  "selected_length": 0.1,
+  "selected_coarse_result": {
+    "length": 0.1,
+    "steps": 30,
+    "metrics": {
+      "p_euclidean": {
+        "rho_scratch": 0.7067134117699748,
+        "nn_primary_median": 0.006888439178466488,
+        "false20": 0.06666666666666667
+      },
+      "fisher": {
+        "rho_scratch": 0.7072125766151249,
+        "nn_primary_median": 0.006888439178466488,
+        "false20": 0.06474820143884892
+      }
+    },
+    "delta_rho": 0.0004991648451501129,
+    "false20_reduction": 0.001918465227817745,
+    "geometry_comparison": {
+      "distance_rho": 0.9995139856493117,
+      "top1_agreement": 0.9384615384615385
+    },
+    "sanity": {
+      "minimum_initial_cosine": 0.9999999999999997,
+      "maximum_tangent_sum_error": 1.382431946694851e-10,
+      "maximum_substep_length_error": 4.1103405401532456e-13,
+      "minimum_probability": 0.0025154683093643656,
+      "maximum_stationary_fraction": 0.0
+    }
+  },
+  "selected_audit_result": {
+    "length": 0.1,
+    "steps": 60,
+    "metrics": {
+      "p_euclidean": {
+        "rho_scratch": 0.7064096041073109,
+        "nn_primary_median": 0.006617299652099895,
+        "false20": 0.06619385342789598
+      },
+      "fisher": {
+        "rho_scratch": 0.707532950237014,
+        "nn_primary_median": 0.006617299652099895,
+        "false20": 0.06839622641509434
+      }
+    },
+    "delta_rho": 0.0011233461297031067,
+    "false20_reduction": -0.002202372987198359,
+    "geometry_comparison": {
+      "distance_rho": 0.9995319147855423,
+      "top1_agreement": 0.9230769230769231
+    },
+    "sanity": {
+      "minimum_initial_cosine": 0.9999999999999997,
+      "maximum_tangent_sum_error": 1.6007106751203537e-10,
+      "maximum_substep_length_error": 1.0018793520499836e-12,
+      "minimum_probability": 0.002515457530052606,
+      "maximum_stationary_fraction": 0.0
+    }
+  },
+  "convergence": {
+    "p_euclidean": {
+      "distance_rho": 0.9998858815426297,
+      "top1_agreement": 0.9384615384615385
+    },
+    "fisher": {
+      "distance_rho": 0.9998445682803273,
+      "top1_agreement": 0.9230769230769231
+    }
+  }
+}
