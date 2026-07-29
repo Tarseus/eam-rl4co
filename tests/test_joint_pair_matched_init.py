@@ -12,11 +12,12 @@ from PTP.ptp_discovery import pref_loss_coevo_loop as loop
 def _loss_row(index: int, *, generation: int = 0) -> dict:
     ir = loop._ref_loss_ir()
     ir.name = f"matched_loss_{index}"
+    signature = loop._sig_free_loss(ir)
     return {
         "generation": generation,
         "index": index,
         "id": f"f{generation:03d}_{index:03d}",
-        "signature": f"{index + 1:040x}",
+        "signature": signature,
         "ir": asdict(ir),
         "prompt_sha1": f"prompt-{index}",
         "prompt_path": "source-prompt.txt",
@@ -88,6 +89,138 @@ def test_joint_pair_matched_init_requires_exact_population_by_default(tmp_path) 
                 }
             },
         )
+
+
+def test_hf_runtime_entry_preserves_matched_metadata_through_json() -> None:
+    original = {
+        "id": "g000_000_deadbeef",
+        "op_type": "JOINT_PAIR_MATCHED_INIT",
+        "origin": "MATCHED_TSP_INIT",
+        "joint_pair_id": "jp000_000_matched_deadbeef",
+        "source_loss_id": "f000_000_deadbeef",
+        "source_loss_signature": "deadbeef",
+        "ir": asdict(loop._ref_builder_ir()),
+    }
+    merged = loop._hf_entry_with_runtime_ir(
+        original,
+        entry_id=original["id"],
+        runtime_ir=asdict(loop._ref_builder_ir()),
+    )
+    round_tripped = json.loads(json.dumps(merged))
+
+    assert round_tripped["op_type"] == "JOINT_PAIR_MATCHED_INIT"
+    assert round_tripped["origin"] == "MATCHED_TSP_INIT"
+    assert round_tripped["joint_pair_id"] == original["joint_pair_id"]
+    assert round_tripped["source_loss_id"] == original["source_loss_id"]
+    loop._assert_matched_joint_init_builder(
+        round_tripped,
+        context="serialized HF task test",
+    )
+
+
+def test_matched_joint_population_requires_exact_loss_and_builder_signatures() -> None:
+    g_entries = []
+    f_entries = []
+    for index in range(2):
+        loss_ir = loop._ref_loss_ir()
+        loss_ir.name = f"matched_loss_{index}"
+        loss_signature = loop._sig_free_loss(loss_ir)
+        joint_pair_id = f"jp000_{index:03d}_matched_{loss_signature[:8]}"
+        common = {
+            "op_type": "JOINT_PAIR_MATCHED_INIT",
+            "origin": "MATCHED_TSP_INIT",
+            "joint_pair_id": joint_pair_id,
+            "source_loss_id": f"f000_{index:03d}_{loss_signature[:8]}",
+            "source_loss_signature": loss_signature,
+            "source_loss_canonical_signature": loss_signature,
+        }
+        g_entries.append(
+            {
+                **common,
+                "id": f"g000_{index:03d}",
+                "signature": loop._sig_pref_builder(loop._ref_builder_ir()),
+                "ir": asdict(loop._ref_builder_ir()),
+            }
+        )
+        f_entries.append(
+            {
+                **common,
+                "id": f"f000_{index:03d}_{loss_signature[:8]}",
+                "signature": loss_signature,
+                "ir": asdict(loss_ir),
+            }
+        )
+
+    manifest = loop._validate_matched_joint_population(
+        g_entries=g_entries,
+        f_entries=f_entries,
+        expected_count=2,
+    )
+
+    assert manifest["status"] == "strict_match"
+    assert manifest["expected_count"] == 2
+    assert [row["source_loss_id"] for row in manifest["entries"]] == [
+        f_entries[0]["source_loss_id"],
+        f_entries[1]["source_loss_id"],
+    ]
+
+    changed = json.loads(json.dumps(g_entries))
+    changed[1]["ir"] = asdict(loop._ref_builder_ir())
+    changed[1]["ir"]["name"] = "not_the_reference_builder"
+    with pytest.raises(RuntimeError, match="builder changed"):
+        loop._validate_matched_joint_population(
+            g_entries=changed,
+            f_entries=f_entries,
+            expected_count=2,
+        )
+
+
+def test_hf_worker_explicit_matched_flag_bypasses_builder_repair(monkeypatch) -> None:
+    def _unexpected_builder_repair(*_args, **_kwargs):
+        raise AssertionError("matched HF worker must never repair the reference builder")
+
+    monkeypatch.setattr(loop, "_repair_builder_candidate_loop", _unexpected_builder_repair)
+    g_entry = {
+        "id": "g000_000_311f50c2",
+        "op_type": "JOINT_PAIR_MATCHED_INIT",
+        "origin": "MATCHED_TSP_INIT",
+        "joint_pair_id": "jp000_000_matched_test",
+        "ir": asdict(loop._ref_builder_ir()),
+    }
+    rec = loop._evaluate_pair_worker(
+        {
+            "generation": 0,
+            "pair_index": 0,
+            "g_entry": json.loads(json.dumps(g_entry)),
+            "f_entry": {
+                "id": "f000_000_test",
+                "op_type": "JOINT_PAIR_MATCHED_INIT",
+                "joint_pair_id": "jp000_000_matched_test",
+                "ir": asdict(loop._ref_loss_ir()),
+            },
+            "matched_joint_init": True,
+            "cfg_yaml": {
+                "cheap_gate_batch_size": 4,
+                "cheap_gate_k": 8,
+                "builder_max_pairs_per_instance": 4096,
+                "builder_min_instance_weight_cv": 0.10,
+                "builder_min_instance_weight_cv_pass_rate": 0.75,
+                "builder_gate_repair_enabled": True,
+                "builder_gate_repair_max_attempts": 8,
+            },
+            "device_str": "cpu",
+            "operator_whitelist": [],
+            "run_dir": None,
+            "cheap_gate_on": True,
+            "high_fidelity_on": False,
+            "eval_budget_signature": "matched-hf-task-test",
+        }
+    )
+
+    assert rec["matched_joint_init"] is True
+    assert rec["builder_gate_repaired"] is False
+    assert rec["g_id_before_repair"] is None
+    assert rec["g_id_after_repair"] is None
 
 
 def test_joint_pair_runtime_preserves_matched_init_and_skips_llm(

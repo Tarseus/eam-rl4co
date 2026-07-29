@@ -8922,6 +8922,7 @@ def _propose_joint_pairs_for_generation(
                     "llm_seed": row.get("llm_seed"),
                     "source_loss_id": source_loss_id,
                     "source_loss_signature": source_signature,
+                    "source_loss_canonical_signature": _sig_free_loss(loss_ir),
                 }
             )
         LOGGER.info(
@@ -10236,6 +10237,139 @@ def _build_coverage_plus_bandit_pairs(
     return pairs[: int(pairing_budget)], reasons_by_pair
 
 
+def _hf_entry_with_runtime_ir(
+    entry: Optional[Mapping[str, Any]],
+    *,
+    entry_id: str,
+    runtime_ir: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Update an HF entry's runtime IR without dropping provenance metadata."""
+
+    merged = dict(entry) if isinstance(entry, Mapping) else {}
+    merged["id"] = str(entry_id)
+    merged["ir"] = dict(runtime_ir)
+    return merged
+
+
+def _is_matched_joint_init_entry(*, generation: int, entry: Mapping[str, Any]) -> bool:
+    return (
+        int(generation) == 0
+        and str(entry.get("op_type") or "") == "JOINT_PAIR_MATCHED_INIT"
+    )
+
+
+def _assert_matched_joint_init_builder(
+    entry: Mapping[str, Any],
+    *,
+    context: str,
+) -> None:
+    ir_raw = entry.get("ir")
+    if not isinstance(ir_raw, Mapping):
+        raise RuntimeError(
+            f"Matched joint initialization lost builder IR in {context}: "
+            f"g_id={entry.get('id')}"
+        )
+    actual_sig = _sig_pref_builder(pref_builder_ir_from_json(ir_raw))
+    expected_sig = _sig_pref_builder(
+        pref_builder_ir_from_json(asdict(_ref_builder_ir()))
+    )
+    if str(actual_sig) != str(expected_sig):
+        raise RuntimeError(
+            f"Matched joint initialization builder changed in {context}: "
+            f"g_id={entry.get('id')} actual={actual_sig} expected={expected_sig}"
+        )
+
+
+def _validate_matched_joint_population(
+    *,
+    g_entries: Sequence[Mapping[str, Any]],
+    f_entries: Sequence[Mapping[str, Any]],
+    expected_count: int,
+) -> Dict[str, Any]:
+    """Fail closed unless generation zero exactly preserves the seeded population."""
+
+    if len(g_entries) != int(expected_count) or len(f_entries) != int(expected_count):
+        raise RuntimeError(
+            "Matched joint initialization population size changed: "
+            f"builders={len(g_entries)} losses={len(f_entries)} "
+            f"expected={int(expected_count)}"
+        )
+
+    ref_builder_sig = _sig_pref_builder(_ref_builder_ir())
+    rows: List[Dict[str, Any]] = []
+    source_loss_ids: List[str] = []
+    for index, (g_entry, f_entry) in enumerate(zip(g_entries, f_entries)):
+        if not _is_matched_joint_init_entry(generation=0, entry=g_entry):
+            raise RuntimeError(
+                "Matched joint initialization metadata missing from builder: "
+                f"index={index} g_id={g_entry.get('id')}"
+            )
+        if not _is_matched_joint_init_entry(generation=0, entry=f_entry):
+            raise RuntimeError(
+                "Matched joint initialization metadata missing from loss: "
+                f"index={index} f_id={f_entry.get('id')}"
+            )
+        _assert_matched_joint_init_builder(
+            g_entry,
+            context=f"generation-0 population index {index}",
+        )
+
+        source_loss_id = str(f_entry.get("source_loss_id") or "")
+        source_loss_sig = str(f_entry.get("source_loss_signature") or "")
+        source_loss_canonical_sig = str(
+            f_entry.get("source_loss_canonical_signature") or ""
+        )
+        actual_loss_sig = str(f_entry.get("signature") or "")
+        if not source_loss_id or not source_loss_sig or not source_loss_canonical_sig:
+            raise RuntimeError(
+                "Matched joint initialization lost source loss provenance: "
+                f"index={index} f_id={f_entry.get('id')}"
+            )
+        if actual_loss_sig != source_loss_canonical_sig:
+            raise RuntimeError(
+                "Matched joint initialization loss signature changed: "
+                f"index={index} f_id={f_entry.get('id')} "
+                f"actual={actual_loss_sig} source_canonical={source_loss_canonical_sig}"
+            )
+        if str(g_entry.get("joint_pair_id") or "") != str(
+            f_entry.get("joint_pair_id") or ""
+        ):
+            raise RuntimeError(
+                "Matched joint initialization pair identity changed: "
+                f"index={index} g_pair={g_entry.get('joint_pair_id')} "
+                f"f_pair={f_entry.get('joint_pair_id')}"
+            )
+
+        source_loss_ids.append(source_loss_id)
+        rows.append(
+            {
+                "index": int(index),
+                "joint_pair_id": str(g_entry.get("joint_pair_id") or ""),
+                "g_id": str(g_entry.get("id") or ""),
+                "builder_signature": str(ref_builder_sig),
+                "f_id": str(f_entry.get("id") or ""),
+                "loss_signature": actual_loss_sig,
+                "source_loss_id": source_loss_id,
+                "source_loss_signature": source_loss_sig,
+                "source_loss_canonical_signature": source_loss_canonical_sig,
+            }
+        )
+
+    if len(set(source_loss_ids)) != int(expected_count):
+        raise RuntimeError(
+            "Matched joint initialization contains duplicate source losses: "
+            f"unique={len(set(source_loss_ids))} expected={int(expected_count)}"
+        )
+
+    return {
+        "status": "strict_match",
+        "expected_count": int(expected_count),
+        "builder_signature": str(ref_builder_sig),
+        "builder_name": str(_ref_builder_ir().name),
+        "entries": rows,
+    }
+
+
 def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     """Evaluate a single (g,f) pair, optionally including high-fidelity training.
 
@@ -10294,6 +10428,17 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
     if not isinstance(proxy_record, dict):
         proxy_record = None
 
+    matched_joint_init = bool(payload.get("matched_joint_init", False)) or (
+        _is_matched_joint_init_entry(generation=generation, entry=g_entry)
+    )
+    if matched_joint_init:
+        if int(generation) != 0:
+            raise RuntimeError(
+                "Matched joint initialization flag is only valid for generation zero: "
+                f"generation={generation} g_id={g_entry.get('id')}"
+            )
+        _assert_matched_joint_init_builder(g_entry, context="HF worker payload")
+
     g_ir = pref_builder_ir_from_json(g_entry["ir"])
     f_ir = free_loss_ir_from_json(f_entry["ir"])
     joint_pair_id = str(payload.get("joint_pair_id") or "").strip()
@@ -10318,6 +10463,7 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         "device_logical_str": device_str,
         "cheap_gate_on": cheap_gate_on,
         "high_fidelity_on": high_fidelity_on,
+        "matched_joint_init": bool(matched_joint_init),
         "eval_budget_signature": eval_sig,
         # Required JSONL fields (filled from proxy stage if provided).
         "score": None,
@@ -10384,10 +10530,6 @@ def _evaluate_pair_worker(payload: Mapping[str, Any]) -> Dict[str, Any]:
         return record
 
     variant = "hidden" if bool(cfg.get("hidden_dynamic_gates_enabled", False)) else "visible"
-    matched_joint_init = (
-        int(generation) == 0
-        and str(g_entry.get("op_type") or "") == "JOINT_PAIR_MATCHED_INIT"
-    )
     runtime_gate_g_id = G_REF_ID if matched_joint_init else str(g_entry.get("id") or "")
     runtime_builder_gate_cfg = _runtime_builder_gate_cfg(cfg, g_id=runtime_gate_g_id)
     runtime_cfg = _cfg_with_runtime_builder_gate_overrides(cfg, g_id=runtime_gate_g_id)
@@ -13532,6 +13674,9 @@ def run_pref_loss_coevo(
                     "history": list(p.get("history", [])) if isinstance(p.get("history", []), list) else [],
                     "llm_seed": p.get("llm_seed"),
                     "joint_pair_id": p.get("joint_pair_id"),
+                    "source_loss_id": p.get("source_loss_id"),
+                    "source_loss_signature": p.get("source_loss_signature"),
+                    "source_loss_canonical_signature": p.get("source_loss_canonical_signature"),
                 }
                 for p in joint_pair_proposals
                 if isinstance(p.get("builder_ir"), PreferenceBuilderIR)
@@ -13549,6 +13694,9 @@ def run_pref_loss_coevo(
                     "history": list(p.get("history", [])) if isinstance(p.get("history", []), list) else [],
                     "llm_seed": p.get("llm_seed"),
                     "joint_pair_id": p.get("joint_pair_id"),
+                    "source_loss_id": p.get("source_loss_id"),
+                    "source_loss_signature": p.get("source_loss_signature"),
+                    "source_loss_canonical_signature": p.get("source_loss_canonical_signature"),
                 }
                 for p in joint_pair_proposals
                 if isinstance(p.get("loss_ir"), FreeLossIR)
@@ -13757,6 +13905,9 @@ def run_pref_loss_coevo(
                 "prompt_path": proposal.get("prompt_path"),
                 "llm_seed": proposal.get("llm_seed"),
                 "joint_pair_id": proposal.get("joint_pair_id"),
+                "source_loss_id": proposal.get("source_loss_id"),
+                "source_loss_signature": proposal.get("source_loss_signature"),
+                "source_loss_canonical_signature": proposal.get("source_loss_canonical_signature"),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "ir": asdict(ir),
             }
@@ -13836,6 +13987,9 @@ def run_pref_loss_coevo(
                 "prompt_path": proposal.get("prompt_path"),
                 "llm_seed": proposal.get("llm_seed"),
                 "joint_pair_id": proposal.get("joint_pair_id"),
+                "source_loss_id": proposal.get("source_loss_id"),
+                "source_loss_signature": proposal.get("source_loss_signature"),
+                "source_loss_canonical_signature": proposal.get("source_loss_canonical_signature"),
                 "history": list(proposal.get("history", [])) if isinstance(proposal.get("history", []), list) else [],
                 "novelty": proposal.get("novelty"),
                 "ir": asdict(ir),
@@ -13855,6 +14009,45 @@ def run_pref_loss_coevo(
                 entry["compile_ok"] = False
                 entry["compile_reason"] = "static_gate_failed"
             f_entries.append(entry)
+
+        matched_init_cfg = (
+            joint_pair_cfg.get("init_seed", {})
+            if isinstance(joint_pair_cfg.get("init_seed"), dict)
+            else {}
+        )
+        if (
+            int(gen) == 0
+            and bool(joint_pair_mode)
+            and bool(matched_init_cfg.get("enabled", False))
+        ):
+            matched_manifest = _validate_matched_joint_population(
+                g_entries=g_entries,
+                f_entries=f_entries,
+                expected_count=int(joint_offspring_target),
+            )
+            matched_manifest.update(
+                {
+                    "source_losses_path": os.path.abspath(
+                        _abs_from_repo_root(
+                            str(matched_init_cfg.get("source_losses_path") or "")
+                        )
+                    ),
+                    "source_generation": int(
+                        matched_init_cfg.get("source_generation", 0) or 0
+                    ),
+                }
+            )
+            _atomic_write_json(
+                os.path.join(run_dir, "matched_init_manifest.json"),
+                matched_manifest,
+            )
+            LOGGER.info(
+                "Matched joint population strict check passed: count=%d "
+                "builder_signature=%s manifest=%s",
+                int(joint_offspring_target),
+                str(matched_manifest.get("builder_signature")),
+                os.path.join(run_dir, "matched_init_manifest.json"),
+            )
         _append_jsonl(losses_jsonl, f_entries)
         for entry in g_entries:
             sig = entry.get("signature")
@@ -15495,9 +15688,17 @@ def run_pref_loss_coevo(
                 if not isinstance(f_entry, dict) and fid == F_REF_ID:
                     f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
                 if isinstance(r, dict) and isinstance(r.get("g_ir"), dict):
-                    g_entry = {"id": str(gid), "ir": dict(r.get("g_ir") or {})}
+                    g_entry = _hf_entry_with_runtime_ir(
+                        g_entry,
+                        entry_id=str(gid),
+                        runtime_ir=dict(r.get("g_ir") or {}),
+                    )
                 if isinstance(r, dict) and isinstance(r.get("f_ir"), dict):
-                    f_entry = {"id": str(fid), "ir": dict(r.get("f_ir") or {})}
+                    f_entry = _hf_entry_with_runtime_ir(
+                        f_entry,
+                        entry_id=str(fid),
+                        runtime_ir=dict(r.get("f_ir") or {}),
+                    )
                 if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
                     LOGGER.warning(
                         "HF skip gen=%d pair_index=%s missing entry for pair (%s,%s): g_entry=%s f_entry=%s",
@@ -15509,6 +15710,15 @@ def run_pref_loss_coevo(
                         str(isinstance(f_entry, dict)),
                     )
                     continue
+                task_matched_joint_init = _is_matched_joint_init_entry(
+                    generation=int(gen),
+                    entry=g_entry,
+                )
+                if task_matched_joint_init:
+                    _assert_matched_joint_init_builder(
+                        g_entry,
+                        context=f"HF task generation {int(gen)} pair {r.get('pair_index')}",
+                    )
                 # Distribute high-fidelity tasks round-robin across the configured devices.
                 # Do not use the global pair_index here because it includes anchors and
                 # other non-HF stages, which can skew GPU assignment and leave devices idle.
@@ -15526,6 +15736,7 @@ def run_pref_loss_coevo(
                         # Proxy stage already computed joint metrics; do not re-block HF on dummy-gate mismatch.
                         "cheap_gate_on": False,
                         "high_fidelity_on": True,
+                        "matched_joint_init": bool(task_matched_joint_init),
                         "eval_budget_signature": str(eval_sig),
                         "joint_pair_id": r.get("joint_pair_id") or joint_pair_id_by_pair.get((str(gid), str(fid))),
                         "proxy_record": dict(r),
@@ -15896,11 +16107,31 @@ def run_pref_loss_coevo(
                                 f_entry = {"id": str(F_REF_ID), "ir": asdict(_ref_loss_ir())}
                             proxy_rec = pair_records_map.get((str(gid), str(fid)))
                             if isinstance(proxy_rec, dict) and isinstance(proxy_rec.get("g_ir"), dict):
-                                g_entry = {"id": str(gid), "ir": dict(proxy_rec.get("g_ir") or {})}
+                                g_entry = _hf_entry_with_runtime_ir(
+                                    g_entry,
+                                    entry_id=str(gid),
+                                    runtime_ir=dict(proxy_rec.get("g_ir") or {}),
+                                )
                             if isinstance(proxy_rec, dict) and isinstance(proxy_rec.get("f_ir"), dict):
-                                f_entry = {"id": str(fid), "ir": dict(proxy_rec.get("f_ir") or {})}
+                                f_entry = _hf_entry_with_runtime_ir(
+                                    f_entry,
+                                    entry_id=str(fid),
+                                    runtime_ir=dict(proxy_rec.get("f_ir") or {}),
+                                )
                             if not isinstance(g_entry, dict) or not isinstance(f_entry, dict):
                                 continue
+                            task_matched_joint_init = _is_matched_joint_init_entry(
+                                generation=int(gen),
+                                entry=g_entry,
+                            )
+                            if task_matched_joint_init:
+                                _assert_matched_joint_init_builder(
+                                    g_entry,
+                                    context=(
+                                        f"HF MF task generation {int(gen)} "
+                                        f"pair {(proxy_rec or {}).get('pair_index')}"
+                                    ),
+                                )
                             device_str = device_list[int(len(hf_tasks2)) % len(device_list)]
                             hf_tasks2.append(
                                 {
@@ -15914,6 +16145,7 @@ def run_pref_loss_coevo(
                                     "run_dir": str(run_dir),
                                     "cheap_gate_on": False,
                                     "high_fidelity_on": True,
+                                    "matched_joint_init": bool(task_matched_joint_init),
                                     "eval_budget_signature": str(eval_sig_round),
                                     "joint_pair_id": (
                                         (proxy_rec or {}).get("joint_pair_id")
