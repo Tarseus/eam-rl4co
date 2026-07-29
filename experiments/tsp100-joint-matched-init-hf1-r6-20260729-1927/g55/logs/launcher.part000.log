@@ -1,0 +1,46 @@
+[2026-07-29 11:32:34,808] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234
+[2026-07-29 11:32:34,808] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 11:32:34,840] INFO:ptp_discovery.pref_loss_coevo: Stage3 baseline mini-eval prepared scenario=tsp100 fidelity=epoch1_inst100000 path=/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json cached=True regenerated=False
+[2026-07-29 11:32:34,840] WARNING:ptp_discovery.pref_loss_coevo: preset=simple: advanced keys are ignored: ['cheap_gate_on', 'high_fidelity_on']
+[2026-07-29 11:32:34,841] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-07-29 11:32:34,841] WARNING:ptp_discovery.pref_loss_coevo: Failed to load external baseline epoch objectives (/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/baseline/metrics.csv): [Errno 2] No such file or directory: '/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/baseline/metrics.csv'
+[2026-07-29 11:32:34,841] INFO:ptp_discovery.pref_loss_coevo: Initialized incumbent from baseline: score=inf pair=(g_ref,f_ref) stage=baseline gen=-1
+[2026-07-29 11:32:34,842] INFO:ptp_discovery.pref_loss_coevo: Baseline incumbent uses sentinel score (no external baseline_early_valid); will calibrate with evaluated (g_ref,f_ref) when rollout caches are available.
+[2026-07-29 11:32:34,842] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=0 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 11:32:34,842] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 0/19 ===
+[2026-07-29 11:32:34,843] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 11:32:34,843] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-07-29 11:32:35,589] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 11:32:35,589] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-07-29 11:32:35,589] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-07-29 11:32:35,589] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-07-29 11:32:35,591] INFO:ptp_discovery.pref_loss_coevo: Initialized joint-pair generation 0 from matched TSP losses: source=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/seeds/tsp100_main_loss_init_gen0.jsonl source_generation=0 pairs=16 builder=g_ref
+[2026-07-29 11:32:35,690] INFO:ptp_discovery.pref_loss_coevo: Matched joint population strict check passed: count=16 builder_signature=311f50c2ac32a6e5368a01633d29a0891dafcef4 manifest=/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/matched_init_manifest.json
+[2026-07-29 11:32:35,690] INFO:ptp_discovery.pref_loss_coevo: Gen 0 LLM ops: builders={'JOINT_PAIR_MATCHED_INIT': 16} (repairs=0) losses={'JOINT_PAIR_MATCHED_INIT': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-07-29 11:32:35,690] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 11:32:35,701] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 11:32:35,701] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=0: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 11:32:35,701] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=0: pairs=16 cheap_gate_on=True
+[2026-07-29 11:35:48,867] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=0: 1/16 caches(rollout=0 pref=0 pair=1)
+[2026-07-29 11:35:48,876] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 8 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:38:20,188] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 18 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:38:59,529] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 20 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:40:04,563] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 22 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:45:43,187] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 32 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:50:12,776] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 44 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:51:08,119] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 46 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:52:43,300] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 50 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:55:46,990] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=0: 10/16 caches(rollout=0 pref=0 pair=10)
+[2026-07-29 11:55:46,999] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 58 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:56:48,141] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 60 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 11:59:53,242] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 66 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 12:06:41,158] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 81 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 12:07:57,017] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 85 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 12:08:21,355] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 87 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 12:13:51,667] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 97 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r6-20260729-1927/search_runs/20260729-113234/llm_cache.jsonl)
+[2026-07-29 12:16:07,844] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=0: 16/16 caches(rollout=0 pref=0 pair=16)
+[2026-07-29 12:16:07,845] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=0: pairs=16 elapsed_s=2612.1 caches(rollout=0 pref=0 pair=16)
+[2026-07-29 12:16:07,845] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=0: eligible=14 selected=14 (top_m=128 ignored)
+[2026-07-29 12:16:07,850] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=0: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 3, 'cuda:3': 3}
+[2026-07-29 12:16:07,850] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=0: tasks=14 mp=True procs=4
+[2026-07-29 12:16:07,851] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=14
