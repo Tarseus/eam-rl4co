@@ -1,0 +1,307 @@
+{
+  "schema_version": 1,
+  "source_run": "runs/pref_loss_ffsp100_discovery/20260403-142801",
+  "source_commit": "not_recorded_in_source_run",
+  "source_artifacts": {
+    "losses_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260403-142801/losses.jsonl",
+    "losses_sha256": "cf07bda06a5b812748ab738099ee90659c145fb765e2c63b0fb10d5ce741af60",
+    "pairs_path": "/data1/gushengda/eam-rl4co/runs/pref_loss_ffsp100_discovery/20260403-142801/pairs.jsonl",
+    "pairs_sha256": "8574ad21bba8708a4a765a3c21c5ac25e3e8d92ed24822e54b16cd35c8cc44db"
+  },
+  "entries": [
+    {
+      "pair_index": 0,
+      "source_loss_id": "f000_015_ffab0ed9",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 1,
+      "source_loss_id": "f000_012_372ae734",
+      "hf_eligible": true,
+      "original_pair_reason": "ok_stage3_offline_minitrain",
+      "original_stage": "high_fidelity",
+      "original_stage_final": "high_fidelity",
+      "runtime_loss_signature": "372ae734dbeab4702e548ec8d5d00c424152572a",
+      "runtime_loss_ir": {
+        "name": "pairwise_advantage_gap_loss",
+        "intuition": "This loss encourages the model to prefer pairs with higher advantage differences, scaled by the advantage gap, making it sensitive to the relative quality of options. Using advantage_gap and log probabilities emphasizes the relative preference, promoting policies that rank better options more highly. The advantage gap provides a direct measure of superiority, ensuring the loss penalizes instances where an inferior option has a higher advantage.",
+        "pseudocode": "loss = -mean(logsigmoid(advantage_gap * (log_prob_w - log_prob_l)) * weight)",
+        "hyperparams": {
+          "paradigm_family": "preference",
+          "signal_family": "advantage",
+          "link_family": "logsigmoid",
+          "agg_family": "pairwise",
+          "constraint_family": "margin"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "mul",
+          "sub",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    advantage_gap = batch['advantage_gap']\n    log_prob_w = batch['log_prob_w']\n    log_prob_l = batch['log_prob_l']\n    weight = batch['weight']\n    scaled_diff = ops.mul(advantage_gap, ops.sub(log_prob_w, log_prob_l))\n    loss_terms = ops.logsigmoid(scaled_diff)\n    weighted_loss = ops.mul(loss_terms, weight)\n    return ops.mean(weighted_loss)",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 2,
+      "source_loss_id": "f000_014_26963073",
+      "hf_eligible": true,
+      "original_pair_reason": "stage3_early_pruned",
+      "original_stage": "high_fidelity",
+      "original_stage_final": "none",
+      "runtime_loss_signature": "26963073976d00c833bd1ab0290551e462d2fd9b",
+      "runtime_loss_ir": {
+        "name": "loss_logsigmoid_001_cost_normalized",
+        "intuition": "Adding scale-invariance constraint by normalizing the score difference over the magnitude of summed advantages, ensuring stable gradients regardless of advantage scale.",
+        "pseudocode": "norm_factor = ops.clamp(ops.abs(advantage_w) + ops.abs(advantage_l), min=1e-6)\nscore_diff = lpw - lpl\nscaled_diff = scale * (score_diff / norm_factor)\nx = alpha * scaled_diff - 0.1 * cost_gap\nx = ops.clamp(x, -20, 20)\nloss = -ops.logsigmoid(x)\nif weight is not None:\n    loss = loss * weight\nreturn loss.mean()",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "scale_invariance"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "abs",
+          "add",
+          "div",
+          "sub",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_w",
+            "advantage_l",
+            "cost_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    advantage_w = batch['advantage_w']\n    advantage_l = batch['advantage_l']\n    cost_gap = batch['cost_gap']\n\n    norm_factor = ops.clamp(ops.add(ops.abs(advantage_w), ops.abs(advantage_l)), 1e-6, 1e6)\n    score_diff = lpw - lpl\n    scaled_diff = ops.div(score_diff, norm_factor)\n    x = ops.sub(ops.mul(alpha * scale, scaled_diff), ops.mul(0.1, cost_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n\n    if weight is not None:\n        loss = loss * weight\n    return ops.mean(loss)",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 3,
+      "source_loss_id": "f000_013_87b4c8d2",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 4,
+      "source_loss_id": "f000_001_2a9aa97a",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 5,
+      "source_loss_id": "f000_009_0001ab92",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 6,
+      "source_loss_id": "f000_005_c2f26c44",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 7,
+      "source_loss_id": "f000_011_8502969a",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 8,
+      "source_loss_id": "f000_006_8e095760",
+      "hf_eligible": true,
+      "original_pair_reason": "stage3_early_pruned",
+      "original_stage": "high_fidelity",
+      "original_stage_final": "none",
+      "runtime_loss_signature": "8e0957608d28a33ec331a4e7a2446350d7f617c2",
+      "runtime_loss_ir": {
+        "name": "loss_logsigmoid_sum_advantage",
+        "intuition": "pairwise logsigmoid loss with sum aggregation over weighted pairs, shifting from mean aggregation",
+        "pseudocode": "loss_values = -logsigmoid(clamp(alpha * scale * (lpw - lpl) - beta * advantage_gap, -20, 20))\nweighted_loss = loss_values * weight if weight is not None else loss_values\nfinal_loss = sum(weighted_loss)",
+        "hyperparams": {
+          "scale": 1.9496803035382082,
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "sum",
+          "constraint_family": "clamp_stabilized"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "sum",
+          "mul",
+          "sub"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    beta = 0.1\n    x = alpha * scale * ops.sub(lpw, lpl)\n    x = ops.sub(x, ops.mul(beta, advantage_gap))\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = ops.neg(ops.logsigmoid(x))\n    if weight is not None:\n        loss = ops.mul(loss, weight)\n    return ops.sum(loss)",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 9,
+      "source_loss_id": "f000_000_943aeba8",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 10,
+      "source_loss_id": "f000_007_be370055",
+      "hf_eligible": false,
+      "original_pair_reason": "co_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 11,
+      "source_loss_id": "f000_004_a9e3fbe7",
+      "hf_eligible": true,
+      "original_pair_reason": "stage3_early_pruned",
+      "original_stage": "high_fidelity",
+      "original_stage_final": "none",
+      "runtime_loss_signature": "a9e3fbe715bcdfee5f8c5a51c1774e2f1f14ebca",
+      "runtime_loss_ir": {
+        "name": "loss_contrastive_001_advantage",
+        "intuition": "Use a contrastive paradigm with advantage signals to encourage higher margin between preferred and non-preferred sequences, applying a softplus on negative advantage-weighted log probability gaps to create a smooth, hinge-like penalty emphasizing confident ranking with margin.",
+        "pseudocode": "advantage_weighted_gap = advantage_w - advantage_l\nmargin = (log_prob_w - log_prob_l) * advantage_weighted_gap\nloss = mean(softplus(-margin) * weight)",
+        "hyperparams": {
+          "paradigm_family": "contrastive",
+          "signal_family": "advantage_gap",
+          "link_family": "softplus",
+          "agg_family": "mean",
+          "constraint_family": "none"
+        },
+        "operators_used": [
+          "softplus",
+          "sub",
+          "mul",
+          "neg",
+          "mean"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_w",
+            "advantage_l"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', ops.ones_like(lpw))\n    adv_w = batch['advantage_w']\n    adv_l = batch['advantage_l']\n    adv_gap = ops.sub(adv_w, adv_l)\n    margin = ops.mul(ops.sub(lpw, lpl), adv_gap)\n    loss_per_pair = ops.mul(ops.softplus(ops.neg(margin)), weight)\n    return ops.mean(loss_per_pair)",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 12,
+      "source_loss_id": "f000_010_8c1f3fbe",
+      "hf_eligible": true,
+      "original_pair_reason": "ok_stage3_offline_minitrain",
+      "original_stage": "high_fidelity",
+      "original_stage_final": "high_fidelity",
+      "runtime_loss_signature": "8c1f3fbeabab4c7e6c6e480a66f76d6502914b27",
+      "runtime_loss_ir": {
+        "name": "loss_logsigmoid_001_cost_normalized",
+        "intuition": "Inject explicit normalization by dividing the scaled log-probability difference by the norm of the advantage gap to ensure scale-invariance and stable gradient magnitudes.",
+        "pseudocode": "norm = max(norm(advantage_gap), epsilon)\nx = clamp(alpha * scale * (log_prob_w - log_prob_l) / norm, -20, 20)\nloss = -logsigmoid(x)\nloss = loss * weight (if weight exists)\nreturn mean(loss)",
+        "hyperparams": {
+          "paradigm_family": "pairwise_margin",
+          "signal_family": "advantage_gap",
+          "link_family": "logsigmoid",
+          "agg_family": "mean",
+          "constraint_family": "normalization_injected"
+        },
+        "operators_used": [
+          "logsigmoid",
+          "clamp",
+          "norm",
+          "maximum"
+        ],
+        "implementation_hint": {
+          "expects": [
+            "log_prob_w",
+            "log_prob_l",
+            "weight",
+            "advantage_gap"
+          ],
+          "returns": "scalar",
+          "mode": "pairwise"
+        },
+        "code": "def generated_loss(batch, model_output, extra):\n    lpw = batch['log_prob_w']\n    lpl = batch['log_prob_l']\n    weight = batch.get('weight', None)\n    advantage_gap = batch['advantage_gap']\n    alpha = float(extra.get('alpha', extra.get('hyperparams', {}).get('alpha', 1.0)))\n    scale = float(extra.get('hyperparams', {}).get('scale', 1.9496803035382082))\n    epsilon = 1e-6\n    norm_adv_gap = ops.maximum(ops.norm(advantage_gap), epsilon)\n    x = alpha * scale * (lpw - lpl) / norm_adv_gap\n    x = ops.clamp(x, -20.0, 20.0)\n    loss = -ops.logsigmoid(x)\n    if weight is not None:\n        loss = loss * weight\n    return loss.mean()",
+        "theoretical_basis": ""
+      }
+    },
+    {
+      "pair_index": 13,
+      "source_loss_id": "f000_002_492f2c81",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 14,
+      "source_loss_id": "f000_008_ca885fc4",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    },
+    {
+      "pair_index": 15,
+      "source_loss_id": "f000_003_9e96a1c3",
+      "hf_eligible": false,
+      "original_pair_reason": "cheap_gate_failed",
+      "original_stage": "gate",
+      "original_stage_final": "none"
+    }
+  ]
+}

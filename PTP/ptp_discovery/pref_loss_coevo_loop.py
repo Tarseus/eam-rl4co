@@ -8953,6 +8953,11 @@ def _propose_joint_pairs_for_generation(
     init_seed_cfg_raw = joint_cfg.get("init_seed", {})
     init_seed_cfg = dict(init_seed_cfg_raw) if isinstance(init_seed_cfg_raw, Mapping) else {}
     if int(generation) == 0 and bool(init_seed_cfg.get("enabled", False)):
+        origin_label = str(
+            init_seed_cfg.get("origin_label") or "MATCHED_TSP_INIT"
+        ).strip()
+        if not origin_label:
+            raise ValueError("joint_pair.init_seed.origin_label must not be empty")
         source_path = str(init_seed_cfg.get("source_losses_path", "") or "").strip()
         if not source_path:
             raise ValueError(
@@ -9038,8 +9043,8 @@ def _propose_joint_pairs_for_generation(
                     "builder_ir": _ref_builder_ir(),
                     "loss_ir": loss_ir,
                     "joint_pair_id": joint_pair_id,
-                    "origin": "MATCHED_TSP_INIT",
-                    "origin_base": "MATCHED_TSP_INIT",
+                    "origin": origin_label,
+                    "origin_base": origin_label,
                     "op_type": "JOINT_PAIR_MATCHED_INIT",
                     "parents": [source_loss_id],
                     "attempt": 0,
@@ -9070,9 +9075,11 @@ def _propose_joint_pairs_for_generation(
                 }
             )
         LOGGER.info(
-            "Initialized joint-pair generation %d from matched TSP losses: "
-            "source=%s source_generation=%d pairs=%d builder=%s gate_replay=%s",
+            "Initialized joint-pair generation %d from matched losses: "
+            "origin=%s source=%s source_generation=%d pairs=%d builder=%s "
+            "gate_replay=%s",
             int(generation),
+            origin_label,
             os.path.abspath(_abs_from_repo_root(source_path)),
             int(source_generation),
             int(len(seeded)),
