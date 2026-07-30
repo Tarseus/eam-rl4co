@@ -1,0 +1,520 @@
+[2026-07-29 14:10:17,959] INFO:ptp_discovery.pref_loss_coevo: Run directory: /data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017
+[2026-07-29 14:10:17,960] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 14:10:18,008] INFO:ptp_discovery.pref_loss_coevo: Stage3 baseline mini-eval prepared scenario=tsp100 fidelity=epoch1_inst100000 path=/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/baseline_cache/baseline_minitrain_tsp100_ckpt135_epoch1_inst100000.json cached=True regenerated=False
+[2026-07-29 14:10:18,008] WARNING:ptp_discovery.pref_loss_coevo: preset=simple: advanced keys are ignored: ['cheap_gate_on', 'high_fidelity_on']
+[2026-07-29 14:10:18,009] INFO:ptp_discovery.pref_loss_coevo: LLM cache stats: {'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-07-29 14:10:18,010] WARNING:ptp_discovery.pref_loss_coevo: Failed to load external baseline epoch objectives (/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/baseline/metrics.csv): [Errno 2] No such file or directory: '/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/baseline/metrics.csv'
+[2026-07-29 14:10:18,010] INFO:ptp_discovery.pref_loss_coevo: Initialized incumbent from baseline: score=inf pair=(g_ref,f_ref) stage=baseline gen=-1
+[2026-07-29 14:10:18,010] INFO:ptp_discovery.pref_loss_coevo: Baseline incumbent uses sentinel score (no external baseline_early_valid); will calibrate with evaluated (g_ref,f_ref) when rollout caches are available.
+[2026-07-29 14:10:18,011] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=0 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 14:10:18,011] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 0/19 ===
+[2026-07-29 14:10:18,011] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 14:10:18,011] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=inf best_pair=(g_ref,f_ref) best_stage=baseline metric_mode=minimize improve_eps=0.0
+[2026-07-29 14:10:18,750] INFO:ptp_discovery.pref_loss_coevo: Gen 0 start: caches(rollout=0 pref=0 pair=0) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 14:10:18,750] INFO:ptp_discovery.pref_loss_coevo: Gen 0 prompt context sizes: best_builder_summary.code=0 chars best_loss_summary.code=0 chars
+[2026-07-29 14:10:18,750] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-07-29 14:10:18,750] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=0: stagnation=0 trigger=3 explore_mode=False avoid_families=[]
+[2026-07-29 14:10:18,752] INFO:ptp_discovery.pref_loss_coevo: Initialized joint-pair generation 0 from matched TSP losses: source=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/seeds/tsp100_main_loss_init_gen0.jsonl source_generation=0 pairs=16 builder=g_ref gate_replay=/data1/gushengda/codex_worktrees/joint-search-matched-init-hf1-run/PTP/seeds/tsp100_main_loss_gen0_gate_replay.json
+[2026-07-29 14:10:18,847] INFO:ptp_discovery.pref_loss_coevo: Matched joint population strict check passed: count=16 builder_signature=311f50c2ac32a6e5368a01633d29a0891dafcef4 manifest=/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/matched_init_manifest.json
+[2026-07-29 14:10:18,849] INFO:ptp_discovery.pref_loss_coevo: Gen 0 LLM ops: builders={'JOINT_PAIR_MATCHED_INIT': 16} (repairs=0) losses={'JOINT_PAIR_MATCHED_INIT': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 0, 'cache_hits': 0, 'cache_misses': 0}
+[2026-07-29 14:10:18,849] INFO:ptp_discovery.pref_loss_coevo: Gen 0 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 14:10:18,860] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 14:10:18,860] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=0: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 14:10:18,860] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=0: pairs=16 cheap_gate_on=True
+[2026-07-29 14:10:18,861] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=0: 1/16 caches(rollout=0 pref=0 pair=1)
+[2026-07-29 14:10:18,862] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=0: 10/16 caches(rollout=0 pref=0 pair=10)
+[2026-07-29 14:10:18,863] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=0: 16/16 caches(rollout=0 pref=0 pair=16)
+[2026-07-29 14:10:18,863] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=0: pairs=16 elapsed_s=0.0 caches(rollout=0 pref=0 pair=16)
+[2026-07-29 14:10:18,863] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=0: eligible=2 selected=2 (top_m=128 ignored)
+[2026-07-29 14:10:18,863] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=0: {'cuda:0': 1, 'cuda:1': 1}
+[2026-07-29 14:10:18,864] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=0: tasks=2 mp=True procs=4
+[2026-07-29 14:10:18,864] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=2 tasks=2
+[2026-07-29 14:20:00,549] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=0: better=2 worse=0 unknown=0 (ok=2 failed=0) ref=inf threshold=inf
+[2026-07-29 14:20:00,549] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 14:20:00,550] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 14:20:00,550] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=0.0009646987915044036 ref=inf delta=inf pair=(g000_011_311f50c2,f000_011_cf248071) stage=high_fidelity gen=0 phase=joint_pair threshold=inf compare_target=incumbent improve_eps=0.0
+[2026-07-29 14:20:00,551] INFO:ptp_discovery.pref_loss_coevo: NEW BEST: score=-0.003541009521484284 ref=0.0009646987915044036 delta=0.004505708312988688 pair=(g000_006_311f50c2,f000_006_3c0966c5) stage=high_fidelity gen=0 phase=joint_pair threshold=0.0009646987915044036 compare_target=incumbent improve_eps=0.0
+[2026-07-29 14:20:00,551] INFO:ptp_discovery.pref_loss_coevo: Gen 0 summary: g_pool=16 f_pool=16 pairs=16 ok=2 stages={'gate': 14, 'high_fidelity': 2} top_reasons=[('matched_replay_original_cheap_gate_failed', 8), ('matched_replay_original_co_gate_failed', 6), ('ok_stage3_offline_minitrain', 2)]
+[2026-07-29 14:20:00,556] INFO:ptp_discovery.pref_loss_coevo: NEW BEST_BUILDER_COST: builder=g000_006_311f50c2 cost=960.0 perf=-0.003541009521484284 best_perf_anchor=-0.003541009521484284 slack=0.0 gen=0 phase=joint_pair
+[2026-07-29 14:20:00,575] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=1 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 14:20:00,575] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 1/19 ===
+[2026-07-29 14:20:00,575] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 14:20:00,575] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 14:20:00,579] INFO:ptp_discovery.pref_loss_coevo: Gen 1 start: caches(rollout=0 pref=0 pair=16) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 14:20:00,579] INFO:ptp_discovery.pref_loss_coevo: Gen 1 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 14:20:00,579] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=1: stagnation=0 trigger=3 explore_mode=False avoid_families=['uniform_none']
+[2026-07-29 14:20:00,580] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=1: stagnation=0 trigger=3 explore_mode=False avoid_families=['pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip', 'pairwise_margin|advantage_gap|mean|none']
+[2026-07-29 14:23:11,117] INFO:ptp_discovery.pref_loss_coevo: Gen 1 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 16, 'cache_hits': 0, 'cache_misses': 16}
+[2026-07-29 14:23:11,117] INFO:ptp_discovery.pref_loss_coevo: Gen 1 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 14:23:11,155] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 14:23:11,155] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=1: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 14:23:11,155] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=1: pairs=16 cheap_gate_on=True
+[2026-07-29 14:23:11,163] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=1: 1/16 caches(rollout=0 pref=0 pair=17)
+[2026-07-29 14:23:11,214] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=1: 10/16 caches(rollout=0 pref=0 pair=26)
+[2026-07-29 14:23:11,249] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=1: 16/16 caches(rollout=0 pref=0 pair=32)
+[2026-07-29 14:23:11,249] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=1: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=32)
+[2026-07-29 14:23:11,249] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=1: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 14:23:11,249] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=1: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 14:23:11,250] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=1: tasks=16 mp=True procs=4
+[2026-07-29 14:23:11,250] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 15:02:23,231] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=1: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 15:02:23,233] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 15:02:23,233] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 15:02:23,234] INFO:ptp_discovery.pref_loss_coevo: Gen 1 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 15:02:23,283] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=2 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 15:02:23,283] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 2/19 ===
+[2026-07-29 15:02:23,283] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 15:02:23,283] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 15:02:23,287] INFO:ptp_discovery.pref_loss_coevo: Gen 2 start: caches(rollout=0 pref=0 pair=32) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 15:02:23,287] INFO:ptp_discovery.pref_loss_coevo: Gen 2 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 15:02:23,288] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=2: stagnation=1 trigger=3 explore_mode=False avoid_families=['uniform_none', 'gap_regret_blend', 'gap_linear', 'gap_rank_blend', 'margin_regret_blend', 'gap_bandpass', 'margin_rank_blend']
+[2026-07-29 15:02:23,288] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=2: stagnation=1 trigger=3 explore_mode=False avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 15:06:27,104] INFO:ptp_discovery.pref_loss_coevo: Gen 2 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 32, 'cache_hits': 0, 'cache_misses': 32}
+[2026-07-29 15:06:27,105] INFO:ptp_discovery.pref_loss_coevo: Gen 2 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 15:06:27,149] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 15:06:27,149] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=2: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 15:06:27,149] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=2: pairs=16 cheap_gate_on=True
+[2026-07-29 15:06:27,155] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=2: 1/16 caches(rollout=0 pref=0 pair=33)
+[2026-07-29 15:06:27,207] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=2: 10/16 caches(rollout=0 pref=0 pair=42)
+[2026-07-29 15:06:27,239] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=2: 16/16 caches(rollout=0 pref=0 pair=48)
+[2026-07-29 15:06:27,239] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=2: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=48)
+[2026-07-29 15:06:27,239] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=2: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 15:06:27,240] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=2: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 15:06:27,240] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=2: tasks=16 mp=True procs=4
+[2026-07-29 15:06:27,240] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 15:45:35,528] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=2: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 15:45:35,529] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 15:45:35,529] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 15:45:35,529] INFO:ptp_discovery.pref_loss_coevo: Gen 2 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 15:45:35,563] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=3 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 15:45:35,563] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 3/19 ===
+[2026-07-29 15:45:35,563] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 15:45:35,563] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 15:45:35,565] INFO:ptp_discovery.pref_loss_coevo: Gen 3 start: caches(rollout=0 pref=0 pair=48) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 15:45:35,565] INFO:ptp_discovery.pref_loss_coevo: Gen 3 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 15:45:35,566] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=3: stagnation=2 trigger=3 explore_mode=False avoid_families=['uniform_none', 'gap_rank_blend', 'gap_regret_blend', 'gap_linear', 'margin_regret_blend', 'gap_bandpass', 'margin_rank_blend']
+[2026-07-29 15:45:35,566] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=3: stagnation=2 trigger=3 explore_mode=False avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 15:48:56,039] INFO:ptp_discovery.pref_loss_coevo: Gen 3 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 48, 'cache_hits': 0, 'cache_misses': 48}
+[2026-07-29 15:48:56,039] INFO:ptp_discovery.pref_loss_coevo: Gen 3 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 15:48:56,087] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 15:48:56,087] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=3: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 15:48:56,087] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=3: pairs=16 cheap_gate_on=True
+[2026-07-29 15:48:56,094] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=3: 1/16 caches(rollout=0 pref=0 pair=49)
+[2026-07-29 15:48:56,146] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=3: 10/16 caches(rollout=0 pref=0 pair=58)
+[2026-07-29 15:48:56,182] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=3: 16/16 caches(rollout=0 pref=0 pair=64)
+[2026-07-29 15:48:56,182] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=3: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=64)
+[2026-07-29 15:48:56,182] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=3: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 15:48:56,182] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=3: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 15:48:56,183] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=3: tasks=16 mp=True procs=4
+[2026-07-29 15:48:56,183] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 16:27:27,940] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=3: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 16:27:27,941] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 16:27:27,941] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 16:27:27,941] INFO:ptp_discovery.pref_loss_coevo: Gen 3 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 16:27:27,972] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=4 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 16:27:27,972] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 4/19 ===
+[2026-07-29 16:27:27,972] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 16:27:27,972] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 16:27:27,975] INFO:ptp_discovery.pref_loss_coevo: Gen 4 start: caches(rollout=0 pref=0 pair=64) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 16:27:27,975] INFO:ptp_discovery.pref_loss_coevo: Gen 4 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 16:27:27,975] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=4: stagnation=3 trigger=3 explore_mode=True avoid_families=['uniform_none', 'gap_rank_blend', 'gap_bandpass', 'gap_regret_blend', 'gap_linear', 'margin_regret_blend', 'margin_rank_blend']
+[2026-07-29 16:27:27,975] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=4: stagnation=3 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 16:31:03,307] INFO:ptp_discovery.pref_loss_coevo: Gen 4 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 64, 'cache_hits': 0, 'cache_misses': 64}
+[2026-07-29 16:31:03,308] INFO:ptp_discovery.pref_loss_coevo: Gen 4 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 16:31:03,363] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 16:31:03,363] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=4: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 16:31:03,363] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=4: pairs=16 cheap_gate_on=True
+[2026-07-29 16:31:03,370] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=4: 1/16 caches(rollout=0 pref=0 pair=65)
+[2026-07-29 16:31:03,416] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=4: 10/16 caches(rollout=0 pref=0 pair=74)
+[2026-07-29 16:31:03,446] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=4: 16/16 caches(rollout=0 pref=0 pair=80)
+[2026-07-29 16:31:03,447] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=4: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=80)
+[2026-07-29 16:31:03,447] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=4: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 16:31:03,448] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=4: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 16:31:03,448] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=4: tasks=16 mp=True procs=4
+[2026-07-29 16:31:03,448] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 17:10:31,866] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=4: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 17:10:31,868] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 17:10:31,868] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 17:10:31,869] INFO:ptp_discovery.pref_loss_coevo: Gen 4 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 17:10:31,943] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=5 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 17:10:31,943] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 5/19 ===
+[2026-07-29 17:10:31,943] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 17:10:31,944] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 17:10:31,947] INFO:ptp_discovery.pref_loss_coevo: Gen 5 start: caches(rollout=0 pref=0 pair=80) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 17:10:31,947] INFO:ptp_discovery.pref_loss_coevo: Gen 5 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 17:10:31,948] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=5: stagnation=4 trigger=3 explore_mode=True avoid_families=['gap_rank_blend', 'uniform_none', 'gap_bandpass', 'gap_regret_blend', 'margin_rank_blend', 'margin_regret_blend', 'gap_linear']
+[2026-07-29 17:10:31,948] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=5: stagnation=4 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 17:14:20,481] INFO:ptp_discovery.pref_loss_coevo: Gen 5 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 80, 'cache_hits': 0, 'cache_misses': 80}
+[2026-07-29 17:14:20,482] INFO:ptp_discovery.pref_loss_coevo: Gen 5 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 17:14:20,537] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 17:14:20,538] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=5: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 17:14:20,538] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=5: pairs=16 cheap_gate_on=True
+[2026-07-29 17:14:20,544] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=5: 1/16 caches(rollout=0 pref=0 pair=81)
+[2026-07-29 17:14:20,596] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=5: 10/16 caches(rollout=0 pref=0 pair=90)
+[2026-07-29 17:14:20,631] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=5: 16/16 caches(rollout=0 pref=0 pair=96)
+[2026-07-29 17:14:20,632] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=5: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=96)
+[2026-07-29 17:14:20,632] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=5: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 17:14:20,633] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=5: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 17:14:20,633] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=5: tasks=16 mp=True procs=4
+[2026-07-29 17:14:20,633] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 17:52:54,994] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=5: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 17:52:54,996] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 17:52:54,996] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 17:52:54,997] INFO:ptp_discovery.pref_loss_coevo: Gen 5 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 17:52:55,074] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=6 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 17:52:55,074] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 6/19 ===
+[2026-07-29 17:52:55,074] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 17:52:55,074] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 17:52:55,078] INFO:ptp_discovery.pref_loss_coevo: Gen 6 start: caches(rollout=0 pref=0 pair=96) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 17:52:55,078] INFO:ptp_discovery.pref_loss_coevo: Gen 6 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 17:52:55,078] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=6: stagnation=5 trigger=3 explore_mode=True avoid_families=['gap_rank_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_regret_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 17:52:55,078] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=6: stagnation=5 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 17:56:06,922] INFO:ptp_discovery.pref_loss_coevo: Gen 6 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 96, 'cache_hits': 0, 'cache_misses': 96}
+[2026-07-29 17:56:06,923] INFO:ptp_discovery.pref_loss_coevo: Gen 6 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 17:56:06,982] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 17:56:06,982] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=6: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 17:56:06,982] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=6: pairs=16 cheap_gate_on=True
+[2026-07-29 17:56:06,990] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=6: 1/16 caches(rollout=0 pref=0 pair=97)
+[2026-07-29 17:56:07,042] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=6: 10/16 caches(rollout=0 pref=0 pair=106)
+[2026-07-29 17:56:07,080] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=6: 16/16 caches(rollout=0 pref=0 pair=112)
+[2026-07-29 17:56:07,080] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=6: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=112)
+[2026-07-29 17:56:07,080] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=6: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 17:56:07,081] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=6: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 17:56:07,081] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=6: tasks=16 mp=True procs=4
+[2026-07-29 17:56:07,081] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 18:35:17,864] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=6: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 18:35:17,866] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 18:35:17,866] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 18:35:17,867] INFO:ptp_discovery.pref_loss_coevo: Gen 6 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 18:35:17,949] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=7 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 18:35:17,949] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 7/19 ===
+[2026-07-29 18:35:17,949] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 18:35:17,949] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 18:35:17,951] INFO:ptp_discovery.pref_loss_coevo: Gen 7 start: caches(rollout=0 pref=0 pair=112) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 18:35:17,951] INFO:ptp_discovery.pref_loss_coevo: Gen 7 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 18:35:17,951] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=7: stagnation=6 trigger=3 explore_mode=True avoid_families=['gap_bandpass', 'uniform_none', 'gap_linear', 'gap_rank_blend', 'gap_regret_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 18:35:17,951] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=7: stagnation=6 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 18:36:39,783] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair proposal rejected at gen=7 idx=8 attempt=8/32 side=builder target_family= reason=weight_family_not_allowed
+[2026-07-29 18:38:33,448] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair proposal rejection summary at gen=7: builder:weight_family_not_allowed=1
+[2026-07-29 18:38:33,554] INFO:ptp_discovery.pref_loss_coevo: Gen 7 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 113, 'cache_hits': 0, 'cache_misses': 113}
+[2026-07-29 18:38:33,555] INFO:ptp_discovery.pref_loss_coevo: Gen 7 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 18:38:33,614] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 18:38:33,614] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=7: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 18:38:33,615] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=7: pairs=16 cheap_gate_on=True
+[2026-07-29 18:38:33,621] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=7: 1/16 caches(rollout=0 pref=0 pair=113)
+[2026-07-29 18:38:33,674] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=7: 10/16 caches(rollout=0 pref=0 pair=122)
+[2026-07-29 18:38:33,709] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=7: 16/16 caches(rollout=0 pref=0 pair=128)
+[2026-07-29 18:38:33,709] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=7: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=128)
+[2026-07-29 18:38:33,710] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=7: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 18:38:33,710] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=7: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 18:38:33,710] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=7: tasks=16 mp=True procs=4
+[2026-07-29 18:38:33,711] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 19:17:10,995] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=7: better=0 worse=15 unknown=1 (ok=15 failed=1) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 19:17:10,996] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 19:17:10,996] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 19:17:10,997] INFO:ptp_discovery.pref_loss_coevo: Gen 7 summary: g_pool=16 f_pool=16 pairs=16 ok=15 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 15), ('stage3_early_pruned', 1)]
+[2026-07-29 19:17:11,083] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=8 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 19:17:11,083] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 8/19 ===
+[2026-07-29 19:17:11,083] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 19:17:11,083] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 19:17:11,085] INFO:ptp_discovery.pref_loss_coevo: Gen 8 start: caches(rollout=0 pref=0 pair=128) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 19:17:11,085] INFO:ptp_discovery.pref_loss_coevo: Gen 8 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 19:17:11,085] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=8: stagnation=7 trigger=3 explore_mode=True avoid_families=['gap_bandpass', 'uniform_none', 'gap_linear', 'gap_regret_blend', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 19:17:11,085] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=8: stagnation=7 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 19:19:44,338] INFO:ptp_discovery.pref_loss_coevo: Gen 8 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 129, 'cache_hits': 0, 'cache_misses': 129}
+[2026-07-29 19:19:44,338] INFO:ptp_discovery.pref_loss_coevo: Gen 8 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 19:19:44,397] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 19:19:44,397] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=8: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 19:19:44,397] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=8: pairs=16 cheap_gate_on=True
+[2026-07-29 19:19:44,405] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=8: 1/16 caches(rollout=0 pref=0 pair=129)
+[2026-07-29 19:19:44,457] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=8: 10/16 caches(rollout=0 pref=0 pair=138)
+[2026-07-29 19:19:44,493] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=8: 16/16 caches(rollout=0 pref=0 pair=144)
+[2026-07-29 19:19:44,494] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=8: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=144)
+[2026-07-29 19:19:44,494] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=8: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 19:19:44,494] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=8: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 19:19:44,495] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=8: tasks=16 mp=True procs=4
+[2026-07-29 19:19:44,495] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 19:58:20,942] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=8: better=0 worse=15 unknown=1 (ok=15 failed=1) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 19:58:20,943] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 19:58:20,943] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 19:58:20,943] INFO:ptp_discovery.pref_loss_coevo: Gen 8 summary: g_pool=16 f_pool=16 pairs=16 ok=15 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 15), ('stage3_early_pruned', 1)]
+[2026-07-29 19:58:21,024] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=9 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 19:58:21,024] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 9/19 ===
+[2026-07-29 19:58:21,024] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 19:58:21,024] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 19:58:21,026] INFO:ptp_discovery.pref_loss_coevo: Gen 9 start: caches(rollout=0 pref=0 pair=144) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 19:58:21,026] INFO:ptp_discovery.pref_loss_coevo: Gen 9 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 19:58:21,026] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=9: stagnation=8 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 19:58:21,026] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=9: stagnation=8 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 20:02:05,197] INFO:ptp_discovery.pref_loss_coevo: Gen 9 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 145, 'cache_hits': 0, 'cache_misses': 145}
+[2026-07-29 20:02:05,198] INFO:ptp_discovery.pref_loss_coevo: Gen 9 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 20:02:05,259] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 20:02:05,259] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=9: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 20:02:05,259] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=9: pairs=16 cheap_gate_on=True
+[2026-07-29 20:02:05,265] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=9: 1/16 caches(rollout=0 pref=0 pair=145)
+[2026-07-29 20:02:05,319] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=9: 10/16 caches(rollout=0 pref=0 pair=154)
+[2026-07-29 20:02:05,356] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=9: 16/16 caches(rollout=0 pref=0 pair=160)
+[2026-07-29 20:02:05,356] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=9: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=160)
+[2026-07-29 20:02:05,356] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=9: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 20:02:05,357] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=9: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 20:02:05,357] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=9: tasks=16 mp=True procs=4
+[2026-07-29 20:02:05,357] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 20:41:19,447] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=9: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 20:41:19,449] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 20:41:19,449] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 20:41:19,450] INFO:ptp_discovery.pref_loss_coevo: Gen 9 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 20:41:19,542] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=10 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 20:41:19,542] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 10/19 ===
+[2026-07-29 20:41:19,542] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 20:41:19,542] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 20:41:19,544] INFO:ptp_discovery.pref_loss_coevo: Gen 10 start: caches(rollout=0 pref=0 pair=160) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 20:41:19,545] INFO:ptp_discovery.pref_loss_coevo: Gen 10 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 20:41:19,545] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=10: stagnation=9 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 20:41:19,545] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=10: stagnation=9 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 20:44:31,037] INFO:ptp_discovery.pref_loss_coevo: Gen 10 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 161, 'cache_hits': 0, 'cache_misses': 161}
+[2026-07-29 20:44:31,038] INFO:ptp_discovery.pref_loss_coevo: Gen 10 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 20:44:31,099] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 20:44:31,099] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=10: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 20:44:31,099] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=10: pairs=16 cheap_gate_on=True
+[2026-07-29 20:44:31,106] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=10: 1/16 caches(rollout=0 pref=0 pair=161)
+[2026-07-29 20:44:31,157] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=10: 10/16 caches(rollout=0 pref=0 pair=170)
+[2026-07-29 20:44:31,192] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=10: 16/16 caches(rollout=0 pref=0 pair=176)
+[2026-07-29 20:44:31,192] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=10: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=176)
+[2026-07-29 20:44:31,193] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=10: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 20:44:31,193] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=10: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 20:44:31,193] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=10: tasks=16 mp=True procs=4
+[2026-07-29 20:44:31,193] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 21:23:45,988] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=10: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 21:23:45,989] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 21:23:45,990] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 21:23:45,990] INFO:ptp_discovery.pref_loss_coevo: Gen 10 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 21:23:46,085] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=11 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 21:23:46,085] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 11/19 ===
+[2026-07-29 21:23:46,085] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 21:23:46,085] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 21:23:46,087] INFO:ptp_discovery.pref_loss_coevo: Gen 11 start: caches(rollout=0 pref=0 pair=176) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 21:23:46,088] INFO:ptp_discovery.pref_loss_coevo: Gen 11 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 21:23:46,088] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=11: stagnation=10 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 21:23:46,088] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=11: stagnation=10 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 21:26:34,066] INFO:ptp_discovery.pref_loss_coevo: Gen 11 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 177, 'cache_hits': 0, 'cache_misses': 177}
+[2026-07-29 21:26:34,066] INFO:ptp_discovery.pref_loss_coevo: Gen 11 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 21:26:34,129] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 21:26:34,129] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=11: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 21:26:34,129] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=11: pairs=16 cheap_gate_on=True
+[2026-07-29 21:26:34,136] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=11: 1/16 caches(rollout=0 pref=0 pair=177)
+[2026-07-29 21:26:34,189] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=11: 10/16 caches(rollout=0 pref=0 pair=186)
+[2026-07-29 21:26:34,226] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=11: 16/16 caches(rollout=0 pref=0 pair=192)
+[2026-07-29 21:26:34,226] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=11: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=192)
+[2026-07-29 21:26:34,226] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=11: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 21:26:34,227] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=11: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 21:26:34,227] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=11: tasks=16 mp=True procs=4
+[2026-07-29 21:26:34,227] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 22:05:19,746] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=11: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 22:05:19,748] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 22:05:19,748] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 22:05:19,749] INFO:ptp_discovery.pref_loss_coevo: Gen 11 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 22:05:19,849] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=12 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 22:05:19,849] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 12/19 ===
+[2026-07-29 22:05:19,849] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 22:05:19,849] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 22:05:19,852] INFO:ptp_discovery.pref_loss_coevo: Gen 12 start: caches(rollout=0 pref=0 pair=192) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 22:05:19,852] INFO:ptp_discovery.pref_loss_coevo: Gen 12 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 22:05:19,852] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=12: stagnation=11 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 22:05:19,852] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=12: stagnation=11 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 22:09:04,242] INFO:ptp_discovery.pref_loss_coevo: Gen 12 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 193, 'cache_hits': 0, 'cache_misses': 193}
+[2026-07-29 22:09:04,243] INFO:ptp_discovery.pref_loss_coevo: Gen 12 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 22:09:04,307] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 22:09:04,307] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=12: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 22:09:04,307] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=12: pairs=16 cheap_gate_on=True
+[2026-07-29 22:09:04,313] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=12: 1/16 caches(rollout=0 pref=0 pair=193)
+[2026-07-29 22:09:04,366] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 193 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl)
+[2026-07-29 22:10:31,761] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=12: 10/16 caches(rollout=0 pref=0 pair=202)
+[2026-07-29 22:10:31,818] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=12: 16/16 caches(rollout=0 pref=0 pair=208)
+[2026-07-29 22:10:31,818] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=12: pairs=16 elapsed_s=87.5 caches(rollout=0 pref=0 pair=208)
+[2026-07-29 22:10:31,819] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=12: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 22:10:31,820] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=12: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 22:10:31,820] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=12: tasks=16 mp=True procs=4
+[2026-07-29 22:10:31,820] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 22:49:39,758] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=12: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 22:49:39,759] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 22:49:39,759] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 22:49:39,759] INFO:ptp_discovery.pref_loss_coevo: Gen 12 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 22:49:39,823] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=13 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 22:49:39,823] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 13/19 ===
+[2026-07-29 22:49:39,823] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 22:49:39,824] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 22:49:39,826] INFO:ptp_discovery.pref_loss_coevo: Gen 13 start: caches(rollout=0 pref=0 pair=208) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 22:49:39,826] INFO:ptp_discovery.pref_loss_coevo: Gen 13 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 22:49:39,826] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=13: stagnation=12 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 22:49:39,826] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=13: stagnation=12 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 22:52:43,797] INFO:ptp_discovery.pref_loss_coevo: Gen 13 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 211, 'cache_hits': 0, 'cache_misses': 18}
+[2026-07-29 22:52:43,798] INFO:ptp_discovery.pref_loss_coevo: Gen 13 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 22:52:43,863] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 22:52:43,863] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=13: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 22:52:43,863] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=13: pairs=16 cheap_gate_on=True
+[2026-07-29 22:52:43,869] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=13: 1/16 caches(rollout=0 pref=0 pair=209)
+[2026-07-29 22:52:43,920] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=13: 10/16 caches(rollout=0 pref=0 pair=218)
+[2026-07-29 22:52:43,957] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=13: 16/16 caches(rollout=0 pref=0 pair=224)
+[2026-07-29 22:52:43,957] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=13: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=224)
+[2026-07-29 22:52:43,957] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=13: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 22:52:43,958] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=13: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 22:52:43,958] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=13: tasks=16 mp=True procs=4
+[2026-07-29 22:52:43,958] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-29 23:32:07,455] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=13: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-29 23:32:07,457] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-29 23:32:07,457] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-29 23:32:07,458] INFO:ptp_discovery.pref_loss_coevo: Gen 13 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-29 23:32:07,565] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=14 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-29 23:32:07,565] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 14/19 ===
+[2026-07-29 23:32:07,565] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 23:32:07,565] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-29 23:32:07,567] INFO:ptp_discovery.pref_loss_coevo: Gen 14 start: caches(rollout=0 pref=0 pair=224) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-29 23:32:07,567] INFO:ptp_discovery.pref_loss_coevo: Gen 14 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-29 23:32:07,567] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=14: stagnation=13 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-29 23:32:07,567] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=14: stagnation=13 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-29 23:36:30,807] INFO:ptp_discovery.pref_loss_coevo: Gen 14 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 227, 'cache_hits': 0, 'cache_misses': 34}
+[2026-07-29 23:36:30,808] INFO:ptp_discovery.pref_loss_coevo: Gen 14 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-29 23:36:30,873] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-29 23:36:30,873] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=14: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-29 23:36:30,873] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=14: pairs=16 cheap_gate_on=True
+[2026-07-29 23:36:30,879] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=14: 1/16 caches(rollout=0 pref=0 pair=225)
+[2026-07-29 23:36:30,927] INFO:ptp_discovery.free_loss_llm_ops: Loaded LLM cache entries: 227 (/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl)
+[2026-07-29 23:39:08,781] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=14: 10/16 caches(rollout=0 pref=0 pair=234)
+[2026-07-29 23:39:08,838] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=14: 16/16 caches(rollout=0 pref=0 pair=240)
+[2026-07-29 23:39:08,839] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=14: pairs=16 elapsed_s=158.0 caches(rollout=0 pref=0 pair=240)
+[2026-07-29 23:39:08,839] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=14: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-29 23:39:08,839] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=14: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-29 23:39:08,840] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=14: tasks=16 mp=True procs=4
+[2026-07-29 23:39:08,840] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-30 00:18:02,672] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=14: better=0 worse=14 unknown=2 (ok=14 failed=2) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-30 00:18:02,673] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-30 00:18:02,674] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-30 00:18:02,675] INFO:ptp_discovery.pref_loss_coevo: Gen 14 summary: g_pool=16 f_pool=16 pairs=16 ok=14 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 14), ('stage3_early_pruned', 2)]
+[2026-07-30 00:18:02,784] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=15 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-30 00:18:02,784] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 15/19 ===
+[2026-07-30 00:18:02,784] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 00:18:02,784] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-30 00:18:02,787] INFO:ptp_discovery.pref_loss_coevo: Gen 15 start: caches(rollout=0 pref=0 pair=240) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-30 00:18:02,787] INFO:ptp_discovery.pref_loss_coevo: Gen 15 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-30 00:18:02,787] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=15: stagnation=14 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-30 00:18:02,787] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=15: stagnation=14 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-30 00:19:24,381] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair proposal rejected at gen=15 idx=7 attempt=7/32 side=builder target_family= reason=weight_family_not_allowed
+[2026-07-30 00:21:27,202] WARNING:ptp_discovery.pref_loss_coevo: Joint-pair proposal rejection summary at gen=15: builder:weight_family_not_allowed=1
+[2026-07-30 00:21:27,307] INFO:ptp_discovery.pref_loss_coevo: Gen 15 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 246, 'cache_hits': 0, 'cache_misses': 19}
+[2026-07-30 00:21:27,308] INFO:ptp_discovery.pref_loss_coevo: Gen 15 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-30 00:21:27,375] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 00:21:27,375] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=15: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-30 00:21:27,376] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=15: pairs=16 cheap_gate_on=True
+[2026-07-30 00:21:27,382] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=15: 1/16 caches(rollout=0 pref=0 pair=241)
+[2026-07-30 00:21:27,435] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=15: 10/16 caches(rollout=0 pref=0 pair=250)
+[2026-07-30 00:21:27,471] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=15: 16/16 caches(rollout=0 pref=0 pair=256)
+[2026-07-30 00:21:27,471] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=15: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=256)
+[2026-07-30 00:21:27,472] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=15: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-30 00:21:27,472] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=15: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-30 00:21:27,472] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=15: tasks=16 mp=True procs=4
+[2026-07-30 00:21:27,473] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-30 01:00:45,878] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=15: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-30 01:00:45,879] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-30 01:00:45,879] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-30 01:00:45,879] INFO:ptp_discovery.pref_loss_coevo: Gen 15 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-30 01:00:45,953] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=16 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-30 01:00:45,954] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 16/19 ===
+[2026-07-30 01:00:45,954] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 01:00:45,954] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-30 01:00:45,956] INFO:ptp_discovery.pref_loss_coevo: Gen 16 start: caches(rollout=0 pref=0 pair=256) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-30 01:00:45,956] INFO:ptp_discovery.pref_loss_coevo: Gen 16 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-30 01:00:45,956] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=16: stagnation=15 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-30 01:00:45,956] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=16: stagnation=15 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-30 01:04:23,550] INFO:ptp_discovery.pref_loss_coevo: Gen 16 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 262, 'cache_hits': 0, 'cache_misses': 35}
+[2026-07-30 01:04:23,550] INFO:ptp_discovery.pref_loss_coevo: Gen 16 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-30 01:04:23,618] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 01:04:23,618] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=16: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-30 01:04:23,618] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=16: pairs=16 cheap_gate_on=True
+[2026-07-30 01:04:23,625] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=16: 1/16 caches(rollout=0 pref=0 pair=257)
+[2026-07-30 01:04:23,686] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=16: 10/16 caches(rollout=0 pref=0 pair=266)
+[2026-07-30 01:04:23,723] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=16: 16/16 caches(rollout=0 pref=0 pair=272)
+[2026-07-30 01:04:23,723] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=16: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=272)
+[2026-07-30 01:04:23,723] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=16: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-30 01:04:23,724] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=16: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-30 01:04:23,725] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=16: tasks=16 mp=True procs=4
+[2026-07-30 01:04:23,725] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-30 01:43:31,001] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=16: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-30 01:43:31,002] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-30 01:43:31,003] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-30 01:43:31,003] INFO:ptp_discovery.pref_loss_coevo: Gen 16 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-30 01:43:31,120] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=17 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-30 01:43:31,120] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 17/19 ===
+[2026-07-30 01:43:31,120] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 01:43:31,120] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-30 01:43:31,122] INFO:ptp_discovery.pref_loss_coevo: Gen 17 start: caches(rollout=0 pref=0 pair=272) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-30 01:43:31,122] INFO:ptp_discovery.pref_loss_coevo: Gen 17 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-30 01:43:31,122] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=17: stagnation=16 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-30 01:43:31,122] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=17: stagnation=16 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-30 01:46:00,968] INFO:ptp_discovery.pref_loss_coevo: Gen 17 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 278, 'cache_hits': 0, 'cache_misses': 51}
+[2026-07-30 01:46:00,968] INFO:ptp_discovery.pref_loss_coevo: Gen 17 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-30 01:46:01,037] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 01:46:01,038] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=17: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-30 01:46:01,038] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=17: pairs=16 cheap_gate_on=True
+[2026-07-30 01:46:01,044] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=17: 1/16 caches(rollout=0 pref=0 pair=273)
+[2026-07-30 01:46:01,098] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=17: 10/16 caches(rollout=0 pref=0 pair=282)
+[2026-07-30 01:46:01,133] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=17: 16/16 caches(rollout=0 pref=0 pair=288)
+[2026-07-30 01:46:01,133] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=17: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=288)
+[2026-07-30 01:46:01,133] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=17: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-30 01:46:01,134] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=17: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-30 01:46:01,134] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=17: tasks=16 mp=True procs=4
+[2026-07-30 01:46:01,134] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-30 02:24:53,985] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=17: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-30 02:24:53,986] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-30 02:24:53,986] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-30 02:24:53,987] INFO:ptp_discovery.pref_loss_coevo: Gen 17 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-30 02:24:54,108] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=18 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-30 02:24:54,108] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 18/19 ===
+[2026-07-30 02:24:54,109] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 02:24:54,109] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-30 02:24:54,111] INFO:ptp_discovery.pref_loss_coevo: Gen 18 start: caches(rollout=0 pref=0 pair=288) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-30 02:24:54,111] INFO:ptp_discovery.pref_loss_coevo: Gen 18 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-30 02:24:54,111] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=18: stagnation=17 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-30 02:24:54,111] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=18: stagnation=17 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-30 02:28:04,335] INFO:ptp_discovery.pref_loss_coevo: Gen 18 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 294, 'cache_hits': 0, 'cache_misses': 67}
+[2026-07-30 02:28:04,335] INFO:ptp_discovery.pref_loss_coevo: Gen 18 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-30 02:28:04,405] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 02:28:04,405] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=18: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-30 02:28:04,405] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=18: pairs=16 cheap_gate_on=True
+[2026-07-30 02:28:04,412] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=18: 1/16 caches(rollout=0 pref=0 pair=289)
+[2026-07-30 02:28:04,464] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=18: 10/16 caches(rollout=0 pref=0 pair=298)
+[2026-07-30 02:28:04,501] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=18: 16/16 caches(rollout=0 pref=0 pair=304)
+[2026-07-30 02:28:04,501] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=18: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=304)
+[2026-07-30 02:28:04,501] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=18: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-30 02:28:04,502] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=18: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-30 02:28:04,502] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=18: tasks=16 mp=True procs=4
+[2026-07-30 02:28:04,502] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-30 03:07:22,457] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=18: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-30 03:07:22,458] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-30 03:07:22,459] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-30 03:07:22,459] INFO:ptp_discovery.pref_loss_coevo: Gen 18 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-30 03:07:22,582] INFO:ptp_discovery.pref_loss_coevo: joint_pair LLM gating gen=19 phase=coevo llm_enabled(builder=False,loss=False,joint_pair=True)
+[2026-07-30 03:07:22,582] INFO:ptp_discovery.pref_loss_coevo: === joint_pair generation 19/19 ===
+[2026-07-30 03:07:22,583] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 03:07:22,583] INFO:ptp_discovery.pref_loss_coevo: INCUMBENT best_score=-0.003541009521484284 best_pair=(g000_006_311f50c2,f000_006_3c0966c5) best_stage=high_fidelity metric_mode=minimize improve_eps=0.0
+[2026-07-30 03:07:22,585] INFO:ptp_discovery.pref_loss_coevo: Gen 19 start: caches(rollout=0 pref=0 pair=304) cuda_diag(vis='1,3,6,7' | torch=cuda:0(used=265M/free=23859M/alloc=0M/resv=0M) cuda:1(used=265M/free=23859M/alloc=0M/resv=0M) cuda:2(used=265M/free=23859M/alloc=0M/resv=0M) cuda:3(used=265M/free=23859M/alloc=0M/resv=0M))
+[2026-07-30 03:07:22,585] INFO:ptp_discovery.pref_loss_coevo: Gen 19 prompt context sizes: best_builder_summary.code=335 chars best_loss_summary.code=504 chars
+[2026-07-30 03:07:22,585] INFO:ptp_discovery.pref_loss_coevo: Builder exploration schedule gen=19: stagnation=18 trigger=3 explore_mode=True avoid_families=['gap_regret_blend', 'uniform_none', 'gap_linear', 'gap_bandpass', 'gap_rank_blend', 'margin_rank_blend', 'margin_regret_blend']
+[2026-07-30 03:07:22,585] INFO:ptp_discovery.pref_loss_coevo: Loss exploration schedule gen=19: stagnation=18 trigger=3 explore_mode=True avoid_families=['pairwise_margin|unknown|weighted_mean|finite_softplus', 'pairwise_margin|cost_gap|sum|clamp_stabilized', 'pairwise_margin|cost_gap|mean|normalization', 'pairwise_regression|advantage_gap|mean|none', 'pairwise_margin|cost_gap|sum_div_sum|clamp_stabilized', 'pairwise_rank_gap|advantage_gap|mean|clamp_nonneg_relu', 'ranking|costs|mean|preference', 'pairwise_rank_based|advantage_gap|mean|relu_zero_clip']
+[2026-07-30 03:10:40,666] INFO:ptp_discovery.pref_loss_coevo: Gen 19 LLM ops: builders={'JOINT_PAIR_GENERATE': 16} (repairs=0) losses={'JOINT_PAIR_GENERATE': 16} (repairs=0) cache={'offline_mode': False, 'cache_path': '/data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017/llm_cache.jsonl', 'cache_entries': 310, 'cache_hits': 0, 'cache_misses': 83}
+[2026-07-30 03:10:40,667] INFO:ptp_discovery.pref_loss_coevo: Gen 19 proxy rollouts skipped: stage1_proxy=0 and stage2_micro_unroll=0
+[2026-07-30 03:10:40,737] INFO:ptp_discovery.pref_loss_coevo: EVAL_STAGES enabled: stage0_gate=1 stage1_proxy=0 stage2_micro_unroll=0 stage3_high_fidelity=1
+[2026-07-30 03:10:40,738] INFO:ptp_discovery.pref_loss_coevo: Joint-pair binding gen=19: scheduled=16 requested=16 valid_builders=16 valid_losses=16 missing_builder=0 missing_loss=0
+[2026-07-30 03:10:40,738] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval (proxy disabled) gen=19: pairs=16 cheap_gate_on=True
+[2026-07-30 03:10:40,744] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=19: 1/16 caches(rollout=0 pref=0 pair=305)
+[2026-07-30 03:10:40,797] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=19: 10/16 caches(rollout=0 pref=0 pair=314)
+[2026-07-30 03:10:40,833] INFO:ptp_discovery.pref_loss_coevo: Gate-only progress gen=19: 16/16 caches(rollout=0 pref=0 pair=320)
+[2026-07-30 03:10:40,833] INFO:ptp_discovery.pref_loss_coevo: Gate-only eval done gen=19: pairs=16 elapsed_s=0.1 caches(rollout=0 pref=0 pair=320)
+[2026-07-30 03:10:40,834] INFO:ptp_discovery.pref_loss_coevo: HF selection gen=19: eligible=16 selected=16 (top_m=128 ignored)
+[2026-07-30 03:10:40,834] INFO:ptp_discovery.pref_loss_coevo: HF device assignment gen=19: {'cuda:0': 4, 'cuda:1': 4, 'cuda:2': 4, 'cuda:3': 4}
+[2026-07-30 03:10:40,835] INFO:ptp_discovery.pref_loss_coevo: HF eval gen=19: tasks=16 mp=True procs=4
+[2026-07-30 03:10:40,835] INFO:ptp_discovery.pref_loss_coevo: High-fidelity via external subprocess scheduler: processes=4 tasks=16
+[2026-07-30 03:49:50,717] INFO:ptp_discovery.pref_loss_coevo: HF vs incumbent gen=19: better=0 worse=16 unknown=0 (ok=16 failed=0) ref=-0.003541009521484284 threshold=-0.003541009521484284
+[2026-07-30 03:49:50,719] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=incumbent reference_score=-0.003541009521484284 threshold=-0.003541009521484284 metric_mode=minimize improve_eps=0.0
+[2026-07-30 03:49:50,719] INFO:ptp_discovery.pref_loss_coevo: COMPARE target=last_phase last_phase=baseline reference_score=inf threshold=inf metric_mode=minimize improve_eps=0.0
+[2026-07-30 03:49:50,720] INFO:ptp_discovery.pref_loss_coevo: Gen 19 summary: g_pool=16 f_pool=16 pairs=16 ok=16 stages={'high_fidelity': 16} top_reasons=[('ok_stage3_offline_minitrain', 16)]
+[2026-07-30 03:49:50,848] INFO:ptp_discovery.pref_loss_coevo: Co-evolution complete. Artifacts saved under: /data1/gushengda/eam-rl4co_runs/tsp100-joint-matched-init-hf1-r7-20260729-2204/search_runs/20260729-141017
